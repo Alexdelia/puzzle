@@ -54,7 +54,7 @@ int main()
         else
             tmp = degree[index];
         fprintf(stderr, "degree = %d\ttrans = %f\n", degree[index], tmp);
-        fprintf(stderr, "closer = %d\ttrans[%d] = %f\n\n", closer, index, tmp);
+        fprintf(stderr, "closer = %f\ttrans[%d] = %f\n\n", closer, index, tmp);
         if (closer > tmp)
         {
             closer = tmp;
