@@ -51,6 +51,7 @@ int	ft_solve(char *line)
 		i++;
 	}
 
+    fprintf(stderr, "|%s|\n", line);
 	i = 0;
 	l = 0;
 	while (line[l])
