@@ -3,8 +3,6 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include <unistd.h>
-
 /*
 **	Codingame Puzzle
 */
@@ -114,7 +112,7 @@ int main()
     scanf("%d", &L);
 
 	int	*sequence;
-	if (!(sequence = ft_find_L_sequence(R, L)))
+	if (!(sequence = ft_find_L_sequence(R, L - 1)))
 		return (ft_malloc_error(1));
 	ft_psequence(sequence);
 	free(sequence);
