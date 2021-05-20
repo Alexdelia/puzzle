@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   Container_Terminal.c                               :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2021/05/21 01:27:29 by adelille          #+#    #+#             */
+/*   Updated: 2021/05/21 01:27:33 by adelille         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -96,8 +108,6 @@ int main()
         char	line[501];
         scanf("%[^\n]", line); fgetc(stdin);
 		
-		if (i > 0)
-			printf(" ");
 		printf("%d\n", ft_solve(line));
     }
     return 0;
