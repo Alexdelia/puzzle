@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include <unistd.h>
+
 /*
 **	Codingame Puzzle
 */
@@ -19,6 +21,7 @@ void	ft_psequence(int *sequence)
 		printf("%d", sequence[i]);
 		i++;
 	}
+	printf("\n");
 }
 
 int	ft_next_size(int *input)
@@ -32,10 +35,11 @@ int	ft_next_size(int *input)
 	while (input[i] != -1)
 	{
 		a = input[i];
-		while (input[i] != -1 && input[i] == a);
+		while (input[i] != -1 && input[i] == a)
+		{
 			i++;
+		}
 		size += 2;
-		i++;
 	}
 	return (size);
 }
@@ -55,7 +59,7 @@ int *ft_conway_sequence(int	*input)
 	while (input[i] != -1)
 	{
 		a = input[i];
-		ocu = 1;
+		ocu = 0;
 		while (input[i] != -1 && input[i] == a)
 		{
 			ocu++;
@@ -80,6 +84,7 @@ int	*ft_find_L_sequence(int	R, int L)
 	int	*sequence;
 	int	*alt_sequence;
 	int	i;
+
 	if (!(sequence = malloc(sizeof(*sequence) * 3)))
 		return (NULL);
 	sequence[0] = R;
