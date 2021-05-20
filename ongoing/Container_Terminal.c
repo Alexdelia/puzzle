@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include <unistd.h>
+
 /*
 **	Codingame Puzzle
 */
@@ -28,7 +30,7 @@ int	ft_last_int(char *stack)
 	i = 0;
 	while (stack[i] && stack[i] != '~')
 		i++;
-	return (i - 1);
+	return (i);
 }
 
 int	ft_solve(char *line)
@@ -40,27 +42,44 @@ int	ft_solve(char *line)
 	int		l;
 
 	i = 0;
-	y = 0;
-	while (t[i])
+	while (i < 26)
 	{
-		while (t[i][y])
+		y = 0;
+		while (y < 501)
 		{
+			//write(2, "-", 1);
 			t[i][y] = '~';
 			y++;
 		}
+		//write(2, "\n", 1);
 		i++;
 	}
 
-    fprintf(stderr, "|%s|\n", line);
-	i = 0;
+    //fprintf(stderr, "|%s|\n", line);
 	l = 0;
 	while (line[l])
 	{
-		while (t[i] && ft_last_char(t[i]) >= line[l])
-		{
-			t[i][ft_last_int(t[i]) + 1] = line[l];
-		}
+		i = 0;
+		while (t[i] && ft_last_char(t[i]) < line[l])
+			i++;
+		t[i][ft_last_int(t[i])] = line[l];
 		l++;
+	}
+
+	//debug
+	write(2, "Stack:\n", 7);
+	i = 0;
+	while (i < 26 && t[i][0] != '~')
+	{
+		y = 0;
+		write(2, "|", 1);
+		while (y < 501 && t[i][y] != '~')
+		{
+			write(2, &t[i][y], 1);
+			y++;
+		}
+		write(2, "|\n", 2);
+		i++;
 	}
 
 	i = 0;
@@ -79,8 +98,7 @@ int main()
 		
 		if (i > 0)
 			printf(" ");
-		printf("%d", ft_solve(line));
+		printf("%d\n", ft_solve(line));
     }
-    printf("\n");
     return 0;
 }
