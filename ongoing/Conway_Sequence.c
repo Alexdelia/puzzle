@@ -65,7 +65,7 @@ int *ft_conway_sequence(int	*input)
 		output[o + 1] = a;
 		o += 2;
 	}
-	output[o] == -1;
+	output[o] = -1;
 	return (output);
 }
 
@@ -81,10 +81,10 @@ int	*ft_find_L_sequence(int	R, int L)
 	int	*alt_sequence;
 	int	i;
 	if (!(sequence = malloc(sizeof(*sequence) * 3)))
-		return (ft_malloc_error(1));
+		return (NULL);
 	sequence[0] = R;
 	sequence[1] = -1;
-	i
+	i = 0;
 	while (i < L)
 	{
 		if (!(alt_sequence = ft_conway_sequence(sequence)))
@@ -109,7 +109,7 @@ int main()
     scanf("%d", &L);
 
 	int	*sequence;
-	if (!(sequence = ft_find_L_sequence(R, L);
+	if (!(sequence = ft_find_L_sequence(R, L)))
 		return (ft_malloc_error(1));
 	ft_psequence(sequence);
 	free(sequence);
