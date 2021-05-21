@@ -138,6 +138,13 @@ char	*ft_extension(char FNAME[257])
 	return ("\0");
 }
 
+int		ft_same_letter(char c1, char c2)
+{
+	if (c1 == c2 || c1 + 32 == c2 || c1 == c2 + 32)
+		return (TRUE);
+	return (FALSE);
+}
+
 int		ft_strcmp(const char *s1, const char *s2)
 {
 	int	i;
@@ -145,10 +152,12 @@ int		ft_strcmp(const char *s1, const char *s2)
 	i = 0;
 	while (s1[i] && s2[i])
 	{
-		if (!(s1[i] == s2[i]))
+		if (ft_same_letter(s1[i], s2[i]) == FALSE)
 			return (s1[i] - s2[i]);
 		i++;
 	}
+	if (!s1[i] && !s2[i])
+		return (0);
 	return (s1[i] - s2[i]);
 }
 
