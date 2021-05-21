@@ -140,7 +140,8 @@ char	*ft_extension(char FNAME[257])
 
 int		ft_same_letter(char c1, char c2)
 {
-	if (c1 == c2 || c1 + 32 == c2 || c1 == c2 + 32)
+	if (c1 == c2 || c1 + 32 == c2 || c1 == c2 + 32
+			|| c1 - 32 == c2 || c1 == c2 - 32)
 		return (TRUE);
 	return (FALSE);
 }
