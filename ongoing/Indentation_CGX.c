@@ -115,5 +115,7 @@ int main()
 		}
 		i.l++;
 	}
+	if (cgxline[i.l - 1][i.i - 1] != ')')
+		ft_ps("\n");
     return 0;
 }
