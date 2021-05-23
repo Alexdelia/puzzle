@@ -85,9 +85,12 @@ int main()
 			}
 			else if (i.i <= (int)strlen(cgxline[i.l]) && cgxline[i.l][i.i] == ')')
 			{
-				t--;
-				ft_ps("\n");
-				ft_pt(t);
+				if (i.i - 1 >= 0 && cgxline[i.l][i.i - 1] != ')')
+				{
+					t--;
+					ft_ps("\n");
+					ft_pt(t);
+				}
 				ft_ps(")");
 				if (i.i + 1 <= (int)strlen(cgxline[i.l]) && cgxline[i.l][i.i + 1] && cgxline[i.l][i.i + 1] == ';')
 				{
@@ -96,6 +99,7 @@ int main()
 				}
 				else
 					ft_ps("\n");
+				t--;
 				ft_pt(t);
 			}
 			else if (i.i <= (int)strlen(cgxline[i.l]) && cgxline[i.l][i.i] == ';')
