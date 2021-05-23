@@ -72,23 +72,24 @@ int main()
 	while (i.l < N && cgxline[i.l])
 	{
 		i.i = 0;
-		while (cgxline[i.l][i.i])
+		while (i.i <= (int)strlen(cgxline[i.l]) && cgxline[i.l][i.i])
 		{
-			while (cgxline[i.l][i.i] == ' ' || cgxline[i.l][i.i] == '\t' || cgxline[i.l][i.i] == '\n')
+			while (i.i <= (int)strlen(cgxline[i.l]) &&
+					(cgxline[i.l][i.i] == ' ' || cgxline[i.l][i.i] == '\t' || cgxline[i.l][i.i] == '\n'))
 				i.i++;
-			if (cgxline[i.l][i.i] == '(')
+			if (i.i <= (int)strlen(cgxline[i.l]) && cgxline[i.l][i.i] == '(')
 			{
 				t++;
 				ft_ps("(\n");
 				ft_pt(t);
 			}
-			else if (cgxline[i.l][i.i] == ')')
+			else if (i.i <= (int)strlen(cgxline[i.l]) && cgxline[i.l][i.i] == ')')
 			{
 				t--;
 				ft_ps("\n");
 				ft_pt(t);
 				ft_ps(")");
-				if (cgxline[i.l][i.i + 1] && cgxline[i.l][i.i + 1] == ';')
+				if (i.i + 1 <= (int)strlen(cgxline[i.l]) && cgxline[i.l][i.i + 1] && cgxline[i.l][i.i + 1] == ';')
 				{
 					i.i++;
 					ft_ps(";\n");
@@ -97,14 +98,14 @@ int main()
 					ft_ps("\n");
 				ft_pt(t);
 			}
-			else if (cgxline[i.l][i.i] == ';')
+			else if (i.i <= (int)strlen(cgxline[i.l]) && cgxline[i.l][i.i] == ';')
 			{
 				ft_ps(";\n");
 				ft_pt(t);
 			}
-			else if (cgxline[i.l][i.i] == '\'')
+			else if (i.i <= (int)strlen(cgxline[i.l]) && cgxline[i.l][i.i] == '\'')
 				i = ft_quote(N, cgxline, i);
-			else
+			else if (i.i <= (int)strlen(cgxline[i.l]) && cgxline[i.l][i.i]) 
 				write(1, &cgxline[i.l][i.i], 1);
 			i.i++;
 		}
