@@ -29,7 +29,7 @@ void	ft_pt(int tab)
 {
 	while (tab > 0)
 	{
-		write(1, "\t", 1);
+		write(1, "    ", 4);
 		tab--;
 	}
 }
