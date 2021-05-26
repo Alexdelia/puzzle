@@ -85,7 +85,7 @@ int main()
 			}
 			else if (i.i <= (int)strlen(cgxline[i.l]) && cgxline[i.l][i.i] == ')')
 			{
-				if (i.i - 1 >= 0 && cgxline[i.l][i.i - 1] != ')')
+				if (i.i - 1 >= 0 && cgxline[i.l][i.i - 1] != ')' && cgxline[i.l][i.i] - 1 != '(')
 				{
 					t--;
 					ft_ps("\n");
