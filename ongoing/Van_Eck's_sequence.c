@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/06/30 19:17:16 by adelille          #+#    #+#             */
-/*   Updated: 2021/06/30 19:58:43 by adelille         ###   ########.fr       */
+/*   Updated: 2021/06/30 20:34:08 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,6 +46,8 @@ int main()
     int	a[N];
     int	i;
     int	debug_big;
+	int	zero;
+	int	one;
 
     //fprintf(stderr, "Starting: n0:%d ", A1);
     debug_big = -1;
@@ -56,22 +58,29 @@ int main()
     {
 		if (mem[a[i - 1]] == 0)
 		{
-			mem[a[i - 1]] = 1;
+			mem[a[i - 1]] = i;
 			a[i] = 0;
 		}
+		/*else
+        	a[i] = ft_seen(a, i - 1);*/
 		else
-        	a[i] = ft_seen(a, i - 1);
+		{
+			a[i] = i - mem[a[i - 1]];
+			mem[a[i - 1]] = i;
+		}
         //fprintf(stderr, "n%d:%d ", i, a[i]);
         //fprintf(stderr, ", %d", a[i]);
         if (a[i] > debug_big)
         {
             debug_big = a[i];
             //fprintf(stderr, "%d\n", debug_big);
+			//fprintf(stderr, "\r[%d%%]\t%d", (i * 100) / N, debug_big);
 			fprintf(stderr, "\r[%d%%]", (i * 100) / N);
         }
         i++;
     }
 
+	fprintf(stderr, "\r[100%%]");
     fprintf(stderr, "\n\nBiggest: %d\n", debug_big);
 
     printf("%d\n", a[i - 1]);
