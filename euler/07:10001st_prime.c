@@ -1,24 +1,20 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   03:Largest_prime_factor.c                          :+:      :+:    :+:   */
+/*   07:10001st_prime.c                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2021/09/20 18:17:04 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/21 20:57:10 by adelille         ###   ########.fr       */
+/*   Created: 2021/09/21 20:36:09 by adelille          #+#    #+#             */
+/*   Updated: 2021/09/21 20:56:54 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 #include <math.h>
 
-#define	NUM		600851475143
-#define SQRT	775146
 #define	TRUE	1
 #define	FALSE	0
-
-//ft_next_prime
 
 static long ft_is_prime(long nb)
 {
@@ -48,20 +44,24 @@ static long	ft_next_prime(long prime)
 
 int main(void)
 {
-	long		prime;
-	long		biggest_prime;
+	long	prime;
+	int		i;
+	int		percent;
 
 	prime = 1;
-	biggest_prime = 2;
-	while (prime * prime <= NUM)
+	i = 2;
+	percent = 0;
+	while (i <= 10001)
 	{
 		prime = ft_next_prime(prime);
-		if (NUM % prime == 0)
+		i++;
+		if (i * 100 / 10000 > percent)
 		{
-			biggest_prime = prime;
-			//printf("\r[%ld%%] -> %ld", biggest_prime * 100 / SQRT, biggest_prime);
+			percent = i * 100 / 10000;
+			printf("\r[%d%%] -> %ld", percent, prime);
 		}
 	}
-	printf("\nbiggest prime: %ld\n", biggest_prime);
+	printf("\r[%d%%] -> %ld", percent, prime);
+	printf("\n10001st prime: %ld\n", prime);
 	return (0);
 }
