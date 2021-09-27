@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/26 17:34:01 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/26 18:54:55 by adelille         ###   ########.fr       */
+/*   Updated: 2021/09/27 15:36:14 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,7 +31,7 @@ static int	ft_strcpy(char *dst, const char *src)
 
 	i = 0;
 	size = ft_strlen(src);
-	while (i < size - 1 && src[i])
+	while (i < size && src[i])
 	{
 		dst[i] = src[i];
 		i++;
@@ -50,7 +50,8 @@ static int	ft_stracpy(char *dst, const char *src)
 	while (dst[d])
 		d++;
 	size = ft_strlen(src);
-	while (s < size - 1 && src[s])
+	s = 0;
+	while (s < size && src[s])
 	{
 		dst[d] = src[s];
 		d++;
@@ -122,16 +123,30 @@ static void	ft_init_dict(void)
 		}
 		if (n % 100 / 10 > 0)
 		{
-			if (w == 0)
-				ft_strcpy(g_dict[i], g_dict[n % 100 / 10]);
+			if (n % 100 / 10 == 1)
+			{
+				if (w == 0)
+					ft_strcpy(g_dict[i], g_dict[n % 100]);
+				else
+				{
+					ft_stracpy(g_dict[i], "and");
+					ft_stracpy(g_dict[i], g_dict[n % 100]);
+				}
+				w = -1;
+			}
 			else
 			{
-				ft_stracpy(g_dict[i], "and");
-				ft_stracpy(g_dict[i], g_dict[n % 100 / 10]);
-				w = 0;
+				if (w == 0)
+					ft_strcpy(g_dict[i], g_dict[(n % 100 / 10) * 10]);
+				else
+				{
+					ft_stracpy(g_dict[i], "and");
+					ft_stracpy(g_dict[i], g_dict[(n % 100 / 10) * 10]);
+					w = 0;
+				}
 			}
 		}
-		if (n % 10 > 0)
+		if (n % 10 > 0 && w > -1)
 		{
 			if (w > 0)
 				ft_stracpy(g_dict[i], "and");
