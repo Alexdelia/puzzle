@@ -6,13 +6,13 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/24 20:28:50 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/25 08:38:12 by adelille         ###   ########.fr       */
+/*   Updated: 2021/10/09 17:02:16 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 
-#define	SIDE	21
+#define	SIDE	20
 
 // https://en.wikipedia.org/wiki/Central_binomial_coefficient
 // https://www.youtube.com/watch?v=gMlf1ELvRzc
@@ -20,15 +20,15 @@
 int	main(void)
 {
 
-	long	grid[SIDE][SIDE];
+	long	grid[SIDE + 1][SIDE + 1];
 	int		x;
 	int		y;
 
 	x = 0;
-	while (x < SIDE)
+	while (x < SIDE + 1)
 	{
 		y = 0;
-		while (y < SIDE)
+		while (y < SIDE + 1)
 		{
 			if (y == 0 || x == 0)
 				grid[x][y] = 1;
@@ -40,6 +40,6 @@ int	main(void)
 		printf("\n");
 		x++;
 	}
-	printf("Possible route for %dx%d: %ld\n", SIDE - 1, SIDE - 1, grid[SIDE - 1][SIDE - 1]);
+	printf("Possible route for %dx%d: %ld\n", SIDE, SIDE, grid[SIDE][SIDE]);
 	return (0);
 }
