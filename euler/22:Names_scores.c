@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/06 16:45:05 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/10 16:10:13 by adelille         ###   ########.fr       */
+/*   Updated: 2021/10/10 16:16:08 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -59,7 +59,7 @@ int	ft_score(char name[LENAMES], int place)
 	sum = 0;
 	while (name[i])
 	{
-		sum = sum + (name[i] - '0');
+		sum = sum + (name[i] - 'A' + 1);
 		i++;
 	}
 	return (sum * place);
