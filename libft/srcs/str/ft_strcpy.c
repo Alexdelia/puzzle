@@ -1,36 +1,29 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   ft_nbrlen.c                                        :+:      :+:    :+:   */
+/*   ft_strcpy.c                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2021/04/13 14:39:24 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/16 18:43:18 by adelille         ###   ########.fr       */
+/*   Created: 2021/09/26 17:49:57 by adelille          #+#    #+#             */
+/*   Updated: 2021/09/27 15:22:40 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "libft.h"
 
-int	ft_nbrlen(int nb)
+int	ft_strcpy(char *dst, const char *src)
 {
-	unsigned int	n;
-	int				i;
+	int	i;
+	int	size;
 
-	if (nb == 0)
-		return (1);
 	i = 0;
-	if (nb < 0)
+	size = ft_strlen(src);
+	while (i < size && src[i])
 	{
-		n = -nb;
+		dst[i] = src[i];
 		i++;
 	}
-	else
-		n = nb;
-	while (n)
-	{
-		n /= 10;
-		i++;
-	}
+	dst[i] = '\0';
 	return (i);
 }

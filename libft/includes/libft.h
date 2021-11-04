@@ -6,7 +6,7 @@
 /*   By: adelille <marvin@42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2020/10/19 15:47:54 by adelille          #+#    #+#             */
-/*   Updated: 2021/04/15 23:31:39 by adelille         ###   ########.fr       */
+/*   Updated: 2021/11/04 14:04:06 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,7 +15,8 @@
 
 # include <stdlib.h>
 # include <unistd.h>
-# include "get_next_line.h"
+# include <limits.h>
+# include <stdbool.h>
 
 # define TRUE 1
 # define FALSE 0
@@ -58,6 +59,8 @@ size_t			ft_strlcpy(char *dest, const char *src, size_t size);
 size_t			ft_strlcat(char *dest, const char *src, size_t size);
 char			*ft_strnstr(const char *s, const char *to_find, size_t len);
 int				ft_atoi(const char *nptr);
+long			ft_atol(const char *nptr);
+double			ft_atof(const char *str);
 void			*ft_calloc(size_t nmemb, size_t size);
 char			*ft_strdup(const char *s);
 
@@ -94,11 +97,20 @@ t_list			*ft_lstmap(t_list *lst, void *(*f)(void*), void (*del)(void *));
 
 int				ft_ps(char *str);
 int				ft_psc(char *str, char *color);
+int				ft_pser(char *str);
 int				ft_pserc(char *str, char *color);
 int				ft_pn(int nbr);
 int				ft_pnc(int nbr, char *color);
 int				ft_pnerc(int nbr, char *color);
 int				ft_strcmp(const char *s1, const char *s2);
 int				ft_nbrlen(int nb);
+int				ft_strcpy(char *dst, const char *src);
+int				ft_abs(int n);
+bool			ft_is_prime(int n);
+bool			ft_is_prime_ul(unsigned long n);
+int				ft_next_prime(int n);
+int				ft_prev_prime(int n);
+unsigned long	ft_next_prime_ul(unsigned long n);
+unsigned long	ft_prev_prime_ul(unsigned long	n);
 
 #endif
