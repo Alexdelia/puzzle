@@ -1,37 +1,36 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   ft_putnbr_fd.c                                     :+:      :+:    :+:   */
+/*   ft_atol.c                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: adelille <marvin@42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2020/11/07 02:56:13 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/21 19:42:16 by adelille         ###   ########.fr       */
+/*   Created: 2020/10/25 16:48:38 by adelille          #+#    #+#             */
+/*   Updated: 2021/09/16 18:40:49 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "libft.h"
 
-void	ft_putnbr_fd(int n, int fd)
+long	ft_atol(const char *nptr)
 {
-	char	str[13];
-	int		is_neg;
-	int		len;
+	int		i;
+	int		neg;
+	long	res;
 
-	is_neg = (n < 0);
-	ft_bzero(str, 13);
-	if (n == 0)
-		str[0] = '0';
-	len = 0;
-	while (n != 0)
+	i = 0;
+	neg = 1;
+	res = 0;
+	while (nptr[i] == '\t' || nptr[i] == '\v' || nptr[i] == '\n'
+		|| nptr[i] == '\f' || nptr[i] == '\r' || nptr[i] == ' ')
+		i++;
+	if (nptr[i] == '-' || nptr[i] == '+')
 	{
-		str[len++] = '0' + ft_abs(n % 10);
-		n = (n / 10);
+		if (nptr[i] == '-')
+			neg = -neg;
+		i++;
 	}
-	if (is_neg)
-		str[len] = '-';
-	else if (len > 0)
-		len--;
-	while (len >= 0)
-		write(fd, &str[len--], 1);
+	while (nptr[i] >= '0' && nptr[i] <= '9')
+		res = res * 10 + (nptr[i++] - 48);
+	return (res * neg);
 }

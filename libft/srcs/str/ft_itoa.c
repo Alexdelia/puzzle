@@ -6,18 +6,11 @@
 /*   By: adelille <marvin@42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2020/11/07 02:22:35 by adelille          #+#    #+#             */
-/*   Updated: 2021/03/20 15:40:40 by adelille         ###   ########.fr       */
+/*   Updated: 2021/10/21 19:42:26 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "libft.h"
-
-static int	ft_abs(int nbr)
-{
-	if (nbr < 0)
-		nbr = -nbr;
-	return (nbr);
-}
 
 static void	ft_strrev(char *str)
 {

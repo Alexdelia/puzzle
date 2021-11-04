@@ -1,36 +1,42 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   ft_nbrlen.c                                        :+:      :+:    :+:   */
+/*   ft_atof.c                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2021/04/13 14:39:24 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/16 18:43:18 by adelille         ###   ########.fr       */
+/*   Created: 2021/10/15 14:05:43 by adelille          #+#    #+#             */
+/*   Updated: 2021/10/15 14:27:09 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "libft.h"
 
-int	ft_nbrlen(int nb)
+double	ft_atof(const char *str)
 {
-	unsigned int	n;
-	int				i;
+	double	res;
+	double	neg;
+	double	divider;
+	size_t	i;
 
-	if (nb == 0)
-		return (1);
-	i = 0;
-	if (nb < 0)
+	divider = 0.1;
+	res = 0;
+	neg = 1;
+	i = -1;
+	while (str[i] < '0' || str[i] > '9')
+		if (str[i++] == '-')
+			neg = -1;
+	while (str[i] >= '0' && str[i] <= '9')
 	{
-		n = -nb;
+		res = res * 10 + str[i++] - 48;
+	}
+	if (str[i] == '.' || str[i] == ',')
+		i++;
+	while (str[i] >= '0' && str[i] <= '9')
+	{
+		res = res + (str[i] - 48) * divider;
+		divider /= 10;
 		i++;
 	}
-	else
-		n = nb;
-	while (n)
-	{
-		n /= 10;
-		i++;
-	}
-	return (i);
+	return (res * neg);
 }

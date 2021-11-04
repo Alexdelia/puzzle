@@ -6,7 +6,7 @@
 #    By: adelille <adelille@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2020/11/30 19:21:49 by adelille          #+#    #+#              #
-#    Updated: 2021/05/10 16:57:04 by adelille         ###   ########.fr        #
+#    Updated: 2021/11/04 14:06:21 by adelille         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -48,15 +48,17 @@ SRCSPATH =	./srcs/
 OBJSPATH =	./objs/
 INC =		./includes/
 
-SRCSNAME =	I-O/ft_ps.c I-O/parse/get_next_line.c I-O/parse/get_next_line_utils.c \
-				I-O/ft_putchar_fd.c I-O/ft_putendl_fd.c I-O/ft_putnbr_fd.c I-O/ft_putstr_fd.c \
-				I-O/ft_pn.c \
-				str/ft_atoi.c str/ft_itoa.c str/ft_bzero.c str/ft_split.c str/ft_strchr.c \
+SRCSNAME =	I-O/ft_ps.c I-O/ft_putchar_fd.c I-O/ft_putendl_fd.c \
+				I-O/ft_putnbr_fd.c I-O/ft_putstr_fd.c I-O/ft_pn.c \
+				str/ft_atoi.c str/ft_atol.c str/ft_atof.c str/ft_itoa.c \
+				str/ft_bzero.c str/ft_split.c str/ft_strchr.c \
 				str/ft_strcmp.c str/ft_strdup.c str/ft_strjoin.c str/ft_strlcat.c \
-				str/ft_strlcpy.c str/ft_strlen.c str/ft_strmapi.c str/ft_strncmp.c \
+				str/ft_strlcpy.c str/ft_strcpy.c \
+				str/ft_strlen.c str/ft_strmapi.c str/ft_strncmp.c \
 				str/ft_strnstr.c str/ft_strrchr.c str/ft_strtrim.c str/ft_substr.c \
 				str/ft_tolower.c str/ft_toupper.c \
-				nbr/ft_nbrlen.c \
+				nbr/ft_nbrlen.c nbr/ft_abs.c \
+				nbr/ft_is_prime.c nbr/ft_next_prime.c nbr/ft_prev_prime.c \
 				mem/ft_calloc.c mem/ft_memccpy.c mem/ft_memchr.c mem/ft_memcmp.c \
 				mem/ft_memcpy.c mem/ft_memmove.c mem/ft_memset.c \
 				lst/ft_lstadd_back.c lst/ft_lstadd_front.c lst/ft_lstclear.c lst/ft_lstdelone.c \
@@ -92,8 +94,6 @@ objs_dir:
 clean:
 	@$(RM) $(OBJSPATH)
 # @make clean -C $(LBPATH)
-	@echo "$(B)Cleared.$(D)"
-
 
 fclean:		clean
 	@$(RM) $(OBJSPATH)
