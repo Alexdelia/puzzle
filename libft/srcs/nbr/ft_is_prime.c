@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/11/04 14:02:12 by adelille          #+#    #+#             */
-/*   Updated: 2021/11/04 14:39:19 by adelille         ###   ########.fr       */
+/*   Updated: 2021/11/12 12:28:20 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,7 +30,7 @@ bool	ft_is_prime(int n)
 	return (true);
 }
 
-bool ft_is_prime_ul(unsigned long n)
+bool	ft_is_prime_ul(unsigned long n)
 {
 	unsigned long	div;
 
