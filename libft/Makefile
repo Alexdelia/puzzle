@@ -6,20 +6,26 @@
 #    By: adelille <adelille@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2020/11/30 19:21:49 by adelille          #+#    #+#              #
-#    Updated: 2021/11/04 14:06:21 by adelille         ###   ########.fr        #
+#    Updated: 2021/11/28 11:52:58 by adelille         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 NAME =	libft.a
-CC = 	clang -Wall -Werror -Wextra
+CC = 	clang
 AR =	ar rcs
 RM = 	rm -rf
-# FLAGS +=	-O2
-# FLAGS +=	-g -fsanitize=address
+
+CFLAGS =	-Wall -Werror -Wextra
+# CFLAGS +=	-O2
+# CFLAGS +=	-g
+# CFLAGS +=	-fsanitize=address
 
 # **************************************************************************** #
+#	MAKEFILE	#
 
 MAKEFLAGS += --silent
+
+SHELL := bash
 
 B =		$(shell tput bold)
 BLA =	$(shell tput setaf 0)
@@ -43,12 +49,13 @@ CLR =	$(shell tput el 1)
 # LBM =		libm
 
 # **************************************************************************** #
+#	SRCS	#
 
 SRCSPATH =	./srcs/
 OBJSPATH =	./objs/
 INC =		./includes/
 
-SRCSNAME =	I-O/ft_ps.c I-O/ft_putchar_fd.c I-O/ft_putendl_fd.c \
+#SRCSNAME =	I-O/ft_ps.c I-O/ft_putchar_fd.c I-O/ft_putendl_fd.c \
 				I-O/ft_putnbr_fd.c I-O/ft_putstr_fd.c I-O/ft_pn.c \
 				str/ft_atoi.c str/ft_atol.c str/ft_atof.c str/ft_itoa.c \
 				str/ft_bzero.c str/ft_split.c str/ft_strchr.c \
@@ -66,24 +73,41 @@ SRCSNAME =	I-O/ft_ps.c I-O/ft_putchar_fd.c I-O/ft_putendl_fd.c \
 				bool_detect/ft_isalnum.c bool_detect/ft_isalpha.c bool_detect/ft_isascii.c \
 				bool_detect/ft_isdigit.c bool_detect/ft_isprint.c
 
-SRCS = $(addprefix $(SRCSPATH), $(SRCSNAME))
-OBJSNAME = $(SRCS:.c=.o)
-OBJS = $(addprefix $(OBJSPATH), $(notdir $(OBJSNAME)))
+#SRCS =		$(addprefix $(SRCSPATH), $(SRCSNAME))
+SRCS =		$(wildcard $(SRCSPATH)*.c) $(wildcard $(SRCSPATH)**/*.c)
+SRCSNAME =	$(subst $(SRCSPATH), , $(SRCS))
 
-%.o: %.c
-	$(CC) $(BUFFER) -I$(INC) -c $< -o $(OBJSPATH)$(notdir $@)
+OBJSNAME =	$(SRCSNAME:.c=.o)
+OBJS =		$(addprefix $(OBJSPATH), $(OBJSNAME))
 
 # *************************************************************************** #
 
-all:		$(NAME)
+define	progress_bar
+	@i=0
+	@while [[ $$i -le $(words $(SRCS)) ]] ; do \
+		printf " " ; \
+		((i = i + 1)) ; \
+	done
+	@printf "$(B)]\r[$(GRE)"
+endef
 
-$(NAME):	objs_dir $(OBJSNAME) #lib
-	@$(AR) $(NAME) $(OBJS)
-	#@$(CC) $(FLAGS) $(OBJS) $(LBNAME) -o $(NAME)
-	@echo "$(B)$(MAG)$(NAME) compiled.$(D)"
+# *************************************************************************** #
+#	RULES	#
 
-objs_dir:
-	@mkdir $(OBJSPATH) 2> /dev/null || true
+all:		launch $(NAME)
+	@printf "\n$(B)$(MAG)$(NAME) compiled$(D)\n"
+
+launch:
+	$(call progress_bar)
+
+$(NAME):	$(OBJS) #lib
+	$(AR) $(NAME) $(OBJS)
+	#$(CC) $(CFLAGS) $(OBJS) $(LBNAME) -o $(NAME)
+
+$(OBJSPATH)%.o: $(SRCSPATH)%.c
+	@mkdir -p $(dir $@) # 2> /dev/null || true
+	$(CC) $(CFLAGS) -I$(INC) -c $< -o $@
+	@printf "█"
 	
 #$(LBM):
 #	@make -C $(LBPATH)
@@ -102,6 +126,6 @@ fclean:		clean
 
 re:			fclean all
 
-.PHONY: all clean fclean re objs_dir #lib
+.PHONY: all clean fclean re #lib
 
 # **************************************************************************** #

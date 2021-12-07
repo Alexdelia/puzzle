@@ -6,11 +6,11 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/04/13 15:04:32 by adelille          #+#    #+#             */
-/*   Updated: 2021/04/14 17:39:17 by adelille         ###   ########.fr       */
+/*   Updated: 2021/11/18 16:13:23 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "libft.h"
+#include "../../includes/libft.h"
 
 int	ft_pn(int nbr)
 {
