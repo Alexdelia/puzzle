@@ -6,71 +6,113 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/11/03 18:10:35 by adelille          #+#    #+#             */
-/*   Updated: 2021/12/07 13:06:25 by adelille         ###   ########.fr       */
+/*   Updated: 2022/02/08 16:04:56 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "../libft/includes/libft.h"
+#include "../libft/inc/libft.h"
 
-static bool	ssd(int x)
+#
+
+static bool	ssd(char *str)
 {	
-	char	*s;
-	int		i;
+	size_t	i;
 	int		tmp;
-	
-	s = ft_itoa(x);
-	if (!s)
-		return (false);
+
 	i = 1;
-	while (i <= 7)
+	while (i <= 8)
 	{
-		tmp = s[i] - '0' + s[i + 1] - '0' + s[i + 2] - '0';
+		tmp = ((str[i] - '0') * 100) + ((str[i + 1] - '0') * 10) + str[i + 2] - '0';
+		switch (i)
+		{
+			case (1):
+				if (tmp % 2)
+					return (false);
+				break ;
+			case (2):
+				if (tmp % 3)
+					return (false);
+				break ;
+			case (3):
+				if (tmp % 5)
+					return (false);
+				break ;
+			case (4):
+				if (tmp % 7)
+					return (false);
+				break ;
+			case (5):
+				if (tmp % 11)
+					return (false);
+				break ;
+			case (6):
+				if (tmp % 13)
+					return (false);
+				break ;
+			case (7):
+				if (tmp % 17)
+					return (false);
+				break ;
+		}
+		++i;
 	}
-	free(s);
 	return (true); //
 }
 
-static bool	ft_is_pandigital(int x)
+static bool	ft_is_pandigital(long x, char *str)
 {
-	int	s[10] = { 0 };
-	int	size;
-	int	i;
+	int		s[10] = { 0 };
+	size_t	size;
+	size_t	i;
 
 	size = 0;
+	i = 9;
 	while (x > 0)
 	{
 		s[x % 10] += 1;
-		x /= 10;
-		size++;
-	}
-	if (s[0] != 0)
-		return (false);
-	i = 1;
-	while (i <= size)
-	{
-		if (s[i] != 1)
+		if (s[x % 10] > 1)
 			return (false);
-		i++;
+		str[i] = x % 10 + '0';
+		--i;
+		x /= 10;
+		++size;
 	}
 	return (true);
 }
 
 int	main(void)
 {
-	int		n;
+	long	n;
 	long	sum;
+	char	*str;
 
-	n = 123456789;
+	if (!ssd("1406357289"))
+		return (1);
+	str = (char *)malloc(sizeof(char) * 11);
+	if (!str)
+		return (2);
+	str[10] = '\0';
+	n = 1023456789;
 	sum = 0;
-	while (n < 987654321)
+	while (n <= 9876543210)
 	{
-		if (ft_is_pandigital(n) && ssd(n))
-			sum += n;
-		n++;
+		//printf("\r%ld", n);
+		if (ft_is_pandigital(n, str))
+		{
+			printf("\r%s", str);
+			if (ssd(str))
+			{
+				printf("\r%s\n", str);
+				//printf(" true\n");
+				sum += n;
+			}
+		}
+		++n;
 	}
 	printf("\nSum ssd pandigital: %ld\n", sum);
+	free(str);
 	return (0);
 }
