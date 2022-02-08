@@ -1,0 +1,3 @@
+[submodule "euler/libft"]
+	path = euler/libft
+	url = https://github.com/Alexdelia/42-Libft.git
