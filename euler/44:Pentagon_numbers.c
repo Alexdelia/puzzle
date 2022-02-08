@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/02/08 16:10:43 by adelille          #+#    #+#             */
-/*   Updated: 2022/02/08 16:29:57 by adelille         ###   ########.fr       */
+/*   Updated: 2022/02/08 17:17:37 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -44,14 +44,14 @@ int	main(void)
 	x = 1;
 	while (x < SIZE)
 	{
-		printf("\r[%ld%%]", x / SIZE * 100);
+		// printf("\r[%ld%%]", (long)(x / SIZE * 100));
 		y = 1;
 		while (y < SIZE)
 		{
 			if (ft_is_pentagonal(p[x] + p[y], p) && ft_is_pentagonal(p[y] - p[x], p))
 			{
-				printf("P%ld - P%ld = %ld - %ld = %ld", y, x, p[y], p[x], p[y] - p[x]);
-				return (0);
+				printf("P%ld - P%ld = %ld - %ld = %ld\n", y, x, p[y], p[x], p[y] - p[x]);
+				return (1);
 			}
 			y++;
 		}
