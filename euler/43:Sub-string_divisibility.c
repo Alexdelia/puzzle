@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/11/03 18:10:35 by adelille          #+#    #+#             */
-/*   Updated: 2022/02/08 16:04:56 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:54:38 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,8 +14,6 @@
 #include <stdbool.h>
 
 #include "../libft/inc/libft.h"
-
-#
 
 static bool	ssd(char *str)
 {	

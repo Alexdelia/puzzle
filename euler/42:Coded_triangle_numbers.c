@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/06 16:45:05 by adelille          #+#    #+#             */
-/*   Updated: 2021/11/19 00:01:47 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:50:27 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,7 +21,7 @@ bool	ft_is_triangle(char *word)
 	int	i;
 	int	n;
 	//int	t;
-	
+
 	i = 0;
 	n = 0;
 	while (word[i])

@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/20 18:17:04 by adelille          #+#    #+#             */
-/*   Updated: 2022/04/02 18:45:02 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:51:38 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -67,7 +67,7 @@ static char	*ft_itoa(int n)
 	return (str);
 }
 
-static long ft_is_prime(long nb)
+static long	ft_is_prime(long nb)
 {
 	int	div;
 	int	sqr;
@@ -128,12 +128,12 @@ static int	ft_is_truncatable(long p)
 	return (TRUE);
 }
 
-int main(void)
+int	main(void)
 {
 	int		sum;
 	int		i;
 	long	p;
-	
+
 	p = 11;
 	sum = 0;
 	i = 0;

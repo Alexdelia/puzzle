@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/21 20:29:54 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/21 20:34:07 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:52:29 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,7 +23,7 @@ int	main(void)
 	t_sqrsum = 0;
 	while (i <= 100)
 	{
-		t_sumsqr += i*i;
+		t_sumsqr += i * i;
 		t_sqrsum += i;
 		i++;
 	}

@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/20 18:17:04 by adelille          #+#    #+#             */
-/*   Updated: 2022/04/02 18:39:15 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:52:15 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,7 +20,7 @@
 
 //ft_next_prime
 
-static long ft_is_prime(long nb)
+static long	ft_is_prime(long nb)
 {
 	// I suppose that I only have odd numbers in input
 	int	div;
@@ -46,7 +46,7 @@ static long	ft_next_prime(long prime)
 	return (prime);
 }
 
-int main(void)
+int	main(void)
 {
 	long		prime;
 	long		biggest_prime;
