@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/02/20 17:22:04 by adelille          #+#    #+#             */
-/*   Updated: 2022/03/26 18:42:49 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:42:47 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -40,7 +40,7 @@ int	main(void)
 			{
 				big_size = size;
 				printf("\rconsecutive: %ld  sum: %ld  (%ld-%ld)",
-						size, sum, start, current);
+					size, sum, start, current);
 			}
 		}
 		start = ft_next_prime_ul(start);

@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/23 19:09:37 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/23 20:08:40 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:49:00 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -109,6 +109,6 @@ int	main(void)
 		}
 	}
 	printf("\nTriangular = %ld\t(n_div = %d | integer = %ld)\n",
-			triangular, n_div, integer);
+		triangular, n_div, integer);
 	return (0);
 }

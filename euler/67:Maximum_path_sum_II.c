@@ -6,13 +6,13 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/06 16:45:05 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/06 17:22:07 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:44:53 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 
-#define	ROW	100
+#define ROW	100
 
 int	row[ROW] = {0};
 int	last_row[ROW] = {0};

@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/22 20:43:27 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/22 21:11:21 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:49:36 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,8 +15,8 @@
 int	ft_sum(int m, int n)
 {
 	return (((m * m) - (n * n))
-			+ (2 * m * n)
-			+ ((m * m) + (n * n)));
+		+ (2 * m * n)
+		+ ((m * m) + (n * n)));
 }
 
 int	main(void)
@@ -33,7 +33,7 @@ int	main(void)
 			if ((m * m) - (n * n) > 0 && ft_sum(m, n) == 1000)
 			{
 				printf("m = %d | n = %d\na = %d | b = %d | c = %d\n",
-						m, n, (m * m) - (n * n), 2 * m * n, (m * m) + (n * n));
+					m, n, (m * m) - (n * n), 2 * m * n, (m * m) + (n * n));
 				return (0);
 			}
 			n++;

@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/06 16:45:05 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/10 16:16:08 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:41:18 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,7 +16,7 @@
 
 // calculate numbers of names and len of biggest names
 #define NONAMES	5164
-#define	LENAMES	13
+#define LENAMES	13
 
 /*int	main(int ac, char **av)
 {
@@ -67,8 +67,8 @@ int	ft_score(char name[LENAMES], int place)
 
 int	ft_comp(void const *a, void const *b)
 {
-	char const *aa = (char const *)a;
-	char const *bb = (char const *)b;
+	char const	*aa = (char const *)a;
+	char const	*bb = (char const *)b;
 
 	return (strcmp(aa, bb));
 }

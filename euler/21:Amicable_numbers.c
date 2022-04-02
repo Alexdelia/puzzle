@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/10 14:53:54 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/10 15:38:59 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:49:46 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,7 +15,7 @@
 #define TRUE	1
 #define FALSE	0
 
-#define	LIMIT	10000
+#define LIMIT	10000
 
 void	ft_init_dict(int d[LIMIT], int amicable[LIMIT])
 {

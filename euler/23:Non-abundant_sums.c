@@ -6,14 +6,14 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/22 18:21:00 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/22 19:43:06 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:41:39 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 #include <stdbool.h>
 
-#define	MAX	28123
+#define MAX	28123
 
 static int	ft_sum_divisor(int n)
 {

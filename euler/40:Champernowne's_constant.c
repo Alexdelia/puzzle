@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/11/03 18:18:15 by adelille          #+#    #+#             */
-/*   Updated: 2021/11/03 18:27:41 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:46:00 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,8 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define	TRUE	1
-#define	FALSE	0
+#define TRUE	1
+#define FALSE	0
 
 static int	ft_abs(int nbr)
 {
@@ -83,8 +83,8 @@ int	main(void)
 		while (t[i])
 		{
 			if (n == 1 || n == 10 || n == 100
-					|| n == 1000 || n == 10000
-					|| n == 100000 || n == 1000000)
+				|| n == 1000 || n == 10000
+				|| n == 100000 || n == 1000000)
 				prod *= (t[i] - '0');
 			n++;
 			i++;
