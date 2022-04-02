@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/20 18:17:04 by adelille          #+#    #+#             */
-/*   Updated: 2021/11/02 12:57:58 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:45:02 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,8 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define	TRUE	1
-#define	FALSE	0
+#define TRUE	1
+#define FALSE	0
 
 static int	ft_abs(int nbr)
 {

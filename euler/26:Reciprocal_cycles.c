@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/25 16:13:24 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/25 17:37:05 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:44:09 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,8 +15,8 @@
 static int	ft_rc_len(int d)
 {
 	int	seen[1000] = { -1 };
-	int n;
-	int index;
+	int	n;
+	int	index;
 
 	n = 1;
 	index = 0;

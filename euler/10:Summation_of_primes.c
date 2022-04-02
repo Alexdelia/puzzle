@@ -6,17 +6,17 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/21 20:36:09 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/22 21:25:32 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:40:31 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 #include <math.h>
 
-#define	TRUE	1
-#define	FALSE	0
+#define TRUE	1
+#define FALSE	0
 
-static long ft_is_prime(long nb)
+static long	ft_is_prime(long nb)
 {
 	// I suppose that I only have odd numbers in input
 	int	div;
@@ -42,7 +42,7 @@ static long	ft_next_prime(long prime)
 	return (prime);
 }
 
-int main(void)
+int	main(void)
 {
 	long	prime;
 	long	sum;

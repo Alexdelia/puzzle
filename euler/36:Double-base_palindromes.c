@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/20 18:59:22 by adelille          #+#    #+#             */
-/*   Updated: 2021/11/02 12:38:19 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:47:15 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,15 +16,15 @@
 
 #define LIMIT	1000000
 
-#define	TRUE	1
+#define TRUE	1
 #define FALSE	0
 
 // ft_itoa_base from https://github.com/JacobSmolii/42_exam_for_beginers/blob/e7b208c0c07e28a4749f86eb87ca0e147a7f7716/level_5/ft_itoa_base/ft_itoa_base.c
 // was lazy to recode it and didn't find my old one
 
-int		get_length(int nbr, int base)
+int	get_length(int nbr, int base)
 {
-	int len;
+	int	len;
 
 	len = 1;
 	if (nbr < 0)
@@ -116,7 +116,7 @@ static int	ft_both_palindrome(int n)
 	char	*bina;
 	int		res;
 
-	res	= FALSE;
+	res = FALSE;
 	deci = ft_itoa_base(n, 10);
 	bina = ft_itoa_base(n, 2);
 	if (ft_is_palindrome(deci) == TRUE

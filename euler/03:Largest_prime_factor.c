@@ -6,17 +6,17 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/20 18:17:04 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/21 20:57:10 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:39:15 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 #include <math.h>
 
-#define	NUM		600851475143
+#define NUM		600851475143
 #define SQRT	775146
-#define	TRUE	1
-#define	FALSE	0
+#define TRUE	1
+#define FALSE	0
 
 //ft_next_prime
 

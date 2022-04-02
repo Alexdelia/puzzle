@@ -6,13 +6,13 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/24 20:28:50 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/09 17:02:16 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:46:15 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 
-#define	SIDE	20
+#define SIDE	20
 
 // https://en.wikipedia.org/wiki/Central_binomial_coefficient
 // https://www.youtube.com/watch?v=gMlf1ELvRzc

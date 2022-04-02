@@ -6,14 +6,14 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/23 12:57:03 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/25 15:40:30 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:45:11 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 
 #define TRUE	1
-#define	FALSE	0
+#define FALSE	0
 
 #define SIZE	11
 

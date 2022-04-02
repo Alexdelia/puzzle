@@ -6,15 +6,15 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/21 20:36:09 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/21 20:56:54 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:49:20 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 #include <math.h>
 
-#define	TRUE	1
-#define	FALSE	0
+#define TRUE	1
+#define FALSE	0
 
 static long ft_is_prime(long nb)
 {

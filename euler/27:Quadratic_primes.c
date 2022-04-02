@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/28 18:20:54 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/28 18:32:49 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:47:27 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -78,6 +78,6 @@ int	main(void)
 		a += 2;
 	}
 	printf("%d * %d = %d\twith %d numbers of primes\n",
-			max_a, max_b, max_b * max_a, max_size);
+		max_a, max_b, max_b * max_a, max_size);
 	return (0);
 }

@@ -6,13 +6,13 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/30 09:40:48 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/30 09:51:53 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:38:56 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 
-#define	LIMIT	100000
+#define LIMIT	100000
 
 #define TRUE	1
 #define FALSE	0
