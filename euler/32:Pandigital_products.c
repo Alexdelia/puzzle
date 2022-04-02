@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/31 13:28:32 by adelille          #+#    #+#             */
-/*   Updated: 2021/10/31 14:12:44 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:51:12 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,7 +20,7 @@
 static int	ft_in(int *tab, int size, int n)
 {
 	int	i;
-	
+
 	i = 0;
 	while (i < size)
 	{

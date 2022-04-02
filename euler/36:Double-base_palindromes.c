@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/20 18:59:22 by adelille          #+#    #+#             */
-/*   Updated: 2022/04/02 18:47:15 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:54:02 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -97,7 +97,7 @@ static int	ft_is_palindrome(char *str)
 {
 	int	size;
 	int	i;
-	
+
 	i = 0;
 	size = strlen(str) - 1;
 	while (i < size)

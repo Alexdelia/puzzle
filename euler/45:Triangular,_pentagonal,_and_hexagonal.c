@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/02/08 16:10:43 by adelille          #+#    #+#             */
-/*   Updated: 2022/02/18 17:25:23 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:55:54 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -51,7 +51,7 @@ int	main(void)
 			}
 		}
 		if (t[ti] == p[pi] && t[ti] == h[hi])
-			break;
+			break ;
 	}
 	printf("T[%ld] = P[%ld] = H[%ld] = %ld\n", ti, pi, hi, t[ti]);
 	return (0);

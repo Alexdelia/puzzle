@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/09/21 21:00:19 by adelille          #+#    #+#             */
-/*   Updated: 2021/09/21 21:37:41 by adelille         ###   ########.fr       */
+/*   Updated: 2022/04/02 18:55:31 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -44,7 +44,7 @@ int	main(void)
 	//not elegent and brute force
 	long		prod;
 	long		big;
-	
+
 	i = 0;
 	big = -1;
 	while (i + 13 < 1001)
