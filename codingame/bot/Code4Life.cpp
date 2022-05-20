@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/05/20 11:40:48 by adelille          #+#    #+#             */
-/*   Updated: 2022/05/20 14:48:51 by adelille         ###   ########.fr       */
+/*   Updated: 2022/05/20 15:49:06 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -182,7 +182,7 @@ class robot
 
 		void				fill_data(void);
 		const std::string	action(room &r);
-		void				find_action(room &r);
+		void				find_action(room &r, const unsigned short n);
 		void				print_cost_mol(const std::string &mol, const size_t time);
 };
 
@@ -229,7 +229,7 @@ void	room::action_cost_of_id(robot &I, const int id)
 const std::string	robot::action(room &r)
 {
 	if (actions.empty())
-		find_action(r);
+		find_action(r, 3);
 	
 	const std::string	ret = *actions.begin();
 	actions.erase(actions.begin());
@@ -245,7 +245,7 @@ int	room::find_best_sample_id(void) const
 
 	while (i != samples.end())
 	{
-		if (i->second.carried_by == -1)
+		if (i->second.carried_by == -1)	// test if can be picked up
 		{
 			tmp = i->second.health - (i->second.cost_a + i->second.cost_b + i->second.cost_c + i->second.cost_d + i->second.cost_e);
 			if (tmp > perf)
@@ -260,22 +260,39 @@ int	room::find_best_sample_id(void) const
 	return (id);
 }
 
-void	robot::find_action(room &r)
+void	robot::find_action(room &r, const unsigned short n)
 {
-	int			id;
-	std::string	s_id;
-
-	id = r.find_best_sample_id();
-	s_id = std::to_string(id);
+	std::vector<int>			id;
+	std::vector<std::string>	s_id;
+	unsigned short				i;
 
 	actions.push_back(GO + room::dia);
-	actions.push_back(CO + s_id);
+
+	i = 0;
+	while (i < n)
+	{
+		id.push_back(r.find_best_sample_id());
+		s_id.push_back(std::to_string(id.back()));
+		actions.push_back(CO + s_id.back());
+		r.samples[id.back()].carried_by = -2;
+		i++;
+	}
 	
 	actions.push_back(GO + room::mol);
-	r.action_cost_of_id(*this, id);
+	i = 0;
+	while (i < n)
+	{
+		r.action_cost_of_id(*this, id[i]);
+		i++;
+	}
 
 	actions.push_back(GO + room::lab);
-	actions.push_back(CO + s_id);
+	i = 0;
+	while (i < n)
+	{
+		actions.push_back(CO + s_id[i]);
+		i++;
+	}
 }
 
 int main(void)
