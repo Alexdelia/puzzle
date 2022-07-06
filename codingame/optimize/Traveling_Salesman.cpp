@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/07/03 15:54:06 by adelille          #+#    #+#             */
-/*   Updated: 2022/07/03 19:19:20 by adelille         ###   ########.fr       */
+/*   Updated: 2022/07/03 19:54:47 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,10 +15,12 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 #include <cmath>
 #include <bits/stdc++.h>
 
-#define DEPTH	1
+#define DEPTH       2
+#define MAX_DIST    1000
 
 typedef unsigned short	t_coord;
 typedef unsigned short	t_index;
@@ -58,9 +60,8 @@ static const std::map<float, int>	&distance(const t_index curr, std::map<float, 
 
 static void	solve(const t_index curr, const int node, const float t, std::vector<t_index> &path)
 {
-
-	if (t >= best_d)
-		return ;
+    if (t > best_d)
+        return ;
 
 	if (node == 0)
 	{
@@ -75,13 +76,15 @@ static void	solve(const t_index curr, const int node, const float t, std::vector
 	std::map<float, int>	dist;
 	distance(curr, dist);
 	int	depth = 0;
-	for (std::map<float, int>::const_iterator i = dist.begin(); i != dist.end() && depth < DEPTH; ++i, depth++)
+	for (std::map<float, int>::const_iterator i = dist.begin();
+            i != dist.end() && depth < DEPTH && i->second < MAX_DIST; ++i)
 	{
-		m[i->second].visited = true;
+        m[i->second].visited = true;
 		path.push_back(i->second);
 		solve(i->second, node - 1, t + i->first, path);
 		m[i->second].visited = false;
 		path.pop_back();
+        depth++;
 	}
 	return ;
 }
@@ -108,6 +111,6 @@ int	main(void)
 		std::cout << *i << ' ';
 	std::cout << '0' << std::endl;
 	std::cerr << best_d << std::endl;
-	
+
 	return (0);
 }
