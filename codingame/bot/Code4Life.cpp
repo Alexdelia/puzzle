@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/05/20 11:40:48 by adelille          #+#    #+#             */
-/*   Updated: 2022/05/20 15:49:06 by adelille         ###   ########.fr       */
+/*   Updated: 2022/06/17 16:28:47 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,6 +28,7 @@
 #define STATUS_DIA	0
 #define STATUS_MOL	1
 #define STATUS_LAB	2
+#define STATUS_SAM	3 
 
 typedef struct project
 {
