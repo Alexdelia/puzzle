@@ -6,7 +6,7 @@
 /*   By: adelille <adelille@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/07/06 13:28:25 by adelille          #+#    #+#             */
-/*   Updated: 2022/07/06 15:49:08 by adelille         ###   ########.fr       */
+/*   Updated: 2022/07/06 16:02:06 by adelille         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -69,25 +69,11 @@ static void	fill_map()
 	}
 }
 
-static void	update_map(const int bomb_x, const int bomb_y)
+static void	place_bomb(const int bomb_x, const int bomb_y)
 {
 	int	x, y;
 	
 	scores.clear();
-	
-	// update all timed explosion
-	x = 0;
-	while (x < h)
-	{
-		y = 0;
-		while (y < w)
-		{
-			if (m[x][y] > 0 && m[x][y] <= 3)
-				m[x][y] -= 1;
-			y++;
-		}
-		x++;
-	}
 
 	// place current bomb
 	m[bomb_x][bomb_y] = 3;
@@ -122,6 +108,26 @@ static void	update_map(const int bomb_x, const int bomb_y)
 			m[bomb_x][y] = 3;
 			bombs.erase(std::make_pair(bomb_x, y));
 		}
+	}
+
+}
+
+static void	update_map(const int bomb_x, const int bomb_y)
+{
+	int	x, y;
+	
+	// update all timed explosion
+	x = 0;
+	while (x < h)
+	{
+		y = 0;
+		while (y < w)
+		{
+			if (m[x][y] > 0 && m[x][y] <= 3)
+				m[x][y] -= 1;
+			y++;
+		}
+		x++;
 	}
 }
 
@@ -175,16 +181,16 @@ static void	solve(int *best_x, int *best_y)
 	{
 		// try to see if score around bomb is > best_score
 		for (x = i->first; x < h && x <= i->first + 3 && m[x][i->second] != '#'; x++)
-			if (m[x][i->second] == 0)
+			if (m[x][i->second] <= 3)
 				try_score(x, i->second, &best_score, best_x, best_y);
 		for (y = i->second; y < w && y <= i->second + 3 && m[i->first][y] != '#'; y++)
-			if (m[i->first][y] == 0)
+			if (m[i->first][y] <= 3)
 				try_score(i->first, y, &best_score, best_x, best_y);
 		for (x = i->first; x >= 0 && x >= i->first - 3 && m[x][i->second] != '#'; x--)
-			if (m[x][i->second] == 0)
+			if (m[x][i->second] <= 3)
 				try_score(x, i->second, &best_score, best_x, best_y);
 		for (y = i->second; y >= 0 && y >= i->second - 3 && m[i->first][y] != '#'; y--)
-			if (m[i->first][y] == 0)
+			if (m[i->first][y] <= 3)
 				try_score(i->first, y, &best_score, best_x, best_y);
 		++i;
 	}
@@ -192,6 +198,9 @@ static void	solve(int *best_x, int *best_y)
 
 int	main(void)
 {
+	int		x = 0, y = 0;
+	bool	wait = false;
+
 	std::cin >> w >> h; std::cin.ignore();
 	fill_map();
 
@@ -203,14 +212,29 @@ int	main(void)
 
 		if (!bombs.empty())
 		{
-			int	x = 0, y = 0;
-			solve(&x, &y);
-			std::cerr << "score:\t" << calc_score(x, y) << std::endl;
+			if (!wait)
+			{
+				solve(&x, &y);
+				std::cerr << "score:\t" << calc_score(x, y) << std::endl;
+			}
+
+			if (m[x][y] != 0)
+				wait = true;
+			else
+			{
+				wait = false;
+				place_bomb(x, y);
+			}
+			
+
+			if (!wait)
+				std::cout << y << ' ' << x << std::endl;
+			else
+				std::cout << "WAIT" << std::endl;
+			
 			update_map(x, y);
 			
 			debug_print_map();
-
-			std::cout << y << ' ' << x << std::endl;
 		}
 		else
 			std::cout << "WAIT" << std::endl;
