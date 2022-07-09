@@ -13,6 +13,8 @@ then
 	exit 1
 fi
 
+prog=$1
+
 sep="==============================================================================================="
 ok="✔"
 ko="⤫"
@@ -30,9 +32,9 @@ function test ()
 		exit 1
 	fi
 	printf "${bld}test\t$1\t"
-	printf "$2" | ./$prog | cat -e &> you.txt
+	printf "$2" | ./$prog |& cat -e &> you.txt
 	printf "$3" | cat -e > src.txt
-	res=$(diff you.txt src.txt)
+	res=$(diff src.txt you.txt)
 	if [[ $? -eq 0 ]]
 	then
 		printf "$gre$ok$clr\n"
@@ -43,23 +45,23 @@ function test ()
 		printf "  diff:\n" >> log.txt
 		printf "$res\n\n" >> log.txt
 		printf "$sep\n\n" >> log.txt
-		printf "  your output:\n" >> log.txt
-		cat you.txt >> log.txt
-		printf "\n$sep\n\n" >> log.txt
 		printf "  source output:\n" >> log.txt
 		cat src.txt >> log.txt
+		printf "\n$sep\n\n" >> log.txt
+		printf "  your output:\n" >> log.txt
+		cat you.txt >> log.txt
 		printf "\n$sep\n\n\n" >> log.txt
 	fi
 	rm you.txt src.txt
 	((total=total+1))
 }
 
-test 0 "" ""
-test 1 "Hello world!" "Hello world!"
-test 2 "42" "42"
-test 3 "hey\nyou" "hey"
-test 4 "that is\ta tab" "that is\ta tab"
-test 5 "well done 😊  🧑🏻‍💻" "well done 😊  🧑🏻‍💻"
+test 0 "\n" "\n"
+test 1 "Hello world!" "Hello world!\n"
+test 2 "42" "42\n"
+test 3 "hey\nyou" "hey\n"
+test 4 "that is\ta tab" "that is\ta tab\n"
+test 5 "well done 😊  🧑🏻‍💻" "well done 😊  🧑🏻‍💻\n"
 
 printf "\n$bld$gre$pass$clr$bld/$total tests\t["
 if [[ $pass -ne $total ]]
