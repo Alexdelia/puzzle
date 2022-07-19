@@ -1,0 +1,1 @@
+make a program that read one intput and print it
