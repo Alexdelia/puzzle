@@ -15,6 +15,8 @@ B_DIST = 0
 T_DIST_SPEED = 1.0
 B_DIST_SPEED = 0.1
 
+TILT = 1000
+
 class Env:
     x: int
     y: int
@@ -34,9 +36,10 @@ class Env:
     def get_thrust(self) -> Union[int, str]:
         if self.angle > 90 or self.angle < -90:
             return 0
-        elif self.angle < 3 and self.dist > T_DIST \
+        elif abs(self.angle) < 3 and self.dist > T_DIST + 2000 \
                 and abs(self.x - self.opponent_x) > 1500 and abs(self.y - self.opponent_y) > 1500:
             print(f"diff: {abs(self.x - self.opponent_x)} {abs(self.y - self.opponent_y)}", file=sys.stderr)
+            print(f"angle: {self.angle}", file=sys.stderr)
             return "BOOST"
 
         ### Angle
@@ -67,13 +70,18 @@ class Env:
     
 
     def get_targeted_xy(self) -> Tuple[int, int]:
-        # stronger angle to get angle to angle == 0 faster
-        if self.dist > 1000 or self.angle > 90 or self.angle < -90:
+        if self.dist < 2000 or abs(self.angle) < 15:
             return self.next_x, self.next_y
-        angle = self.angle * 2
-        x = self.x + math.cos(math.radians(angle)) * self.dist
-        y = self.y + math.sin(math.radians(angle)) * self.dist
-        return int(x), int(y)
+        # isosceles triangle abc, find point c with dist_ab = dist_ac
+        a = (self.x, self.y)
+        b = (self.next_x, self.next_y)
+        dist_ab = math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+        dist_bc = TILT
+        if self.angle < 0:
+            dist_bc = -dist_bc
+        c = (b[0] + dist_bc * (a[0] - b[0]) / dist_ab, b[1] + dist_bc * (a[1] - b[1]) / dist_ab)
+        return int(c[0]), int(c[1])
+        # return int(x), int(y)
     
 
     def debug(self):
@@ -91,4 +99,4 @@ while True:
     e.debug()
     thrust = e.get_thrust()
     x, y = e.get_targeted_xy()
-    print(f"{x} {y} {thrust}")
+    print(f"{x} {y} {thrust} {thrust}")
