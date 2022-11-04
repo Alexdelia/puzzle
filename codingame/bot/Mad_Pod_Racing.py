@@ -19,6 +19,13 @@ TILT = 1000
 
 H_DRIFT = 3
 
+class Pod:
+    c: Tuple[int, int] = (-1, -1)
+    prev: Tuple[int, int]
+    dist: int
+    angle: int
+    drift: float
+    speed: float
 
 class Env:
     c: Tuple[int, int] = (-1, -1)
@@ -27,9 +34,17 @@ class Env:
     opponent: Tuple[int, int]
     dist: int       # distance to the next checkpoint
     angle: int      # angle between your pod orientation and the direction of the next checkpoint
+    n_laps: int
+    n_check: int
     check: List[Tuple[int, int]] = []
     drift: float = 0
     speed: float = 0
+
+    def init_info(self):
+        self.n_laps = int(input())
+        self.n_check = int(input())
+        for _ in range(self.n_check):
+            self.check.append(tuple([int(i) for i in input().split()]))
 
     def get_info(self):
         x, y, next_x, next_y, self.dist, self.angle = [
@@ -93,6 +108,11 @@ class Env:
         return (self.checkpoint[0] + int(self.drift * d_x), self.checkpoint[1] + int(self.drift * d_y))
         # return int(x), int(y)
 
+    def init_debug(self):
+        print(f"n_laps: {self.n_laps}", file=sys.stderr)
+        print(f"n_check: {self.n_check}", file=sys.stderr)
+        print(f"check: {self.check}", file=sys.stderr)
+
     def debug(self):
         print(f"I: {self.c}", file=sys.stderr)
         print(f"P: {self.prev}", file=sys.stderr)
@@ -105,6 +125,7 @@ class Env:
 
 
 e = Env()
+e.init_info()
 
 # game loop
 while True:
