@@ -148,17 +148,32 @@ class Env:
             for did in self.free_d:
                 if did in z.d and len(z.d) > z.to_beat + 1:
                     self.free_d.remove(did)
+                    z.d.remove(did)
     
     def update_cost(self):
         for z in self.z:
             z.cost = z.to_beat - len(z.d) + 1
-    
+
     def update_target(self):
-        queue: List[List[int]] = [[] for _ in range(self.n_d + 1)]  # List[cost][zid]
+        queue = self.create_queue()
+        for l in queue:
+            for zid in l:
+                # doesnt' involve finding best match between free_d and all zid from queue[cost]
+                did = self.get_nearest_did(self.z[zid].x, self.z[zid].y, True)
+                if did == -1:
+                    return
+                self.d[self._id][did].target = (self.z[zid].x, self.z[zid].y)
+                self.free_d.remove(did)
+
+    def create_queue(self) -> List[List[int]]:
+        queue: List[List[int]] = [[] for _ in range(self.n_d + 1)]
+
         for zid, z in enumerate(self.z):
             if z.cost <= 0 or z.owner == self._id:
                 continue
-            # HERE
+            queue[z.cost].append(zid)
+
+        return queue
 
 e = Env()
 e.init_info()
