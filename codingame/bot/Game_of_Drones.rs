@@ -1,4 +1,4 @@
-use std::{collections::BinaryHeap, io};
+use std::io;
 
 type Coord = u16;
 type Id = u8;
@@ -157,20 +157,31 @@ impl Env {
     fn get_nearest_did(&self, x: Coord, y: Coord, free: bool) -> Id {
         let mut min_dist: Dist = Dist::MAX;
         let mut min_id: Id = Id::MAX;
-        let d: &Vec<Id> = match free {
-            true => &self.free_d,
-            false => &(0..self.n_d).collect(),
-        };
-        for did in d {
-            let dist = get_distance(
-                x,
-                y,
-                self.d[self.id][*did as usize].x,
-                self.d[self.id][*did as usize].y,
-            );
-            if dist < min_dist {
-                min_dist = dist;
-                min_id = *did as Id;
+        if free {
+            for did in &self.free_d {
+                let dist = get_distance(
+                    x,
+                    y,
+                    self.d[self.id][*did as usize].x,
+                    self.d[self.id][*did as usize].y,
+                );
+                if dist < min_dist {
+                    min_dist = dist;
+                    min_id = *did;
+                }
+            }
+        } else {
+            for did in 0..self.n_d as usize {
+                let dist = get_distance(
+                    x,
+                    y,
+                    self.d[self.id][did as usize].x,
+                    self.d[self.id][did as usize].y,
+                );
+                if dist < min_dist {
+                    min_dist = dist;
+                    min_id = did as Id;
+                }
             }
         }
         min_id
@@ -236,8 +247,9 @@ impl Env {
         queue
     }
 
-    fn update_target(&mut self) {
+    fn update_target(&mut self) -> bool {
         let queue: Vec<Vec<Id>> = self.create_queue();
+        let mut changed = false;
 
         for l in &queue {
             for zid in l {
@@ -248,12 +260,15 @@ impl Env {
                     true,
                 );
                 if did == Id::MAX {
-                    return;
+                    return changed;
                 }
                 self.d[self.id][did as usize].t_x = self.z[*zid as usize].x + 1;
                 self.d[self.id][did as usize].t_y = self.z[*zid as usize].y + 1;
+                changed = true;
             }
         }
+
+        changed
     }
 }
 
@@ -265,9 +280,12 @@ fn main() {
 
         e.update_d_in_z();
         e.update_free_d();
+        e.update_target();
+        // if all none of the target change, then need to relaunch with free_d being all drones in not owned zones
+        // or already add d in not owned zones to free_d
 
         for d in &e.d[e.id] {
-            eprintln!("{} {}", d.x, d.y);
+            println!("{} {}", d.t_x, d.t_y);
         }
     }
 }
