@@ -1,4 +1,4 @@
-use std::io;
+use std::{collections::BinaryHeap, io};
 
 type Coord = u16;
 type Id = u8;
@@ -28,6 +28,10 @@ impl Zone {
             d: vec![],
         }
     }
+
+    fn cost(&self) -> i32 {
+        (self.to_beat as usize - self.d.len() + 1) as i32
+    }
 }
 
 struct Drone {
@@ -56,6 +60,19 @@ struct Env {
     d: Vec<Vec<Drone>>,
     z: Vec<Zone>,
     free_d: Vec<Id>,
+}
+
+#[inline]
+fn get_distance(x1: Coord, y1: Coord, x2: Coord, y2: Coord) -> Dist {
+    (x1 as i32 - x2 as i32).pow(2) + (y1 as i32 - y2 as i32).pow(2)
+}
+
+fn is_d_in_z(d: &Drone, z: &Zone) -> bool {
+    get_distance(d.x, d.y, z.x, z.y) <= 100
+}
+
+fn is_c_in_c(x1: Coord, y1: Coord, x2: Coord, y2: Coord) -> bool {
+    get_distance(x1, y1, x2, y2) <= 100
 }
 
 impl Env {
@@ -98,7 +115,7 @@ impl Env {
 
         if self.d[self.id].is_empty() {
             for pid in 0..self.n_p as usize {
-                for _ in 0..self.n_d as usize {
+                for did in 0..self.n_d as usize {
                     let mut input_line = String::new();
                     io::stdin().read_line(&mut input_line).unwrap();
                     let inputs = input_line.split(' ').collect::<Vec<_>>();
@@ -106,6 +123,9 @@ impl Env {
                         parse_input!(inputs[0], Coord),
                         parse_input!(inputs[1], Coord),
                     ));
+                    let zid = self.get_nearest_zid(self.d[pid][did].x, self.d[pid][did].y);
+                    self.d[pid][did].t_x = self.z[zid as usize].x + 1;
+                    self.d[pid][did].t_y = self.z[zid as usize].y + 1;
                 }
             }
         } else {
@@ -133,19 +153,108 @@ impl Env {
         }
         min_id
     }
-}
 
-#[inline]
-fn get_distance(x1: Coord, y1: Coord, x2: Coord, y2: Coord) -> Dist {
-    (x1 as i32 - x2 as i32).pow(2) + (y1 as i32 - y2 as i32).pow(2)
-}
+    fn get_nearest_did(&self, x: Coord, y: Coord, free: bool) -> Id {
+        let mut min_dist: Dist = Dist::MAX;
+        let mut min_id: Id = Id::MAX;
+        let d: &Vec<Id> = match free {
+            true => &self.free_d,
+            false => &(0..self.n_d).collect(),
+        };
+        for did in d {
+            let dist = get_distance(
+                x,
+                y,
+                self.d[self.id][*did as usize].x,
+                self.d[self.id][*did as usize].y,
+            );
+            if dist < min_dist {
+                min_dist = dist;
+                min_id = *did as Id;
+            }
+        }
+        min_id
+    }
 
-fn is_d_in_z(d: &Drone, z: &Zone) -> bool {
-    get_distance(d.x, d.y, z.x, z.y) <= 100
-}
+    fn update_d_in_z(&mut self) {
+        for zid in 0..self.n_z as usize {
+            self.z[zid].d.clear();
+            self.z[zid].to_beat = 0;
+        }
+        for pid in 0..self.n_p as usize {
+            if pid == self.id {
+                for did in 0..self.n_d as usize {
+                    for z in &mut self.z {
+                        if is_d_in_z(&self.d[pid][did], z) {
+                            z.d.push(did as Id);
+                            break;
+                        }
+                    }
+                }
+            } else {
+                for d in &self.d[pid] {
+                    for z in &mut self.z {
+                        if is_d_in_z(d, z) {
+                            z.to_beat += 1;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-fn is_c_in_c(x1: Coord, y1: Coord, x2: Coord, y2: Coord) -> bool {
-    get_distance(x1, y1, x2, y2) <= 100
+    fn update_free_d(&mut self) {
+        self.free_d.clear();
+
+        // for d in &self.d[self.id] {
+        // 	if d.t_x == d.x && d.t_y == d.y {
+        // 		self.free_d.push(d.id);
+        // 	}
+        // }
+
+        // remove drones in owned zones until there is to_beat + 1 drones left in the zone
+        for z in &mut self.z {
+            if z.owner == self.id as i8 {
+                while z.d.len() > z.to_beat as usize + 1 {
+                    let d = z.d.pop().unwrap();
+                    self.free_d.push(d);
+                }
+            }
+        }
+    }
+
+    fn create_queue(&self) -> Vec<Vec<Id>> {
+        let mut queue: Vec<Vec<Id>> = vec![vec![]; (self.n_d + 1) as usize];
+
+        for zid in 0..self.n_z as usize {
+            if self.z[zid].cost() > 0 {
+                queue[(self.z[zid].cost() - 1) as usize].push(zid as Id);
+            }
+        }
+
+        queue
+    }
+
+    fn update_target(&mut self) {
+        let queue: Vec<Vec<Id>> = self.create_queue();
+
+        for l in &queue {
+            for zid in l {
+                // doesn't involve finding best match between free_d and all zid from queue[cost - 1] for now
+                let did = self.get_nearest_did(
+                    self.z[*zid as usize].x + 1,
+                    self.z[*zid as usize].y + 1,
+                    true,
+                );
+                if did == Id::MAX {
+                    return;
+                }
+                self.d[self.id][did as usize].t_x = self.z[*zid as usize].x + 1;
+                self.d[self.id][did as usize].t_y = self.z[*zid as usize].y + 1;
+            }
+        }
+    }
 }
 
 fn main() {
@@ -154,10 +263,11 @@ fn main() {
     loop {
         e.get_info();
 
-        for did in 0..e.n_d as usize {
-            let zid: usize = e.get_nearest_zid(e.d[e.id][did].x, e.d[e.id][did].y) as usize;
-            println!("{} {}", e.z[zid].x, e.z[zid].y);
-            // println!("{} {}", e.d[e.id][i].t_x, e.d[e.id][i].t_y);
+        e.update_d_in_z();
+        e.update_free_d();
+
+        for d in &e.d[e.id] {
+            eprintln!("{} {}", d.x, d.y);
         }
     }
 }
