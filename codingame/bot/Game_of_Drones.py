@@ -105,9 +105,11 @@ class Env:
         min_dist = sys.maxsize
         min_id = -1
         if free:
-            ### HERE
-        for did, d in enumerate(self.d[self._id]):
-            dist = self.get_distance(x, y, d.x, d.y)
+            d = self.free_d
+        else:
+            d = list(range(self.n_d))
+        for did in d:
+            dist = self.get_distance(x, y, self.d[self._id][did].x, self.d[self._id][did].y)
             if dist < min_dist:
                 min_dist = dist
                 min_id = did
@@ -149,10 +151,14 @@ class Env:
     
     def update_cost(self):
         for z in self.z:
-            z.cost = z.to_beat - len(z.d)
+            z.cost = z.to_beat - len(z.d) + 1
     
     def update_target(self):
-
+        queue: List[List[int]] = [] # List[cost][zid]
+        for zid, z in enumerate(self.z):
+            if z.cost <= 0 or z.owner == self._id:
+                continue
+            # HERE
 
 e = Env()
 e.init_info()
