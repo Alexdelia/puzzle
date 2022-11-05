@@ -154,7 +154,7 @@ class Env:
             z.cost = z.to_beat - len(z.d) + 1
     
     def update_target(self):
-        queue: List[List[int]] = [] # List[cost][zid]
+        queue: List[List[int]] = [[] for _ in range(self.n_d + 1)]  # List[cost][zid]
         for zid, z in enumerate(self.z):
             if z.cost <= 0 or z.owner == self._id:
                 continue
