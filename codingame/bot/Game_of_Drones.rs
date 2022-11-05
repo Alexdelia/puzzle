@@ -215,7 +215,7 @@ impl Env {
         }
     }
 
-    fn update_free_d(&mut self) {
+    fn update_free_d(&mut self, force: bool) {
         self.free_d.clear();
 
         // for d in &self.d[self.id] {
@@ -224,31 +224,51 @@ impl Env {
         // 	}
         // }
 
-        // remove drones in owned zones until there is to_beat + 1 drones left in the zone
-        for z in &mut self.z {
-            if z.owner == self.id as i8 {
-                while z.d.len() > z.to_beat as usize + 1 {
-                    let d = z.d.pop().unwrap();
-                    self.free_d.push(d);
+        if !force {
+            // remove drones in owned zones until there is to_beat + 1 drones left in the zone
+            for z in &mut self.z {
+                if z.owner == self.id as i8 {
+                    while z.d.len() > z.to_beat as usize + 1 {
+                        let d = z.d.pop().unwrap();
+                        self.free_d.push(d);
+                    }
+                }
+            }
+        } else {
+            for z in &self.z {
+                if z.owner != self.id as i8 {
+                    for d in &z.d {
+                        self.free_d.push(*d);
+                    }
                 }
             }
         }
     }
 
-    fn create_queue(&self) -> Vec<Vec<Id>> {
+    fn create_queue(&self, force: bool) -> Vec<Vec<Id>> {
         let mut queue: Vec<Vec<Id>> = vec![vec![]; (self.n_d + 1) as usize];
 
-        for zid in 0..self.n_z as usize {
-            if self.z[zid].cost() > 0 {
-                queue[(self.z[zid].cost() - 1) as usize].push(zid as Id);
+        if !force {
+            for zid in 0..self.n_z as usize {
+                if self.z[zid].cost() > 0 {
+                    queue[(self.z[zid].cost() - 1) as usize].push(zid as Id);
+                }
+            }
+        } else {
+            for zid in 0..self.n_z as usize {
+                queue[self.z[zid].to_beat as usize].push(zid as Id);
             }
         }
 
         queue
     }
 
-    fn update_target(&mut self) -> bool {
-        let queue: Vec<Vec<Id>> = self.create_queue();
+    fn update_target(&mut self, force: bool) -> bool {
+        if self.free_d.is_empty() {
+            return false;
+        }
+
+        let queue: Vec<Vec<Id>> = self.create_queue(force);
         let mut changed = false;
 
         for l in &queue {
@@ -279,10 +299,14 @@ fn main() {
         e.get_info();
 
         e.update_d_in_z();
-        e.update_free_d();
-        e.update_target();
+        e.update_free_d(false);
+        let stuck = e.update_target(false);
         // if all none of the target change, then need to relaunch with free_d being all drones in not owned zones
         // or already add d in not owned zones to free_d
+        if stuck {
+            e.update_free_d(true);
+            e.update_target(true);
+        }
 
         for d in &e.d[e.id] {
             println!("{} {}", d.t_x, d.t_y);
