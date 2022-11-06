@@ -206,6 +206,19 @@ impl Env {
         min_id
     }
 
+    fn n_d_at_target(&self, n: Id) -> bool {
+        let mut t: Id = 0;
+        for d in &self.d[self.id] {
+            if d.x == d.t_x && d.y == d.t_y {
+                t += 1;
+                if t >= n {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     fn update_d_in_z(&mut self) {
         for zid in 0..self.n_z as usize {
             self.z[zid].d.clear();
@@ -276,7 +289,11 @@ impl Env {
         } else {
             for zid in 0..self.n_z as usize {
                 if self.z[zid].owner != self.id as i8 {
-                    queue[self.z[zid].to_beat as usize].push(zid as Id);
+                    if self.z[zid].to_beat == 0 {
+                        queue[0].push(zid as Id);
+                    } else if self.z[zid].cost() > 0 {
+                        queue[(self.z[zid].cost()) as usize].push(zid as Id);
+                    }
                 }
             }
         }
@@ -330,7 +347,7 @@ fn main() {
         e.update_d_in_z();
         e.update_free_d(false);
         eprintln!("free_d: {:?}", e.free_d);
-        let stuck = !e.update_target(false);
+        let stuck = !e.update_target(false) && e.n_d_at_target(e.n_d / 2 as Id);
         // if all none of the target change, then need to relaunch with free_d being all drones in not owned zones
         // or already add d in not owned zones to free_d
         if stuck {
