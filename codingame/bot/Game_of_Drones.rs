@@ -274,20 +274,15 @@ impl Env {
         }
 
         // add drones on the way to a owned zone
-        // + add drones on the way to a zone z.d.len() > to_beat + 1 drones
         for zid in 0..self.n_z {
             if self.z[zid as usize].owner == self.id as i8 {
                 for did in 0..self.n_d {
                     if !self.free_d.contains(&did)
                         && self.d[self.id][did as usize].x != self.z[zid as usize].c_x
                         && self.d[self.id][did as usize].y != self.z[zid as usize].c_y
+                        && self.d[self.id][did as usize].target == zid
                     {
-                        if self.d[self.id][did as usize].target == zid
-                            || self.z[zid as usize].d.len()
-                                > self.z[zid as usize].to_beat as usize + 1
-                        {
-                            self.free_d.push(did);
-                        }
+                        self.free_d.push(did);
                     }
                 }
             }
