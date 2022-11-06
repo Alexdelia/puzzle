@@ -133,7 +133,6 @@ impl Env {
         }
 
         if self.d[self.id].is_empty() {
-            let furthest = self.get_n_furthest_z_from_c((self.n_z as f64 / 2.0).ceil() as Id);
             for pid in 0..self.n_p as usize {
                 for did in 0..self.n_d as usize {
                     let mut input_line = String::new();
@@ -143,11 +142,7 @@ impl Env {
                         parse_input!(inputs[0], Coord),
                         parse_input!(inputs[1], Coord),
                     ));
-                    let zid = self.get_nearest_zid_in_vec(
-                        self.d[pid][did].x,
-                        self.d[pid][did].y,
-                        &furthest,
-                    );
+                    let zid = self.get_nearest_zid(self.d[pid][did].x, self.d[pid][did].y);
                     self.d[pid][did].t_x = self.z[zid as usize].c_x;
                     self.d[pid][did].t_y = self.z[zid as usize].c_y;
                 }
@@ -165,19 +160,6 @@ impl Env {
         }
     }
 
-    fn get_n_furthest_z_from_c(&self, n: Id) -> Vec<Id> {
-        let mut z: Vec<Id> = (0..self.n_z).collect();
-        z.sort_by(|a, b| {
-            let a = &self.z[*a as usize];
-            let b = &self.z[*b as usize];
-            let d1 = get_distance(a.x, a.y, WIDE / 2, HIGH / 2);
-            let d2 = get_distance(b.x, b.y, WIDE / 2, HIGH / 2);
-            d2.partial_cmp(&d1).unwrap()
-        });
-        z.truncate(n as usize);
-        z
-    }
-
     fn get_nearest_zid(&self, x: Coord, y: Coord) -> Id {
         let mut min_dist: Dist = Dist::MAX;
         let mut min_id: Id = Id::MAX;
@@ -186,19 +168,6 @@ impl Env {
             if dist < min_dist {
                 min_dist = dist;
                 min_id = zid as Id;
-            }
-        }
-        min_id
-    }
-
-    fn get_nearest_zid_in_vec(&self, x: Coord, y: Coord, v: &Vec<Id>) -> Id {
-        let mut min_dist: Dist = Dist::MAX;
-        let mut min_id: Id = Id::MAX;
-        for zid in v {
-            let dist = get_distance(x, y, self.z[*zid as usize].c_x, self.z[*zid as usize].c_y);
-            if dist < min_dist {
-                min_dist = dist;
-                min_id = *zid;
             }
         }
         min_id
@@ -391,6 +360,9 @@ fn main() {
             eprintln!("free_d: {:?}", e.free_d);
             e.update_target(true);
         }
+
+        // add feature:
+        // add to free_d all d that have for target a zone that is owned by me
 
         for d in &e.d[e.id] {
             println!("{} {}", d.t_x, d.t_y);
