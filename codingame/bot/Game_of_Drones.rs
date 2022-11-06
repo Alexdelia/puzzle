@@ -2,7 +2,10 @@ use std::io;
 
 type Coord = u16;
 type Id = u8;
-type Dist = i32;
+type Dist = f32;
+
+const WIDE: Coord = 4000;
+const HIGH: Coord = 1800;
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => {
@@ -13,16 +16,20 @@ macro_rules! parse_input {
 struct Zone {
     x: Coord,
     y: Coord,
+    c_x: Coord,
+    c_y: Coord,
     owner: i8,
     to_beat: Id,
     d: Vec<Id>,
 }
 
 impl Zone {
-    fn new(x: Coord, y: Coord, owner: i8) -> Zone {
+    fn new(x: Coord, y: Coord, c_x: Coord, c_y: Coord, owner: i8) -> Zone {
         Zone {
             x,
             y,
+            c_x,
+            c_y,
             owner,
             to_beat: 0,
             d: vec![],
@@ -64,15 +71,26 @@ struct Env {
 
 #[inline]
 fn get_distance(x1: Coord, y1: Coord, x2: Coord, y2: Coord) -> Dist {
-    (x1 as i32 - x2 as i32).pow(2) + (y1 as i32 - y2 as i32).pow(2)
+    (((x2 as i32 - x1 as i32).pow(2) + (y2 as i32 - y1 as i32).pow(2)) as f32).sqrt() as Dist
 }
 
 fn is_d_in_z(d: &Drone, z: &Zone) -> bool {
-    get_distance(d.x, d.y, z.x, z.y) <= 100
+    get_distance(d.x, d.y, z.x, z.y) <= 100.0
 }
 
 fn is_c_in_c(x1: Coord, y1: Coord, x2: Coord, y2: Coord) -> bool {
-    get_distance(x1, y1, x2, y2) <= 100
+    get_distance(x1, y1, x2, y2) <= 100.0
+}
+
+fn get_cz_to_center(x: Coord, y: Coord) -> (Coord, Coord) {
+    // we get a zone coord, need to find point in zone closest to center, with zone radius == 100
+    let w = WIDE / 2;
+    let h = HIGH / 2;
+    let t = 98.0 / get_distance(x, y, w, h);
+    (
+        ((1.0 - t) * x as f32 + t * w as f32) as Coord,
+        ((1.0 - t) * y as f32 + t * h as f32) as Coord,
+    )
 }
 
 impl Env {
@@ -92,7 +110,8 @@ impl Env {
             let inputs = input_line.split(' ').collect::<Vec<_>>();
             let x = parse_input!(inputs[0], Coord);
             let y = parse_input!(inputs[1], Coord);
-            z.push(Zone::new(x, y, -1));
+            let (c_x, c_y) = get_cz_to_center(x, y);
+            z.push(Zone::new(x, y, c_x, c_y, -1));
         }
 
         Env {
@@ -124,8 +143,8 @@ impl Env {
                         parse_input!(inputs[1], Coord),
                     ));
                     let zid = self.get_nearest_zid(self.d[pid][did].x, self.d[pid][did].y);
-                    self.d[pid][did].t_x = self.z[zid as usize].x + 1;
-                    self.d[pid][did].t_y = self.z[zid as usize].y + 1;
+                    self.d[pid][did].t_x = self.z[zid as usize].c_x;
+                    self.d[pid][did].t_y = self.z[zid as usize].c_y;
                 }
             }
         } else {
@@ -145,7 +164,7 @@ impl Env {
         let mut min_dist: Dist = Dist::MAX;
         let mut min_id: Id = Id::MAX;
         for zid in 0..self.n_z as usize {
-            let dist = get_distance(x, y, self.z[zid].x, self.z[zid].y);
+            let dist = get_distance(x, y, self.z[zid].c_x, self.z[zid].c_y);
             if dist < min_dist {
                 min_dist = dist;
                 min_id = zid as Id;
@@ -273,21 +292,21 @@ impl Env {
         let queue: Vec<Vec<Id>> = self.create_queue(force);
         let mut changed = false;
 
-        for i in 0..queue.len() {
-            for zid in &queue[i] {
+        for (i, l) in queue.iter().enumerate() {
+            for zid in l {
                 let mut cost = i + 1;
                 while cost > 0 {
                     // doesn't involve finding best match between free_d and all zid from queue[cost - 1] for now
                     let did = self.get_nearest_did(
-                        self.z[*zid as usize].x + 1,
-                        self.z[*zid as usize].y + 1,
+                        self.z[*zid as usize].c_x,
+                        self.z[*zid as usize].c_y,
                         true,
                     );
                     if did == Id::MAX {
                         return changed;
                     }
-                    self.d[self.id][did as usize].t_x = self.z[*zid as usize].x + 1;
-                    self.d[self.id][did as usize].t_y = self.z[*zid as usize].y + 1;
+                    self.d[self.id][did as usize].t_x = self.z[*zid as usize].c_x;
+                    self.d[self.id][did as usize].t_y = self.z[*zid as usize].c_y;
                     self.free_d.retain(|&x| x != did);
                     if self.free_d.is_empty() {
                         return true;
@@ -317,6 +336,7 @@ fn main() {
         if stuck {
             eprintln!("stuck");
             e.update_free_d(true);
+            eprintln!("free_d: {:?}", e.free_d);
             e.update_target(true);
         }
 
