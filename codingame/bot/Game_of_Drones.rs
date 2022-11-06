@@ -133,6 +133,7 @@ impl Env {
         }
 
         if self.d[self.id].is_empty() {
+            let furthest = self.get_n_furthest_z_from_c((self.n_z as f64 / 2.0).ceil() as Id);
             for pid in 0..self.n_p as usize {
                 for did in 0..self.n_d as usize {
                     let mut input_line = String::new();
@@ -142,7 +143,11 @@ impl Env {
                         parse_input!(inputs[0], Coord),
                         parse_input!(inputs[1], Coord),
                     ));
-                    let zid = self.get_nearest_zid(self.d[pid][did].x, self.d[pid][did].y);
+                    let zid = self.get_nearest_zid_in_vec(
+                        self.d[pid][did].x,
+                        self.d[pid][did].y,
+                        &furthest,
+                    );
                     self.d[pid][did].t_x = self.z[zid as usize].c_x;
                     self.d[pid][did].t_y = self.z[zid as usize].c_y;
                 }
@@ -160,6 +165,19 @@ impl Env {
         }
     }
 
+    fn get_n_furthest_z_from_c(&self, n: Id) -> Vec<Id> {
+        let mut z: Vec<Id> = (0..self.n_z).collect();
+        z.sort_by(|a, b| {
+            let a = &self.z[*a as usize];
+            let b = &self.z[*b as usize];
+            let d1 = get_distance(a.x, a.y, WIDE / 2, HIGH / 2);
+            let d2 = get_distance(b.x, b.y, WIDE / 2, HIGH / 2);
+            d2.partial_cmp(&d1).unwrap()
+        });
+        z.truncate(n as usize);
+        z
+    }
+
     fn get_nearest_zid(&self, x: Coord, y: Coord) -> Id {
         let mut min_dist: Dist = Dist::MAX;
         let mut min_id: Id = Id::MAX;
@@ -168,6 +186,19 @@ impl Env {
             if dist < min_dist {
                 min_dist = dist;
                 min_id = zid as Id;
+            }
+        }
+        min_id
+    }
+
+    fn get_nearest_zid_in_vec(&self, x: Coord, y: Coord, v: &Vec<Id>) -> Id {
+        let mut min_dist: Dist = Dist::MAX;
+        let mut min_id: Id = Id::MAX;
+        for zid in v {
+            let dist = get_distance(x, y, self.z[*zid as usize].c_x, self.z[*zid as usize].c_y);
+            if dist < min_dist {
+                min_dist = dist;
+                min_id = *zid;
             }
         }
         min_id
@@ -235,12 +266,16 @@ impl Env {
                     }
                 }
             } else {
-                for d in &self.d[pid] {
-                    for z in &mut self.z {
+                for z in &mut self.z {
+                    let mut to_beat = 0;
+                    for d in &self.d[pid] {
                         if is_d_in_z(d, z) {
-                            z.to_beat += 1;
+                            to_beat += 1;
                             break;
                         }
+                    }
+                    if to_beat > z.to_beat {
+                        z.to_beat = to_beat;
                     }
                 }
             }
@@ -278,12 +313,12 @@ impl Env {
     }
 
     fn create_queue(&self, force: bool) -> Vec<Vec<Id>> {
-        let mut queue: Vec<Vec<Id>> = vec![vec![]; (self.n_d + 1) as usize];
+        let mut queue: Vec<Vec<Id>> = vec![vec![]; (self.n_d + 2) as usize];
 
         if !force {
             for zid in 0..self.n_z as usize {
                 if self.z[zid].owner != self.id as i8 && self.z[zid].cost() > 0 {
-                    queue[(self.z[zid].cost() - 1) as usize].push(zid as Id);
+                    queue[(self.z[zid].cost()) as usize].push(zid as Id);
                 }
             }
         } else {
@@ -311,7 +346,7 @@ impl Env {
 
         for (i, l) in queue.iter().enumerate() {
             for zid in l {
-                let mut cost = i + 1;
+                let mut cost = i + 2;
                 while cost > 0 {
                     // doesn't involve finding best match between free_d and all zid from queue[cost - 1] for now
                     let did = self.get_nearest_did(
