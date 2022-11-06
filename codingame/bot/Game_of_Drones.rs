@@ -44,18 +44,12 @@ impl Zone {
 struct Drone {
     x: Coord,
     y: Coord,
-    t_x: Coord,
-    t_y: Coord,
+    target: Id,
 }
 
 impl Drone {
     fn new(x: Coord, y: Coord) -> Drone {
-        Drone {
-            x,
-            y,
-            t_x: x,
-            t_y: y,
-        }
+        Drone { x, y, target: 0 }
     }
 }
 
@@ -142,9 +136,8 @@ impl Env {
                         parse_input!(inputs[0], Coord),
                         parse_input!(inputs[1], Coord),
                     ));
-                    let zid = self.get_nearest_zid(self.d[pid][did].x, self.d[pid][did].y);
-                    self.d[pid][did].t_x = self.z[zid as usize].c_x;
-                    self.d[pid][did].t_y = self.z[zid as usize].c_y;
+                    self.d[pid][did].target =
+                        self.get_nearest_zid(self.d[pid][did].x, self.d[pid][did].y);
                 }
             }
         } else {
@@ -209,7 +202,7 @@ impl Env {
     fn n_d_at_target(&self, n: Id) -> bool {
         let mut t: Id = 0;
         for d in &self.d[self.id] {
-            if d.x == d.t_x && d.y == d.t_y {
+            if d.x == self.z[d.target as usize].c_x && d.y == self.z[d.target as usize].c_y {
                 t += 1;
                 if t >= n {
                     return true;
@@ -279,6 +272,26 @@ impl Env {
                 }
             }
         }
+
+        // add drones on the way to a owned zone
+        // + add drones on the way to a zone z.d.len() > to_beat + 1 drones
+        for zid in 0..self.n_z {
+            if self.z[zid as usize].owner == self.id as i8 {
+                for did in 0..self.n_d {
+                    if !self.free_d.contains(&did)
+                        && self.d[self.id][did as usize].x != self.z[zid as usize].c_x
+                        && self.d[self.id][did as usize].y != self.z[zid as usize].c_y
+                    {
+                        if self.d[self.id][did as usize].target == zid
+                            || self.z[zid as usize].d.len()
+                                > self.z[zid as usize].to_beat as usize + 1
+                        {
+                            self.free_d.push(did);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn create_queue(&self, force: bool) -> Vec<Vec<Id>> {
@@ -326,8 +339,7 @@ impl Env {
                     if did == Id::MAX {
                         return changed;
                     }
-                    self.d[self.id][did as usize].t_x = self.z[*zid as usize].c_x;
-                    self.d[self.id][did as usize].t_y = self.z[*zid as usize].c_y;
+                    self.d[self.id][did as usize].target = *zid;
                     self.free_d.retain(|&x| x != did);
                     if self.free_d.is_empty() {
                         return true;
@@ -365,7 +377,10 @@ fn main() {
         // add to free_d all d that have for target a zone that is owned by me
 
         for d in &e.d[e.id] {
-            println!("{} {}", d.t_x, d.t_y);
+            println!(
+                "{} {}",
+                e.z[d.target as usize].c_x, e.z[d.target as usize].c_y
+            );
         }
     }
 }
