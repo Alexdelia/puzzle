@@ -250,13 +250,15 @@ impl Env {
 
         if !force {
             for zid in 0..self.n_z as usize {
-                if self.z[zid].cost() > 0 {
+                if self.z[zid].owner != self.id as i8 && self.z[zid].cost() > 0 {
                     queue[(self.z[zid].cost() - 1) as usize].push(zid as Id);
                 }
             }
         } else {
             for zid in 0..self.n_z as usize {
-                queue[self.z[zid].to_beat as usize].push(zid as Id);
+                if self.z[zid].owner != self.id as i8 {
+                    queue[self.z[zid].to_beat as usize].push(zid as Id);
+                }
             }
         }
 
@@ -271,20 +273,28 @@ impl Env {
         let queue: Vec<Vec<Id>> = self.create_queue(force);
         let mut changed = false;
 
-        for l in &queue {
-            for zid in l {
-                // doesn't involve finding best match between free_d and all zid from queue[cost - 1] for now
-                let did = self.get_nearest_did(
-                    self.z[*zid as usize].x + 1,
-                    self.z[*zid as usize].y + 1,
-                    true,
-                );
-                if did == Id::MAX {
-                    return changed;
+        for i in 0..queue.len() {
+            for zid in &queue[i] {
+                let mut cost = i + 1;
+                while cost > 0 {
+                    // doesn't involve finding best match between free_d and all zid from queue[cost - 1] for now
+                    let did = self.get_nearest_did(
+                        self.z[*zid as usize].x + 1,
+                        self.z[*zid as usize].y + 1,
+                        true,
+                    );
+                    if did == Id::MAX {
+                        return changed;
+                    }
+                    self.d[self.id][did as usize].t_x = self.z[*zid as usize].x + 1;
+                    self.d[self.id][did as usize].t_y = self.z[*zid as usize].y + 1;
+                    self.free_d.retain(|&x| x != did);
+                    if self.free_d.is_empty() {
+                        return true;
+                    }
+                    changed = true;
+                    cost -= 1;
                 }
-                self.d[self.id][did as usize].t_x = self.z[*zid as usize].x + 1;
-                self.d[self.id][did as usize].t_y = self.z[*zid as usize].y + 1;
-                changed = true;
             }
         }
 
@@ -300,10 +310,12 @@ fn main() {
 
         e.update_d_in_z();
         e.update_free_d(false);
-        let stuck = e.update_target(false);
+        eprintln!("free_d: {:?}", e.free_d);
+        let stuck = !e.update_target(false);
         // if all none of the target change, then need to relaunch with free_d being all drones in not owned zones
         // or already add d in not owned zones to free_d
         if stuck {
+            eprintln!("stuck");
             e.update_free_d(true);
             e.update_target(true);
         }
