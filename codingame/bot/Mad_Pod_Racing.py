@@ -30,6 +30,7 @@ class Pod:
         self.next_check: Tuple[int, int] = (next_x, next_y)
         self.dist: float = distance(x, y, next_x, next_y)
         self.angle: int = angle
+        self.r_angle: float = math.atan2(next_y - y, next_x - x) * 180 / math.pi
         self.speed: float = distance(self.prev[0], self.prev[1], self.c[0], self.c[1])
         self.drift: float = -H_DRIFT * self.speed
     
@@ -40,13 +41,14 @@ class Pod:
         self.next_check = (next_x, next_y)
         self.dist = distance(x, y, next_x, next_y)
         self.angle = angle
+        self.r_angle: float = math.atan2(next_y - y, next_x - x) * 180 / math.pi
         self.speed = distance(self.prev[0], self.prev[1], self.c[0], self.c[1])
         self.drift = -H_DRIFT * self.speed
     
     def get_thrust(self, opponent: List[Tuple[int, int]]) -> Union[int, str]:
-        if self.angle > 90 or self.angle < -90:
-            return 0
-        elif abs(self.angle) < 3 and self.dist > 8000:
+        # if self.r_angle > 90 or self.r_angle < -90:
+        #     return 0
+        if abs(self.r_angle) < 3 and self.dist > 8000:
             for o in opponent:
                 if distance(self.c[0], self.c[1], o[0], o[1]) > 2121:
                     return "BOOST"
@@ -55,14 +57,15 @@ class Pod:
         # x          | 0   | B   | (B+T)/2 | T  | inf  (abs)
         # self.angle | 0   | 45  | 67.5    | 90 | 180  (abs)
         # s_angle    | 0.5 | 0.5 | 0.75    | 1  | 1
-        if abs(self.angle) > B_ANGLE:
-            s_angle = B_ANGLE_SPEED
-        elif abs(self.angle) < T_ANGLE:
-            s_angle = T_ANGLE_SPEED
-        else:
-            s_angle = B_ANGLE_SPEED + \
-                (T_ANGLE_SPEED - B_ANGLE_SPEED) * \
-                (abs(self.angle) - B_ANGLE) / (T_ANGLE - B_ANGLE)
+        # if abs(self.r_angle) > B_ANGLE:
+        #     s_angle = B_ANGLE_SPEED
+        # elif abs(self.r_angle) < T_ANGLE:
+        #     s_angle = T_ANGLE_SPEED
+        # else:
+        #     s_angle = B_ANGLE_SPEED + \
+        #         (T_ANGLE_SPEED - B_ANGLE_SPEED) * \
+        #         (abs(self.r_angle) - B_ANGLE) / (T_ANGLE - B_ANGLE)
+        s_angle = 1
         print(f"s_angle: {s_angle}", file=sys.stderr)
 
         # Distance
@@ -99,6 +102,7 @@ class Pod:
         ret += f" V: {self.s}\n"
         ret += f" D: {self.dist}\n"
         ret += f" A: {self.angle}\n"
+        ret += f" RA: {self.r_angle}\n"
         ret += f" Spd: {self.speed}\n"
         ret += f" Dft: {self.drift}"
         return ret
@@ -131,17 +135,17 @@ class Env:
             else:
                 self.opponent[i].update(x, y, vx, vy, angle, *self.check[i_check])
 
-    def __str__(self) -> str:
-        ret = f"n_laps: {self.n_laps}\n"
-        ret += f"n_check: {self.n_check}\n"
-        ret += f"check: {self.check}\n"
-        ret += "Bot:\n"
-        for b in self.bot:
-            ret += str(b) + "\n"
-        ret += "Opponent:\n"
-        for o in self.opponent:
-            ret += str(o) + "\n"
-        return ret
+    def debug(self, e: bool = False, b: bool = True, o: bool = False):
+        if e:
+            print(f"n_laps: {self.n_laps}", file=sys.stderr)
+            print(f"n_check: {self.n_check}", file=sys.stderr)
+            print(f"check: {self.check}", file=sys.stderr)
+        if b:
+            for i, p in enumerate(self.bot):
+                print(f"Bot {i}:\n{p}", file=sys.stderr)
+        if o:
+            for i, p in enumerate(self.opponent):
+                print(f"Opponent {i}:\n{p}", file=sys.stderr)
 
 e = Env()
 e.init_info()
@@ -149,7 +153,7 @@ e.init_info()
 # game loop
 while True:
     e.get_info(2)
-    print(e, file=sys.stderr)
+    e.debug(e=True, b=True, o=True)
 
     c_op = [o.c for o in e.opponent]
     for i, b in enumerate(e.bot):
