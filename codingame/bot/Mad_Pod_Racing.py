@@ -39,11 +39,14 @@ class Pod:
         self.speed: float = distance(
             self.prev[0], self.prev[1], self.c[0], self.c[1])
         self.drift: float = -H_DRIFT * self.speed
+        self.n_check: int = 0
 
     def update(self, x: int, y: int, vx: int, vy: int, angle: int, next_x: int, next_y: int):
         self.prev = self.c
         self.c = (x, y)
         self.s = (vx, vy)
+        if self.next_check[0] != next_x and self.next_check[1] != next_y:
+            self.n_check += 1
         self.next_check = (next_x, next_y)
         self.dist = distance(x, y, next_x, next_y)
         self.angle = angle
@@ -75,10 +78,10 @@ class Pod:
     def calc_xy_next_turn(self) -> Tuple[int, int]:
         return self.c[0] + self.s[0], self.c[1] + self.s[1]
 
-    def should_boost(self, opponent: List[Tuple[int, int]]) -> bool:
+    def should_boost(self, opponent: List[Any]) -> bool:
         if abs(self.r_angle) < 3 and self.dist > 8000:
             for o in opponent:
-                if distance(self.c[0], self.c[1], o[0], o[1]) > 2121:
+                if distance(self.c[0], self.c[1], o.c[0], o.c[1]) > 2121:
                     return True
         return False
 
@@ -130,7 +133,8 @@ class Pod:
 
         if self.should_boost(opponent):
             return "BOOST"
-        
+
+        # SHIELD is making it worse so far
         if self.should_shield(opponent):
             return "SHIELD"
 
