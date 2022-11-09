@@ -100,14 +100,14 @@ class Pod:
         # x          | 0   | B   | (B+T)/2 | T  | inf  (abs)
         # self.angle | 0   | 45  | 67.5    | 90 | 180  (abs)
         # s_angle    | 0.5 | 0.5 | 0.75    | 1  | 1
-        if abs(self.r_angle) > B_ANGLE:
-            s_angle = B_ANGLE_SPEED
-        elif abs(self.r_angle) < T_ANGLE:
-            s_angle = T_ANGLE_SPEED
-        else:
-            s_angle = B_ANGLE_SPEED + \
-                (T_ANGLE_SPEED - B_ANGLE_SPEED) * \
-                (abs(self.r_angle) - B_ANGLE) / (T_ANGLE - B_ANGLE)
+        # if abs(self.r_angle) > B_ANGLE:
+        #     s_angle = B_ANGLE_SPEED
+        # elif abs(self.r_angle) < T_ANGLE:
+        #     s_angle = T_ANGLE_SPEED
+        # else:
+        #     s_angle = B_ANGLE_SPEED + \
+        #         (T_ANGLE_SPEED - B_ANGLE_SPEED) * \
+        #         (abs(self.r_angle) - B_ANGLE) / (T_ANGLE - B_ANGLE)
         s_angle = 1
         print(f"s_angle: {s_angle}", file=sys.stderr)
 
