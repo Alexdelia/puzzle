@@ -1,6 +1,6 @@
 import math
 import sys
-from typing import List, Tuple, Union, Any
+from typing import Any, List, Tuple, Union
 
 # Auto-generated code below aims at helping you parse
 # the standard input according to the problem statement.
@@ -21,8 +21,10 @@ TILT = 1000
 
 H_DRIFT = 3
 
+
 def distance(x1: int, y1: int, x2: int, y2: int) -> float:
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
 
 class Pod:
     def __init__(self, x: int, y: int, vx: int, vy: int, angle: int, next_x: int, next_y: int):
@@ -34,9 +36,10 @@ class Pod:
         self.angle: int = angle
         self.n_angle: float = self.calc_n_angle(x, y, next_x, next_y)
         self.r_angle: float = self.calc_r_angle(angle, self.n_angle)
-        self.speed: float = distance(self.prev[0], self.prev[1], self.c[0], self.c[1])
+        self.speed: float = distance(
+            self.prev[0], self.prev[1], self.c[0], self.c[1])
         self.drift: float = -H_DRIFT * self.speed
-    
+
     def update(self, x: int, y: int, vx: int, vy: int, angle: int, next_x: int, next_y: int):
         self.prev = self.c
         self.c = (x, y)
@@ -48,7 +51,7 @@ class Pod:
         self.r_angle = self.calc_r_angle(angle, self.n_angle)
         self.speed = distance(self.prev[0], self.prev[1], self.c[0], self.c[1])
         self.drift = -H_DRIFT * self.speed
-    
+
     def calc_n_angle(self, x1: int, y1: int, x2: int, y2: int) -> float:
         # calculate the angle between the pod and the next checkpoint
         # 0 is east and the angle increases clockwise
@@ -57,7 +60,7 @@ class Pod:
         if a < 0:
             return a + 360
         return a
-    
+
     def calc_r_angle(self, angle: int, n_angle: float) -> float:
         # calculate the relative angle between the pod and the next checkpoint
         # 0 is east and the angle increases clockwise
@@ -69,19 +72,26 @@ class Pod:
             return r_angle + 360
         return r_angle
 
+    def calc_xy_next_turn(self) -> Tuple[int, int]:
+        return self.c[0] + self.s[0], self.c[1] + self.s[1]
+
     def should_boost(self, opponent: List[Tuple[int, int]]) -> bool:
         if abs(self.r_angle) < 3 and self.dist > 8000:
             for o in opponent:
                 if distance(self.c[0], self.c[1], o[0], o[1]) > 2121:
                     return True
         return False
-    
+
     def should_shield(self, opponent: List[Any]) -> bool:
         # if Pod touch an opponent Pod next turn and the collision get the Pod further away from the next checkpoint, then shield
-        if abs(self.r_angle) > 90:
-            return False
         for o in opponent:
-    
+            x, y = self.calc_xy_next_turn()
+            ox, oy = o.calc_xy_next_turn()
+            if distance(x, y, ox, oy) < 2 * POD_RADIUS \
+                    and distance(x, y, self.next_check[0], self.next_check[1]) > distance(ox, oy, self.next_check[0], self.next_check[1]):
+                return True
+        return False
+
     def calc_thrust_factor(self) -> float:
         # Angle
         # x          | 0   | B   | (B+T)/2 | T  | inf  (abs)
@@ -114,12 +124,15 @@ class Pod:
 
         return (s_angle + s_dist) / 2
 
-    def get_thrust(self, opponent: List[Tuple[int, int]]) -> Union[int, str]:
-        if abs(self.r_angle) > 90: 
+    def get_thrust(self, opponent: List[Any]) -> Union[int, str]:
+        if abs(self.r_angle) > 90:
             return 0
-        
+
         if self.should_boost(opponent):
             return "BOOST"
+        
+        if self.should_shield(opponent):
+            return "SHIELD"
 
         return int(100 * self.calc_thrust_factor())
 
@@ -171,9 +184,11 @@ class Env:
         for i in range(n_pod):
             x, y, vx, vy, angle, i_check = [int(i) for i in input().split()]
             if len(self.opponent) < n_pod:
-                self.opponent.append(Pod(x, y, vx, vy, angle, *self.check[i_check]))
+                self.opponent.append(
+                    Pod(x, y, vx, vy, angle, *self.check[i_check]))
             else:
-                self.opponent[i].update(x, y, vx, vy, angle, *self.check[i_check])
+                self.opponent[i].update(
+                    x, y, vx, vy, angle, *self.check[i_check])
 
     def debug(self, e: bool = False, b: bool = True, o: bool = False):
         if e:
@@ -187,16 +202,16 @@ class Env:
             for i, p in enumerate(self.opponent):
                 print(f"Opponent {i}:\n{p}", file=sys.stderr)
 
+
 e = Env()
 e.init_info()
 
 # game loop
 while True:
     e.get_info(2)
-    e.debug(e=True, b=True, o=True)
+    # e.debug(e=True, b=True, o=True)
 
-    c_op = [o.c for o in e.opponent]
     for i, b in enumerate(e.bot):
         x, y = b.get_targeted_xy()
-        thrust = b.get_thrust(c_op)
+        thrust = b.get_thrust(e.opponent)
         print(f"{x} {y} {thrust} {thrust}")
