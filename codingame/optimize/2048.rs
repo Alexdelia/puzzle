@@ -60,7 +60,7 @@ impl Board {
     }
 
     fn spawn_tile(&mut self, seed: Seed) -> Seed {
-        let empty: Vec<(usize, usize)> = Vec::new();
+        let mut empty: Vec<(usize, usize)> = Vec::new();
         for x in 0..SIZE {
             for y in 0..SIZE {
                 if self.board[x][y] == 0 {
@@ -355,15 +355,17 @@ fn get_info() -> (Board, Seed) {
 
 fn solve(b: &Board, seed: Seed, time: Duration) -> Vec<Move> {
     let mut games: Vec<Board> = vec![b.clone(); GAME];
-    // sm = ms since UNIX_EPOCH
+    let mut am: Vec<Move> = Vec::with_capacity(4);
+    let mut over = false;
     let mut sm = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis();
-    let mut am: Vec<Move> = Vec::with_capacity(4);
     let start = Instant::now();
 
-    while start.elapsed() < time - Duration::from_millis(90) {
+    while !over && start.elapsed() < time - Duration::from_millis(90) {
+        over = true;
+
         for i in games.iter_mut() {
             if i.over {
                 continue;
@@ -379,12 +381,15 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> Vec<Move> {
             sm = (R_A * sm + R_C) % R_M;
 
             i.spawn_tile(seed);
+
+            over = false;
         }
     }
 
+    eprintln!("remaining time break: {:?}", time - start.elapsed());
     // return game with highest score
     let m = games.into_iter().max_by_key(|x| x.score).unwrap().moves;
-    eprintln!("remaining time: {:?}", time - start.elapsed());
+    eprintln!("remaining time exit: {:?}", time - start.elapsed());
     m
 }
 
