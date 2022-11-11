@@ -1,6 +1,20 @@
-use std::io;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::{fmt, io};
 
 const SIZE: usize = 4;
+const GAME: usize = 100;
+
+const INIT_TIME: Duration = Duration::from_secs(1);
+const MOVE_TIME: Duration = Duration::from_millis(50);
+
+// linear congruential generator
+const R_A: u128 = 1664525;
+const R_C: u128 = 1013904223;
+const R_M: u128 = 1 << 32;
+
+type Seed = u64;
+type Cell = u32;
+type Score = u32;
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => {
@@ -8,6 +22,7 @@ macro_rules! parse_input {
     };
 }
 
+#[derive(Clone, Copy)]
 enum Move {
     Up = 0,
     Down = 1,
@@ -15,9 +30,21 @@ enum Move {
     Right = 3,
 }
 
+impl fmt::Display for Move {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Move::Up => write!(f, "U"),
+            Move::Down => write!(f, "D"),
+            Move::Left => write!(f, "L"),
+            Move::Right => write!(f, "R"),
+        }
+    }
+}
+
+#[derive(Clone)]
 struct Board {
-    board: [[u32; SIZE]; SIZE],
-    score: u32,
+    board: [[Cell; SIZE]; SIZE],
+    score: Score,
     over: bool,
     moves: Vec<Move>,
 }
@@ -32,37 +59,36 @@ impl Board {
         }
     }
 
-    fn allowed_moves(&self, moves: &mut [bool; 4]) -> bool {
-        let mut any = false;
-        moves[Move::Up as usize] = match self.allowed_up() {
-            true => {
-                any = true;
-                true
+    fn spawn_tile(&mut self, seed: Seed) -> Seed {
+        let empty: Vec<(usize, usize)> = Vec::new();
+        for x in 0..SIZE {
+            for y in 0..SIZE {
+                if self.board[x][y] == 0 {
+                    empty.push((x, y));
+                }
             }
-            false => false,
-        };
-        moves[Move::Down as usize] = match self.allowed_down() {
-            true => {
-                any = true;
-                true
-            }
-            false => false,
-        };
-        moves[Move::Left as usize] = match self.allowed_left() {
-            true => {
-                any = true;
-                true
-            }
-            false => false,
-        };
-        moves[Move::Right as usize] = match self.allowed_right() {
-            true => {
-                any = true;
-                true
-            }
-            false => false,
-        };
-        any
+        }
+
+        let (x, y) = empty[(seed as usize % empty.len())];
+        self.board[x][y] = if (seed & 0x10) == 0 { 4 } else { 2 };
+
+        seed * seed % 50515093
+    }
+
+    fn allowed_moves(&self, moves: &mut Vec<Move>) {
+        moves.clear();
+        if self.allowed_up() {
+            moves.push(Move::Up);
+        }
+        if self.allowed_down() {
+            moves.push(Move::Down);
+        }
+        if self.allowed_left() {
+            moves.push(Move::Left);
+        }
+        if self.allowed_right() {
+            moves.push(Move::Right);
+        }
     }
 
     fn allowed_up(&self) -> bool {
@@ -304,23 +330,78 @@ impl Board {
     }
 }
 
+fn get_info() -> (Board, Seed) {
+    let mut input_line = String::new();
+    io::stdin().read_line(&mut input_line).unwrap();
+    let seed = parse_input!(input_line, Seed); // needed to predict the next spawns
+
+    let mut b = Board::new();
+
+    let mut input_line = String::new();
+    io::stdin().read_line(&mut input_line).unwrap();
+    b.score = parse_input!(input_line, Score);
+
+    for x in 0..SIZE {
+        let mut inputs = String::new();
+        io::stdin().read_line(&mut inputs).unwrap();
+
+        for (y, cell) in inputs.split_whitespace().enumerate() {
+            b.board[x][y] = parse_input!(cell, Cell);
+        }
+    }
+
+    (b, seed)
+}
+
+fn solve(b: &Board, seed: Seed, time: Duration) -> Vec<Move> {
+    let mut games: Vec<Board> = vec![b.clone(); GAME];
+    // sm = ms since UNIX_EPOCH
+    let mut sm = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let mut am: Vec<Move> = Vec::with_capacity(4);
+    let start = Instant::now();
+
+    while start.elapsed() < time - Duration::from_millis(90) {
+        for i in games.iter_mut() {
+            if i.over {
+                continue;
+            }
+
+            i.allowed_moves(&mut am);
+            if am.is_empty() {
+                i.over = true;
+                continue;
+            }
+
+            i.play(am[sm as usize % am.len()]);
+            sm = (R_A * sm + R_C) % R_M;
+
+            i.spawn_tile(seed);
+        }
+    }
+
+    // return game with highest score
+    let m = games.into_iter().max_by_key(|x| x.score).unwrap().moves;
+    eprintln!("remaining time: {:?}", time - start.elapsed());
+    m
+}
+
 fn main() {
+    let (b, seed) = get_info();
+    solve(&b, seed, INIT_TIME);
+    // print all moves in one print statement
+    // Move::Up = 'U', Move::Down = 'D', Move::Left = 'L', Move::Right = 'R'
+    println!(
+        "{}",
+        b.moves.iter().map(|x| x.to_string()).collect::<String>()
+    );
+
     // game loop
     loop {
-        let mut input_line = String::new();
-        io::stdin().read_line(&mut input_line).unwrap();
-        let seed = parse_input!(input_line, i32); // needed to predict the next spawns
-        let mut input_line = String::new();
-        io::stdin().read_line(&mut input_line).unwrap();
-        let score = parse_input!(input_line, i32);
-        for i in 0..4 as usize {
-            let mut inputs = String::new();
-            io::stdin().read_line(&mut inputs).unwrap();
-            for j in inputs.split_whitespace() {
-                let cell = parse_input!(j, i32);
-            }
-        }
-
-        println!("U");
+        let (b, seed) = get_info();
+        let m = solve(&b, seed, MOVE_TIME);
+        println!("{}", m.iter().map(|x| x.to_string()).collect::<String>());
     }
 }
