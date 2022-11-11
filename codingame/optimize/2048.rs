@@ -447,18 +447,22 @@ mod tests {
         assert_eq!(b.score, 0);
         eprintln!("{:?}", b);
 
+        eprintln!("Up");
         b.play(Move::Up);
         seed = b.spawn_tile(seed);
         eprintln!("{:?}", b);
 
-        b.play(Move::Left);
-        seed = b.spawn_tile(seed);
-        eprintln!("{:?}", b);
-
+        eprintln!("Down");
         b.play(Move::Down);
         seed = b.spawn_tile(seed);
         eprintln!("{:?}", b);
 
+        eprintln!("Left");
+        b.play(Move::Left);
+        seed = b.spawn_tile(seed);
+        eprintln!("{:?}", b);
+
+        eprintln!("Right");
         b.play(Move::Right);
         seed = b.spawn_tile(seed);
         eprintln!("{:?}", b);
