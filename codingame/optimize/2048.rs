@@ -12,7 +12,7 @@ const R_A: u128 = 1664525;
 const R_C: u128 = 1013904223;
 const R_M: u128 = 1 << 32;
 
-type Seed = u64;
+type Seed = u128;
 type Cell = u32;
 type Score = u32;
 
@@ -47,6 +47,20 @@ struct Board {
     score: Score,
     over: bool,
     moves: Vec<Move>,
+}
+
+impl fmt::Debug for Board {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "score: {}\n", self.score)?;
+        write!(f, "over: {}\n", self.over)?;
+        for x in 0..SIZE {
+            for y in 0..SIZE {
+                write!(f, "{} ", self.board[x][y])?;
+            }
+            write!(f, "\n")?;
+        }
+        Ok(())
+    }
 }
 
 impl Board {
@@ -353,18 +367,20 @@ fn get_info() -> (Board, Seed) {
     (b, seed)
 }
 
-fn solve(b: &Board, seed: Seed, time: Duration) -> Vec<Move> {
+fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
+    let mut cur_seed = 0;
+    let mut new_seed = seed;
     let mut games: Vec<Board> = vec![b.clone(); GAME];
     let mut am: Vec<Move> = Vec::with_capacity(4);
-    let mut over = false;
     let mut sm = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis();
     let start = Instant::now();
 
-    while !over && start.elapsed() < time - Duration::from_millis(90) {
-        over = true;
+    while cur_seed != new_seed && start.elapsed() < time - Duration::from_millis(10) {
+        cur_seed = new_seed;
+        eprintln!("cur_seed: {}", new_seed);
 
         for i in games.iter_mut() {
             if i.over {
@@ -380,33 +396,73 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> Vec<Move> {
             i.play(am[sm as usize % am.len()]);
             sm = (R_A * sm + R_C) % R_M;
 
-            i.spawn_tile(seed);
-
-            over = false;
+            new_seed = i.spawn_tile(cur_seed);
         }
     }
 
-    eprintln!("remaining time break: {:?}", time - start.elapsed());
+    eprintln!("remaining time break: {:?}", start.elapsed());
     // return game with highest score
     let m = games.into_iter().max_by_key(|x| x.score).unwrap().moves;
-    eprintln!("remaining time exit: {:?}", time - start.elapsed());
-    m
+    eprintln!("remaining time exit: {:?}", start.elapsed());
+    (m, new_seed)
 }
 
 fn main() {
-    let (b, seed) = get_info();
-    solve(&b, seed, INIT_TIME);
+    let mut seed: Seed;
+    let mut b: Board;
+    let mut m: Vec<Move>;
+
+    (b, seed) = get_info();
+    (m, seed) = solve(&b, seed, INIT_TIME);
     // print all moves in one print statement
     // Move::Up = 'U', Move::Down = 'D', Move::Left = 'L', Move::Right = 'R'
-    println!(
-        "{}",
-        b.moves.iter().map(|x| x.to_string()).collect::<String>()
-    );
+    println!("{}", m.iter().map(|x| x.to_string()).collect::<String>());
 
     // game loop
     loop {
-        let (b, seed) = get_info();
-        let m = solve(&b, seed, MOVE_TIME);
+        eprintln!("seed b: {}", seed);
+        (b, seed) = get_info();
+        eprintln!("seed a: {}", seed);
+        (m, seed) = solve(&b, seed, MOVE_TIME);
         println!("{}", m.iter().map(|x| x.to_string()).collect::<String>());
+    }
+}
+
+// unit tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_board() {
+        let mut b = Board::new();
+        let mut seed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as Seed;
+
+        seed = b.spawn_tile(seed);
+        seed = b.spawn_tile(seed);
+
+        assert_eq!(b.score, 0);
+        eprintln!("{:?}", b);
+
+        b.play(Move::Up);
+        seed = b.spawn_tile(seed);
+        eprintln!("{:?}", b);
+
+        b.play(Move::Left);
+        seed = b.spawn_tile(seed);
+        eprintln!("{:?}", b);
+
+        b.play(Move::Down);
+        seed = b.spawn_tile(seed);
+        eprintln!("{:?}", b);
+
+        b.play(Move::Right);
+        seed = b.spawn_tile(seed);
+        eprintln!("{:?}", b);
+
+        eprintln!("seed: {}", seed);
     }
 }
