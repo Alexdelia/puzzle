@@ -52,14 +52,14 @@ struct Board {
 
 impl fmt::Debug for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "score: {}\n", self.score)?;
-        write!(f, "empty: {}\n", self.empty.len())?;
-        write!(f, "over: {}\n", self.over)?;
+        writeln!(f, "score: {}", self.score)?;
+        writeln!(f, "empty: {}", self.empty.len())?;
+        writeln!(f, "over: {}", self.over)?;
         for x in 0..SIZE {
             for y in 0..SIZE {
                 write!(f, "{} ", self.board[x][y])?;
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         Ok(())
     }
@@ -83,19 +83,30 @@ impl Board {
         seed * seed % 50515093
     }
 
-    fn allowed_moves(&self, m: &mut Vec<Move>) {
-        m.clear();
+    fn is_over(&self) -> bool {
+        !self.empty.is_empty() && !self.can_fuse_row() && !self.can_fuse_col()
+    }
 
-        if self.empty.is_empty() {
-            // check fuse row/col
-        } else if self.empty.len() > SIZE * (SIZE - 1) {
-            m.push(Move::Up);
-            m.push(Move::Down);
-            m.push(Move::Left);
-            m.push(Move::Right);
-        } else {
-            // check move row/col, if move not possible, try the not possible direction to fuse
+    fn can_fuse_row(&self) -> bool {
+        for x in 0..SIZE {
+            for y in 0..SIZE - 1 {
+                if self.board[x][y] == self.board[x][y + 1] {
+                    return true;
+                }
+            }
         }
+        false
+    }
+
+    fn can_fuse_col(&self) -> bool {
+        for x in 0..SIZE - 1 {
+            for y in 0..SIZE {
+                if self.board[x][y] == self.board[x + 1][y] {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     fn update_empty(&mut self) {
@@ -193,7 +204,7 @@ impl Board {
 
         for col in 0..SIZE {
             let mut i = SIZE - 1;
-            while i + 1 > 0 && self.board[i][col] != 0 {
+            while i >= 0 && self.board[i][col] != 0 {
                 i -= 1;
             }
 
@@ -359,7 +370,7 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
     let mut cur_seed = 0;
     let mut new_seed = seed;
     let mut games: Vec<Board> = vec![b.clone(); GAME];
-    let mut am: Vec<Move> = Vec::with_capacity(4);
+    let mut am: Vec<Move>;
     let mut sm = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -373,16 +384,18 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
         for i in games.iter_mut() {
             if i.over {
                 continue;
-            }
-
-            i.allowed_moves(&mut am);
-            if am.is_empty() {
+            } else if i.is_over() {
                 i.over = true;
                 continue;
             }
 
-            i.play(am[sm as usize % am.len()]);
-            sm = (R_A * sm + R_C) % R_M;
+            am = vec![Move::Up, Move::Down, Move::Left, Move::Right];
+            while !i.play(am.remove(sm as usize % am.len())) {
+                sm = (R_A * sm + R_C) % R_M;
+                if am.is_empty() {
+                    panic!("Board.is_over() has been checked but no move change the board");
+                }
+            }
 
             new_seed = i.spawn_tile(cur_seed);
         }
