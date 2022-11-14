@@ -83,6 +83,21 @@ impl Board {
         seed * seed % 50515093
     }
 
+    fn allowed_moves(&self, m: &mut Vec<Move>) {
+        m.clear();
+
+        if self.empty.is_empty() {
+            // check fuse row/col
+        } else if self.empty.len() > SIZE * (SIZE - 1) {
+            m.push(Move::Up);
+            m.push(Move::Down);
+            m.push(Move::Left);
+            m.push(Move::Right);
+        } else {
+            // check move row/col, if move not possible, try the not possible direction to fuse
+        }
+    }
+
     fn update_empty(&mut self) {
         self.empty.clear();
 
@@ -93,74 +108,6 @@ impl Board {
                 }
             }
         }
-    }
-
-    fn allowed_moves(&self, moves: &mut Vec<Move>) {
-        moves.clear();
-        if self.allowed_up() {
-            moves.push(Move::Up);
-        }
-        if self.allowed_down() {
-            moves.push(Move::Down);
-        }
-        if self.allowed_left() {
-            moves.push(Move::Left);
-        }
-        if self.allowed_right() {
-            moves.push(Move::Right);
-        }
-    }
-
-    fn allowed_up(&self) -> bool {
-        for x in 1..SIZE {
-            for y in 0..SIZE {
-                if self.board[x][y] != 0
-                    && (self.board[x - 1][y] == 0 || self.board[x - 1][y] == self.board[x][y])
-                {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    fn allowed_down(&self) -> bool {
-        for x in 0..SIZE - 1 {
-            for y in 0..SIZE {
-                if self.board[x][y] != 0
-                    && (self.board[x + 1][y] == 0 || self.board[x + 1][y] == self.board[x][y])
-                {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    fn allowed_left(&self) -> bool {
-        for x in 0..SIZE {
-            for y in 1..SIZE {
-                if self.board[x][y] != 0
-                    && (self.board[x][y - 1] == 0 || self.board[x][y - 1] == self.board[x][y])
-                {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    fn allowed_right(&self) -> bool {
-        for x in 0..SIZE {
-            for y in 0..SIZE - 1 {
-                if self.board[x][y] != 0
-                    && (self.board[x][y + 1] == 0 || self.board[x][y + 1] == self.board[x][y])
-                {
-                    return true;
-                }
-            }
-        }
-        false
     }
 
     fn play(&mut self, m: Move) -> bool {
@@ -246,7 +193,7 @@ impl Board {
 
         for col in 0..SIZE {
             let mut i = SIZE - 1;
-            while i >= 0 && self.board[i][col] != 0 {
+            while i + 1 > 0 && self.board[i][col] != 0 {
                 i -= 1;
             }
 
@@ -265,6 +212,54 @@ impl Board {
         change
     }
 
+    fn move_left(&mut self) -> bool {
+        let mut change = false;
+
+        for row in 0..SIZE {
+            let mut i = 0;
+            while i < SIZE && self.board[row][i] != 0 {
+                i += 1;
+            }
+
+            let mut col = 1;
+            while i < SIZE && col < SIZE {
+                if self.board[row][col] != 0 && i < col {
+                    self.board[row][i] = self.board[row][col];
+                    self.board[row][col] = 0;
+                    i += 1;
+                    change = true;
+                }
+                col += 1;
+            }
+        }
+
+        change
+    }
+
+    fn move_right(&mut self) -> bool {
+        let mut change = false;
+
+        for row in 0..SIZE {
+            let mut i = SIZE - 1;
+            while i >= 0 && self.board[row][i] != 0 {
+                i -= 1;
+            }
+
+            let mut col = SIZE - 2;
+            while i >= 0 && col >= 0 {
+                if self.board[row][col] != 0 && i > col {
+                    self.board[row][i] = self.board[row][col];
+                    self.board[row][col] = 0;
+                    i -= 1;
+                    change = true;
+                }
+                col -= 1;
+            }
+        }
+
+        change
+    }
+
     fn merge_up(&mut self) -> bool {
         let mut change = false;
 
@@ -273,6 +268,57 @@ impl Board {
                 if self.board[row][col] != 0 && self.board[row][col] == self.board[row + 1][col] {
                     self.board[row][col] *= 2;
                     self.board[row + 1][col] = 0;
+                    self.score += self.board[row][col];
+                    change = true;
+                }
+            }
+        }
+
+        change
+    }
+
+    fn merge_down(&mut self) -> bool {
+        let mut change = false;
+
+        for col in 0..SIZE {
+            for row in (1..SIZE).rev() {
+                if self.board[row][col] != 0 && self.board[row][col] == self.board[row - 1][col] {
+                    self.board[row][col] *= 2;
+                    self.board[row - 1][col] = 0;
+                    self.score += self.board[row][col];
+                    change = true;
+                }
+            }
+        }
+
+        change
+    }
+
+    fn merge_left(&mut self) -> bool {
+        let mut change = false;
+
+        for row in 0..SIZE {
+            for col in 0..SIZE - 1 {
+                if self.board[row][col] != 0 && self.board[row][col] == self.board[row][col + 1] {
+                    self.board[row][col] *= 2;
+                    self.board[row][col + 1] = 0;
+                    self.score += self.board[row][col];
+                    change = true;
+                }
+            }
+        }
+
+        change
+    }
+
+    fn merge_right(&mut self) -> bool {
+        let mut change = false;
+
+        for row in 0..SIZE {
+            for col in (1..SIZE).rev() {
+                if self.board[row][col] != 0 && self.board[row][col] == self.board[row][col - 1] {
+                    self.board[row][col] *= 2;
+                    self.board[row][col - 1] = 0;
                     self.score += self.board[row][col];
                     change = true;
                 }
@@ -301,7 +347,7 @@ fn get_info() -> (Board, Seed) {
         for (y, cell) in inputs.split_whitespace().enumerate() {
             b.board[x][y] = parse_input!(cell, Cell);
             if b.board[x][y] == 0 {
-                b.empty_cells.push((x, y));
+                b.empty.push((x, y));
             }
         }
     }
