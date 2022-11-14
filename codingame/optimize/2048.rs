@@ -203,16 +203,16 @@ impl Board {
         let mut change = false;
 
         for col in 0..SIZE {
-            let mut i = SIZE - 1;
-            while i >= 0 && self.board[i][col] != 0 {
+            let mut i: isize = SIZE as isize - 1;
+            while i >= 0 && self.board[i as usize][col] != 0 {
                 i -= 1;
             }
 
-            let mut row = SIZE - 2;
+            let mut row: isize = SIZE as isize - 2;
             while i >= 0 && row >= 0 {
-                if self.board[row][col] != 0 && i > row {
-                    self.board[i][col] = self.board[row][col];
-                    self.board[row][col] = 0;
+                if self.board[row as usize][col] != 0 && i > row {
+                    self.board[i as usize][col] = self.board[row as usize][col];
+                    self.board[row as usize][col] = 0;
                     i -= 1;
                     change = true;
                 }
@@ -251,16 +251,16 @@ impl Board {
         let mut change = false;
 
         for row in 0..SIZE {
-            let mut i = SIZE - 1;
-            while i >= 0 && self.board[row][i] != 0 {
+            let mut i: isize = SIZE as isize - 1;
+            while i >= 0 && self.board[row][i as usize] != 0 {
                 i -= 1;
             }
 
-            let mut col = SIZE - 2;
+            let mut col: isize = SIZE as isize - 2;
             while i >= 0 && col >= 0 {
-                if self.board[row][col] != 0 && i > col {
-                    self.board[row][i] = self.board[row][col];
-                    self.board[row][col] = 0;
+                if self.board[row][col as usize] != 0 && i > col {
+                    self.board[row][i as usize] = self.board[row][col as usize];
+                    self.board[row][col as usize] = 0;
                     i -= 1;
                     change = true;
                 }
@@ -437,6 +437,7 @@ mod tests {
     #[test]
     fn test_board() {
         let mut b = Board::new();
+        b.update_empty();
         let mut seed = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
