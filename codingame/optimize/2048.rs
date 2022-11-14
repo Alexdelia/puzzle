@@ -45,6 +45,7 @@ impl fmt::Display for Move {
 struct Board {
     board: [[Cell; SIZE]; SIZE],
     score: Score,
+    empty: Vec<(usize, usize)>,
     over: bool,
     moves: Vec<Move>,
 }
@@ -52,6 +53,7 @@ struct Board {
 impl fmt::Debug for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "score: {}\n", self.score)?;
+        write!(f, "empty: {}\n", self.empty.len())?;
         write!(f, "over: {}\n", self.over)?;
         for x in 0..SIZE {
             for y in 0..SIZE {
@@ -68,25 +70,29 @@ impl Board {
         Board {
             board: [[0; SIZE]; SIZE],
             score: 0,
+            empty: Vec::new(),
             over: false,
             moves: Vec::new(),
         }
     }
 
     fn spawn_tile(&mut self, seed: Seed) -> Seed {
-        let mut empty: Vec<(usize, usize)> = Vec::new();
-        for x in 0..SIZE {
-            for y in 0..SIZE {
-                if self.board[x][y] == 0 {
-                    empty.push((x, y));
-                }
-            }
-        }
-
-        let (x, y) = empty[(seed as usize % empty.len())];
+        let (x, y) = self.empty.remove(seed as usize % self.empty.len());
         self.board[x][y] = if (seed & 0x10) == 0 { 4 } else { 2 };
 
         seed * seed % 50515093
+    }
+
+    fn update_empty(&mut self) {
+        self.empty.clear();
+
+        for x in 0..SIZE {
+            for y in 0..SIZE {
+                if self.board[x][y] == 0 {
+                    self.empty.push((x, y));
+                }
+            }
+        }
     }
 
     fn allowed_moves(&self, moves: &mut Vec<Move>) {
@@ -157,190 +163,123 @@ impl Board {
         false
     }
 
-    fn play(&mut self, m: Move) {
-        match m {
+    fn play(&mut self, m: Move) -> bool {
+        let change: bool = match m {
             Move::Up => self.up(),
             Move::Down => self.down(),
             Move::Left => self.left(),
             Move::Right => self.right(),
+        };
+        if change {
+            self.moves.push(m);
+            self.update_empty();
         }
-        self.moves.push(m);
+        change
     }
 
-    fn up(&mut self) {
-        for x in 0..SIZE {
-            let mut y = 0;
-            while y < SIZE {
-                if self.board[x][y] == 0 {
-                    y += 1;
-                    continue;
-                }
-                let mut y2 = y + 1;
-                while y2 < SIZE && self.board[x][y2] == 0 {
-                    y2 += 1;
-                }
-                if y2 == SIZE {
-                    break;
-                }
-                if self.board[x][y] == self.board[x][y2] {
-                    self.board[x][y] *= 2;
-                    self.score += self.board[x][y];
-                    self.board[x][y2] = 0;
-                    y = y2 + 1;
-                } else {
-                    y = y2;
-                }
-            }
+    fn up(&mut self) -> bool {
+        let bv = self.move_up();
+        let bg = self.merge_up();
+        if !bv && !bg {
+            return false;
         }
-        for x in 0..SIZE {
-            let mut y = 0;
-            while y < SIZE {
-                if self.board[x][y] == 0 {
-                    let mut y2 = y + 1;
-                    while y2 < SIZE && self.board[x][y2] == 0 {
-                        y2 += 1;
-                    }
-                    if y2 == SIZE {
-                        break;
-                    }
-                    self.board[x][y] = self.board[x][y2];
-                    self.board[x][y2] = 0;
-                }
-                y += 1;
-            }
-        }
+        self.move_up();
+        true
     }
 
-    fn down(&mut self) {
-        for x in 0..SIZE {
-            let mut y = SIZE - 1;
-            while y > 0 {
-                if self.board[x][y] == 0 {
-                    y -= 1;
-                    continue;
-                }
-                let mut y2 = y - 1;
-                while y2 > 0 && self.board[x][y2] == 0 {
-                    y2 -= 1;
-                }
-                if y2 == 0 {
-                    break;
-                }
-                if self.board[x][y] == self.board[x][y2] {
-                    self.board[x][y] *= 2;
-                    self.score += self.board[x][y];
-                    self.board[x][y2] = 0;
-                    y = y2 - 1;
-                } else {
-                    y = y2;
-                }
-            }
+    fn down(&mut self) -> bool {
+        let bv = self.move_down();
+        let bg = self.merge_down();
+        if !bv && !bg {
+            return false;
         }
-        for x in 0..SIZE {
-            let mut y = SIZE - 1;
-            while y > 0 {
-                if self.board[x][y] == 0 {
-                    let mut y2 = y - 1;
-                    while y2 > 0 && self.board[x][y2] == 0 {
-                        y2 -= 1;
-                    }
-                    if y2 == 0 {
-                        break;
-                    }
-                    self.board[x][y] = self.board[x][y2];
-                    self.board[x][y2] = 0;
-                }
-                y -= 1;
-            }
-        }
+        self.move_down();
+        true
     }
 
-    fn left(&mut self) {
-        for y in 0..SIZE {
-            let mut x = 0;
-            while x < SIZE {
-                if self.board[x][y] == 0 {
-                    x += 1;
-                    continue;
-                }
-                let mut x2 = x + 1;
-                while x2 < SIZE && self.board[x2][y] == 0 {
-                    x2 += 1;
-                }
-                if x2 == SIZE {
-                    break;
-                }
-                if self.board[x][y] == self.board[x2][y] {
-                    self.board[x][y] *= 2;
-                    self.score += self.board[x][y];
-                    self.board[x2][y] = 0;
-                    x = x2 + 1;
-                } else {
-                    x = x2;
-                }
-            }
+    fn left(&mut self) -> bool {
+        let bv = self.move_left();
+        let bg = self.merge_left();
+        if !bv && !bg {
+            return false;
         }
-        for y in 0..SIZE {
-            let mut x = 0;
-            while x < SIZE {
-                if self.board[x][y] == 0 {
-                    let mut x2 = x + 1;
-                    while x2 < SIZE && self.board[x2][y] == 0 {
-                        x2 += 1;
-                    }
-                    if x2 == SIZE {
-                        break;
-                    }
-                    self.board[x][y] = self.board[x2][y];
-                    self.board[x2][y] = 0;
-                }
-                x += 1;
-            }
-        }
+        self.move_left();
+        true
     }
 
-    fn right(&mut self) {
-        for y in 0..SIZE {
-            let mut x = SIZE - 1;
-            while x > 0 {
-                if self.board[x][y] == 0 {
-                    x -= 1;
-                    continue;
+    fn right(&mut self) -> bool {
+        let bv = self.move_right();
+        let bg = self.merge_right();
+        if !bv && !bg {
+            return false;
+        }
+        self.move_right();
+        true
+    }
+
+    fn move_up(&mut self) -> bool {
+        let mut change = false;
+
+        for col in 0..SIZE {
+            let mut i = 0;
+            while i < SIZE && self.board[i][col] != 0 {
+                i += 1;
+            }
+
+            let mut row = 1;
+            while i < SIZE && row < SIZE {
+                if self.board[row][col] != 0 && i < row {
+                    self.board[i][col] = self.board[row][col];
+                    self.board[row][col] = 0;
+                    i += 1;
+                    change = true;
                 }
-                let mut x2 = x - 1;
-                while x2 > 0 && self.board[x2][y] == 0 {
-                    x2 -= 1;
+                row += 1;
+            }
+        }
+
+        change
+    }
+
+    fn move_down(&mut self) -> bool {
+        let mut change = false;
+
+        for col in 0..SIZE {
+            let mut i = SIZE - 1;
+            while i >= 0 && self.board[i][col] != 0 {
+                i -= 1;
+            }
+
+            let mut row = SIZE - 2;
+            while i >= 0 && row >= 0 {
+                if self.board[row][col] != 0 && i > row {
+                    self.board[i][col] = self.board[row][col];
+                    self.board[row][col] = 0;
+                    i -= 1;
+                    change = true;
                 }
-                if x2 == 0 {
-                    break;
-                }
-                if self.board[x][y] == self.board[x2][y] {
-                    self.board[x][y] *= 2;
-                    self.score += self.board[x][y];
-                    self.board[x2][y] = 0;
-                    x = x2 - 1;
-                } else {
-                    x = x2;
+                row -= 1;
+            }
+        }
+
+        change
+    }
+
+    fn merge_up(&mut self) -> bool {
+        let mut change = false;
+
+        for col in 0..SIZE {
+            for row in 0..SIZE - 1 {
+                if self.board[row][col] != 0 && self.board[row][col] == self.board[row + 1][col] {
+                    self.board[row][col] *= 2;
+                    self.board[row + 1][col] = 0;
+                    self.score += self.board[row][col];
+                    change = true;
                 }
             }
         }
-        for y in 0..SIZE {
-            let mut x = SIZE - 1;
-            while x > 0 {
-                if self.board[x][y] == 0 {
-                    let mut x2 = x - 1;
-                    while x2 > 0 && self.board[x2][y] == 0 {
-                        x2 -= 1;
-                    }
-                    if x2 == 0 {
-                        break;
-                    }
-                    self.board[x][y] = self.board[x2][y];
-                    self.board[x2][y] = 0;
-                }
-                x -= 1;
-            }
-        }
+
+        change
     }
 }
 
@@ -361,6 +300,9 @@ fn get_info() -> (Board, Seed) {
 
         for (y, cell) in inputs.split_whitespace().enumerate() {
             b.board[x][y] = parse_input!(cell, Cell);
+            if b.board[x][y] == 0 {
+                b.empty_cells.push((x, y));
+            }
         }
     }
 
