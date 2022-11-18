@@ -2,7 +2,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use std::{fmt, io};
 
 const SIZE: usize = 4;
-const GAME: usize = 100;
+const GAME: usize = 1;
 
 const INIT_TIME: Duration = Duration::from_secs(1);
 const MOVE_TIME: Duration = Duration::from_millis(50);
@@ -77,14 +77,22 @@ impl Board {
     }
 
     fn spawn_tile(&mut self, seed: Seed) -> Seed {
+        eprintln!("board: {:?}", self);
+        // eprintln!("empty: {:?}", &self.empty);
+        eprintln!("index: {}", seed as usize % self.empty.len());
+        eprintln!("a {:?}", self.empty[seed as usize % self.empty.len()]);
         let (x, y) = self.empty.remove(seed as usize % self.empty.len());
-        self.board[x][y] = if (seed & 0x10) == 0 { 4 } else { 2 };
+        eprintln!("r {:?}", (x, y));
+        self.board[x][y] = if (seed & 0x10) == 0 { 2 } else { 4 };
+        // index 6 is not 4 right, then 2 right
+        // but is 4 down, then 2 down
 
+        eprintln!("new board: {:?}", self);
         seed * seed % 50515093
     }
 
     fn is_over(&self) -> bool {
-        !self.empty.is_empty() && !self.can_fuse_row() && !self.can_fuse_col()
+        self.empty.is_empty() && !self.can_fuse_row() && !self.can_fuse_col()
     }
 
     fn can_fuse_row(&self) -> bool {
@@ -379,7 +387,6 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
 
     while cur_seed != new_seed && start.elapsed() < time - Duration::from_millis(10) {
         cur_seed = new_seed;
-        eprintln!("cur_seed: {}", new_seed);
 
         for i in games.iter_mut() {
             if i.over {
@@ -399,12 +406,18 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
 
             new_seed = i.spawn_tile(cur_seed);
         }
+
+        // test 1 turn
+        break;
     }
 
-    eprintln!("remaining time break: {:?}", start.elapsed());
+    eprintln!("time break: {:?}", start.elapsed());
     // return game with highest score
-    let m = games.into_iter().max_by_key(|x| x.score).unwrap().moves;
-    eprintln!("remaining time exit: {:?}", start.elapsed());
+    let g = games.into_iter().max_by_key(|x| x.score).unwrap();
+    dbg!(&g);
+    let m = g.moves;
+    // let m = games.into_iter().max_by_key(|x| x.score).unwrap().moves;
+    eprintln!("time exit: {:?}", start.elapsed());
     (m, new_seed)
 }
 
@@ -421,9 +434,12 @@ fn main() {
 
     // game loop
     loop {
-        eprintln!("seed b: {}", seed);
+        let b_seed = seed;
+        dbg!(b_seed);
         (b, seed) = get_info();
-        eprintln!("seed a: {}", seed);
+        dbg!(seed);
+        dbg!(&b);
+        assert_eq!(b_seed, seed);
         (m, seed) = solve(&b, seed, MOVE_TIME);
         println!("{}", m.iter().map(|x| x.to_string()).collect::<String>());
     }
