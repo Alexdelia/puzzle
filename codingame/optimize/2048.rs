@@ -2,7 +2,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use std::{fmt, io};
 
 const SIZE: usize = 4;
-const GAME: usize = 100000;
+const BASE_GAME_N: usize = 70;
 
 const INIT_TIME: Duration = Duration::from_secs(1);
 const MOVE_TIME: Duration = Duration::from_millis(50);
@@ -365,21 +365,24 @@ fn get_info() -> (Board, Seed) {
 }
 
 fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
+    let start = Instant::now();
+    let end = time - Duration::from_millis(10);
     let mut cur_seed = 0;
     let mut new_seed = seed;
-    let mut games: Vec<Board> = vec![b.clone(); GAME];
+    let mut games: Vec<Board> = vec![b.clone(); BASE_GAME_N * time.as_millis() as usize];
     let mut am: Vec<Move>;
     let mut sm = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis();
-    let start = Instant::now();
-    let end = time - Duration::from_millis(10);
+    let mut c: usize = 0;
+    let mut mlen: usize = 0;
 
     while cur_seed != new_seed && start.elapsed() < end {
         cur_seed = new_seed;
 
         for i in games.iter_mut() {
+            c += 1;
             if i.over {
                 continue;
             } else if i.is_over() {
@@ -398,12 +401,11 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
             new_seed = i.spawn_tile(cur_seed);
 
             if start.elapsed() > end {
+                mlen = i.moves.len();
                 break;
             }
         }
     }
-
-    // seed bug because of break in between loop and using a solution with -1 move than the first one
 
     eprintln!("time break: {:?}", start.elapsed());
     eprintln!("remaining time: {:?}", time - start.elapsed());
@@ -411,7 +413,13 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
     let m = games.into_iter().max_by_key(|x| x.score).unwrap().moves;
     eprintln!("time exit: {:?}", start.elapsed());
     eprintln!("remaining time: {:?}", time - start.elapsed());
-    (m, new_seed)
+    dbg!(c);
+    dbg!(c as f64 / start.elapsed().as_millis() as f64);
+    if m.len() >= mlen {
+        return (m, new_seed);
+    } else {
+        return (m, cur_seed);
+    }
 }
 
 fn main() {
