@@ -2,19 +2,19 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use std::{fmt, io};
 
 const SIZE: usize = 4;
-const BASE_GAME_N: usize = 70;
+const BASE_GAME_N: usize = 80;
 
 const INIT_TIME: Duration = Duration::from_secs(1);
 const MOVE_TIME: Duration = Duration::from_millis(50);
 
 // linear congruential generator
-const R_A: u128 = 1664525;
-const R_C: u128 = 1013904223;
-const R_M: u128 = 1 << 32;
+pub const R_A: u128 = 1664525;
+pub const R_C: u128 = 1013904223;
+pub const R_M: u128 = 1 << 32;
 
-type Seed = u128;
+pub type Seed = u128;
 type Cell = u32;
-type Score = u32;
+pub type Score = u32;
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => {
@@ -23,7 +23,7 @@ macro_rules! parse_input {
 }
 
 #[derive(Clone, Copy)]
-enum Move {
+pub enum Move {
     Up = 0,
     Down = 1,
     Left = 2,
@@ -42,12 +42,12 @@ impl fmt::Display for Move {
 }
 
 #[derive(Clone)]
-struct Board {
+pub struct Board {
     board: [[Cell; SIZE]; SIZE],
-    score: Score,
+    pub score: Score,
     empty: bool,
     over: bool,
-    moves: Vec<Move>,
+    pub moves: Vec<Move>,
 }
 
 impl fmt::Debug for Board {
@@ -66,7 +66,7 @@ impl fmt::Debug for Board {
 }
 
 impl Board {
-    fn new() -> Board {
+    pub fn new() -> Board {
         Board {
             board: [[0; SIZE]; SIZE],
             score: 0,
@@ -76,7 +76,7 @@ impl Board {
         }
     }
 
-    fn spawn_tile(&mut self, seed: Seed) -> Seed {
+    pub fn spawn_tile(&mut self, seed: Seed) -> Seed {
         let mut empty: Vec<(usize, usize)> = Vec::new();
 
         for y in 0..SIZE {
@@ -94,7 +94,7 @@ impl Board {
         seed * seed % 50515093
     }
 
-    fn is_over(&self) -> bool {
+    pub fn is_over(&self) -> bool {
         self.empty && !self.can_fuse_row() && !self.can_fuse_col()
     }
 
@@ -120,7 +120,7 @@ impl Board {
         false
     }
 
-    fn play(&mut self, m: Move) -> bool {
+    pub fn play(&mut self, m: Move) -> bool {
         let change: bool = match m {
             Move::Up => self.up(),
             Move::Down => self.down(),
@@ -416,9 +416,9 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
     dbg!(c);
     dbg!(c as f64 / start.elapsed().as_millis() as f64);
     if m.len() >= mlen {
-        return (m, new_seed);
+        (m, new_seed)
     } else {
-        return (m, cur_seed);
+        (m, cur_seed)
     }
 }
 
@@ -428,6 +428,7 @@ fn main() {
     let mut m: Vec<Move>;
 
     (b, seed) = get_info();
+    dbg!(seed);
     (m, seed) = solve(&b, seed, INIT_TIME);
     // print all moves in one print statement
     // Move::Up = 'U', Move::Down = 'D', Move::Left = 'L', Move::Right = 'R'

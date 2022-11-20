@@ -7,3 +7,7 @@ authors = ["Alexandre Delille <adelille@student.42.fr>"]
 [[bin]]
 name = "2048"
 path = "2048.rs"
+
+[[bin]]
+name = "2048_search"
+path = "2048_search.rs"
