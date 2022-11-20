@@ -374,8 +374,9 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
         .unwrap()
         .as_millis();
     let start = Instant::now();
+    let end = time - Duration::from_millis(10);
 
-    while cur_seed != new_seed && start.elapsed() < time - Duration::from_millis(15) {
+    while cur_seed != new_seed && start.elapsed() < end {
         cur_seed = new_seed;
 
         for i in games.iter_mut() {
@@ -395,8 +396,14 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
             }
 
             new_seed = i.spawn_tile(cur_seed);
+
+            if start.elapsed() > end {
+                break;
+            }
         }
     }
+
+    // seed bug because of break in between loop and using a solution with -1 move than the first one
 
     eprintln!("time break: {:?}", start.elapsed());
     eprintln!("remaining time: {:?}", time - start.elapsed());
