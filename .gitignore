@@ -1,6 +1,7 @@
 obj
 libft.a
 a.out
+*.out
 *~
 .vscode
 target/
