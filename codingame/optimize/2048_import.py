@@ -5,6 +5,6 @@ f = open(FILE, "r")
 out = []
 for line in f:
     l = line.split()
-    out.append((int(l[0]), l[-1]))
+    out.append((int(l[1]), l[-1]))
 f.close()
 print(str(out).replace("'", "\""))
