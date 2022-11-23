@@ -15,6 +15,8 @@ use crate::mod_2048::R_A;
 use crate::mod_2048::R_C;
 use crate::mod_2048::R_M;
 
+use crate::mod_2048::next;
+
 type Games = HashMap<Seed, (Board, Seed, Score)>;
 
 const FILE: &str = ".2048_results.out";
@@ -76,7 +78,7 @@ fn read() -> Option<Vec<(Seed, Score)>> {
 
 fn write(seed: Seed, score: Score, moves: &[Move]) -> Option<()> {
     let mut new_l = String::new();
-    new_l.push_str(&format!("{} {} ", seed, score));
+    new_l.push_str(&format!("{} {} {} ", seed, next(next(seed)), score));
     for m in moves {
         new_l.push_str(&format!("{}", m));
     }
