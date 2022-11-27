@@ -11,3 +11,7 @@ path = "2048.rs"
 [[bin]]
 name = "2048_search"
 path = "2048_search.rs"
+
+[[bin]]
+name = "2048_queue"
+path = "2048_queue.rs"
