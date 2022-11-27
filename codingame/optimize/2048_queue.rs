@@ -21,11 +21,18 @@ use crate::mod_2048::next;
 
 type Priority = u32;
 
-#[derive(Eq, PartialEq)]
 struct Game {
     board: Board,
     seed: Seed,
     priority: Priority,
+}
+
+impl Eq for Game {}
+
+impl PartialEq for Game {
+    fn eq(&self, other: &Self) -> bool {
+        self.priority == other.priority
+    }
 }
 
 impl Ord for Game {
@@ -43,9 +50,9 @@ impl PartialOrd for Game {
 impl Game {
     fn new(board: Board, seed: Seed) -> Self {
         Self {
+            priority: Game::priority(&board),
             board,
             seed,
-            priority: Game::priority(&board),
         }
     }
 
@@ -58,8 +65,8 @@ impl Game {
         }
 
         let mut p = r[0];
-        for i in 1..18 {
-            if r[i] == 1 {
+        for i in r.iter().take(18).skip(1) {
+            if i == &1 {
                 p += 1;
             }
         }
@@ -78,7 +85,7 @@ macro_rules! err {
 
 fn solve(board: Board, seed: Seed) -> Board {
     let mut q = BinaryHeap::<Game>::new();
-    let mut best: Board;
+    let mut best: Board = Board::new();
 
     q.push(Game::new(board, seed));
 
@@ -88,43 +95,49 @@ fn solve(board: Board, seed: Seed) -> Board {
 }
 
 fn main() -> ExitCode {
-    let mut games: Games = parse().unwrap_or_else(|| {
-        std::process::exit(1);
-    });
-
-    {
-        let bs = read().unwrap_or_else(|| {
-            std::process::exit(2);
-        });
-
-        for s in bs {
-            if let Some((_, _, score)) = games.get_mut(&s.0) {
-                *score = s.1;
-            }
-        }
+    if std::env::args().len() != 2 {
+        err!(
+            "usage: \x1b[1m{} [\x1b[35;1m<seed>\x1b[0m\x1b[1m]\t\x1b[3m(one seed per arg)\x1b[0m",
+            std::env::args().next().unwrap()
+        );
+        return ExitCode::FAILURE;
     }
 
-    let mut c: usize = 0;
+    let mut seed = std::env::args().next().unwrap().parse::<Seed>().unwrap();
+    let mut board = Board::new();
 
-    loop {
-        for (seed, (board, cur_seed, score)) in games.iter_mut() {
-            let (moves, new_score) = play(board.clone(), *cur_seed);
-            if new_score > *score {
-                *score = new_score;
-                print!("\x1b[33;1m{}\x1b[0m:\t", seed);
-                write(*seed, *score, &moves);
-                println!(
-                    "\x1b[32;1m{} \x1b[35;1m{} \x1b[31;1m{}\x1b[0m",
-                    *score,
-                    moves.len(),
-                    c
-                );
-            }
-        }
+    seed = board.spawn_tile(seed);
+    seed = board.spawn_tile(seed);
 
-        c += 1;
-    }
+    solve(board, seed);
+
+    ExitCode::SUCCESS
 }
 
+#[cfg(test)]
 mod test {
-	
+    use super::*;
+
+    #[test]
+    fn binheap() {
+        let mut q = BinaryHeap::<Game>::new();
+
+        let mut b = Board::new();
+        b.spawn_tile(0);
+        b.spawn_tile(0);
+        q.push(Game::new(b.clone(), 0));
+        dbg!(q.peek().unwrap().priority);
+
+        b.spawn_tile(0);
+        b.spawn_tile(0);
+        b.spawn_tile(0);
+        b.spawn_tile(0);
+        q.push(Game::new(b.clone(), 0));
+
+        let p1 = q.pop().unwrap().priority;
+        let p2 = q.pop().unwrap().priority;
+        dbg!(p1);
+        dbg!(p2);
+        assert!(p1 > p2);
+    }
+}
