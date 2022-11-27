@@ -37,7 +37,7 @@ impl PartialEq for Game {
 
 impl Ord for Game {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.priority.cmp(&self.priority)
+        self.priority.cmp(&other.priority)
     }
 }
 
