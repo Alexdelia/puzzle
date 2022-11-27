@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use std::{fmt, io};
 
-const SIZE: usize = 4;
+pub const SIZE: usize = 4;
 const BASE_GAME_N: usize = 80;
 
 const INIT_TIME: Duration = Duration::from_secs(1);
@@ -48,7 +48,7 @@ impl fmt::Display for Move {
 
 #[derive(Clone)]
 pub struct Board {
-    board: [[Cell; SIZE]; SIZE],
+    pub board: [[Cell; SIZE]; SIZE],
     pub score: Score,
     empty: bool,
     over: bool,
