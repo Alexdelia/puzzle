@@ -5,6 +5,7 @@ mod mod_2048;
 mod mod_search;
 
 use std::collections::BinaryHeap;
+use std::fs::OpenOptions;
 use std::process::ExitCode;
 
 use crate::mod_2048::Board;
@@ -21,6 +22,10 @@ macro_rules! err {
 }
 
 type Priority = u32;
+
+const MIN_SIZE: usize = 1_000;
+const MAX_SIZE: usize = 100_000;
+const FILE: &str = ".2048_queue.mem";
 
 struct Game {
     board: Board,
@@ -76,6 +81,56 @@ impl Game {
     }
 }
 
+fn ouput(board: &Board, counter: usize, q_size: usize) {
+    println!(
+        "\x1b[32;1m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[33;1m{}\x1b[0m",
+        board.score,
+        board.moves.len(),
+        counter,
+        q_size,
+    );
+    dbg!(board);
+}
+
+fn q_out(mut q: BinaryHeap<Game>) -> BinaryHeap<Game> {
+    let mut ret: BinaryHeap<Game> = BinaryHeap::new();
+
+    while q.len() > MIN_SIZE {
+        ret.push(q.pop().unwrap());
+    }
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .append(true)
+        .open(FILE)
+        .unwrap();
+
+    while !q.is_empty() {
+        let g = q.pop().unwrap();
+        let mut l = String::new();
+        l.push_str(&g.priority.to_string());
+        l.push(' ');
+        l.push_str(&g.seed.to_string());
+        l.push(' ');
+        l.push_str(&g.board.score.to_string());
+        l.push(' ');
+        for i in g.board.board.iter().flatten() {
+            l.push_str(&i.to_string());
+        }
+        l.push(' ');
+        for i in g.board.moves.iter() {
+            l.push_str(&i.to_string());
+        }
+        if let Err(e) = writeln!(file, "{}", l) {
+            err!("Failed to write to file: {}", e);
+            std::process::exit(ExitCode::FAILURE);
+        }
+    }
+
+    ret
+}
+
 fn solve(board: Board, seed: Seed) -> Board {
     let mut q = BinaryHeap::<Game>::new();
     let mut best: Board = Board::new();
@@ -86,17 +141,6 @@ fn solve(board: Board, seed: Seed) -> Board {
 
     while !q.is_empty() {
         let g = q.pop().unwrap();
-        if g.board.score > best.score {
-            best = g.board.clone();
-            println!(
-                "\x1b[3m(ongoing)\x1b[0m\t\x1b[32;1m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[33;1m{}\x1b[0m",
-                best.score,
-                best.moves.len(),
-                c,
-				q.len()
-            );
-            dbg!(&best);
-        }
 
         for i in m {
             let mut b = g.board.clone();
@@ -105,14 +149,7 @@ fn solve(board: Board, seed: Seed) -> Board {
                 if b.is_over() {
                     if b.score > best.score {
                         best = b.clone();
-                        println!(
-                            "\x1b[32;1m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[33;1m{}\x1b[0m",
-                            best.score,
-                            best.moves.len(),
-                            c,
-                            q.len()
-                        );
-                        dbg!(&best);
+                        ouput(&best, c, q.len());
                     }
                     continue;
                 }
