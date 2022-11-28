@@ -79,7 +79,7 @@ impl Game {
 fn solve(board: Board, seed: Seed) -> Board {
     let mut q = BinaryHeap::<Game>::new();
     let mut best: Board = Board::new();
-    let m: [Move; 4] = [Move::Up, Move::Down, Move::Left, Move::Right];
+    let m: [Move; 4] = [Move::Up, Move::Left, Move::Right, Move::Down];
     let mut c: usize = 0;
 
     q.push(Game::new(board, seed));
