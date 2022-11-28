@@ -5,11 +5,14 @@ mod mod_2048;
 mod mod_search;
 
 use std::collections::BinaryHeap;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
+use std::io::{BufRead, BufReader, Write};
 use std::process::ExitCode;
 
 use crate::mod_2048::Board;
+use crate::mod_2048::Cell;
 use crate::mod_2048::Move;
+use crate::mod_2048::Score;
 use crate::mod_2048::Seed;
 use crate::mod_2048::SIZE;
 
@@ -24,7 +27,8 @@ macro_rules! err {
 type Priority = u32;
 
 const MIN_SIZE: usize = 1_000;
-const MAX_SIZE: usize = 100_000;
+// const MAX_SIZE: usize = 100_000;
+const MAX_SIZE: usize = 100_000_000_000;
 const FILE: &str = ".2048_queue.mem";
 
 struct Game {
@@ -92,10 +96,48 @@ fn ouput(board: &Board, counter: usize, q_size: usize) {
     dbg!(board);
 }
 
+fn q_in(q: &mut BinaryHeap<Game>) -> usize {
+    eprint!("q_in\t{}\t", q.len());
+    let mut lines: Vec<String> = match File::open(FILE) {
+        Ok(f) => BufReader::new(f).lines().map(|l| l.unwrap()).collect(),
+        Err(e) => {
+            err!("\"\x1b[35m{}\x1b[0m\x1b[1m\" {}", FILE, e);
+            return 0;
+        }
+    };
+
+    while q.len() < MAX_SIZE && !lines.is_empty() {
+        let l = lines.pop().unwrap();
+        let mut s = l.split(' ');
+        let _priority = s.next().unwrap().parse::<Priority>().unwrap();
+        let seed = s.next().unwrap().parse::<Seed>().unwrap();
+        let mut board = Board::new();
+        board.score = s.next().unwrap().parse::<Score>().unwrap();
+        let b = s.next().unwrap().split(',');
+        for (i, c) in b.enumerate() {
+            board.board[i / SIZE][i % SIZE] = c.parse::<Cell>().unwrap();
+        }
+        board.moves = s
+            .next()
+            .unwrap()
+            .chars()
+            .map(|c| Move::from(c).unwrap())
+            .collect();
+        q.push(Game::new(board, seed));
+    }
+
+    let mut f = File::create(FILE).unwrap();
+    f.write_all(lines.join("\n").as_bytes()).unwrap();
+
+    eprint!("{}\r", q.len());
+    q.len()
+}
+
 fn q_out(mut q: BinaryHeap<Game>) -> BinaryHeap<Game> {
+    eprint!("q_out\t");
     let mut ret: BinaryHeap<Game> = BinaryHeap::new();
 
-    while q.len() > MIN_SIZE {
+    while !q.is_empty() && ret.len() < MIN_SIZE {
         ret.push(q.pop().unwrap());
     }
 
@@ -105,6 +147,8 @@ fn q_out(mut q: BinaryHeap<Game>) -> BinaryHeap<Game> {
         .append(true)
         .open(FILE)
         .unwrap();
+
+    let mut lines: Vec<String> = Vec::with_capacity(q.len());
 
     while !q.is_empty() {
         let g = q.pop().unwrap();
@@ -117,17 +161,19 @@ fn q_out(mut q: BinaryHeap<Game>) -> BinaryHeap<Game> {
         l.push(' ');
         for i in g.board.board.iter().flatten() {
             l.push_str(&i.to_string());
+            l.push(',');
         }
+        l.pop();
         l.push(' ');
         for i in g.board.moves.iter() {
             l.push_str(&i.to_string());
         }
-        if let Err(e) = writeln!(file, "{}", l) {
-            err!("Failed to write to file: {}", e);
-            std::process::exit(ExitCode::FAILURE);
-        }
+        lines.push(l);
     }
 
+    file.write_all(lines.join("\n").as_bytes()).unwrap();
+
+    eprint!("{}\r", ret.len());
     ret
 }
 
@@ -139,7 +185,7 @@ fn solve(board: Board, seed: Seed) -> Board {
 
     q.push(Game::new(board, seed));
 
-    while !q.is_empty() {
+    while !q.is_empty() || q_in(&mut q) > 0 {
         let g = q.pop().unwrap();
 
         for i in m {
@@ -156,6 +202,10 @@ fn solve(board: Board, seed: Seed) -> Board {
                 q.push(Game::new(b, s));
                 c += 1;
             }
+        }
+
+        if q.len() > MAX_SIZE {
+            q = q_out(q);
         }
     }
 
@@ -207,5 +257,19 @@ mod test {
         dbg!(p1);
         dbg!(p2);
         assert!(p1 > p2);
+    }
+
+    #[test]
+    fn q_in_out() {
+        let mut q = BinaryHeap::<Game>::new();
+        let mut b = Board::new();
+        b.spawn_tile(42);
+        b.spawn_tile(81);
+        b.score = 42;
+        dbg!(&b);
+        q.push(Game::new(b.clone(), 0));
+        q = q_out(q);
+        q_in(&mut q);
+        assert_eq!(q.len(), 1);
     }
 }
