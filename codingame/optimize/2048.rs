@@ -14,7 +14,7 @@ pub const R_C: u128 = 1013904223;
 pub const R_M: u128 = 1 << 32;
 
 pub type Seed = u128;
-type Cell = u8;
+pub type Cell = u8;
 pub type Score = u32;
 
 pub fn next(seed: Seed) -> Seed {
@@ -42,6 +42,18 @@ impl fmt::Display for Move {
             Move::Down => write!(f, "D"),
             Move::Left => write!(f, "L"),
             Move::Right => write!(f, "R"),
+        }
+    }
+}
+
+impl Move {
+    pub fn from(c: char) -> Option<Move> {
+        match c {
+            'U' => Some(Move::Up),
+            'D' => Some(Move::Down),
+            'L' => Some(Move::Left),
+            'R' => Some(Move::Right),
+            _ => None,
         }
     }
 }
