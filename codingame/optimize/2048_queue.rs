@@ -89,10 +89,11 @@ fn solve(board: Board, seed: Seed) -> Board {
         if g.board.score > best.score {
             best = g.board.clone();
             println!(
-                "\x1b[32;1m{} \x1b[35;1m{} \x1b[31;1m{}\x1b[0m",
+                "\x1b[3m(ongoing)\x1b[0m\t\x1b[32;1m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[33;1m{}\x1b[0m",
                 best.score,
                 best.moves.len(),
-                c
+                c,
+				q.len()
             );
             dbg!(&best);
         }
@@ -101,6 +102,20 @@ fn solve(board: Board, seed: Seed) -> Board {
             let mut b = g.board.clone();
             if b.play(i) {
                 let s = b.spawn_tile(g.seed);
+                if b.is_over() {
+                    if b.score > best.score {
+                        best = b.clone();
+                        println!(
+                            "\x1b[32;1m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[33;1m{}\x1b[0m",
+                            best.score,
+                            best.moves.len(),
+                            c,
+                            q.len()
+                        );
+                        dbg!(&best);
+                    }
+                    continue;
+                }
                 q.push(Game::new(b, s));
                 c += 1;
             }
