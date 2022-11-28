@@ -129,7 +129,7 @@ fn q_in(q: &mut BinaryHeap<Game>) -> usize {
     let mut f = File::create(FILE).unwrap();
     f.write_all(lines.join("\n").as_bytes()).unwrap();
 
-    eprint!("{}\r", q.len());
+    eprintln!("{}", q.len());
     q.len()
 }
 
@@ -141,39 +141,39 @@ fn q_out(mut q: BinaryHeap<Game>) -> BinaryHeap<Game> {
         ret.push(q.pop().unwrap());
     }
 
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .append(true)
-        .open(FILE)
-        .unwrap();
+    // let mut file = OpenOptions::new()
+    //     .write(true)
+    //     .create(true)
+    //     .append(true)
+    //     .open(FILE)
+    //     .unwrap();
 
-    let mut lines: Vec<String> = Vec::with_capacity(q.len());
+    // let mut lines: Vec<String> = Vec::with_capacity(q.len());
 
-    while !q.is_empty() {
-        let g = q.pop().unwrap();
-        let mut l = String::new();
-        l.push_str(&g.priority.to_string());
-        l.push(' ');
-        l.push_str(&g.seed.to_string());
-        l.push(' ');
-        l.push_str(&g.board.score.to_string());
-        l.push(' ');
-        for i in g.board.board.iter().flatten() {
-            l.push_str(&i.to_string());
-            l.push(',');
-        }
-        l.pop();
-        l.push(' ');
-        for i in g.board.moves.iter() {
-            l.push_str(&i.to_string());
-        }
-        lines.push(l);
-    }
+    // while !q.is_empty() {
+    //     let g = q.pop().unwrap();
+    //     let mut l = String::new();
+    //     l.push_str(&g.priority.to_string());
+    //     l.push(' ');
+    //     l.push_str(&g.seed.to_string());
+    //     l.push(' ');
+    //     l.push_str(&g.board.score.to_string());
+    //     l.push(' ');
+    //     for i in g.board.board.iter().flatten() {
+    //         l.push_str(&i.to_string());
+    //         l.push(',');
+    //     }
+    //     l.pop();
+    //     l.push(' ');
+    //     for i in g.board.moves.iter() {
+    //         l.push_str(&i.to_string());
+    //     }
+    //     lines.push(l);
+    // }
 
-    file.write_all(lines.join("\n").as_bytes()).unwrap();
+    // file.write_all(lines.join("\n").as_bytes()).unwrap();
 
-    eprint!("{}\r", ret.len());
+    eprintln!("{}", ret.len());
     ret
 }
 
@@ -231,7 +231,16 @@ fn main() -> ExitCode {
     seed = board.spawn_tile(seed);
     seed = board.spawn_tile(seed);
 
-    solve(board, seed);
+    board = solve(board, seed);
+    println!("{:?}", &board);
+    println!(
+        "{}",
+        board
+            .moves
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<String>()
+    );
 
     ExitCode::SUCCESS
 }
