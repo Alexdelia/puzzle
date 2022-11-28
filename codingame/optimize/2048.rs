@@ -62,7 +62,11 @@ impl fmt::Debug for Board {
         writeln!(f, "over: {}", self.over)?;
         for x in 0..SIZE {
             for y in 0..SIZE {
-                write!(f, "{} ", 1 << self.board[x][y])?;
+                let n = match 1 << self.board[x][y] {
+                    1 => 0,
+                    n => n,
+                };
+                write!(f, "{} ", n)?;
             }
             writeln!(f)?;
         }
@@ -280,7 +284,7 @@ impl Board {
         for col in 0..SIZE {
             for row in 0..SIZE - 1 {
                 if self.board[row][col] != 0 && self.board[row][col] == self.board[row + 1][col] {
-                    self.board[row][col] *= 2;
+                    self.board[row][col] += 1;
                     self.board[row + 1][col] = 0;
                     self.score += 1 << self.board[row][col];
                     change = true;
@@ -297,7 +301,7 @@ impl Board {
         for col in 0..SIZE {
             for row in (1..SIZE).rev() {
                 if self.board[row][col] != 0 && self.board[row][col] == self.board[row - 1][col] {
-                    self.board[row][col] *= 2;
+                    self.board[row][col] += 1;
                     self.board[row - 1][col] = 0;
                     self.score += 1 << self.board[row][col];
                     change = true;
@@ -314,7 +318,7 @@ impl Board {
         for row in 0..SIZE {
             for col in 0..SIZE - 1 {
                 if self.board[row][col] != 0 && self.board[row][col] == self.board[row][col + 1] {
-                    self.board[row][col] *= 2;
+                    self.board[row][col] += 1;
                     self.board[row][col + 1] = 0;
                     self.score += 1 << self.board[row][col];
                     change = true;
@@ -331,7 +335,7 @@ impl Board {
         for row in 0..SIZE {
             for col in (1..SIZE).rev() {
                 if self.board[row][col] != 0 && self.board[row][col] == self.board[row][col - 1] {
-                    self.board[row][col] *= 2;
+                    self.board[row][col] += 1;
                     self.board[row][col - 1] = 0;
                     self.score += 1 << self.board[row][col];
                     change = true;
