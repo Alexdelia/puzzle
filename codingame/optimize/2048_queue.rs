@@ -27,8 +27,7 @@ macro_rules! err {
 type Priority = u32;
 
 const MIN_SIZE: usize = 1_000;
-// const MAX_SIZE: usize = 100_000;
-const MAX_SIZE: usize = 100_000_000_000;
+const MAX_SIZE: usize = 1_000_000;
 const FILE: &str = ".2048_queue.mem";
 
 struct Game {
@@ -85,9 +84,10 @@ impl Game {
     }
 }
 
-fn ouput(board: &Board, counter: usize, q_size: usize) {
+fn ouput(board: &Board, counter: usize, q_size: usize, over: bool) {
     println!(
-        "\x1b[32;1m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[33;1m{}\x1b[0m",
+        "\x1b[1m{}\t\x1b[32;1m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[33;1m{}\x1b[0m",
+        over,
         board.score,
         board.moves.len(),
         counter,
@@ -187,6 +187,10 @@ fn solve(board: Board, seed: Seed) -> Board {
 
     while !q.is_empty() || q_in(&mut q) > 0 {
         let g = q.pop().unwrap();
+        if g.board.score > best.score {
+            best = g.board.clone();
+            ouput(&best, c, q.len(), false);
+        }
 
         for i in m {
             let mut b = g.board.clone();
@@ -195,7 +199,7 @@ fn solve(board: Board, seed: Seed) -> Board {
                 if b.is_over() {
                     if b.score > best.score {
                         best = b.clone();
-                        ouput(&best, c, q.len());
+                        ouput(&best, c, q.len(), true);
                     }
                     continue;
                 }
