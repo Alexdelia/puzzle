@@ -6,18 +6,19 @@ mod mod_search;
 
 use std::collections::BinaryHeap;
 use std::process::ExitCode;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::mod_2048::Board;
 use crate::mod_2048::Move;
-use crate::mod_2048::Score;
 use crate::mod_2048::Seed;
-use crate::mod_2048::R_A;
-use crate::mod_2048::R_C;
-use crate::mod_2048::R_M;
 use crate::mod_2048::SIZE;
 
-use crate::mod_2048::next;
+macro_rules! err {
+	($($arg:tt)*) => {
+		eprint!("\x1b[31;1merror\x1b[0m\x1b[1m:\t");
+		eprint!($($arg)*);
+		eprintln!("\x1b[0m");
+	};
+}
 
 type Priority = u32;
 
@@ -71,25 +72,40 @@ impl Game {
             }
         }
 
-        p
+        p * 10_000_000 + board.score
     }
-}
-
-macro_rules! err {
-	($($arg:tt)*) => {
-		eprint!("\x1b[31;1merror\x1b[0m\x1b[1m:\t");
-		eprint!($($arg)*);
-		eprintln!("\x1b[0m");
-	};
 }
 
 fn solve(board: Board, seed: Seed) -> Board {
     let mut q = BinaryHeap::<Game>::new();
     let mut best: Board = Board::new();
+    let m: [Move; 4] = [Move::Up, Move::Down, Move::Left, Move::Right];
+    let mut c: usize = 0;
 
     q.push(Game::new(board, seed));
 
-    while !q.is_empty() {}
+    while !q.is_empty() {
+        let g = q.pop().unwrap();
+        if g.board.score > best.score {
+            best = g.board.clone();
+            println!(
+                "\x1b[32;1m{} \x1b[35;1m{} \x1b[31;1m{}\x1b[0m",
+                best.score,
+                best.moves.len(),
+                c
+            );
+            dbg!(&best);
+        }
+
+        for i in m {
+            let mut b = g.board.clone();
+            if b.play(i) {
+                let s = b.spawn_tile(g.seed);
+                q.push(Game::new(b, s));
+                c += 1;
+            }
+        }
+    }
 
     best
 }
@@ -97,13 +113,13 @@ fn solve(board: Board, seed: Seed) -> Board {
 fn main() -> ExitCode {
     if std::env::args().len() != 2 {
         err!(
-            "usage: \x1b[1m{} [\x1b[35;1m<seed>\x1b[0m\x1b[1m]\t\x1b[3m(one seed per arg)\x1b[0m",
+            "usage: \x1b[1m{} [\x1b[35;1m<seed>\x1b[0m",
             std::env::args().next().unwrap()
         );
         return ExitCode::FAILURE;
     }
 
-    let mut seed = std::env::args().next().unwrap().parse::<Seed>().unwrap();
+    let mut seed = std::env::args().nth(1).unwrap().parse::<Seed>().unwrap();
     let mut board = Board::new();
 
     seed = board.spawn_tile(seed);

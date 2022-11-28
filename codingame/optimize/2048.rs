@@ -62,7 +62,7 @@ impl fmt::Debug for Board {
         writeln!(f, "over: {}", self.over)?;
         for x in 0..SIZE {
             for y in 0..SIZE {
-                write!(f, "{} ", self.board[x][y])?;
+                write!(f, "{} ", 1 << self.board[x][y])?;
             }
             writeln!(f)?;
         }
