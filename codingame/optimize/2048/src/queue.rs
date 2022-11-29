@@ -211,6 +211,7 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
         }
 
         if q.len() > MAX_SIZE {
+            dbg!(c);
             q = q_out(q);
         }
     }
@@ -248,14 +249,7 @@ fn main() -> ExitCode {
 
     board = solve(board, seed, saved_score);
     println!("{:?}", &board);
-    println!(
-        "{}",
-        board
-            .moves
-            .iter()
-            .map(|x| x.to_string())
-            .collect::<String>()
-    );
+    println!("moves.len(): {}", board.moves.len());
 
     ExitCode::SUCCESS
 }
