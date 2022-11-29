@@ -1,0 +1,26 @@
+[package]
+name = "optimize"
+version = "0.1.0"
+edition = "2021"
+authors = ["Alexandre Delille <adelille@student.42.fr>"]
+
+[dependencies]
+enum_vec = "0.3"
+enum_like = "0.2"
+enum_like_derive = "0.1"
+
+[lib]
+name = "lib2048"
+path = "src/lib.rs"
+
+[[bin]]
+name = "2048"
+path = "src/game.rs"
+
+[[bin]]
+name = "search"
+path = "src/search.rs"
+
+[[bin]]
+name = "queue"
+path = "src/queue.rs"
