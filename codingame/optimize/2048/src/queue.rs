@@ -1,28 +1,10 @@
-#[path = "2048.rs"]
-mod mod_2048;
-
-#[path = "2048_search.rs"]
-mod mod_search;
-
 use std::collections::BinaryHeap;
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::process::ExitCode;
 
-use crate::mod_2048::Board;
-use crate::mod_2048::Cell;
-use crate::mod_2048::Move;
-use crate::mod_2048::Score;
-use crate::mod_2048::Seed;
-use crate::mod_2048::SIZE;
-
-macro_rules! err {
-	($($arg:tt)*) => {
-		eprint!("\x1b[31;1merror\x1b[0m\x1b[1m:\t");
-		eprint!($($arg)*);
-		eprintln!("\x1b[0m");
-	};
-}
+use lib2048::err;
+use lib2048::game::{Board, Cell, Move, Score, Seed, SIZE};
 
 type Priority = u32;
 
@@ -141,37 +123,39 @@ fn q_out(mut q: BinaryHeap<Game>) -> BinaryHeap<Game> {
         ret.push(q.pop().unwrap());
     }
 
-    // let mut file = OpenOptions::new()
-    //     .write(true)
-    //     .create(true)
-    //     .append(true)
-    //     .open(FILE)
-    //     .unwrap();
+    /*
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .append(true)
+        .open(FILE)
+        .unwrap();
 
-    // let mut lines: Vec<String> = Vec::with_capacity(q.len());
+    let mut lines: Vec<String> = Vec::with_capacity(q.len());
 
-    // while !q.is_empty() {
-    //     let g = q.pop().unwrap();
-    //     let mut l = String::new();
-    //     l.push_str(&g.priority.to_string());
-    //     l.push(' ');
-    //     l.push_str(&g.seed.to_string());
-    //     l.push(' ');
-    //     l.push_str(&g.board.score.to_string());
-    //     l.push(' ');
-    //     for i in g.board.board.iter().flatten() {
-    //         l.push_str(&i.to_string());
-    //         l.push(',');
-    //     }
-    //     l.pop();
-    //     l.push(' ');
-    //     for i in g.board.moves.iter() {
-    //         l.push_str(&i.to_string());
-    //     }
-    //     lines.push(l);
-    // }
+    while !q.is_empty() {
+        let g = q.pop().unwrap();
+        let mut l = String::new();
+        l.push_str(&g.priority.to_string());
+        l.push(' ');
+        l.push_str(&g.seed.to_string());
+        l.push(' ');
+        l.push_str(&g.board.score.to_string());
+        l.push(' ');
+        for i in g.board.board.iter().flatten() {
+            l.push_str(&i.to_string());
+            l.push(',');
+        }
+        l.pop();
+        l.push(' ');
+        for i in g.board.moves.iter() {
+            l.push_str(&i.to_string());
+        }
+        lines.push(l);
+    }
 
-    // file.write_all(lines.join("\n").as_bytes()).unwrap();
+    file.write_all(lines.join("\n").as_bytes()).unwrap();
+    */
 
     eprintln!("{}", ret.len());
     ret

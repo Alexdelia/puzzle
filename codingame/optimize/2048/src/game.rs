@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use std::{fmt, io};
 
+use enum_like_derive::EnumLike;
+use enum_vec::EnumVec;
+
 pub const SIZE: usize = 4;
 const BASE_GAME_N: usize = 80;
 
@@ -27,7 +30,7 @@ macro_rules! parse_input {
     };
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, EnumLike)]
 pub enum Move {
     Up = 0,
     Down = 1,
@@ -64,7 +67,8 @@ pub struct Board {
     pub score: Score,
     empty: bool,
     over: bool,
-    pub moves: Vec<Move>,
+    pub moves: EnumVec<Move>,
+    // moves: Vec<Move>,
 }
 
 impl fmt::Debug for Board {
@@ -93,7 +97,8 @@ impl Board {
             score: 0,
             empty: true,
             over: false,
-            moves: Vec::new(),
+            moves: EnumVec::new(),
+            // moves: Vec::new(),
         }
     }
 
@@ -450,9 +455,9 @@ fn solve(b: &Board, seed: Seed, time: Duration) -> (Vec<Move>, Seed) {
     dbg!(c);
     dbg!(c as f64 / start.elapsed().as_millis() as f64);
     if m.len() >= mlen {
-        (m, new_seed)
+        (m.into(), new_seed)
     } else {
-        (m, cur_seed)
+        (m.into(), cur_seed)
     }
 }
 
@@ -462,7 +467,7 @@ fn pre_calc(seed: Seed) -> Option<&'static str> {
     d.get(&seed).copied()
 }
 
-fn main() {
+pub fn main() {
     let mut seed: Seed;
     let mut b: Board;
     let mut m: Vec<Move>;
