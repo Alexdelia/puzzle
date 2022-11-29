@@ -211,7 +211,7 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
         }
 
         if q.len() > MAX_SIZE {
-            dbg!(c);
+            ouput(&q.peek().unwrap().board, c, q.len(), false);
             q = q_out(q);
         }
     }
