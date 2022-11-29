@@ -5,6 +5,7 @@ use std::process::ExitCode;
 
 use lib2048::err;
 use lib2048::game::{Board, Cell, Move, Score, Seed, SIZE};
+use lib2048::io::{read::read, write::write, FILE_RESULT};
 
 type Priority = u32;
 
@@ -161,7 +162,25 @@ fn q_out(mut q: BinaryHeap<Game>) -> BinaryHeap<Game> {
     ret
 }
 
-fn solve(board: Board, seed: Seed) -> Board {
+fn upout(
+    best: &mut Board,
+    saved: &mut (Seed, Score),
+    board: &Board,
+    counter: usize,
+    q_size: usize,
+    over: bool,
+) {
+    if board.score > best.score {
+        *best = board.clone();
+        ouput(best, counter, q_size, over);
+        if best.score > saved.1 {
+            let m: Vec<Move> = best.moves.clone().into();
+            write(FILE_RESULT, saved.0, best.score, &m);
+        }
+    }
+}
+
+fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
     let mut q = BinaryHeap::<Game>::new();
     let mut best: Board = Board::new();
     let m: [Move; 4] = [Move::Up, Move::Left, Move::Right, Move::Down];
@@ -171,20 +190,14 @@ fn solve(board: Board, seed: Seed) -> Board {
 
     while !q.is_empty() || q_in(&mut q) > 0 {
         let g = q.pop().unwrap();
-        if g.board.score > best.score {
-            best = g.board.clone();
-            ouput(&best, c, q.len(), false);
-        }
+        upout(&mut best, &mut saved, &g.board, c, q.len(), false);
 
         for i in m {
             let mut b = g.board.clone();
             if b.play(i) {
                 let s = b.spawn_tile(g.seed);
                 if b.is_over() {
-                    if b.score > best.score {
-                        best = b.clone();
-                        ouput(&best, c, q.len(), true);
-                    }
+                    upout(&mut best, &mut saved, &b, c, q.len(), true);
                     continue;
                 }
                 q.push(Game::new(b, s));
@@ -210,12 +223,25 @@ fn main() -> ExitCode {
     }
 
     let mut seed = std::env::args().nth(1).unwrap().parse::<Seed>().unwrap();
+    let mut saved_score: (Seed, Score) = (seed, 0);
+    {
+        let bs: Vec<(Seed, Score)> = read(FILE_RESULT).unwrap();
+
+        for s in bs {
+            if s.0 == seed {
+                saved_score.1 = s.1;
+                break;
+            }
+        }
+    }
+    dbg!(saved_score);
+
     let mut board = Board::new();
 
     seed = board.spawn_tile(seed);
     seed = board.spawn_tile(seed);
 
-    board = solve(board, seed);
+    board = solve(board, seed, saved_score);
     println!("{:?}", &board);
     println!(
         "{}",

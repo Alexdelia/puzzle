@@ -22,6 +22,7 @@ pub fn read(file: &str) -> Option<Vec<(Seed, Score)>> {
     for l in lines {
         let mut s = l.split_whitespace();
         let seed = s.next().unwrap().parse::<Seed>().unwrap();
+        let _seed_next = s.next().unwrap().parse::<Seed>().unwrap();
         let score = s.next().unwrap().parse::<Score>().unwrap();
         ret.push((seed, score));
     }
