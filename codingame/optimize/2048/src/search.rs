@@ -4,11 +4,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use lib2048::err;
 use lib2048::game::{Board, Move, Score, Seed, R_A, R_C, R_M};
-use lib2048::io::{read::read, write::write};
+use lib2048::io::{read::read, write::write, FILE_RESULT};
 
 type Games = HashMap<Seed, (Board, Seed, Score)>;
-
-const FILE: &str = ".2048_results.out";
 
 fn play(mut board: Board, mut seed: Seed) -> (Vec<Move>, Score) {
     let mut am: Vec<Move>;
@@ -67,7 +65,7 @@ fn main() -> ExitCode {
     });
 
     {
-        let bs = read(FILE).unwrap_or_else(|| {
+        let bs = read(FILE_RESULT).unwrap_or_else(|| {
             std::process::exit(2);
         });
 
@@ -86,7 +84,7 @@ fn main() -> ExitCode {
             if new_score > *score {
                 *score = new_score;
                 print!("\x1b[33;1m{}\x1b[0m:\t", seed);
-                write(FILE, *seed, *score, &moves);
+                write(FILE_RESULT, *seed, *score, &moves);
                 println!(
                     "\x1b[32;1m{} \x1b[35;1m{} \x1b[31;1m{}\x1b[0m",
                     *score,
