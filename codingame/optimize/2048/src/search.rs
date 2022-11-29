@@ -3,8 +3,13 @@ use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use lib2048::err;
-use lib2048::game::{Board, Move, Score, Seed, R_A, R_C, R_M};
+use lib2048::game::{Board, Move, Score, Seed};
 use lib2048::io::{read::read, write::write, FILE_RESULT};
+
+// linear congruential generator
+pub const R_A: u128 = 1664525;
+pub const R_C: u128 = 1013904223;
+pub const R_M: u128 = 1 << 32;
 
 type Games = HashMap<Seed, (Board, Seed, Score)>;
 

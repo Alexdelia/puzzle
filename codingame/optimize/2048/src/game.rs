@@ -11,11 +11,6 @@ const BASE_GAME_N: usize = 80;
 const INIT_TIME: Duration = Duration::from_secs(1);
 const MOVE_TIME: Duration = Duration::from_millis(50);
 
-// linear congruential generator
-pub const R_A: u128 = 1664525;
-pub const R_C: u128 = 1013904223;
-pub const R_M: u128 = 1 << 32;
-
 pub type Seed = u128;
 pub type Cell = u8;
 pub type Score = u32;

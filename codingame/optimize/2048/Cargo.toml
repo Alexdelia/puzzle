@@ -14,6 +14,10 @@ name = "lib2048"
 path = "src/lib.rs"
 
 [[bin]]
+name = "answer"
+path = "src/answer.rs"
+
+[[bin]]
 name = "2048"
 path = "src/game.rs"
 
