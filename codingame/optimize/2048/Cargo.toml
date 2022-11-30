@@ -18,10 +18,6 @@ name = "answer"
 path = "src/answer.rs"
 
 [[bin]]
-name = "2048"
-path = "src/game.rs"
-
-[[bin]]
 name = "search"
 path = "src/search.rs"
 
