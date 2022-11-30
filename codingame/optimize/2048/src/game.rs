@@ -16,12 +16,6 @@ pub fn next(seed: Seed) -> Seed {
     seed * seed % 50515093
 }
 
-macro_rules! parse_input {
-    ($x:expr, $t:ident) => {
-        $x.trim().parse::<$t>().unwrap()
-    };
-}
-
 #[derive(Clone, Copy, EnumLike)]
 pub enum Move {
     Up = 0,
@@ -362,82 +356,11 @@ impl Default for Board {
     }
 }
 
+/*
 fn b10to2(n: u32) -> u8 {
     if n == 0 {
         return 0;
     }
     n.trailing_zeros() as u8
 }
-
-// unit tests
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_board() {
-        let mut b = Board::new();
-        let mut seed = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as Seed;
-
-        seed = b.spawn_tile(seed);
-        seed = b.spawn_tile(seed);
-
-        assert_eq!(b.score, 0);
-        eprintln!("{:?}", b);
-
-        eprintln!("Up");
-        b.play(Move::Up);
-        seed = b.spawn_tile(seed);
-        eprintln!("{:?}", b);
-
-        eprintln!("Down");
-        b.play(Move::Down);
-        seed = b.spawn_tile(seed);
-        eprintln!("{:?}", b);
-
-        eprintln!("Left");
-        b.play(Move::Left);
-        seed = b.spawn_tile(seed);
-        eprintln!("{:?}", b);
-
-        eprintln!("Right");
-        b.play(Move::Right);
-        seed = b.spawn_tile(seed);
-        eprintln!("{:?}", b);
-
-        eprintln!("seed: {}", seed);
-    }
-
-    #[test]
-    fn test_b10to2() {
-        assert_eq!(b10to2(0), 0);
-        assert_eq!(b10to2(2), 1);
-        assert_eq!(b10to2(4), 2);
-        assert_eq!(b10to2(8), 3);
-        assert_eq!(b10to2(16), 4);
-        assert_eq!(b10to2(32), 5);
-        assert_eq!(b10to2(64), 6);
-        assert_eq!(b10to2(128), 7);
-        assert_eq!(b10to2(256), 8);
-        assert_eq!(b10to2(512), 9);
-        assert_eq!(b10to2(1024), 10);
-        assert_eq!(b10to2(2048), 11);
-        assert_eq!(b10to2(4096), 12);
-        assert_eq!(b10to2(8192), 13);
-        assert_eq!(b10to2(16384), 14);
-        assert_eq!(b10to2(32768), 15);
-        assert_eq!(b10to2(65536), 16);
-        assert_eq!(b10to2(131072), 17);
-    }
-
-    #[test]
-    fn test_b10to2_shift() {
-        for n in 0..=17 {
-            assert_eq!(b10to2(1 << n), n);
-            assert_eq!(b10to2(2 << n), n + 1);
-        }
-    }
-}
+*/
