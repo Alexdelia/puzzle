@@ -49,14 +49,13 @@ impl Game {
     }
 
     fn priority(board: &Board) -> Priority {
-        let mut big: (Cell, bool) = (0, false);
+        let mut big: Cell = 0;
         let mut r = vec![0; 18];
         for x in 0..SIZE {
             for y in 0..SIZE {
                 r[board.board[x][y] as usize] += 1;
-                if board.board[x][y] > big.0 {
-                    big.0 = board.board[x][y];
-                    big.1 = (x == 0 || x == SIZE - 1) && (y == 0 || y == SIZE - 1);
+                if board.board[x][y] > big {
+                    big = board.board[x][y];
                 }
             }
         }
@@ -68,7 +67,13 @@ impl Game {
             }
         }
 
-        big.1 as Priority * 1_000_000_000 + p * 10_000_000 + board.score
+        (board.board[0][0] == big
+            || board.board[0][SIZE - 1] == big
+            || board.board[SIZE - 1][0] == big
+            || board.board[SIZE - 1][SIZE - 1] == big) as Priority
+            * 1_000_000_000
+            + p * 10_000_000
+            + board.score
     }
 }
 
