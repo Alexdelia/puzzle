@@ -1,5 +1,3 @@
-use std::cmp::Reverse;
-
 use crate::game::{Board, Cell, SIZE};
 
 type Priority = u32;
