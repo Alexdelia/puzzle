@@ -17,5 +17,5 @@ for i, c in enumerate(DATA):
     if r == -1 and bi == 0:
         bi = i + 1
 
-print(f"part 1: {r}")
-print(f"part 2: {bi}")
+print(f"part 1:\t{r}")
+print(f"part 2:\t{bi}")
