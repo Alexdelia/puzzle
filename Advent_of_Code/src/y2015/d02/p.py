@@ -17,5 +17,5 @@ for i in lines:
     sq += 2*l*w + 2*w*h + 2*h*l + min(l*w, w*h, h*l)
     ft += 2*min(l+w, w+h, h+l) + l*w*h
 
-print(f"part 1: {sq}")
-print(f"part 2: {ft}")
+print(f"part 1:\t{sq}")
+print(f"part 2:\t{ft}")
