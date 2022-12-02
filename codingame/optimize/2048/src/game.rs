@@ -16,7 +16,7 @@ pub fn next(seed: Seed) -> Seed {
     seed * seed % 50515093
 }
 
-#[derive(Clone, Copy, EnumLike)]
+#[derive(Clone, Copy, EnumLike, Debug, PartialEq, Eq)]
 pub enum Move {
     Up = 0,
     Down = 1,
