@@ -311,9 +311,29 @@ mod tests {
 
     #[test]
     fn test_apply_dir() {
+        let mut x: usize = 0;
+        let mut y: usize = 0;
+        let mut dir = Move::Up;
+        let mut drift = Move::Up;
+        let mut b = false;
         let mut board = Board::new();
-        board.board = [[2, 1, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
+        board.board = [
+            [2, 3, 4, 5],
+            [9, 8, 7, 6],
+            [10, 11, 12, 13],
+            [17, 16, 15, 14],
+        ];
         dbg!(&board);
-        assert!(false);
+        (b, x, y) = is_corner(&board, 17);
+        assert_eq!(b, true);
+        assert_eq!(x, 3);
+        assert_eq!(y, 0);
+        (b, x, y, dir, drift) = find_dir(&board, 17, x, y);
+        assert_eq!(b, true);
+        assert_eq!(x, 3);
+        assert_eq!(y, 1);
+        assert_eq!(dir, Move::Right);
+        assert_eq!(drift, Move::Up);
+        // finish later
     }
 }
