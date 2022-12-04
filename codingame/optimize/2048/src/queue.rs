@@ -6,11 +6,10 @@ use std::process::ExitCode;
 use lib2048::err;
 use lib2048::game::{Board, Cell, Move, Score, Seed, SIZE};
 use lib2048::io::{read::read, write::write, FILE_RESULT};
-
-type Priority = u32;
+use lib2048::priority::{priority, Priority};
 
 const MIN_SIZE: usize = 1_000;
-const MAX_SIZE: usize = 10_000_000;
+const MAX_SIZE: usize = 5_000_000;
 const FILE: &str = ".2048_queue.mem";
 
 struct Game {
@@ -42,38 +41,10 @@ impl PartialOrd for Game {
 impl Game {
     fn new(board: Board, seed: Seed) -> Self {
         Self {
-            priority: Game::priority(&board),
+            priority: priority(&board),
             board,
             seed,
         }
-    }
-
-    fn priority(board: &Board) -> Priority {
-        let mut big: Cell = 0;
-        let mut r = vec![0; 18];
-        for x in 0..SIZE {
-            for y in 0..SIZE {
-                r[board.board[x][y] as usize] += 1;
-                if board.board[x][y] > big {
-                    big = board.board[x][y];
-                }
-            }
-        }
-
-        let mut p = r[0];
-        for i in r.iter().take(18).skip(1) {
-            if i == &1 {
-                p += 1;
-            }
-        }
-
-        (board.board[0][0] == big
-            || board.board[0][SIZE - 1] == big
-            || board.board[SIZE - 1][0] == big
-            || board.board[SIZE - 1][SIZE - 1] == big) as Priority
-            * 1_000_000_000
-            + p * 10_000_000
-            + board.score
     }
 }
 
@@ -199,6 +170,7 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
     q.push(Game::new(board, seed));
 
     while !q.is_empty() || q_in(&mut q) > 0 {
+        // print!("{}\r", q.len());
         let g = q.pop().unwrap();
         upout(&mut best, &mut saved, &g.board, c, q.len(), false);
 
@@ -215,7 +187,7 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
             }
         }
 
-        if q.len() > MAX_SIZE - q.len().pow(10) {
+        if q.len() > MAX_SIZE {
             ouput(&q.peek().unwrap().board, c, q.len(), false);
             q = q_out(q);
         }
