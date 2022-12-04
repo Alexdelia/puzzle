@@ -124,7 +124,7 @@ fn apply_dir(
     match dir {
         Move::Up => {
             if x == 0 {
-                if board.board[dx as usize][dx as usize] == val {
+                if board.board[dx as usize][dy as usize] == val {
                     return (true, dx as usize, dy as usize, Move::Down);
                 }
             } else if board.board[x - 1][y] == val {
@@ -134,7 +134,7 @@ fn apply_dir(
         }
         Move::Down => {
             if x == SIZE - 1 {
-                if board.board[dx as usize][dx as usize] == val {
+                if board.board[dx as usize][dy as usize] == val {
                     return (true, dx as usize, dy as usize, Move::Up);
                 }
             } else if board.board[x + 1][y] == val {
@@ -144,7 +144,7 @@ fn apply_dir(
         }
         Move::Left => {
             if y == 0 {
-                if board.board[dx as usize][dx as usize] == val {
+                if board.board[dx as usize][dy as usize] == val {
                     return (true, dx as usize, dy as usize, Move::Right);
                 }
             } else if board.board[x][y - 1] == val {
@@ -154,7 +154,7 @@ fn apply_dir(
         }
         Move::Right => {
             if y == SIZE - 1 {
-                if board.board[dx as usize][dx as usize] == val {
+                if board.board[dx as usize][dy as usize] == val {
                     return (true, dx as usize, dy as usize, Move::Left);
                 }
             } else if board.board[x][y + 1] == val {
@@ -225,7 +225,7 @@ mod tests {
         let mut board = Board::new();
         board.board = [[2, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
         dbg!(&board);
-        let (b, x, y, dir, drift) = find_dir(&board, 1, 0, 0);
+        let (b, _, _, _, _) = find_dir(&board, 1, 0, 0);
         assert_eq!(b, false);
 
         board.board = [[2, 0, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
@@ -311,11 +311,11 @@ mod tests {
 
     #[test]
     fn test_apply_dir() {
-        let mut x: usize = 0;
-        let mut y: usize = 0;
-        let mut dir = Move::Up;
-        let mut drift = Move::Up;
-        let mut b = false;
+        let mut x: usize;
+        let mut y: usize;
+        let mut dir;
+        let drift;
+        let mut b;
         let mut board = Board::new();
         board.board = [
             [2, 3, 4, 5],
@@ -328,12 +328,141 @@ mod tests {
         assert_eq!(b, true);
         assert_eq!(x, 3);
         assert_eq!(y, 0);
-        (b, x, y, dir, drift) = find_dir(&board, 17, x, y);
+
+        (b, x, y, dir, drift) = find_dir(&board, 16, x, y);
         assert_eq!(b, true);
         assert_eq!(x, 3);
         assert_eq!(y, 1);
         assert_eq!(dir, Move::Right);
         assert_eq!(drift, Move::Up);
-        // finish later
+
+        (b, x, y, dir) = apply_dir(&board, 15, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 3);
+        assert_eq!(y, 2);
+        assert_eq!(dir, Move::Right);
+
+        (b, x, y, dir) = apply_dir(&board, 14, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 3);
+        assert_eq!(y, 3);
+        assert_eq!(dir, Move::Right);
+
+        (b, x, y, dir) = apply_dir(&board, 13, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 2);
+        assert_eq!(y, 3);
+        assert_eq!(dir, Move::Left);
+
+        (b, x, y, dir) = apply_dir(&board, 12, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 2);
+        assert_eq!(y, 2);
+        assert_eq!(dir, Move::Left);
+
+        (b, x, y, dir) = apply_dir(&board, 11, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 2);
+        assert_eq!(y, 1);
+        assert_eq!(dir, Move::Left);
+
+        (b, x, y, dir) = apply_dir(&board, 10, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 2);
+        assert_eq!(y, 0);
+        assert_eq!(dir, Move::Left);
+
+        (b, x, y, dir) = apply_dir(&board, 9, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 1);
+        assert_eq!(y, 0);
+        assert_eq!(dir, Move::Right);
+
+        (b, x, y, dir) = apply_dir(&board, 8, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 1);
+        assert_eq!(y, 1);
+        assert_eq!(dir, Move::Right);
+
+        (b, x, y, dir) = apply_dir(&board, 7, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 1);
+        assert_eq!(y, 2);
+        assert_eq!(dir, Move::Right);
+
+        (b, x, y, dir) = apply_dir(&board, 6, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 1);
+        assert_eq!(y, 3);
+        assert_eq!(dir, Move::Right);
+
+        (b, x, y, dir) = apply_dir(&board, 5, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 0);
+        assert_eq!(y, 3);
+        assert_eq!(dir, Move::Left);
+
+        (b, x, y, dir) = apply_dir(&board, 4, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 0);
+        assert_eq!(y, 2);
+        assert_eq!(dir, Move::Left);
+
+        (b, x, y, dir) = apply_dir(&board, 3, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 0);
+        assert_eq!(y, 1);
+        assert_eq!(dir, Move::Left);
+
+        (b, x, y, dir) = apply_dir(&board, 2, x, y, dir, drift);
+        assert_eq!(b, true);
+        assert_eq!(x, 0);
+        assert_eq!(y, 0);
+        assert_eq!(dir, Move::Left);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_apply_dir_panic() {
+        let mut board = Board::new();
+        board.board = [
+            [2, 3, 4, 5],
+            [9, 8, 7, 6],
+            [10, 11, 12, 13],
+            [17, 16, 15, 14],
+        ];
+
+        apply_dir(&board, 1, 0, 0, Move::Left, Move::Up);
+    }
+
+    #[test]
+    fn test_apply_dir_mid_stop() {
+        let mut x: usize;
+        let mut y: usize;
+        let dir;
+        let drift;
+        let mut b;
+        let mut board = Board::new();
+        board.board = [
+            [2, 3, 4, 5],
+            [9, 8, 7, 6],
+            [10, 11, 12, 13],
+            [17, 16, 0, 14],
+        ];
+        dbg!(&board);
+        (b, x, y) = is_corner(&board, 17);
+        assert_eq!(b, true);
+        assert_eq!(x, 3);
+        assert_eq!(y, 0);
+
+        (b, x, y, dir, drift) = find_dir(&board, 16, x, y);
+        assert_eq!(b, true);
+        assert_eq!(x, 3);
+        assert_eq!(y, 1);
+        assert_eq!(dir, Move::Right);
+        assert_eq!(drift, Move::Up);
+
+        (b, _, _, _) = apply_dir(&board, 15, x, y, dir, drift);
+        assert_eq!(b, false);
     }
 }
