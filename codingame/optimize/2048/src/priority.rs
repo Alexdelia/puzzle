@@ -1,6 +1,6 @@
 use crate::game::{Board, Cell, Move, SIZE};
 
-pub type Priority = u32;
+pub type Priority = u64;
 
 pub fn priority(board: &Board) -> Priority {
     let mut r = radix(board);
@@ -10,12 +10,13 @@ pub fn priority(board: &Board) -> Priority {
     let mut dir: Move = Move::Up;
     let mut drift: Move = Move::Up;
     let mut b: bool = true;
+    let mut step: u8 = 0;
 
     for val in (1..18).rev() {
         while r[val] > 0 {
-            if p == 0 {
+            if step == 0 {
                 (b, x, y) = is_corner(board, val as Cell);
-            } else if p == 1 {
+            } else if step == 1 {
                 (b, x, y, dir, drift) = find_dir(board, val as Cell, x, y);
             } else {
                 (b, x, y, dir) = apply_dir(board, val as Cell, x, y, dir, drift);
@@ -25,8 +26,9 @@ pub fn priority(board: &Board) -> Priority {
                 break;
             }
 
-            p += 1;
+            p += (1 << val as Priority) << (17 - step);
             r[val] -= 1;
+            step += 1;
         }
 
         if !b {
@@ -35,7 +37,7 @@ pub fn priority(board: &Board) -> Priority {
     }
     p += r[0] as Priority;
 
-    p * 10_000_000 + board.score
+    p
 }
 
 fn radix(board: &Board) -> Vec<u8> {

@@ -9,7 +9,7 @@ use lib2048::io::{read::read, write::write, FILE_RESULT};
 use lib2048::priority::{priority, Priority};
 
 const MIN_SIZE: usize = 1_000;
-const MAX_SIZE: usize = 5_000_000;
+const MAX_SIZE: usize = 1_000_000;
 const FILE: &str = ".2048_queue.mem";
 
 struct Game {
