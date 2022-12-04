@@ -10,7 +10,7 @@ use lib2048::io::{read::read, write::write, FILE_RESULT};
 type Priority = u32;
 
 const MIN_SIZE: usize = 1_000;
-const MAX_SIZE: usize = 1_000_000;
+const MAX_SIZE: usize = 10_000_000;
 const FILE: &str = ".2048_queue.mem";
 
 struct Game {
@@ -215,7 +215,7 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
             }
         }
 
-        if q.len() > MAX_SIZE {
+        if q.len() > MAX_SIZE - q.len().pow(10) {
             ouput(&q.peek().unwrap().board, c, q.len(), false);
             q = q_out(q);
         }
