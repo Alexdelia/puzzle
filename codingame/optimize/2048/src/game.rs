@@ -52,7 +52,6 @@ pub struct Board {
     pub board: [[Cell; SIZE]; SIZE],
     pub score: Score,
     empty: bool,
-    over: bool,
     pub moves: EnumVec<Move>,
     // moves: Vec<Move>,
 }
@@ -61,7 +60,7 @@ impl fmt::Debug for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "score: {}", self.score)?;
         writeln!(f, "empty: {}", self.empty)?;
-        writeln!(f, "over: {}", self.over)?;
+        writeln!(f, "over: {}", self.is_over())?;
         for x in 0..SIZE {
             for y in 0..SIZE {
                 let n = match 1 << self.board[x][y] {
@@ -82,7 +81,6 @@ impl Board {
             board: [[0; SIZE]; SIZE],
             score: 0,
             empty: true,
-            over: false,
             moves: EnumVec::new(),
             // moves: Vec::new(),
         }
