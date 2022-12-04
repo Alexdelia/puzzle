@@ -11,8 +11,9 @@ pub fn priority(board: &Board) -> Priority {
     let mut drift: Move = Move::Up;
     let mut b: bool = true;
     let mut step: u8 = 0;
+    let mut val: usize = 17;
 
-    for val in (1..18).rev() {
+    while val > 0 {
         while r[val] > 0 {
             if step == 0 {
                 (b, x, y) = is_corner(board, val as Cell);
@@ -34,8 +35,16 @@ pub fn priority(board: &Board) -> Priority {
         if !b {
             break;
         }
+
+        val -= 1;
     }
-    p += r[0] as Priority;
+
+    // need to fix, val is 0 here
+    for _ in 0..r[0] {
+        p += (1 << val as Priority) << (17 - step);
+        step += 1;
+        val -= 1;
+    }
 
     p
 }
@@ -444,5 +453,33 @@ mod tests {
 
         (b, _, _, _) = apply_dir(&board, 15, x, y, dir, drift);
         assert_eq!(b, false);
+    }
+
+    #[test]
+    fn test_priotiry() {
+        let mut board = Board::new();
+        board.board = [
+            [2, 3, 4, 5],
+            [9, 8, 7, 6],
+            [10, 11, 12, 13],
+            [17, 16, 15, 14],
+        ];
+        let p1 = priority(&board);
+        dbg!(p1);
+
+        board.board = [
+            [1, 2, 3, 4],
+            [8, 7, 6, 5],
+            [9, 10, 11, 12],
+            [16, 15, 14, 13],
+        ];
+        let p2 = priority(&board);
+        dbg!(p2);
+
+        board.board = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
+        let p3 = priority(&board);
+        dbg!(p3);
+
+        assert_eq!(p1, p3);
     }
 }
