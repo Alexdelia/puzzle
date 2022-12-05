@@ -8,8 +8,9 @@ use lib2048::game::{Board, Cell, Move, Score, Seed, SIZE};
 use lib2048::io::{read::read, write::write, FILE_RESULT};
 use lib2048::priority::{priority, Priority};
 
-const MIN_SIZE: usize = 100_000;
-const MAX_SIZE: usize = 2_000_000;
+// const MIN_SIZE: usize = 100_000;
+// const MAX_SIZE: usize = 2_000_000;
+const MAX_HEAP_SIZE = 8_000_000;
 const FILE: &str = ".2048_queue.mem";
 
 struct Game {
@@ -187,8 +188,17 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
             }
         }
 
-        if q.len() > MAX_SIZE {
-            ouput(&q.peek().unwrap().board, c, q.len(), false);
+		if let Some(peek) = q.peek() {
+			let size = peek.board.heapsize();
+			if size > MAX_HEAP_SIZE {
+				ouput(peek.board, c, q.len(), false);
+				q = q_out(q, size / MIN_HEAP_FACTOR);
+			}
+		}
+
+
+
+        if !q.is_empty() && q.peek().unwrap().board.heapsize() > MAX_SIZE {
             q = q_out(q);
         }
     }

@@ -1,4 +1,5 @@
 use std::fmt;
+use std::mem::size_of;
 
 use enum_like_derive::EnumLike;
 use enum_vec::EnumVec;
@@ -84,6 +85,10 @@ impl Board {
             moves: EnumVec::new(),
             // moves: Vec::new(),
         }
+    }
+
+    pub fn heapsize(&self) -> usize {
+        size_of::<Board>() + self.moves.capacity() / 4
     }
 
     pub fn spawn_tile(&mut self, seed: Seed) -> Seed {
