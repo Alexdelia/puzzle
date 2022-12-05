@@ -41,7 +41,7 @@ pub fn priority(board: &Board) -> Priority {
 
     step = 2;
     for i in 0..r[0] {
-        p += (1 << (i + 2) as Priority) << step;
+        p += (1 << (i + 2)) << step;
         step += 1;
     }
 
