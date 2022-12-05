@@ -9,8 +9,9 @@ use lib2048::io::{read::read, write::write, FILE_RESULT};
 use lib2048::priority::{priority, Priority};
 
 // const MIN_SIZE: usize = 100_000;
-// const MAX_SIZE: usize = 2_000_000;
-const MAX_HEAP_SIZE = 8_000_000;
+const MAX_SIZE: usize = 100_000;
+const MAX_HEAP_SIZE: usize = 8_000_000_000;
+const MIN_HEAP_FACTOR: usize = 100;
 const FILE: &str = ".2048_queue.mem";
 
 struct Game {
@@ -98,11 +99,11 @@ fn q_in(q: &mut BinaryHeap<Game>) -> usize {
     q.len()
 }
 
-fn q_out(mut q: BinaryHeap<Game>) -> BinaryHeap<Game> {
+fn q_out(mut q: BinaryHeap<Game>, min_size: usize) -> BinaryHeap<Game> {
     eprint!("q_out\t");
     let mut ret: BinaryHeap<Game> = BinaryHeap::new();
 
-    while !q.is_empty() && ret.len() < MIN_SIZE {
+    while !q.is_empty() && ret.len() < min_size {
         ret.push(q.pop().unwrap());
     }
 
@@ -188,18 +189,13 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
             }
         }
 
-		if let Some(peek) = q.peek() {
-			let size = peek.board.heapsize();
-			if size > MAX_HEAP_SIZE {
-				ouput(peek.board, c, q.len(), false);
-				q = q_out(q, size / MIN_HEAP_FACTOR);
-			}
-		}
-
-
-
-        if !q.is_empty() && q.peek().unwrap().board.heapsize() > MAX_SIZE {
-            q = q_out(q);
+        if let Some(peek) = q.peek() {
+            let size = peek.board.heapsize() * q.len();
+            if size > MAX_HEAP_SIZE {
+                ouput(&peek.board, c, q.len(), false);
+                let l = q.len() / MIN_HEAP_FACTOR;
+                q = q_out(q, l);
+            }
         }
     }
 

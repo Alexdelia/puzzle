@@ -46,6 +46,7 @@ pub fn priority(board: &Board) -> Priority {
     }
 
     p
+    // p * 10_000_000 + board.score as Priority
 }
 
 fn radix(board: &Board) -> Vec<u8> {
