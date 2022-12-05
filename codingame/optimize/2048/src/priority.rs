@@ -39,11 +39,11 @@ pub fn priority(board: &Board) -> Priority {
         val -= 1;
     }
 
-    // need to fix, val is 0 here
-    for _ in 0..r[0] {
-        p += (1 << val as Priority) << (17 - step);
+    step = 2;
+    for i in 0..r[0] {
+        let val = i + 2;
+        p += (1 << val as Priority) << step;
         step += 1;
-        val -= 1;
     }
 
     p
