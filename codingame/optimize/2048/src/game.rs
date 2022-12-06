@@ -59,9 +59,8 @@ pub struct Board {
 
 impl fmt::Debug for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "score: {}", self.score)?;
-        writeln!(f, "empty: {}", self.empty)?;
-        writeln!(f, "over: {}", self.is_over())?;
+        writeln!(f, "score:\t{}", self.score)?;
+        writeln!(f, "moves.len():\t{}", self.moves.len())?;
         for x in 0..SIZE {
             for y in 0..SIZE {
                 let n = match 1 << self.board[x][y] {
