@@ -5,7 +5,11 @@ use std::process::ExitCode;
 
 use lib2048::err;
 use lib2048::game::{Board, Cell, Move, Score, Seed, SIZE};
-use lib2048::io::{read::read, write::write, FILE_RESULT};
+use lib2048::io::{
+    read::{read, read_seeds},
+    write::write,
+    FILE_RESULT, FILE_SEEDS,
+};
 use lib2048::priority::{priority, Priority};
 
 // const MIN_SIZE: usize = 100_000;
@@ -172,7 +176,6 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
     q.push(Game::new(board, seed));
 
     while !q.is_empty() || q_in(&mut q) > 0 {
-        // print!("{}\r", q.len());
         let g = q.pop().unwrap();
         upout(&mut best, &mut saved, &g.board, c, q.len(), false);
 
@@ -203,36 +206,46 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
 }
 
 fn main() -> ExitCode {
-    if std::env::args().len() != 2 {
-        err!(
-            "usage: \x1b[1m{} [\x1b[35;1m<seed>\x1b[0m",
-            std::env::args().next().unwrap()
-        );
-        return ExitCode::FAILURE;
-    }
+    let seeds: Vec<Seed> = match std::env::args().len() {
+        1 => read_seeds(FILE_SEEDS).unwrap(),
+        _ => std::env::args()
+            .skip(1)
+            .map(|s| {
+                s.parse::<Seed>().unwrap_or_else(|_| {
+                    err!(
+                        "usage: \x1b[1m{} [\x1b[35;1m<seed>\x1b[0m",
+                        std::env::args().next().unwrap()
+                    );
+                    std::process::exit(1);
+                })
+            })
+            .collect(),
+    };
 
-    let mut seed = std::env::args().nth(1).unwrap().parse::<Seed>().unwrap();
-    let mut saved_score: (Seed, Score) = (seed, 0);
-    {
-        let bs: Vec<(Seed, Score)> = read(FILE_RESULT).unwrap();
+    for i in seeds {
+        let mut seed = i;
+        let mut saved_score: (Seed, Score) = (seed, 0);
+        {
+            let bs: Vec<(Seed, Score)> = read(FILE_RESULT).unwrap();
 
-        for s in bs {
-            if s.0 == seed {
-                saved_score.1 = s.1;
-                break;
+            for s in bs {
+                if s.0 == seed {
+                    saved_score.1 = s.1;
+                    break;
+                }
             }
         }
+        dbg!(saved_score);
+
+        let mut board = Board::new();
+
+        seed = board.spawn_tile(seed);
+        seed = board.spawn_tile(seed);
+
+        board = solve(board, seed, saved_score);
+        println!("{:?}", &board);
+        println!("moves.len(): {}", board.moves.len());
     }
-    dbg!(saved_score);
-
-    let mut board = Board::new();
-
-    seed = board.spawn_tile(seed);
-    seed = board.spawn_tile(seed);
-
-    board = solve(board, seed, saved_score);
-    println!("{:?}", &board);
-    println!("moves.len(): {}", board.moves.len());
 
     ExitCode::SUCCESS
 }
