@@ -29,3 +29,25 @@ pub fn read(file: &str) -> Option<Vec<(Seed, Score)>> {
 
     Some(ret)
 }
+
+pub fn read_seeds(file: &str) -> Option<Vec<Seed>> {
+    let lines: Vec<String> = match File::open(file) {
+        Ok(f) => BufReader::new(f).lines().map(|l| l.unwrap()).collect(),
+        Err(e) => match e.kind() {
+            ErrorKind::NotFound => {
+                return Some(Vec::new());
+            }
+            _ => {
+                err!("\"\x1b[35m{}\x1b[0m\x1b[1m\" {}", file, e);
+                return None;
+            }
+        },
+    };
+
+    let mut ret = Vec::new();
+    for l in lines {
+        ret.push(l.parse::<Seed>().unwrap());
+    }
+
+    Some(ret)
+}
