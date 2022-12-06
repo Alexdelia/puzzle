@@ -193,7 +193,7 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
             let size = peek.board.heapsize() * q.len();
             if size > MAX_HEAP_SIZE {
                 ouput(&peek.board, c, q.len(), false);
-                let l = q.len() / MIN_HEAP_FACTOR;
+                let l = std::cmp::max(q.len() / MIN_HEAP_FACTOR, 16);
                 q = q_out(q, l);
             }
         }
