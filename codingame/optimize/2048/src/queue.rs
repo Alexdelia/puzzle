@@ -278,17 +278,17 @@ mod test {
         assert!(p1 > p2);
     }
 
-    #[test]
-    fn q_in_out() {
-        let mut q = BinaryHeap::<Game>::new();
-        let mut b = Board::new();
-        b.spawn_tile(42);
-        b.spawn_tile(81);
-        b.score = 42;
-        dbg!(&b);
-        q.push(Game::new(b.clone(), 0));
-        q = q_out(q);
-        q_in(&mut q);
-        assert_eq!(q.len(), 1);
-    }
+    // #[test]
+    // fn q_in_out() {
+    //     let mut q = BinaryHeap::<Game>::new();
+    //     let mut b = Board::new();
+    //     b.spawn_tile(42);
+    //     b.spawn_tile(81);
+    //     b.score = 42;
+    //     dbg!(&b);
+    //     q.push(Game::new(b.clone(), 0));
+    //     q = q_out(q);
+    //     q_in(&mut q);
+    //     assert_eq!(q.len(), 1);
+    // }
 }
