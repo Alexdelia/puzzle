@@ -54,9 +54,10 @@ impl Game {
     }
 }
 
-fn ouput(board: &Board, counter: usize, q_size: usize, over: bool) {
+fn ouput(seed: Seed, board: &Board, counter: usize, q_size: usize, over: bool) {
     println!(
-        "\x1b[1m{}\t\x1b[32;1m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[33;1m{}\x1b[0m",
+        "\x1b[33;1m{}\x1b[0m\t\x1b[1m{}\t\x1b[32;1m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[36;1m{}\x1b[0m",
+		seed,
         over,
         board.score,
         board.moves.len(),
@@ -159,7 +160,7 @@ fn upout(
 ) {
     if board.score > best.score {
         *best = board.clone();
-        ouput(best, counter, q_size, over);
+        ouput(saved.0, best, counter, q_size, over);
         if best.score > saved.1 {
             let m: Vec<Move> = best.moves.clone().into();
             write(FILE_RESULT, saved.0, best.score, &m);
@@ -195,7 +196,7 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
         if let Some(peek) = q.peek() {
             let size = peek.board.heapsize() * q.len();
             if size > MAX_HEAP_SIZE {
-                ouput(&peek.board, c, q.len(), false);
+                ouput(saved.0, &peek.board, c, q.len(), false);
                 let l = std::cmp::max(q.len() / MIN_HEAP_FACTOR, 16);
                 q = q_out(q, l);
             }
