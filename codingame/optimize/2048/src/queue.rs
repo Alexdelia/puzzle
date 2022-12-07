@@ -54,19 +54,6 @@ impl Game {
     }
 }
 
-fn ouput(seed: Seed, board: &Board, counter: usize, q_size: usize, over: bool) {
-    println!(
-        "\x1b[33;1m{}\x1b[0m\t\x1b[1m{}\t\x1b[32;1m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[36;1m{}\x1b[0m",
-		seed,
-        over,
-        board.score,
-        board.moves.len(),
-        counter,
-        q_size,
-    );
-    dbg!(board);
-}
-
 fn q_in(q: &mut BinaryHeap<Game>) -> usize {
     eprint!("q_in\t{}\t", q.len());
     let mut lines: Vec<String> = match File::open(FILE) {
@@ -150,6 +137,20 @@ fn q_out(mut q: BinaryHeap<Game>, min_size: usize) -> BinaryHeap<Game> {
     ret
 }
 
+fn ouput(seed: Seed, board: &Board, saved_score: Score, counter: usize, q_size: usize, over: bool) {
+    println!(
+        "\x1b[33;1m{}\x1b[0m\t\x1b[1m{}\t\x1b[32;1m{}\t\x1b[32;3m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[36;1m{}\x1b[0m",
+		seed,
+        over,
+        board.score,
+		saved_score,
+        board.moves.len(),
+        counter,
+        q_size,
+    );
+    dbg!(board);
+}
+
 fn upout(
     best: &mut Board,
     saved: &mut (Seed, Score),
@@ -160,7 +161,7 @@ fn upout(
 ) {
     if board.score > best.score {
         *best = board.clone();
-        ouput(saved.0, best, counter, q_size, over);
+        ouput(saved.0, best, saved.1, counter, q_size, over);
         if best.score > saved.1 {
             let m: Vec<Move> = best.moves.clone().into();
             write(FILE_RESULT, saved.0, best.score, &m);
@@ -196,7 +197,7 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
         if let Some(peek) = q.peek() {
             let size = peek.board.heapsize() * q.len();
             if size > MAX_HEAP_SIZE {
-                ouput(saved.0, &peek.board, c, q.len(), false);
+                ouput(saved.0, &peek.board, saved.1, c, q.len(), false);
                 let l = std::cmp::max(q.len() / MIN_HEAP_FACTOR, 16);
                 q = q_out(q, l);
             }
@@ -207,43 +208,40 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
 }
 
 fn main() -> ExitCode {
-    let seeds: Vec<Seed> = match std::env::args().len() {
-        1 => read_seeds(FILE_SEEDS).unwrap(),
-        _ => std::env::args()
-            .skip(1)
-            .map(|s| {
-                s.parse::<Seed>().unwrap_or_else(|_| {
-                    err!(
-                        "usage: \x1b[1m{} [\x1b[35;1m<seed>\x1b[0m",
-                        std::env::args().next().unwrap()
-                    );
-                    std::process::exit(1);
+    let mut saved: Vec<(Seed, Score)> = read(FILE_RESULT).unwrap();
+
+    {
+        let seeds: Vec<Seed> = match std::env::args().len() {
+            1 => read_seeds(FILE_SEEDS).unwrap(),
+            _ => std::env::args()
+                .skip(1)
+                .map(|s| {
+                    s.parse::<Seed>().unwrap_or_else(|_| {
+                        err!(
+                            "usage: \x1b[1m{} [\x1b[35;1m<seed>\x1b[0m",
+                            std::env::args().next().unwrap()
+                        );
+                        std::process::exit(1);
+                    })
                 })
-            })
-            .collect(),
-    };
+                .collect(),
+        };
 
-    for i in seeds {
-        let mut seed = i;
-        let mut saved_score: (Seed, Score) = (seed, 0);
-        {
-            let bs: Vec<(Seed, Score)> = read(FILE_RESULT).unwrap();
+        saved.retain(|s| seeds.contains(&s.0));
+        saved.sort_by_key(|k| k.1);
+        dbg!(&saved);
+    }
 
-            for s in bs {
-                if s.0 == seed {
-                    saved_score.1 = s.1;
-                    break;
-                }
-            }
-        }
-        dbg!(saved_score);
+    while !saved.is_empty() {
+        let s = saved.pop().unwrap();
+        dbg!(s);
 
         let mut board = Board::new();
 
-        seed = board.spawn_tile(seed);
+        let mut seed = board.spawn_tile(s.0);
         seed = board.spawn_tile(seed);
 
-        board = solve(board, seed, saved_score);
+        board = solve(board, seed, s);
         println!("{:?}", &board);
         println!("moves.len(): {}", board.moves.len());
     }
