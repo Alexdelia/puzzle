@@ -11,16 +11,18 @@ DATA: str = get_data(day=DAY, year=YEAR)
 
 lines = DATA.splitlines()
 
-t1 = 0
-t2 = 0
+s = ''.join(lines)
 
-for l in lines:
-    s = re.sub(r'\\\\', ' ', l)
-    s = re.sub(r'\\"', ' ', s)
-    s = re.sub(r'\\x[0-9a-f]{2}', ' ', s)
-    t1 += len(l) - len(s[1:-1])
+t = len(
+        re.sub(r'"', '', 
+        re.sub(r'\\x[0-9a-f]{2}', ' ',
+        re.sub(r'\\"', ' ',
+        re.sub(r'\\\\', ' ', 
+        s
+        ))))
+    )
+t = len(s) - t
+print(f"part 1:\t{t}")
 
-    t2 += 2 + l.count('"') + l.count('\\')
-
-print(f"part 1:\t{t1}")
-print(f"part 2:\t{t2}")
+t = 2 * len(lines) + s.count('"') + s.count('\\')
+print(f"part 2:\t{t}")
