@@ -139,7 +139,7 @@ fn q_out(mut q: BinaryHeap<Game>, min_size: usize) -> BinaryHeap<Game> {
 
 fn ouput(seed: Seed, board: &Board, saved_score: Score, counter: usize, q_size: usize, over: bool) {
     println!(
-        "\x1b[33;1m{}\x1b[0m\t\x1b[1m{}\t\x1b[32;1m{}\t\x1b[32;3m{}\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[36;1m{}\x1b[0m",
+        "\x1b[33;1m{}\x1b[0m\t\x1b[1m{}\t\x1b[32;1m{}\t\x1b[32;3m{}\x1b[0m\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[36;1m{}\x1b[0m",
 		seed,
         over,
         board.score,
@@ -229,6 +229,7 @@ fn main() -> ExitCode {
 
         saved.retain(|s| seeds.contains(&s.0));
         saved.sort_by_key(|k| k.1);
+        saved.reverse();
         dbg!(&saved);
     }
 
