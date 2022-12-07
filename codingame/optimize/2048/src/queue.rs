@@ -153,7 +153,7 @@ fn ouput(seed: Seed, board: &Board, saved_score: Score, counter: usize, q_size: 
 
 fn upout(
     best: &mut Board,
-    saved: &mut (Seed, Score),
+    saved: &(Seed, Score),
     board: &Board,
     counter: usize,
     q_size: usize,
@@ -169,7 +169,7 @@ fn upout(
     }
 }
 
-fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
+fn solve(board: Board, seed: Seed, saved: (Seed, Score)) -> Board {
     let mut q = BinaryHeap::<Game>::new();
     let mut best: Board = Board::new();
     let m: [Move; 4] = [Move::Up, Move::Left, Move::Right, Move::Down];
@@ -179,14 +179,14 @@ fn solve(board: Board, seed: Seed, mut saved: (Seed, Score)) -> Board {
 
     while !q.is_empty() || q_in(&mut q) > 0 {
         let g = q.pop().unwrap();
-        upout(&mut best, &mut saved, &g.board, c, q.len(), false);
+        upout(&mut best, &saved, &g.board, c, q.len(), false);
 
         for i in m {
             let mut b = g.board.clone();
             if b.play(i) {
                 let s = b.spawn_tile(g.seed);
                 if b.is_over() {
-                    upout(&mut best, &mut saved, &b, c, q.len(), true);
+                    upout(&mut best, &saved, &b, c, q.len(), true);
                     continue;
                 }
                 q.push(Game::new(b, s));
