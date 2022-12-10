@@ -13,6 +13,22 @@ macro_rules! parse_input {
     };
 }
 
+pub struct BaseN {
+    val: String,
+    base: String,
+}
+
+impl BaseN {
+    pub fn new(base: &str, val: &str) -> BaseN {
+        BaseN {
+            val: val.to_string(),
+            base: base.to_string(),
+        }
+    }
+
+    pub fn to(&self, to: &str) -> BaseN {}
+}
+
 fn get_info() -> Seed {
     let mut input_line = String::new();
     io::stdin().read_line(&mut input_line).unwrap();
