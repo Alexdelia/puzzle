@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io;
+use std::ops;
 use std::str::from_utf8;
 
 type Seed = u32;
@@ -13,6 +14,7 @@ macro_rules! parse_input {
     };
 }
 
+#[derive(Clone)]
 pub struct BaseN {
     val: String,
     base: String,
@@ -26,7 +28,40 @@ impl BaseN {
         }
     }
 
-    pub fn to(&self, to: &str) -> BaseN {}
+    pub fn to_base(&self, to_base: &str) -> BaseN {
+        let mut res = BaseN::new(to_base, "");
+
+        res
+    }
+}
+
+impl ops::Index<usize> for BaseN {
+    type Output = char;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.base.chars().nth(index).unwrap()
+    }
+}
+
+impl ops::Index<char> for BaseN {
+    type Output = usize;
+
+    fn index(&self, index: char) -> &Self::Output {
+        &self.base.chars().position(|c| c == index).unwrap()
+    }
+}
+
+impl ops::Add<BaseN> for BaseN {
+    type Output = BaseN;
+
+    fn add(self, rhs: BaseN) -> BaseN {
+        let mut res = self.clone();
+        let mut carry: char = self[0];
+
+        for c in rhs.val {}
+
+        res
+    }
 }
 
 fn get_info() -> Seed {
