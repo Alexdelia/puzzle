@@ -7,3 +7,7 @@ authors = ["Alexandre Delille <adelille@student.42.fr>"]
 [[bin]]
 name = "game_of_drones"
 path = "Game_of_Drones.rs"
+
+[[bin]]
+name = "fall_2022"
+path = "Fall_Challenge_2022.rs"
