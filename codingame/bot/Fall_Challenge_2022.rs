@@ -10,6 +10,7 @@ type Scrap = u8;
 type Matter = u32;
 type Unit = u8;
 
+#[derive(Clone)]
 enum Owner {
     None,
     Me,
@@ -26,6 +27,7 @@ impl Owner {
     }
 }
 
+#[derive(Clone)]
 struct Tile {
     scrap: Scrap,
     owner: Owner,
@@ -51,23 +53,16 @@ impl Default for Tile {
 }
 
 impl Tile {
-    fn update(
-        &mut self,
-        scrap: Scrap,
-        owner: Owner,
-        unit: Unit,
-        recycler: bool,
-        can_build: bool,
-        can_spawn: bool,
-        in_range_of_recycler: bool,
-    ) {
-        self.scrap = scrap;
-        self.owner = owner;
-        self.unit = unit;
-        self.recycler = recycler;
-        self.can_build = can_build;
-        self.can_spawn = can_spawn;
-        self.in_range_of_recycler = in_range_of_recycler;
+    fn update(&mut self, input_line: &str) {
+        let inputs = input_line.split(' ').collect::<Vec<_>>();
+
+        self.scrap = parse_input!(inputs[0], Scrap);
+        self.owner = Owner::from(parse_input!(inputs[1], i8));
+        self.unit = parse_input!(inputs[2], Unit);
+        self.recycler = parse_input!(inputs[3], u8) == 1;
+        self.can_build = parse_input!(inputs[4], u8) == 1;
+        self.can_spawn = parse_input!(inputs[5], u8) == 1;
+        self.in_range_of_recycler = parse_input!(inputs[6], u8) == 1;
     }
 }
 
@@ -94,7 +89,7 @@ impl Env {
         {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
-            let inputs = input_line.split(" ").collect::<Vec<_>>();
+            let inputs = input_line.split(' ').collect::<Vec<_>>();
 
             self.m_m = parse_input!(inputs[0], Matter);
             self.o_m = parse_input!(inputs[1], Matter);
@@ -104,17 +99,8 @@ impl Env {
             for y in 0..self.w {
                 let mut input_line = String::new();
                 io::stdin().read_line(&mut input_line).unwrap();
-                let inputs = input_line.split(" ").collect::<Vec<_>>();
 
-                self.map[x][y].update(
-                    parse_input!(inputs[0], Scrap),
-                    Owner::from(parse_input!(inputs[1], i8)),
-                    parse_input!(inputs[2], Unit),
-                    parse_input!(inputs[3], bool),
-                    parse_input!(inputs[4], bool),
-                    parse_input!(inputs[5], bool),
-                    parse_input!(inputs[6], bool),
-                );
+                self.map[x][y].update(&input_line);
             }
         }
     }
@@ -127,7 +113,7 @@ fn main() {
     {
         let mut input_line = String::new();
         io::stdin().read_line(&mut input_line).unwrap();
-        let inputs = input_line.split(" ").collect::<Vec<_>>();
+        let inputs = input_line.split(' ').collect::<Vec<_>>();
         e = Env::new(
             parse_input!(inputs[0], usize),
             parse_input!(inputs[1], usize),
@@ -135,6 +121,7 @@ fn main() {
     }
 
     loop {
+        e.get_input();
         println!("WAIT");
     }
 }
