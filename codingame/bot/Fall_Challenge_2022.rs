@@ -271,6 +271,7 @@ impl Env {
                 break;
             }
 
+            set.remove(&(closest.1, closest.2));
             self.spawn((closest.1, closest.2));
         }
     }
