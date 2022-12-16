@@ -1,0 +1,9 @@
+[package]
+name = "bot"
+version = "0.1.0"
+edition = "2021"
+authors = ["Alexandre Delille <adelille@student.42.fr>"]
+
+[[bin]]
+name = "y2022d16"
+path = "y2022/d16/p.rs"
