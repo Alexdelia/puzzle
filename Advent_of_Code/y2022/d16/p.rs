@@ -49,9 +49,9 @@ impl Node {
 
     fn explore(&mut self, d: &HashMap<String, (u8, Vec<String>)>) {
         if !self.visited.contains(&self.valve) {
+            self.time -= 1;
             self.released += self.time as u16 * d[&self.valve].0 as u16;
             self.visited.insert(self.valve.clone());
-            self.time -= 1;
         }
         self.time -= 1;
     }
@@ -73,6 +73,7 @@ fn main() {
         .collect();
 
     let mut d: HashMap<String, (u8, Vec<String>)> = HashMap::new();
+    let mut pressured: HashSet<String> = HashSet::new();
 
     for l in lines {
         let l = l
@@ -90,7 +91,12 @@ fn main() {
             v.push(i.to_string());
         }
 
-        d.insert(l[0].to_string(), (l[1].parse().unwrap(), v));
+        let rate = l[1].parse().unwrap();
+
+        d.insert(l[0].to_string(), (rate, v));
+        if rate > 0 {
+            pressured.insert(l[0].to_string());
+        }
     }
 
     let mut q: BinaryHeap<Node> = BinaryHeap::from(vec![Node::new(
@@ -107,14 +113,14 @@ fn main() {
     while let Some(cur) = q.pop() {
         i += 1;
         if i > 1_000 {
-            print!("{}\t{}\r", q.len(), cur.released);
+            print!("                \r{}\t{}\r", q.len(), cur.released);
             i = 0;
         }
 
         if cur.time <= 0 || cur.opened_all {
             if cur.released > max {
                 max = cur.released;
-                println!("\nnew max:\t{}", max)
+                println!("              \rnew max:\t{}", max)
             }
             continue;
         }
@@ -122,9 +128,26 @@ fn main() {
             let mut n = cur.clone();
             n.valve = v.clone();
             n.explore(&d);
+            n.opened_all = pressured.is_subset(&n.visited);
             q.push(n);
         }
     }
 
     println!("{}", max);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn heap() {
+        let mut q: BinaryHeap<Node> = BinaryHeap::from(vec![
+            Node::new("AA".to_string(), 30, 0, HashSet::new(), &HashSet::new()),
+            Node::new("AA".to_string(), 30, 42, HashSet::new(), &HashSet::new()),
+        ]);
+
+        assert_eq!(q.pop().unwrap().released, 42);
+        assert_eq!(q.pop().unwrap().released, 0);
+    }
 }
