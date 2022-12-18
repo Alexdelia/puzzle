@@ -37,11 +37,7 @@ def count_neighbors(cubes: FrozenSet[Cube], c: Cube) -> int:
     return sum(1 for n in sides(c) if n in cubes)
 
 
-t = 0
-for c in cubes:
-    t += 6 - count_neighbors(cubes, c)
-
-print(f"part 1:\t{t}")
+print(f"part 1:\t{sum(6 - count_neighbors(cubes, c) for c in cubes)}")
 
 seen: Set[Cube] = set()
 q: List[Cube] = [Cube(-1, -1, -1)]
