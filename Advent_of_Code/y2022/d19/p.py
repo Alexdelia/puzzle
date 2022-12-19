@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import re
-from collections import namedtuple
 from enum import Enum
+from itertools import combinations_with_replacement
 from os.path import dirname
-from typing import Dict, List, NamedTuple, Tuple
+from typing import List, NamedTuple, Tuple
 
 from aocd import get_data
 
@@ -22,49 +22,72 @@ class OreType(Enum):
     OBSIDIAN = 2
     GEODE = 3
 
-Ores = NamedTuple("Ores", [
+TOres = NamedTuple("TOres", [
     (OreType.ORE.name.lower()[0], int),
     (OreType.CLAY.name.lower()[0], int),
     (OreType.OBSIDIAN.name.lower()[1], int),
     (OreType.GEODE.name.lower()[0], int)])
 
-Blueprint = Dict[OreType, Ores]
+LOres = List[int]
+
+Blueprint = Tuple[TOres, TOres, TOres, TOres]
 
 bs: List[Blueprint] = []
 
 for l in lines:
-    b: Blueprint = {}
-    for r in re.finditer(r"Each (\w+) robot costs (\d+ \w+).*?(\d+ \w+)?\.()()", l):
+    b: List[TOres] = []
+    for r in re.finditer(r"Each (\w+) robot costs (\d+ \w+).*?(\d+ \w+)?\.", l):
         robot, *ores = r.groups()
-        b[OreType[robot.upper()]] = Ores(*[int(o.split()[0]) if o else 0 for o in ores])
-    bs.append(b)
-
+        sorted_ore: List[int] = [0, 0, 0, 0]
+        for o in ores:
+            if o:
+                n, name = o.split()
+                sorted_ore[OreType[name.upper()].value] = int(n)
+        b.append(TOres(*sorted_ore))
+    bs.append(tuple(b))
 
 class Game:
-    def __init__(self, time: int, b: Blueprint):
-        self.time = time
-        self.b = b
-        self.r = Ores(1, 0, 0, 0)
-        self.o = Ores(0, 0, 0, 0)
+    def __init__(self, time: int, b: Blueprint, actions: Tuple[int, ...]):
+        self.time: int = time
+        self.b: Blueprint = b
+        self.r: LOres = [1, 0, 0, 0]
+        self.o: LOres = [0, 0, 0, 0]
+        self.actions: Tuple[int, ...] = actions
 
     def solve(self) -> int:
-        for _ in range(self.time):
+        while self.time > 0:
+            self.time -= 1
             self.play()
-        return self.o.g
+        # print("ores", self.o)
+        # print("robot", self.r)
+        return self.o[OreType.GEODE.value]
     
     def play(self):
-        self.o: Ores = Ores(*(self.o[i] + self.r[i] for i in range(len(self.o))))
-        for robot in reversed(OreType):
-            needed = self.b[robot]
-            if all(self.o[i] >= needed[i] for i in range(len(self.o))):
-                self.o = Ores(*(self.o[i] - needed[i] for i in range(len(self.o))))
-                self.r = Ores(*(self.r[i] + 1 if robot == OreType(i) else self.r[i] for i in range(len(self.r))))
-                break
+        to_build = -1
+        robot = self.actions[self.time - 1]
+        needed = self.b[robot]
+        if all(self.o[i] >= needed[i] for i in range(len(self.o))):
+            # print(f"robot {robot}:\t", needed)
+            for i in range(len(self.o)):
+                self.o[i] -= needed[i]
+                to_build = robot
+
+        # print("produce:\t", self.r)
+        for i in range(len(self.r)):
+            self.o[i] += self.r[i]
+        # print("ores:\t\t", self.o)
+        
+        if to_build != -1:
+            self.r[to_build] += 1
 
 t = 0
-for i, g in enumerate([Game(24, b) for b in bs]):
-    n = g.solve()
-    print(f"blueprint {i + 1}:\t{n}")
-    t += (i + 1) * n
+for bn in bs:
+    m = 0
+    for a in combinations_with_replacement(range(4), 24):
+        g = Game(24, bn, a)
+        n = g.solve()
+        if n > m:
+            m = n
+    t += m
 print(f"part 1:\t{t}")
 # print(f"part 1:\t{sum([(i + 1) * g.solve() for i, g in enumerate([Game(24, b) for b in bs])])}")
