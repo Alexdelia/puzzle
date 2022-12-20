@@ -61,10 +61,10 @@ def find_num(sequence: List[Num], mix: List[Num], num: Num) -> int:
 def solve(sequence: List[Num], mix: List[Num], iteration: int) -> Tuple[int, int, int]:
     for it in range(iteration):
         for iv, num in enumerate(sequence):
-            print(f"{it} {iv} / {iteration} {len(sequence)}", end='\r')
+            print(f"{it + 1} {iv + 1} / {iteration} {len(sequence)}", end='\r')
 
             i = find_num(sequence, mix, num)
-            n = mix[i]
+            n = deepcopy(mix[i])
     
             if n.n > 0:
                 for x in range(i, i + n.n):
