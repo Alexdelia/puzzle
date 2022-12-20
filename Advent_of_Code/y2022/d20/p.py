@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from copy import deepcopy
 from os.path import dirname
 from typing import List, Optional, Tuple
 
@@ -14,6 +13,7 @@ YEAR = int(re.sub(r'[^0-9]', "", dirname(__file__).split('/')[-2]))
 DATA: str = get_data(day=DAY, year=YEAR)
 
 DATA_EXAMPLE = "1\n2\n-3\n3\n-2\n0\n4"
+
 
 class Node:
     def __init__(self, n: int, prev: Optional[Node] = None, next: Optional[Node] = None):
@@ -29,7 +29,7 @@ def parse(data: str, key: int = 1) -> List[Node]:
     for a, b in zip(sequence, sequence[1:]):
         a.next = b
         b.prev = a
-    
+
     sequence[0].prev = sequence[-1]
     sequence[-1].next = sequence[0]
 
@@ -43,11 +43,11 @@ def solve(sequence: List[Node], iteration: int) -> Tuple[int, int, int]:
             node.next.prev = node.prev
 
             a, b = node.prev, node.next
-            
+
             for _ in range(node.n % (len(sequence) - 1)):
                 a = a.next
                 b = b.next
-            
+
             a.next = node
             node.prev = a
             b.prev = node
@@ -62,9 +62,8 @@ def solve(sequence: List[Node], iteration: int) -> Tuple[int, int, int]:
                     t = t.next
                 ret.append(t.n)
             break
-    
+
     return tuple(ret)
-    
 
 
 sequence = parse(DATA_EXAMPLE)
