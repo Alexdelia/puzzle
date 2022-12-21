@@ -28,36 +28,36 @@ drzm: hmdt - zczc
 hmdt: 32
 """
 
-def parse(data: str) -> Dict[str, Union[float, str]]:
-    d: Dict[str, Union[float, str]] = {}
+def parse(data: str) -> Dict[str, Union[int, str]]:
+    d: Dict[str, Union[int, str]] = {}
 
     for l in data.splitlines():
         name, value = l.split(': ')
-        d[name] = float(value) if value.isnumeric() else value
+        d[name] = int(value) if value.isnumeric() else value
 
     return d
 
 
-def get_value(d: Dict[str, Union[float, str]], name: str) -> float:
+def get_value(d: Dict[str, Union[int, str]], name: str) -> int:
     try:
         value = d[name]
     except KeyError:
         print(f"key {name} not found")
         return 0.0
 
-    if isinstance(value, float):
+    if isinstance(value, int):
         return value
 
     n1, op, n2 = value.split(' ')
-    n = float(eval(f'{get_value(d, n1)} {op} {get_value(d, n2)}'))
+    n = int(eval(f'{get_value(d, n1)} {op} {get_value(d, n2)}'))
     d[name] = n
     return n
 
 
-def use_name(d: Dict[str, Union[float, str]], root: str, name: str) -> bool:
+def use_name(d: Dict[str, Union[int, str]], root: str, name: str) -> bool:
     value = d[root]
 
-    if isinstance(value, float):
+    if isinstance(value, int):
         return False
 
     n1, _, n2 = value.split(' ')
@@ -67,7 +67,7 @@ def use_name(d: Dict[str, Union[float, str]], root: str, name: str) -> bool:
     return use_name(d, n1, name) or use_name(d, n2, name)
 
 
-def find_branch(d: Dict[str, Union[float, str]], root: str, name: str) -> Tuple[str, str]:
+def find_branch(d: Dict[str, Union[int, str]], root: str, name: str) -> Tuple[str, str]:
     r = d[root]
     assert isinstance(r, str)
 
@@ -94,13 +94,13 @@ def find_branch(d: Dict[str, Union[float, str]], root: str, name: str) -> Tuple[
     return (ret[0], nret[0])
 
 
-def equation(d: Dict[str, Union[float, str]], root: str, name: str) -> str:
+def equation(d: Dict[str, Union[int, str]], root: str, name: str) -> str:
     if root == name:
         return f"({name})"
 
     val = d[root]
 
-    if isinstance(val, float):
+    if isinstance(val, int):
         return str(val)
 
     n1, op, n2 = val.split(' ')
@@ -121,11 +121,12 @@ print(f"part 1:\t{int(get_value(parse(DATA), 'root'))}")
 d = parse(DATA_EXAMPLE)
 b = find_branch(deepcopy(d), 'root', 'humn')
 e = equation(d, b[0], 'humn').replace("humn", "301")
-assert float(eval(e)) == get_value(d, b[1])
+assert int(eval(e)) == get_value(d, b[1])
 
 assert DATA.count('humn') == 2
 d = parse(DATA)
 b = find_branch(deepcopy(d), 'root', 'humn')
 e = equation(d, b[0], 'humn')
-x = -get_value(d, b[1])
-print(f"{-x} = {e.replace('humn', 'x')}")
+x = get_value(d, b[1])
+print("part 2:\ttoo big in wolfram alpha, but not in mathpapa.com :")
+print(f"{x} = {e.replace('humn', 'x')}")
