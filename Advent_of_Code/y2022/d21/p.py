@@ -43,7 +43,7 @@ def get_value(d: Dict[str, Union[int, str]], name: str) -> int:
         value = d[name]
     except KeyError:
         print(f"key {name} not found")
-        return 0.0
+        return 0
 
     if isinstance(value, int):
         return value
