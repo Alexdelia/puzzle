@@ -234,7 +234,7 @@ impl Env {
     }
 
     fn build_all(&mut self) {
-        if self.o_recycler.len() == 0 {
+        if self.o_recycler.is_empty() {
             return;
         }
 
