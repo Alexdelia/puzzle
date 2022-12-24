@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::io;
 
 macro_rules! parse_input {
@@ -168,6 +168,42 @@ impl Env {
         self.neighbors(pos)
             .iter()
             .any(|i| self.map[i.0][i.1].owner == Owner::Op)
+    }
+
+    fn find_contact_tiles(&self) -> Vec<(usize, usize)> {
+        let mut ret: Vec<(usize, usize)> = Vec::new();
+        let mut seen_m: HashSet<(usize, usize)> = HashSet::from_iter(self.m_units.iter().cloned());
+        let mut seen_o: HashSet<(usize, usize)> = HashSet::from_iter(self.o_units.iter().cloned());
+        let mut q_m: VecDeque<(usize, usize)> = VecDeque::from(self.m_units.clone());
+        let mut q_o: VecDeque<(usize, usize)> = VecDeque::from(self.o_units.clone());
+
+        while !q_m.is_empty() || !q_o.is_empty() {
+            if let Some(cur) = q_m.pop_front() {
+                if seen_o.contains(&cur) {
+                    ret.push(cur);
+                }
+                for n in self.neighbors(cur) {
+                    if !seen_m.contains(&n) {
+                        seen_m.insert(n);
+                        q_m.push_back(n);
+                    }
+                }
+            }
+
+            if let Some(cur) = q_o.pop_front() {
+                if seen_m.contains(&cur) {
+                    ret.push(cur);
+                }
+                for n in self.neighbors(cur) {
+                    if !seen_o.contains(&n) {
+                        seen_o.insert(n);
+                        q_o.push_back(n);
+                    }
+                }
+            }
+        }
+
+        ret
     }
 
     fn build(&mut self, pos: (usize, usize)) {
