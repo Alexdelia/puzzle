@@ -139,29 +139,35 @@ impl Env {
         ((src.0 as isize - dst.0 as isize).abs() + (src.1 as isize - dst.1 as isize).abs()) as usize
     }
 
-    fn next_to_not_owned(&self, pos: (usize, usize)) -> bool {
-        if pos.0 > 0
-            && self.map[pos.0 - 1][pos.1].owner != Owner::Me
-            && self.map[pos.0 - 1][pos.1].scrap > 0
-        {
-            return true;
-        } else if pos.0 < self.h - 1
-            && self.map[pos.0 + 1][pos.1].owner != Owner::Me
-            && self.map[pos.0 + 1][pos.1].scrap > 0
-        {
-            return true;
-        } else if pos.1 > 0
-            && self.map[pos.0][pos.1 - 1].owner != Owner::Me
-            && self.map[pos.0][pos.1 - 1].scrap > 0
-        {
-            return true;
-        } else if pos.1 < self.w - 1
-            && self.map[pos.0][pos.1 + 1].owner != Owner::Me
-            && self.map[pos.0][pos.1 + 1].scrap > 0
-        {
-            return true;
+    fn neighbors(&self, pos: (usize, usize)) -> Vec<(usize, usize)> {
+        let mut ret = Vec::new();
+
+        if pos.0 > 0 && self.map[pos.0 - 1][pos.1].scrap > 0 {
+            ret.push((pos.0 - 1, pos.1));
         }
-        false
+        if pos.0 < self.h - 1 && self.map[pos.0 + 1][pos.1].scrap > 0 {
+            ret.push((pos.0 + 1, pos.1));
+        }
+        if pos.1 > 0 && self.map[pos.0][pos.1 - 1].scrap > 0 {
+            ret.push((pos.0, pos.1 - 1));
+        }
+        if pos.1 < self.w - 1 && self.map[pos.0][pos.1 + 1].scrap > 0 {
+            ret.push((pos.0, pos.1 + 1));
+        }
+
+        ret
+    }
+
+    fn next_to_not_owned(&self, pos: (usize, usize)) -> bool {
+        self.neighbors(pos)
+            .iter()
+            .any(|i| self.map[i.0][i.1].owner != Owner::Me)
+    }
+
+    fn next_to_op(&self, pos: (usize, usize)) -> bool {
+        self.neighbors(pos)
+            .iter()
+            .any(|i| self.map[i.0][i.1].owner == Owner::Op)
     }
 
     fn build(&mut self, pos: (usize, usize)) {
