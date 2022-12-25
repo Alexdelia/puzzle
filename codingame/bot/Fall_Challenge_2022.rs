@@ -136,10 +136,6 @@ impl Env {
         }
     }
 
-    fn dist(&self, src: Coord, dst: Coord) -> usize {
-        ((src.0 as isize - dst.0 as isize).abs() + (src.1 as isize - dst.1 as isize).abs()) as usize
-    }
-
     fn neighbors(&self, pos: Coord) -> Vec<Coord> {
         let mut ret = Vec::new();
 
@@ -207,14 +203,6 @@ impl Env {
         ret
     }
 
-    fn pop_closest(&self, src: &mut Vec<Coord>, dst: Coord) -> Option<Coord> {
-        return src
-            .iter()
-            .enumerate()
-            .min_by_key(|(_, c)| self.dist(**c, dst))
-            .map(|(i, _)| src.swap_remove(i));
-    }
-
     fn build(&mut self, pos: Coord) {
         self.m_recycler.push(pos);
         self.map[pos.0][pos.1].recycler = true;
@@ -252,7 +240,8 @@ impl Env {
             };
 
             while needed_units > 0 && !self.m_units.is_empty() {
-                self.r#move(self.pop_closest(&mut self.m_units, tile).unwrap(), tile);
+                let closest = pop_closest(&mut self.m_units, tile).unwrap();
+                self.r#move(closest, tile);
                 needed_units -= 1;
             }
         }
@@ -292,7 +281,7 @@ impl Env {
                         && self.map[x][y].scrap > 0
                         && !self.map[x][y].recycler
                     {
-                        let dist = self.dist(u, (x, y));
+                        let dist = dist(u, (x, y));
                         if dist < closest.0 {
                             closest = (dist, x, y);
                         }
@@ -327,7 +316,7 @@ impl Env {
             // empty owned tile closest to center and next to not owned tile with scrap
             let mut closest: (usize, usize, usize) = (self.w + self.h, 0, 0);
             for (x, y) in set.iter() {
-                let dist = self.dist((self.h / 2, self.w / 2), (*x, *y));
+                let dist = dist((self.h / 2, self.w / 2), (*x, *y));
                 if dist < closest.0 {
                     closest = (dist, *x, *y);
                 }
@@ -341,6 +330,18 @@ impl Env {
             self.spawn((closest.1, closest.2));
         }
     }
+}
+
+fn dist(src: Coord, dst: Coord) -> usize {
+    ((src.0 as isize - dst.0 as isize).abs() + (src.1 as isize - dst.1 as isize).abs()) as usize
+}
+
+fn pop_closest(src: &mut Vec<Coord>, dst: Coord) -> Option<Coord> {
+    src.iter()
+        .enumerate()
+        .min_by_key(|(_, i)| dist(**i, dst))
+        .map(|(i, _)| i)
+        .map(|i| src.swap_remove(i))
 }
 
 fn main() {
