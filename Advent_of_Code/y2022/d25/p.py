@@ -65,3 +65,6 @@ check(b10_to_snafu, 314159265, "1121-1110-1=0")
 
 assert sum(snafu_to_b10(snafu) for snafu in DATA_EXAMPLE.splitlines()) == 4890
 assert b10_to_snafu(4890) == "2=-1=0"
+
+n = sum(snafu_to_b10(snafu) for snafu in DATA.splitlines())
+print(f"part 1:\t{n} -> {b10_to_snafu(n)}")
