@@ -28,22 +28,10 @@ DATA_EXAMPLE = """\
 
 
 def snafu_to_b10(snafu: str) -> int:
-    snafu = snafu[::-1]
-    t = 0
-
-    for i in range(len(snafu)):
-        if snafu[i].isdigit():
-            n = int(snafu[i])
-        elif snafu[i] == '-':
-            n = -1
-        elif snafu[i] == '=':
-            n = -2
-        else:
-            raise ValueError(f"Invalid character '{snafu[i]}'")
-        
-        t += (5 ** i) * n
-
-    return t
+    if snafu == '':
+        return 0
+    
+    return snafu_to_b10(snafu[:-1]) * 5 + "=-012".index(snafu[-1]) - 2
 
 
 def b10_to_snafu(n: int) -> str:
