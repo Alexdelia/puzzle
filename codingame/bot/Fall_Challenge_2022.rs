@@ -139,16 +139,28 @@ impl Env {
     fn neighbors(&self, pos: Coord) -> Vec<Coord> {
         let mut ret = Vec::new();
 
-        if pos.0 > 0 && self.map[pos.0 - 1][pos.1].scrap > 0 {
+        if pos.0 > 0
+            && self.map[pos.0 - 1][pos.1].scrap > 0
+            && self.map[pos.0 - 1][pos.1].recycler == false
+        {
             ret.push((pos.0 - 1, pos.1));
         }
-        if pos.0 < self.h - 1 && self.map[pos.0 + 1][pos.1].scrap > 0 {
+        if pos.0 < self.h - 1
+            && self.map[pos.0 + 1][pos.1].scrap > 0
+            && self.map[pos.0 + 1][pos.1].recycler == false
+        {
             ret.push((pos.0 + 1, pos.1));
         }
-        if pos.1 > 0 && self.map[pos.0][pos.1 - 1].scrap > 0 {
+        if pos.1 > 0
+            && self.map[pos.0][pos.1 - 1].scrap > 0
+            && self.map[pos.0][pos.1 - 1].recycler == false
+        {
             ret.push((pos.0, pos.1 - 1));
         }
-        if pos.1 < self.w - 1 && self.map[pos.0][pos.1 + 1].scrap > 0 {
+        if pos.1 < self.w - 1
+            && self.map[pos.0][pos.1 + 1].scrap > 0
+            && self.map[pos.0][pos.1 + 1].recycler == false
+        {
             ret.push((pos.0, pos.1 + 1));
         }
 
@@ -228,6 +240,22 @@ impl Env {
         self.map[pos.0][pos.1].unit += 1;
         self.m_m -= 10;
         print!("SPAWN 1 {} {};", pos.1, pos.0);
+    }
+
+    fn contact(&mut self, contact_tiles: &mut Vec<Coord>) {
+        let mut in_contact: HashSet<Coord> = HashSet::from_iter(contact_tiles.iter().cloned());
+
+        for u in self.m_units.iter() {
+            if in_contact.contains(u) {
+                continue;
+            }
+            //
+            if self.next_to_op(*u) {
+                contact_tiles.push(*u);
+                in_contact.insert(*u);
+            }
+            // save
+        }
     }
 
     fn move_to_contact(&mut self, contact_tiles: &mut Vec<Coord>) {
@@ -361,6 +389,7 @@ fn main() {
 
         let mut contact_tiles = e.find_contact_tiles();
         // attack (move) protect (spawn) and block (build) in contact
+        e.contact(&mut contact_tiles);
         e.move_to_contact(&mut contact_tiles);
         // spawn 1 more unit than op
 
