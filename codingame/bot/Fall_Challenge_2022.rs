@@ -10,6 +10,7 @@ macro_rules! parse_input {
 type Scrap = u8;
 type Matter = u32;
 type Unit = u8;
+type Coord = (usize, usize);
 
 #[derive(Clone, PartialEq, Eq)]
 enum Owner {
@@ -73,10 +74,10 @@ struct Env {
     m_m: Matter,
     o_m: Matter,
     map: Vec<Vec<Tile>>,
-    m_units: Vec<(usize, usize)>,
-    o_units: Vec<(usize, usize)>,
-    m_recycler: Vec<(usize, usize)>,
-    o_recycler: Vec<(usize, usize)>,
+    m_units: Vec<Coord>,
+    o_units: Vec<Coord>,
+    m_recycler: Vec<Coord>,
+    o_recycler: Vec<Coord>,
 }
 
 impl Env {
@@ -135,11 +136,11 @@ impl Env {
         }
     }
 
-    fn dist(&self, src: (usize, usize), dst: (usize, usize)) -> usize {
+    fn dist(&self, src: Coord, dst: Coord) -> usize {
         ((src.0 as isize - dst.0 as isize).abs() + (src.1 as isize - dst.1 as isize).abs()) as usize
     }
 
-    fn neighbors(&self, pos: (usize, usize)) -> Vec<(usize, usize)> {
+    fn neighbors(&self, pos: Coord) -> Vec<Coord> {
         let mut ret = Vec::new();
 
         if pos.0 > 0 && self.map[pos.0 - 1][pos.1].scrap > 0 {
@@ -158,24 +159,24 @@ impl Env {
         ret
     }
 
-    fn next_to_not_owned(&self, pos: (usize, usize)) -> bool {
+    fn next_to_not_owned(&self, pos: Coord) -> bool {
         self.neighbors(pos)
             .iter()
             .any(|i| self.map[i.0][i.1].owner != Owner::Me)
     }
 
-    fn next_to_op(&self, pos: (usize, usize)) -> bool {
+    fn next_to_op(&self, pos: Coord) -> bool {
         self.neighbors(pos)
             .iter()
             .any(|i| self.map[i.0][i.1].owner == Owner::Op)
     }
 
-    fn find_contact_tiles(&self) -> Vec<(usize, usize)> {
-        let mut ret: Vec<(usize, usize)> = Vec::new();
-        let mut seen_m: HashSet<(usize, usize)> = HashSet::from_iter(self.m_units.iter().cloned());
-        let mut seen_o: HashSet<(usize, usize)> = HashSet::from_iter(self.o_units.iter().cloned());
-        let mut q_m: VecDeque<(usize, usize)> = VecDeque::from(self.m_units.clone());
-        let mut q_o: VecDeque<(usize, usize)> = VecDeque::from(self.o_units.clone());
+    fn find_contact_tiles(&self) -> Vec<Coord> {
+        let mut ret: Vec<Coord> = Vec::new();
+        let mut seen_m: HashSet<Coord> = HashSet::from_iter(self.m_units.iter().cloned());
+        let mut seen_o: HashSet<Coord> = HashSet::from_iter(self.o_units.iter().cloned());
+        let mut q_m: VecDeque<Coord> = VecDeque::from(self.m_units.clone());
+        let mut q_o: VecDeque<Coord> = VecDeque::from(self.o_units.clone());
 
         while !q_m.is_empty() || !q_o.is_empty() {
             if let Some(cur) = q_m.pop_front() {
@@ -206,7 +207,15 @@ impl Env {
         ret
     }
 
-    fn build(&mut self, pos: (usize, usize)) {
+    fn pop_closest(&self, src: &mut Vec<Coord>, dst: Coord) -> Option<Coord> {
+        return src
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, c)| self.dist(**c, dst))
+            .map(|(i, _)| src.swap_remove(i));
+    }
+
+    fn build(&mut self, pos: Coord) {
         self.m_recycler.push(pos);
         self.map[pos.0][pos.1].recycler = true;
         self.map[pos.0][pos.1].can_build = false;
@@ -215,7 +224,7 @@ impl Env {
         print!("BUILD {} {};", pos.1, pos.0);
     }
 
-    fn r#move(&mut self, src: (usize, usize), dst: (usize, usize)) {
+    fn r#move(&mut self, src: Coord, dst: Coord) {
         self.map[dst.0][dst.1].owner = Owner::Me;
         self.map[src.0][src.1].unit -= 1;
         if self.map[src.0][src.1].unit == 0 {
@@ -226,11 +235,27 @@ impl Env {
         print!("MOVE 1 {} {} {} {};", src.1, src.0, dst.1, dst.0);
     }
 
-    fn spawn(&mut self, pos: (usize, usize)) {
+    fn spawn(&mut self, pos: Coord) {
         // might put tile at Owner::Me
         self.map[pos.0][pos.1].unit += 1;
         self.m_m -= 10;
         print!("SPAWN 1 {} {};", pos.1, pos.0);
+    }
+
+    fn move_to_contact(&mut self, contact_tiles: &mut Vec<Coord>) {
+        while !contact_tiles.is_empty() && !self.m_units.is_empty() {
+            let tile = contact_tiles.pop().unwrap();
+            let mut needed_units = if self.map[tile.0][tile.1].owner == Owner::Op {
+                self.map[tile.0][tile.1].unit as usize + 1
+            } else {
+                1
+            };
+
+            while needed_units > 0 && !self.m_units.is_empty() {
+                self.r#move(self.pop_closest(&mut self.m_units, tile).unwrap(), tile);
+                needed_units -= 1;
+            }
+        }
     }
 
     fn build_all(&mut self) {
@@ -258,8 +283,7 @@ impl Env {
     }
 
     fn move_all(&mut self) {
-        while !self.m_units.is_empty() {
-            let u = self.m_units.pop().unwrap();
+        while let Some(u) = self.m_units.pop() {
             let mut closest: (usize, usize, usize) = (self.w + self.h, 0, 0);
 
             for x in 0..self.h {
@@ -285,7 +309,7 @@ impl Env {
             return;
         }
 
-        let mut set: HashSet<(usize, usize)> = HashSet::new();
+        let mut set: HashSet<Coord> = HashSet::new();
         for x in 0..self.h {
             for y in 0..self.w {
                 if self.map[x][y].owner == Owner::Me
@@ -334,9 +358,14 @@ fn main() {
     loop {
         e.get_input();
 
-        e.build_all();
-        e.move_all();
-        e.spawn_all();
+        let mut contact_tiles = e.find_contact_tiles();
+        // attack (move) protect (spawn) and block (build) in contact
+        e.move_to_contact(&mut contact_tiles);
+        // spawn 1 more unit than op
+
+        // e.build_all();
+        // e.move_all();
+        // e.spawn_all();
 
         println!();
     }
