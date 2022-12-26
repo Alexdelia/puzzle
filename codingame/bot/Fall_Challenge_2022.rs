@@ -243,11 +243,11 @@ impl Env {
         );
     }
 
-    fn spawn(&mut self, pos: Coord) {
+    fn spawn(&mut self, pos: Coord, n: Unit) {
         // might put tile at Owner::Me
         self.map[pos.0][pos.1].unit += 1;
         self.m_m -= 10;
-        print!("SPAWN 1 {} {};", pos.1, pos.0);
+        print!("SPAWN {n} {y} {x};", n = n, y = pos.1, x = pos.0);
     }
 
     fn attack(&mut self, contact_tiles: &mut Vec<Coord>) {
@@ -270,6 +270,37 @@ impl Env {
                 for (pos, n) in can_move.iter() {
                     self.r#move(*pos, *tile, *n);
                 }
+            }
+
+            false
+        });
+    }
+
+    fn protect(&mut self, contact_tiles: &mut Vec<Coord>) {
+        let mut n_block = 0;
+        for tile in contact_tiles.iter() {
+            if self.map[tile.0][tile.1].unit == 0 {
+                n_block += 1;
+            }
+        }
+
+        contact_tiles.retain(|tile| {
+            if self.m_m as usize <= 10 * n_block {
+                return true;
+            }
+
+            let mut sum: Unit = 0;
+
+            for n in self.neighbors(*tile) {
+                if self.map[n.0][n.1].owner == Owner::Op && self.map[n.0][n.1].unit > 0 {
+                    sum += self.map[n.0][n.1].unit;
+                }
+            }
+
+            let needed: i32 = (sum + 1) as i32 - self.map[tile.0][tile.1].unit as i32;
+            if needed > 0 && self.m_m as i32 - (n_block as i32 - 1) * 10 >= needed * 10 {
+                self.spawn(*tile, needed as Unit);
+                n_block -= 1;
                 return false;
             }
 
@@ -277,10 +308,18 @@ impl Env {
         });
     }
 
+    fn block(&mut self, contact_tiles: &mut Vec<Coord>) {
+        contact_tiles.retain(|tile| {
+            // to finish
+        });
+    }
+
     fn contact(&mut self, contact_tiles: &mut Vec<Coord>) {
         self.attack(contact_tiles);
-        self.block(contact_tiles);
+        contact_tiles.retain(|tile| self.map[tile.0][tile.1].owner != Owner::Me);
+        contact_tiles.sort_by(|a, b| self.map[a.0][a.1].unit.cmp(&self.map[b.0][b.1].unit));
         self.protect(contact_tiles);
+        self.block(contact_tiles);
     }
 
     fn move_to_contact(&mut self, contact_tiles: &mut Vec<Coord>) {
