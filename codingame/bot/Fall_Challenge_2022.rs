@@ -250,19 +250,37 @@ impl Env {
         print!("SPAWN 1 {} {};", pos.1, pos.0);
     }
 
-    fn contact(&mut self, contact_tiles: &mut Vec<Coord>) {
-        for tile in contact_tiles.iter() {
+    fn attack(&mut self, contact_tiles: &mut Vec<Coord>) {
+        contact_tiles.retain(|tile| {
             if self.map[tile.0][tile.1].owner != Owner::Op {
-                continue;
+                return true;
             }
 
             let mut can_move: Vec<(Coord, Unit)> = Vec::new();
+            let mut sum: Unit = 0;
+
             for n in self.neighbors(*tile) {
                 if self.map[n.0][n.1].owner == Owner::Me && self.map[n.0][n.1].unit > 0 {
                     can_move.push((n, self.map[n.0][n.1].unit));
+                    sum += self.map[n.0][n.1].unit;
                 }
             }
-        }
+
+            if sum > self.map[tile.0][tile.1].unit {
+                for (pos, n) in can_move.iter() {
+                    self.r#move(*pos, *tile, *n);
+                }
+                return false;
+            }
+
+            true
+        });
+    }
+
+    fn contact(&mut self, contact_tiles: &mut Vec<Coord>) {
+        self.attack(contact_tiles);
+        self.block(contact_tiles);
+        self.protect(contact_tiles);
     }
 
     fn move_to_contact(&mut self, contact_tiles: &mut Vec<Coord>) {
