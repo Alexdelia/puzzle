@@ -224,7 +224,7 @@ impl Env {
         print!("BUILD {} {};", pos.1, pos.0);
     }
 
-    fn r#move(&mut self, src: Coord, dst: Coord) {
+    fn r#move(&mut self, src: Coord, dst: Coord, n: Unit) {
         self.map[dst.0][dst.1].owner = Owner::Me;
         self.map[src.0][src.1].unit -= 1;
         if self.map[src.0][src.1].unit == 0 {
@@ -232,7 +232,15 @@ impl Env {
         }
         self.map[dst.0][dst.1].unit += 1;
         self.map[dst.0][dst.1].can_build = false;
-        print!("MOVE 1 {} {} {} {};", src.1, src.0, dst.1, dst.0);
+
+        print!(
+            "MOVE {n} {sy} {sx} {dy} {dx};",
+            n = n,
+            sy = src.1,
+            sx = src.0,
+            dy = dst.1,
+            dx = dst.0
+        );
     }
 
     fn spawn(&mut self, pos: Coord) {
@@ -243,18 +251,17 @@ impl Env {
     }
 
     fn contact(&mut self, contact_tiles: &mut Vec<Coord>) {
-        let mut in_contact: HashSet<Coord> = HashSet::from_iter(contact_tiles.iter().cloned());
-
-        for u in self.m_units.iter() {
-            if in_contact.contains(u) {
+        for tile in contact_tiles.iter() {
+            if self.map[tile.0][tile.1].owner != Owner::Op {
                 continue;
             }
-            //
-            if self.next_to_op(*u) {
-                contact_tiles.push(*u);
-                in_contact.insert(*u);
+
+            let mut can_move: Vec<(Coord, Unit)> = Vec::new();
+            for n in self.neighbors(*tile) {
+                if self.map[n.0][n.1].owner == Owner::Me && self.map[n.0][n.1].unit > 0 {
+                    can_move.push((n, self.map[n.0][n.1].unit));
+                }
             }
-            // save
         }
     }
 
@@ -269,7 +276,7 @@ impl Env {
 
             while needed_units > 0 && !self.m_units.is_empty() {
                 let closest = pop_closest(&mut self.m_units, tile).unwrap();
-                self.r#move(closest, tile);
+                self.r#move(closest, tile, 1);
                 needed_units -= 1;
             }
         }
@@ -317,7 +324,7 @@ impl Env {
                 }
             }
 
-            self.r#move(u, (closest.1, closest.2));
+            self.r#move(u, (closest.1, closest.2), 1);
         }
     }
 
