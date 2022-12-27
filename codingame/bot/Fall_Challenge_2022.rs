@@ -347,6 +347,7 @@ impl Env {
         let (mut me_ct, mut other_ct): (Vec<Coord>, Vec<Coord>) = contact_tiles
             .iter()
             .partition(|tile| self.map[tile.0][tile.1].owner == Owner::Me);
+        me_ct.retain(|tile| self.next_to_op(*tile));
         me_ct.sort_by(|a, b| self.map[a.0][a.1].unit.cmp(&self.map[b.0][b.1].unit));
         self.protect(&mut me_ct);
         self.block(&me_ct);
@@ -484,6 +485,11 @@ fn main() {
     loop {
         e.get_input();
 
+        // need to find contact tiles for me to op with direct connection to attack
+        // then me to op with direct connection to protect and block
+        // if none in both
+        // contact tile from me to op to move to contact
+        // might need to group unit by chunk of tile
         let mut contact_tiles = e.find_contact_tiles();
         if contact_tiles.is_empty() {
             e.move_all();
