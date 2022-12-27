@@ -226,11 +226,11 @@ impl Env {
 
     fn r#move(&mut self, src: Coord, dst: Coord, n: Unit) {
         self.map[dst.0][dst.1].owner = Owner::Me;
-        self.map[src.0][src.1].unit -= 1;
+        self.map[src.0][src.1].unit -= n;
         if self.map[src.0][src.1].unit == 0 {
             self.map[src.0][src.1].can_build = true;
         }
-        self.map[dst.0][dst.1].unit += 1;
+        self.map[dst.0][dst.1].unit += n;
         self.map[dst.0][dst.1].can_build = false;
 
         print!(
@@ -245,8 +245,8 @@ impl Env {
 
     fn spawn(&mut self, pos: Coord, n: Unit) {
         // might put tile at Owner::Me
-        self.map[pos.0][pos.1].unit += 1;
-        self.m_m -= 10;
+        self.map[pos.0][pos.1].unit += n;
+        self.m_m -= 10 * n;
         print!("SPAWN {n} {y} {x};", n = n, y = pos.1, x = pos.0);
     }
 
@@ -270,9 +270,10 @@ impl Env {
                 for (pos, n) in can_move.iter() {
                     self.r#move(*pos, *tile, *n);
                 }
+                return false;
             }
 
-            false
+            true
         });
     }
 
@@ -309,17 +310,31 @@ impl Env {
     }
 
     fn block(&mut self, contact_tiles: &mut Vec<Coord>) {
-        contact_tiles.retain(|tile| {
-            // to finish
-        });
+        for tile in contact_tiles.iter() {
+            if self.m_m >= 10 && self.map[tile.0][tile.1].unit == 0 {
+                self.build(*tile);
+            } else {
+                for n in self.neighbors(*tile) {
+                    if self.map[n.0][n.1].owner == Owner::Me && self.map[n.0][n.1].unit > 0 {
+                        self.r#move(n, *tile, self.map[n.0][n.1].unit);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     fn contact(&mut self, contact_tiles: &mut Vec<Coord>) {
         self.attack(contact_tiles);
-        contact_tiles.retain(|tile| self.map[tile.0][tile.1].owner != Owner::Me);
-        contact_tiles.sort_by(|a, b| self.map[a.0][a.1].unit.cmp(&self.map[b.0][b.1].unit));
-        self.protect(contact_tiles);
-        self.block(contact_tiles);
+        let (mut me_ct, mut other_ct): (Vec<Coord>, Vec<Coord>) = contact_tiles
+            .iter()
+            .partition(|tile| self.map[tile.0][tile.1].owner == Owner::Me);
+        me_ct.sort_by(|a, b| self.map[a.0][a.1].unit.cmp(&self.map[b.0][b.1].unit));
+        self.protect(&mut me_ct);
+        self.block(&mut me_ct);
+
+        other_ct.sort_by(|a, b| self.map[a.0][a.1].unit.cmp(&self.map[b.0][b.1].unit));
+        *contact_tiles = other_ct;
     }
 
     fn move_to_contact(&mut self, contact_tiles: &mut Vec<Coord>) {
@@ -419,7 +434,7 @@ impl Env {
             }
 
             set.remove(&(closest.1, closest.2));
-            self.spawn((closest.1, closest.2));
+            self.spawn((closest.1, closest.2), 1);
         }
     }
 }
