@@ -1,5 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 use std::io;
+use std::iter::FromIterator;
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => {
@@ -78,6 +79,7 @@ struct Env {
     o_units: Vec<Coord>,
     m_recycler: Vec<Coord>,
     o_recycler: Vec<Coord>,
+    action: bool,
 }
 
 impl Env {
@@ -92,6 +94,7 @@ impl Env {
             o_units: Vec::new(),
             m_recycler: Vec::new(),
             o_recycler: Vec::new(),
+            action: false,
         }
     }
 
@@ -105,6 +108,7 @@ impl Env {
             self.o_m = parse_input!(inputs[1], Matter);
         }
 
+        self.action = false;
         self.m_units.clear();
         self.o_units.clear();
         self.m_recycler.clear();
@@ -176,7 +180,7 @@ impl Env {
     }
 
     fn find_contact_tiles(&self) -> Vec<Coord> {
-        let mut ret: Vec<Coord> = Vec::new();
+        let mut ret: HashSet<Coord> = HashSet::new();
         let mut seen_m: HashSet<Coord> = HashSet::from_iter(self.m_units.iter().cloned());
         let mut seen_o: HashSet<Coord> = HashSet::from_iter(self.o_units.iter().cloned());
         let mut q_m: VecDeque<Coord> = VecDeque::from(self.m_units.clone());
@@ -185,30 +189,38 @@ impl Env {
         while !q_m.is_empty() || !q_o.is_empty() {
             if let Some(cur) = q_m.pop_front() {
                 if seen_o.contains(&cur) {
-                    ret.push(cur);
+                    ret.insert(cur);
                 }
                 for n in self.neighbors(cur) {
                     if !seen_m.contains(&n) {
                         seen_m.insert(n);
-                        q_m.push_back(n);
+                        if seen_o.contains(&n) {
+                            ret.insert(n);
+                        } else {
+                            q_m.push_back(n);
+                        }
                     }
                 }
             }
 
             if let Some(cur) = q_o.pop_front() {
                 if seen_m.contains(&cur) {
-                    ret.push(cur);
+                    ret.insert(cur);
                 }
                 for n in self.neighbors(cur) {
                     if !seen_o.contains(&n) {
                         seen_o.insert(n);
-                        q_o.push_back(n);
+                        if seen_m.contains(&n) {
+                            ret.insert(n);
+                        } else {
+                            q_o.push_back(n);
+                        }
                     }
                 }
             }
         }
 
-        ret
+        ret.into_iter().collect()
     }
 
     fn build(&mut self, pos: Coord) {
@@ -218,12 +230,13 @@ impl Env {
         self.map[pos.0][pos.1].can_spawn = false;
         self.m_m -= 10;
         print!("BUILD {} {};", pos.1, pos.0);
+        self.action = true;
     }
 
-    fn r#move(&mut self, src: Coord, dst: Coord, n: Unit) {
+    fn r#move(&mut self, src: Coord, dst: Coord, n: Unit, can_build: bool) {
         self.map[dst.0][dst.1].owner = Owner::Me;
         self.map[src.0][src.1].unit -= n;
-        if self.map[src.0][src.1].unit == 0 {
+        if can_build && self.map[src.0][src.1].unit == 0 {
             self.map[src.0][src.1].can_build = true;
         }
         self.map[dst.0][dst.1].unit += n;
@@ -237,6 +250,7 @@ impl Env {
             dy = dst.1,
             dx = dst.0
         );
+        self.action = true;
     }
 
     fn spawn(&mut self, pos: Coord, n: Unit) {
@@ -244,6 +258,7 @@ impl Env {
         self.map[pos.0][pos.1].unit += n;
         self.m_m -= 10 * n as Matter;
         print!("SPAWN {n} {y} {x};", n = n, y = pos.1, x = pos.0);
+        self.action = true;
     }
 
     fn attack(&mut self, contact_tiles: &mut Vec<Coord>) {
@@ -264,7 +279,7 @@ impl Env {
 
             if sum > self.map[tile.0][tile.1].unit {
                 for (pos, n) in can_move.iter() {
-                    self.r#move(*pos, *tile, *n);
+                    self.r#move(*pos, *tile, *n, false);
                 }
                 return false;
             }
@@ -276,7 +291,10 @@ impl Env {
     fn protect(&mut self, contact_tiles: &mut Vec<Coord>) {
         let mut n_block = 0;
         for tile in contact_tiles.iter() {
-            if self.map[tile.0][tile.1].unit == 0 {
+            if self.map[tile.0][tile.1].unit == 0
+                && self.map[tile.0][tile.1].can_build
+                && self.next_to_op(*tile)
+            {
                 n_block += 1;
             }
         }
@@ -307,12 +325,16 @@ impl Env {
 
     fn block(&mut self, contact_tiles: &[Coord]) {
         for tile in contact_tiles.iter() {
-            if self.m_m >= 10 && self.map[tile.0][tile.1].unit == 0 {
+            if self.m_m >= 10
+                && self.map[tile.0][tile.1].unit == 0
+                && self.map[tile.0][tile.1].can_build
+                && self.next_to_op(*tile)
+            {
                 self.build(*tile);
             } else {
                 for n in self.neighbors(*tile) {
                     if self.map[n.0][n.1].owner == Owner::Me && self.map[n.0][n.1].unit > 0 {
-                        self.r#move(n, *tile, self.map[n.0][n.1].unit);
+                        self.r#move(n, *tile, self.map[n.0][n.1].unit, false);
                         break;
                     }
                 }
@@ -344,7 +366,7 @@ impl Env {
 
             while needed_units > 0 && !self.m_units.is_empty() {
                 let closest = pop_closest(&mut self.m_units, tile).unwrap();
-                self.r#move(closest, tile, 1);
+                self.r#move(closest, tile, 1, false);
                 needed_units -= 1;
             }
         }
@@ -392,7 +414,7 @@ impl Env {
                 }
             }
 
-            self.r#move(u, (closest.1, closest.2), 1);
+            self.r#move(u, (closest.1, closest.2), 1, false);
         }
     }
 
@@ -463,13 +485,24 @@ fn main() {
         e.get_input();
 
         let mut contact_tiles = e.find_contact_tiles();
+        if contact_tiles.is_empty() {
+            e.move_all();
+        }
+
+        dbg!(contact_tiles.len());
+        // dbg!(&contact_tiles);
         e.contact(&mut contact_tiles);
+        dbg!(contact_tiles.len());
         e.move_to_contact(&mut contact_tiles);
+        dbg!(contact_tiles.len());
 
         // e.build_all();
         // e.move_all();
         e.spawn_all();
 
+        if !e.action {
+            print!("WAIT");
+        }
         println!();
     }
 }
