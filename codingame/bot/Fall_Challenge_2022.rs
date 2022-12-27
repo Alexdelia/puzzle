@@ -139,27 +139,23 @@ impl Env {
     fn neighbors(&self, pos: Coord) -> Vec<Coord> {
         let mut ret = Vec::new();
 
-        if pos.0 > 0
-            && self.map[pos.0 - 1][pos.1].scrap > 0
-            && self.map[pos.0 - 1][pos.1].recycler == false
+        if pos.0 > 0 && self.map[pos.0 - 1][pos.1].scrap > 0 && !self.map[pos.0 - 1][pos.1].recycler
         {
             ret.push((pos.0 - 1, pos.1));
         }
         if pos.0 < self.h - 1
             && self.map[pos.0 + 1][pos.1].scrap > 0
-            && self.map[pos.0 + 1][pos.1].recycler == false
+            && !self.map[pos.0 + 1][pos.1].recycler
         {
             ret.push((pos.0 + 1, pos.1));
         }
-        if pos.1 > 0
-            && self.map[pos.0][pos.1 - 1].scrap > 0
-            && self.map[pos.0][pos.1 - 1].recycler == false
+        if pos.1 > 0 && self.map[pos.0][pos.1 - 1].scrap > 0 && !self.map[pos.0][pos.1 - 1].recycler
         {
             ret.push((pos.0, pos.1 - 1));
         }
         if pos.1 < self.w - 1
             && self.map[pos.0][pos.1 + 1].scrap > 0
-            && self.map[pos.0][pos.1 + 1].recycler == false
+            && !self.map[pos.0][pos.1 + 1].recycler
         {
             ret.push((pos.0, pos.1 + 1));
         }
@@ -246,7 +242,7 @@ impl Env {
     fn spawn(&mut self, pos: Coord, n: Unit) {
         // might put tile at Owner::Me
         self.map[pos.0][pos.1].unit += n;
-        self.m_m -= 10 * n;
+        self.m_m -= 10 * n as Matter;
         print!("SPAWN {n} {y} {x};", n = n, y = pos.1, x = pos.0);
     }
 
@@ -309,7 +305,7 @@ impl Env {
         });
     }
 
-    fn block(&mut self, contact_tiles: &mut Vec<Coord>) {
+    fn block(&mut self, contact_tiles: &[Coord]) {
         for tile in contact_tiles.iter() {
             if self.m_m >= 10 && self.map[tile.0][tile.1].unit == 0 {
                 self.build(*tile);
@@ -331,7 +327,7 @@ impl Env {
             .partition(|tile| self.map[tile.0][tile.1].owner == Owner::Me);
         me_ct.sort_by(|a, b| self.map[a.0][a.1].unit.cmp(&self.map[b.0][b.1].unit));
         self.protect(&mut me_ct);
-        self.block(&mut me_ct);
+        self.block(&me_ct);
 
         other_ct.sort_by(|a, b| self.map[a.0][a.1].unit.cmp(&self.map[b.0][b.1].unit));
         *contact_tiles = other_ct;
