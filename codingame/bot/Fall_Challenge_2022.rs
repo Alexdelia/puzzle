@@ -397,7 +397,7 @@ impl Env {
     }
 
     fn spawn_all(&mut self) {
-        if self.m_m < 10 {
+        if self.m_m < 10 && self.m_units.len() < self.o_units.len() {
             return;
         }
 
@@ -415,7 +415,7 @@ impl Env {
             }
         }
 
-        while self.m_m >= 10 {
+        while self.m_m >= 10 && self.m_units.len() < self.o_units.len() + 1 {
             // empty owned tile closest to center and next to not owned tile with scrap
             let mut closest: (usize, usize, usize) = (self.w + self.h, 0, 0);
             for (x, y) in set.iter() {
@@ -463,14 +463,12 @@ fn main() {
         e.get_input();
 
         let mut contact_tiles = e.find_contact_tiles();
-        // attack (move) protect (spawn) and block (build) in contact
         e.contact(&mut contact_tiles);
         e.move_to_contact(&mut contact_tiles);
-        // spawn 1 more unit than op
 
         // e.build_all();
         // e.move_all();
-        // e.spawn_all();
+        e.spawn_all();
 
         println!();
     }
