@@ -179,7 +179,7 @@ impl Env {
             .any(|i| self.map[i.0][i.1].owner == Owner::Op)
     }
 
-    fn find_contact_tiles(&self) -> Vec<Coord> {
+    fn find_contact(&self) -> Vec<Coord> {
         let mut ret: HashSet<Coord> = HashSet::new();
         let mut seen_m: HashSet<Coord> = HashSet::from_iter(self.m_units.iter().cloned());
         let mut seen_o: HashSet<Coord> = HashSet::from_iter(self.o_units.iter().cloned());
@@ -223,6 +223,31 @@ impl Env {
         ret.into_iter().collect()
     }
 
+    fn find_direct_contact(&self) -> (Vec<Coord>, Vec<Coord>) {
+        let mut me: HashSet<Coord> = HashSet::new();
+        let mut op: HashSet<Coord> = HashSet::new();
+
+        for x in 0..self.h {
+            for y in 0..self.w {
+                if self.map[x][y].owner == Owner::Me {
+                    for n in self.neighbors((x, y)) {
+                        if self.map[n.0][n.1].owner == Owner::Op {
+                            me.insert((x, y));
+                        }
+                    }
+                } else if self.map[x][y].owner == Owner::Op {
+                    for n in self.neighbors((x, y)) {
+                        if self.map[n.0][n.1].owner == Owner::Me {
+                            op.insert((x, y));
+                        }
+                    }
+                }
+            }
+        }
+
+        (me.into_iter().collect(), op.into_iter().collect())
+    }
+
     fn build(&mut self, pos: Coord) {
         self.m_recycler.push(pos);
         self.map[pos.0][pos.1].recycler = true;
@@ -241,6 +266,15 @@ impl Env {
         }
         self.map[dst.0][dst.1].unit += n;
         self.map[dst.0][dst.1].can_build = false;
+        let mut n_moved = 0;
+        self.m_units.retain(|i| {
+            if n_moved < n && *i == src {
+                n_moved += 1;
+                false
+            } else {
+                true
+            }
+        });
 
         print!(
             "MOVE {n} {sy} {sx} {dy} {dx};",
@@ -261,9 +295,9 @@ impl Env {
         self.action = true;
     }
 
-    fn attack(&mut self, contact_tiles: &mut Vec<Coord>) {
-        contact_tiles.retain(|tile| {
-            if self.map[tile.0][tile.1].owner != Owner::Op {
+    fn attack(&mut self, me_tile: &mut Vec<Coord>) {
+        me_tile.retain(|t| {
+            if self.map[t.0][t.1].owner != Owner::Op {
                 return true;
             }
 
@@ -486,11 +520,13 @@ fn main() {
         e.get_input();
 
         // need to find contact tiles for me to op with direct connection to attack
+        let (mut me_direct_contact, mut op_direct_contact): (Vec<Coord>, Vec<Coord>) = e.find_direct_contact();
+		e.attack(
         // then me to op with direct connection to protect and block
         // if none in both
         // contact tile from me to op to move to contact
         // might need to group unit by chunk of tile
-        let mut contact_tiles = e.find_contact_tiles();
+        let mut contact_tiles = e.find_contact();
         if contact_tiles.is_empty() {
             e.move_all();
         }
