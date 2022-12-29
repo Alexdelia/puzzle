@@ -519,6 +519,13 @@ fn main() {
         dbg!(contact.len());
         if !contact.is_empty() {
             e.move_to_contact(&mut contact);
+        } else {
+            let mut gray_direct_contact: Vec<(Coord, Coord)> =
+                e.find_direct_contact(Owner::Me, Owner::None);
+            dbg!(gray_direct_contact.len());
+            e.attack(&mut gray_direct_contact);
+            e.protect(&mut gray_direct_contact, false);
+            dbg!(gray_direct_contact.len());
         }
         dbg!(contact.len());
 
