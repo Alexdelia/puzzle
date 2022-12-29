@@ -488,17 +488,22 @@ fn main() {
     loop {
         e.get_input();
 
+        let mut no = false;
         {
             let mut direct_contact: Vec<(Coord, Coord)> =
                 e.find_direct_contact(Owner::Me, Owner::Op);
             dbg!(direct_contact.len());
-            e.attack(&mut direct_contact);
-            e.protect(&mut direct_contact, true);
-            e.block(&direct_contact);
+            if direct_contact.is_empty() {
+                no = true;
+            } else {
+                e.attack(&mut direct_contact);
+                e.protect(&mut direct_contact, true);
+                e.block(&direct_contact);
+            }
             dbg!(direct_contact.len());
         }
 
-        {
+        if !no {
             let mut gray_direct_contact: Vec<(Coord, Coord)> =
                 e.find_direct_contact(Owner::Me, Owner::None);
             dbg!(gray_direct_contact.len());
@@ -511,12 +516,10 @@ fn main() {
         // contact tile from me to op to move to contact
         // might need to group unit by chunk of tile
         let mut contact = e.find_contact();
-        if contact.is_empty() {
-            // buggy, because old code, don't path find
-            e.move_all();
+        dbg!(contact.len());
+        if !contact.is_empty() {
+            e.move_to_contact(&mut contact);
         }
-
-        e.move_to_contact(&mut contact);
         dbg!(contact.len());
 
         // e.build_all();
