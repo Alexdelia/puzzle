@@ -223,14 +223,14 @@ impl Env {
         ret.into_iter().collect()
     }
 
-    fn find_direct_contact(&self) -> Vec<(Coord, Coord)> {
+    fn find_direct_contact(&self, src: Owner, dst: Owner) -> Vec<(Coord, Coord)> {
         let mut s: HashSet<(Coord, Coord)> = HashSet::new();
 
         for x in 0..self.h {
             for y in 0..self.w {
-                if self.map[x][y].owner == Owner::Me {
+                if self.map[x][y].owner == src {
                     for n in self.neighbors((x, y)) {
-                        if self.map[n.0][n.1].owner == Owner::Op {
+                        if self.map[n.0][n.1].owner == dst {
                             s.insert(((x, y), n));
                         }
                     }
@@ -299,14 +299,16 @@ impl Env {
         });
     }
 
-    fn protect(&mut self, direct_contact: &mut Vec<(Coord, Coord)>) {
+    fn protect(&mut self, direct_contact: &mut Vec<(Coord, Coord)>, block: bool) {
         let mut n_block = 0;
-        for (m, o) in direct_contact.iter() {
-            if self.map[m.0][m.1].unit == 0
-                && self.map[m.0][m.1].can_build
-                && self.map[o.0][o.1].unit > 0
-            {
-                n_block += 1;
+        if block {
+            for (m, o) in direct_contact.iter() {
+                if self.map[m.0][m.1].unit == 0
+                    && self.map[m.0][m.1].can_build
+                    && self.map[o.0][o.1].unit > 0
+                {
+                    n_block += 1;
+                }
             }
         }
 
@@ -323,7 +325,7 @@ impl Env {
             if (self.m_m as i32 - (needed as i32 * 10)) <= 10 * n_block || needed == 0 {
                 true
             } else {
-                if self.map[m.0][m.1].unit == 0 && self.map[m.0][m.1].can_build {
+                if block && self.map[m.0][m.1].unit == 0 && self.map[m.0][m.1].can_build {
                     n_block -= 1;
                 }
                 self.spawn(*m, needed);
@@ -487,12 +489,22 @@ fn main() {
         e.get_input();
 
         {
-            let mut direct_contact: Vec<(Coord, Coord)> = e.find_direct_contact();
+            let mut direct_contact: Vec<(Coord, Coord)> =
+                e.find_direct_contact(Owner::Me, Owner::Op);
             dbg!(direct_contact.len());
             e.attack(&mut direct_contact);
-            e.protect(&mut direct_contact);
+            e.protect(&mut direct_contact, true);
             e.block(&direct_contact);
             dbg!(direct_contact.len());
+        }
+
+        {
+            let mut gray_direct_contact: Vec<(Coord, Coord)> =
+                e.find_direct_contact(Owner::Me, Owner::None);
+            dbg!(gray_direct_contact.len());
+            e.attack(&mut gray_direct_contact);
+            e.protect(&mut gray_direct_contact, false);
+            dbg!(gray_direct_contact.len());
         }
 
         // if none in both
@@ -500,6 +512,7 @@ fn main() {
         // might need to group unit by chunk of tile
         let mut contact = e.find_contact();
         if contact.is_empty() {
+            // buggy, because old code, don't path find
             e.move_all();
         }
 
