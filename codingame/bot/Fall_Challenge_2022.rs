@@ -348,18 +348,17 @@ impl Env {
 
     fn move_to_contact(&mut self, contact_tiles: &mut Vec<Coord>) {
         while !contact_tiles.is_empty() && !self.m_units.is_empty() {
-            let tile = contact_tiles.pop().unwrap();
-            let mut needed_units = if self.map[tile.0][tile.1].owner == Owner::Op {
-                self.map[tile.0][tile.1].unit as usize + 1
-            } else {
-                1
-            };
+            let t = contact_tiles.pop().unwrap();
+            let mut closest: (Coord, usize) = ((0, 0), self.h + self.w);
 
-            while needed_units > 0 && !self.m_units.is_empty() {
-                let closest = pop_closest(&mut self.m_units, tile).unwrap();
-                self.r#move(closest, tile, 1);
-                needed_units -= 1;
+            for u in self.m_units.iter() {
+                let d = dist(*u, t);
+                if d < closest.1 {
+                    closest = (*u, d);
+                }
             }
+
+            self.r#move(closest.0, t, 1);
         }
     }
 
@@ -446,6 +445,41 @@ impl Env {
             self.spawn((closest.1, closest.2), 1);
         }
     }
+
+    fn direct_fight(&mut self, block: bool) -> bool {
+        let mut direct_contact: Vec<(Coord, Coord)> =
+            self.find_direct_contact(Owner::Me, Owner::Op);
+        dbg!(direct_contact.len());
+
+        if direct_contact.is_empty() {
+            return false;
+        }
+
+        self.attack(&mut direct_contact);
+        self.protect(&mut direct_contact, true);
+        if block {
+            self.block(&direct_contact);
+        }
+        dbg!(direct_contact.len());
+
+        true
+    }
+
+    fn direct_explore(&mut self) -> bool {
+        let mut gray_direct_contact: Vec<(Coord, Coord)> =
+            self.find_direct_contact(Owner::Me, Owner::None);
+        dbg!(gray_direct_contact.len());
+
+        if gray_direct_contact.is_empty() {
+            return false;
+        }
+
+        self.attack(&mut gray_direct_contact);
+        self.protect(&mut gray_direct_contact, false);
+        dbg!(gray_direct_contact.len());
+
+        true
+    }
 }
 
 fn dist(src: Coord, dst: Coord) -> usize {
@@ -465,6 +499,7 @@ fn needed(me: Unit, op: Unit) -> Unit {
     }
 }
 
+/*
 fn pop_closest(src: &mut Vec<Coord>, dst: Coord) -> Option<Coord> {
     src.iter()
         .enumerate()
@@ -472,6 +507,7 @@ fn pop_closest(src: &mut Vec<Coord>, dst: Coord) -> Option<Coord> {
         .map(|(i, _)| i)
         .map(|i| src.swap_remove(i))
 }
+*/
 
 fn main() {
     let mut e: Env;
@@ -488,33 +524,14 @@ fn main() {
     loop {
         e.get_input();
 
-        let mut no = false;
-        {
-            let mut direct_contact: Vec<(Coord, Coord)> =
-                e.find_direct_contact(Owner::Me, Owner::Op);
-            dbg!(direct_contact.len());
-            if direct_contact.is_empty() {
-                no = true;
-            } else {
-                e.attack(&mut direct_contact);
-                e.protect(&mut direct_contact, true);
-                e.block(&direct_contact);
-            }
-            dbg!(direct_contact.len());
+        let mut contact = e.find_contact();
+
+        if e.direct_fight(contact.len() != 1) {
+            e.direct_explore();
         }
 
-        if !no {
-            let mut gray_direct_contact: Vec<(Coord, Coord)> =
-                e.find_direct_contact(Owner::Me, Owner::None);
-            dbg!(gray_direct_contact.len());
-            e.attack(&mut gray_direct_contact);
-            e.protect(&mut gray_direct_contact, false);
-            dbg!(gray_direct_contact.len());
-        }
+        // if contact is only 1 tile, move all unit to it
 
-        // if none in both
-        // contact tile from me to op to move to contact
-        // might need to group unit by chunk of tile
         let mut contact = e.find_contact();
         dbg!(contact.len());
         if !contact.is_empty() {
