@@ -456,7 +456,7 @@ impl Env {
         }
 
         self.attack(&mut direct_contact);
-        self.protect(&mut direct_contact, true);
+        self.protect(&mut direct_contact, block);
         if block {
             self.block(&direct_contact);
         }
