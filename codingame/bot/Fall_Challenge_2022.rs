@@ -480,6 +480,13 @@ impl Env {
 
         true
     }
+
+    fn final_fight(&mut self, contact: &[Coord; 2]) -> bool {
+		if 
+		for u in self.m_units {
+			self.r#move(*u
+		}
+	}
 }
 
 fn dist(src: Coord, dst: Coord) -> usize {
@@ -525,9 +532,18 @@ fn main() {
         e.get_input();
 
         let mut contact = e.find_contact();
+		if contact.len() == 2 && dist(contact[0], contact[1]) == 1 {
+			if e.map[contact[0].0][contact[0].1].owner == Owner::Me {
+				contact
 
-        if e.direct_fight(contact.len() != 1) {
-            e.direct_explore();
+        if one_way {
+            e.direct_fight(false);
+            e.final_fight(contact);
+        // move all unit to contact
+        } else {
+            if e.direct_fight(true) {
+                e.direct_explore();
+            }
         }
 
         // if contact is only 1 tile, move all unit to it
