@@ -413,7 +413,7 @@ impl Env {
         }
 
         while self.m_m >= 10 && self.m_recycler.len() <= self.o_recycler.len() {
-            let mut most_scrap: (Scrap, usize, usize) = (0, 0, 0);
+            let mut most_scrap: (Scrap, u8, Coord) = (0, 0, (0, 0));
 
             for x in 0..self.h {
                 for y in 0..self.w {
@@ -423,23 +423,24 @@ impl Env {
                         && self.map[x][y].unit == 0
                     {
                         let mut scrap = self.map[x][y].scrap;
+                        let mut empty = 0;
                         for n in self.forced_neighbors((x, y)) {
                             if self.map[n.0][n.1].recycler || self.map[n.0][n.1].scrap == 0 {
-                                scrap += 10;
-                            } else {
+                                empty += 1;
+                            } else if !self.map[n.0][n.1].in_range_of_recycler {
                                 scrap += self.map[n.0][n.1].scrap;
                             }
                         }
 
-                        if scrap > most_scrap.0 {
-                            most_scrap = (scrap, x, y);
+                        if empty >= most_scrap.1 && scrap > most_scrap.0 {
+                            most_scrap = (scrap, empty, (x, y));
                         }
                     }
                 }
             }
 
             if most_scrap.0 > 20 {
-                self.build((most_scrap.1, most_scrap.2));
+                self.build(most_scrap.2);
             } else {
                 break;
             }
@@ -639,6 +640,8 @@ fn main() {
             e.move_to_contact(&mut contact);
         } else {
             e.direct_explore();
+            end_of_loop(e.action);
+            continue;
         }
         dbg!(contact.len());
 
