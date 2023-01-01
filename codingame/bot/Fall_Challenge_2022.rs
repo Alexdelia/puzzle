@@ -412,7 +412,7 @@ impl Env {
             return;
         }
 
-        while self.m_m >= 10 && self.m_recycler.len() <= self.o_recycler.len() {
+        while self.m_m >= 10 && self.m_recycler.len() < self.o_recycler.len() {
             let mut most_scrap: (Scrap, u8, Coord) = (0, 0, (0, 0));
 
             for x in 0..self.h {
