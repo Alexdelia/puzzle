@@ -439,7 +439,7 @@ impl Env {
                 }
             }
 
-            if most_scrap.0 > 20 {
+            if most_scrap.0 >= 30 {
                 self.build(most_scrap.2);
             } else {
                 break;
