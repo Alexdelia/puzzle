@@ -168,6 +168,25 @@ impl Env {
         ret
     }
 
+    fn forced_neighbors(&self, pos: Coord) -> Vec<Coord> {
+        let mut ret = Vec::new();
+
+        if pos.0 > 0 {
+            ret.push((pos.0 - 1, pos.1));
+        }
+        if pos.0 < self.h - 1 {
+            ret.push((pos.0 + 1, pos.1));
+        }
+        if pos.1 > 0 {
+            ret.push((pos.0, pos.1 - 1));
+        }
+        if pos.1 < self.w - 1 {
+            ret.push((pos.0, pos.1 + 1));
+        }
+
+        ret
+    }
+
     fn next_to_not_owned(&self, pos: Coord) -> bool {
         self.neighbors(pos)
             .iter()
@@ -400,15 +419,30 @@ impl Env {
                 for y in 0..self.w {
                     if self.map[x][y].owner == Owner::Me
                         && self.map[x][y].can_build
-                        && self.map[x][y].scrap > most_scrap.0
+                        && self.map[x][y].scrap > 0
                         && self.map[x][y].unit == 0
                     {
-                        most_scrap = (self.map[x][y].scrap, x, y);
+                        let mut scrap = self.map[x][y].scrap;
+                        for n in self.forced_neighbors((x, y)) {
+                            if self.map[n.0][n.1].recycler || self.map[n.0][n.1].scrap == 0 {
+                                scrap += 10;
+                            } else {
+                                scrap += self.map[n.0][n.1].scrap;
+                            }
+                        }
+
+                        if scrap > most_scrap.0 {
+                            most_scrap = (scrap, x, y);
+                        }
                     }
                 }
             }
 
-            self.build((most_scrap.1, most_scrap.2));
+            if most_scrap.0 > 20 {
+                self.build((most_scrap.1, most_scrap.2));
+            } else {
+                break;
+            }
         }
     }
 
@@ -608,7 +642,7 @@ fn main() {
         }
         dbg!(contact.len());
 
-        // e.build_all();	// will implement a new build all
+        e.build_all();
         // e.move_all();
         e.spawn_all();
 
