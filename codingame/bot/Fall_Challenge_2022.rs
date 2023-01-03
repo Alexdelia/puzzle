@@ -231,7 +231,8 @@ impl Env {
                     if !seen_o.contains(&n) {
                         seen_o.insert(n);
                         if seen_m.contains(&n) {
-                            ret.insert(n);
+                            // ret.insert(n);
+                            continue;
                         } else {
                             q_o.push_back(n);
                         }
@@ -388,7 +389,29 @@ impl Env {
                 }
             }
 
-            self.r#move(closest.0, t, 1);
+            let x = if closest.0 .0 < t.0 {
+                closest.0 .0 + 1
+            } else {
+                closest.0 .0 - 1
+            };
+            let y = if closest.0 .1 < t.1 {
+                closest.0 .1 + 1
+            } else {
+                closest.0 .1 - 1
+            };
+
+            if closest.0 .0 != t.0
+                && self.map[x][closest.0 .1].scrap > 0
+                && !self.map[x][closest.0 .1].recycler
+                && self.map[x][closest.0 .1].owner != Owner::Me
+                && ((self.map[closest.0 .0][y].scrap > 0
+                    && self.map[closest.0 .0][y].owner == Owner::Me)
+                    || (self.map[closest.0 .0][y].scrap == 0))
+            {
+                self.r#move(closest.0, (x, closest.0 .1), 1);
+            } else {
+                self.r#move(closest.0, t, 1);
+            }
         }
 
         if cp.is_empty() {
@@ -426,8 +449,9 @@ impl Env {
                         && self.map[x][y].unit == 0
                     {
                         let mut scrap = self.map[x][y].scrap;
-                        let mut empty = 0;
-                        for n in self.forced_neighbors((x, y)) {
+                        let neighbors = self.forced_neighbors((x, y));
+                        let mut empty = (neighbors.len() - 4) as u8;
+                        for n in neighbors.iter() {
                             if self.map[n.0][n.1].recycler || self.map[n.0][n.1].scrap == 0 {
                                 empty += 1;
                             } else if !self.map[n.0][n.1].in_range_of_recycler {
@@ -531,15 +555,10 @@ impl Env {
         }
         dbg!(direct_contact.len());
 
-        for (m, o) in direct_contact.iter() {
-            contact.push(*m);
-            contact.push(*o);
-        }
-
         true
     }
 
-    fn direct_explore(&mut self) -> bool {
+    fn direct_explore(&mut self, protect: bool) -> bool {
         let mut gray_direct_contact: Vec<(Coord, Coord)> =
             self.find_direct_contact(Owner::Me, Owner::None);
         dbg!(gray_direct_contact.len());
@@ -549,7 +568,9 @@ impl Env {
         }
 
         self.attack(&mut gray_direct_contact);
-        self.protect(&mut gray_direct_contact, false);
+        if protect {
+            self.protect(&mut gray_direct_contact, false);
+        }
         dbg!(gray_direct_contact.len());
 
         true
@@ -628,23 +649,17 @@ fn main() {
         let mut contact = e.find_contact();
         dbg!(contact.len());
 
-        if contact.len() == 2 && dist(contact[0], contact[1]) == 1 {
-            e.final_fight(
-                contact[if e.map[contact[0].0][contact[0].1].owner == Owner::Op {
-                    0
-                } else {
-                    1
-                }],
-            );
+        if contact.len() == 1 {
+            e.final_fight(contact[0]);
             end_of_loop(e.action);
             continue;
         }
 
-        let no_block = e.direct_fight(&mut contact, true);
+        let direct_touch = e.direct_fight(&mut contact, true);
         dbg!(contact.len());
         // when fixed move_to_contact, remove this
-        if no_block {
-            e.direct_explore();
+        if direct_touch {
+            e.direct_explore(false);
         }
 
         if !contact.is_empty() {
@@ -652,13 +667,13 @@ fn main() {
             // just go to the closest and so it gets wrapped
             e.move_to_contact(&mut contact);
         } else {
-            e.direct_explore();
+            e.direct_explore(true);
             end_of_loop(e.action);
             continue;
         }
         dbg!(contact.len());
 
-        if !no_block {
+        if !direct_touch {
             e.build_all();
         }
         // e.move_all();
