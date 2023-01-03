@@ -249,7 +249,10 @@ impl Env {
 
         for x in 0..self.h {
             for y in 0..self.w {
-                if self.map[x][y].owner == src {
+                if self.map[x][y].owner == src
+                    && !self.map[x][y].recycler
+                    && self.map[x][y].scrap > 0
+                {
                     for n in self.neighbors((x, y)) {
                         if self.map[n.0][n.1].owner == dst {
                             s.insert(((x, y), n));
@@ -560,6 +563,21 @@ impl Env {
     fn direct_explore(&mut self, protect: bool) -> bool {
         let mut gray_direct_contact: Vec<(Coord, Coord)> =
             self.find_direct_contact(Owner::Me, Owner::None);
+        let y: i32 = if !self.o_units.is_empty() {
+            if self.o_units[0].1 < self.w / 2 {
+                0
+            } else {
+                self.w as i32 - 1
+            }
+        } else {
+            self.w as i32 / 2
+        };
+        // sort by a.1 closest to y
+        gray_direct_contact.sort_by(|a, b| {
+            let a_dist = (a.0 .1 as i32 - y).abs();
+            let b_dist = (b.0 .1 as i32 - y).abs();
+            a_dist.cmp(&b_dist)
+        });
         dbg!(gray_direct_contact.len());
 
         if gray_direct_contact.is_empty() {
@@ -658,7 +676,7 @@ fn main() {
         dbg!(contact.len());
         // when fixed move_to_contact, remove this
         if direct_touch {
-            e.direct_explore(false);
+            e.direct_explore(true);
         }
 
         if !contact.is_empty() {
