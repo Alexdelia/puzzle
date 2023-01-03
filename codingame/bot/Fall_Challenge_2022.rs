@@ -306,6 +306,8 @@ impl Env {
         self.map[pos.0][pos.1].unit += n;
         self.m_m -= 10 * n as Matter;
         print!("SPAWN {n} {y} {x};", n = n, y = pos.1, x = pos.0);
+        // remove all unit on that tile
+        self.m_units.retain(|i| *i != pos);
         self.action = true;
     }
 
@@ -344,6 +346,7 @@ impl Env {
             let needed = needed(self.map[m.0][m.1].unit, self.map[o.0][o.1].unit);
 
             if (self.m_m as i32 - (needed as i32 * 10)) <= 10 * n_block || needed == 0 {
+                self.m_units.retain(|i| *i != *m);
                 true
             } else {
                 if block && self.map[m.0][m.1].unit == 0 && self.map[m.0][m.1].can_build {
@@ -507,10 +510,12 @@ impl Env {
         }
     }
 
-    fn direct_fight(&mut self, block: bool) -> bool {
+    fn direct_fight(&mut self, contact: &mut Vec<Coord>, block: bool) -> bool {
         let mut direct_contact: Vec<(Coord, Coord)> =
             self.find_direct_contact(Owner::Me, Owner::Op);
         dbg!(direct_contact.len());
+
+        contact.retain(|c| !direct_contact.iter().any(|(m, o)| m == c || o == c));
 
         if direct_contact.is_empty() {
             return false;
@@ -525,6 +530,11 @@ impl Env {
             self.block(&direct_contact);
         }
         dbg!(direct_contact.len());
+
+        for (m, o) in direct_contact.iter() {
+            contact.push(*m);
+            contact.push(*o);
+        }
 
         true
     }
@@ -630,13 +640,16 @@ fn main() {
             continue;
         }
 
-        if e.direct_fight(true) {
+        let no_block = e.direct_fight(&mut contact, true);
+        dbg!(contact.len());
+        // when fixed move_to_contact, remove this
+        if no_block {
             e.direct_explore();
-            contact = e.find_contact();
-            dbg!(contact.len());
         }
 
         if !contact.is_empty() {
+            // move to contact do not try to wrap around op
+            // just go to the closest and so it gets wrapped
             e.move_to_contact(&mut contact);
         } else {
             e.direct_explore();
@@ -645,7 +658,9 @@ fn main() {
         }
         dbg!(contact.len());
 
-        e.build_all();
+        if !no_block {
+            e.build_all();
+        }
         // e.move_all();
         e.spawn_all();
 
