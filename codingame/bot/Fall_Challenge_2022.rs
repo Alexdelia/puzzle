@@ -308,7 +308,6 @@ impl Env {
         self.m_m -= 10 * n as Matter;
         print!("SPAWN {n} {y} {x};", n = n, y = pos.1, x = pos.0);
         // remove all unit on that tile
-        self.m_units.retain(|i| *i != pos);
         self.action = true;
     }
 
@@ -344,10 +343,10 @@ impl Env {
         });
 
         direct_contact.retain(|(m, o)| {
+            self.m_units.retain(|i| *i != *m);
             let needed = needed(self.map[m.0][m.1].unit, self.map[o.0][o.1].unit);
 
             if (self.m_m as i32 - (needed as i32 * 10)) <= 10 * n_block || needed == 0 {
-                self.m_units.retain(|i| *i != *m);
                 true
             } else {
                 if block && self.map[m.0][m.1].unit == 0 && self.map[m.0][m.1].can_build {
