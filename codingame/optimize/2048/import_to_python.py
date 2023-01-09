@@ -6,6 +6,9 @@ from tqdm import tqdm
 
 from src.answer import DECODE, ENCODE, b10tob, btob10
 
+assert len(ENCODE) == len(set(ENCODE)), "ENCODE must be unique"
+assert len(DECODE) == len(set(DECODE)), "DECODE must be unique"
+
 RESULT = ".2048_results.out"
 ANSWER = "./src/answer.py"
 
