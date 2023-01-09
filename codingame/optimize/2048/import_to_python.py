@@ -52,17 +52,24 @@ def encode() -> Dict[str, str]:
     p = tqdm(total=t)
     for line in f:
         l = line.split()
-        p.write(f"seed: {l[0]}", end="")
+        p.write(f"seed: \033[33;1m{l[0]}\033[0m")
 
         n = DECODE[1] + l[-1]
         b = b10tob(btob10(n, DECODE), ENCODE)
 
-        p.write(f"\t{len(n)} -> {len(b)}\tcompressed {len(b)/len(n):.3f}%")
+        p.write(
+            f"  '->\t\033[35;1m{len(n)}\033[0m\
+ -> \033[36;1m{len(b)}\033[0m\
+\tcompressed to \033[32;1m{len(b)/len(n) * 100:.3f}%\033[0m"
+        )
 
         out[int(l[1])] = b
 
-        # print("checking ...", flush=True, end="\r")
+        p.write("checking ...")
         _check_encoding(n, b)
+        p.write("  '->\t\033[32;1mOK\033[0m")
+
+        p.update(1)
     p.close()
 
     f.close()
@@ -73,7 +80,7 @@ def encode() -> Dict[str, str]:
 def write(out: Dict[str, str]):
     print("writing results to", ANSWER, flush=True)
 
-    start = r"answer = "
+    start = r"    answer = "
     line = start + str(out) + "\n"
 
     f = open(ANSWER, "r")
