@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
 
-import re
+from src.answer import DECODE, ENCODE, b10tob, btob10
 
 RESULT = ".2048_results.out"
 ANSWER = "./src/answer.py"
 
+print("reading results from", RESULT, flush=True)
 f = open(RESULT, "r")
 out = {}
-for line in f:
+
+print("encoding results:", flush=True)
+for i, line in enumerate(f):
+    print(f"\r{i}", end="")
     l = line.split()
-    out[int(l[1])] = l[-1]
+    n = l[-1]
+    b = b10tob(btob10(n, DECODE), ENCODE)
+    out[int(l[1])] = b
+    assert b10tob(btob10(b, ENCODE), DECODE) == n
 f.close()
+print()
 
 start = r"answer = "
 line = start + str(out) + "\n"
