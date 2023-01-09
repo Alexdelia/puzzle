@@ -1,7 +1,7 @@
 SIZE = 4
 CHUNK = 9000
-ENCODE = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&'()*+-./:;<=>?@[]^_`{|}~"
-DECODE = "UDLR"
+ENCODE = r"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&'()*+-./:;<=>?@[]^_`{|}~"
+DECODE = r"UDLR"
 
 
 def btob10(n: str, key: str) -> int:
@@ -34,16 +34,17 @@ def get_input():
     return seed, score, grid
 
 
-answer = {}
+if __name__ == "__main__":
+    answer = {}
 
-seed, _, _ = get_input()
+    seed, _, _ = get_input()
 
-if seed in answer:
-    m = b10tob(btob10(answer[seed], ENCODE), DECODE)
-    for i in range(0, len(m), CHUNK):
-        print(m[i:i + CHUNK])
-        get_input()
+    if seed in answer:
+        m = b10tob(btob10(answer[seed], ENCODE), DECODE)
+        for i in range(0, len(m), CHUNK):
+            print(m[i:i + CHUNK])
+            get_input()
 
-# while True:
-#     print("LURU")
-#     get_input()
+    # while True:
+    #     print("LURU")
+    #     get_input()
