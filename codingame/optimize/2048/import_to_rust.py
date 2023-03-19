@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import re
-
 RESULT = ".2048_results.out"
 ANSWER = "./src/answer.rs"
 
