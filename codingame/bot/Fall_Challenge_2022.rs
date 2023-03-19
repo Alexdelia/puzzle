@@ -1,4 +1,5 @@
 use std::collections::{HashSet, VecDeque};
+use std::convert::TryInto;
 use std::io;
 use std::iter::FromIterator;
 
@@ -167,6 +168,25 @@ impl Env {
         ret
     }
 
+    fn forced_neighbors(&self, pos: Coord) -> Vec<Coord> {
+        let mut ret = Vec::new();
+
+        if pos.0 > 0 {
+            ret.push((pos.0 - 1, pos.1));
+        }
+        if pos.0 < self.h - 1 {
+            ret.push((pos.0 + 1, pos.1));
+        }
+        if pos.1 > 0 {
+            ret.push((pos.0, pos.1 - 1));
+        }
+        if pos.1 < self.w - 1 {
+            ret.push((pos.0, pos.1 + 1));
+        }
+
+        ret
+    }
+
     fn next_to_not_owned(&self, pos: Coord) -> bool {
         self.neighbors(pos)
             .iter()
@@ -211,7 +231,8 @@ impl Env {
                     if !seen_o.contains(&n) {
                         seen_o.insert(n);
                         if seen_m.contains(&n) {
-                            ret.insert(n);
+                            // ret.insert(n);
+                            continue;
                         } else {
                             q_o.push_back(n);
                         }
@@ -223,29 +244,25 @@ impl Env {
         ret.into_iter().collect()
     }
 
-    fn find_direct_contact(&self) -> (Vec<Coord>, Vec<Coord>) {
-        let mut me: HashSet<Coord> = HashSet::new();
-        let mut op: HashSet<Coord> = HashSet::new();
+    fn find_direct_contact(&self, src: Owner, dst: Owner) -> Vec<(Coord, Coord)> {
+        let mut s: HashSet<(Coord, Coord)> = HashSet::new();
 
         for x in 0..self.h {
             for y in 0..self.w {
-                if self.map[x][y].owner == Owner::Me {
+                if self.map[x][y].owner == src
+                    && !self.map[x][y].recycler
+                    && self.map[x][y].scrap > 0
+                {
                     for n in self.neighbors((x, y)) {
-                        if self.map[n.0][n.1].owner == Owner::Op {
-                            me.insert((x, y));
-                        }
-                    }
-                } else if self.map[x][y].owner == Owner::Op {
-                    for n in self.neighbors((x, y)) {
-                        if self.map[n.0][n.1].owner == Owner::Me {
-                            op.insert((x, y));
+                        if self.map[n.0][n.1].owner == dst {
+                            s.insert(((x, y), n));
                         }
                     }
                 }
             }
         }
 
-        (me.into_iter().collect(), op.into_iter().collect())
+        s.into_iter().collect()
     }
 
     fn build(&mut self, pos: Coord) {
@@ -258,14 +275,15 @@ impl Env {
         self.action = true;
     }
 
-    fn r#move(&mut self, src: Coord, dst: Coord, n: Unit, can_build: bool) {
+    fn r#move(&mut self, src: Coord, dst: Coord, n: Unit) {
         self.map[dst.0][dst.1].owner = Owner::Me;
         self.map[src.0][src.1].unit -= n;
-        if can_build && self.map[src.0][src.1].unit == 0 {
-            self.map[src.0][src.1].can_build = true;
-        }
+        // if self.map[src.0][src.1].unit == 0 {
+        //     self.map[src.0][src.1].can_build = true;
+        // }
         self.map[dst.0][dst.1].unit += n;
         self.map[dst.0][dst.1].can_build = false;
+        self.map[dst.0][dst.1].can_spawn = false;
         let mut n_moved = 0;
         self.m_units.retain(|i| {
             if n_moved < n && *i == src {
@@ -292,118 +310,128 @@ impl Env {
         self.map[pos.0][pos.1].unit += n;
         self.m_m -= 10 * n as Matter;
         print!("SPAWN {n} {y} {x};", n = n, y = pos.1, x = pos.0);
+        // remove all unit on that tile
         self.action = true;
     }
 
-    fn attack(&mut self, me_tile: &mut Vec<Coord>) {
-        me_tile.retain(|t| {
-            if self.map[t.0][t.1].owner != Owner::Op {
-                return true;
-            }
-
-            let mut can_move: Vec<(Coord, Unit)> = Vec::new();
-            let mut sum: Unit = 0;
-
-            for n in self.neighbors(*tile) {
-                if self.map[n.0][n.1].owner == Owner::Me && self.map[n.0][n.1].unit > 0 {
-                    can_move.push((n, self.map[n.0][n.1].unit));
-                    sum += self.map[n.0][n.1].unit;
-                }
-            }
-
-            if sum > self.map[tile.0][tile.1].unit {
-                for (pos, n) in can_move.iter() {
-                    self.r#move(*pos, *tile, *n, false);
-                }
-                return false;
-            }
-
-            true
-        });
-    }
-
-    fn protect(&mut self, contact_tiles: &mut Vec<Coord>) {
-        let mut n_block = 0;
-        for tile in contact_tiles.iter() {
-            if self.map[tile.0][tile.1].unit == 0
-                && self.map[tile.0][tile.1].can_build
-                && self.next_to_op(*tile)
-            {
-                n_block += 1;
-            }
-        }
-
-        contact_tiles.retain(|tile| {
-            if self.m_m as usize <= 10 * n_block {
-                return true;
-            }
-
-            let mut sum: Unit = 0;
-
-            for n in self.neighbors(*tile) {
-                if self.map[n.0][n.1].owner == Owner::Op && self.map[n.0][n.1].unit > 0 {
-                    sum += self.map[n.0][n.1].unit;
-                }
-            }
-
-            let needed: i32 = (sum + 1) as i32 - self.map[tile.0][tile.1].unit as i32;
-            if needed > 0 && self.m_m as i32 - (n_block as i32 - 1) * 10 >= needed * 10 {
-                self.spawn(*tile, needed as Unit);
-                n_block -= 1;
-                return false;
-            }
-
-            true
-        });
-    }
-
-    fn block(&mut self, contact_tiles: &[Coord]) {
-        for tile in contact_tiles.iter() {
-            if self.m_m >= 10
-                && self.map[tile.0][tile.1].unit == 0
-                && self.map[tile.0][tile.1].can_build
-                && self.next_to_op(*tile)
-            {
-                self.build(*tile);
+    fn attack(&mut self, direct_contact: &mut Vec<(Coord, Coord)>) {
+        direct_contact.retain(|(m, o)| {
+            if self.map[m.0][m.1].unit > self.map[o.0][o.1].unit {
+                self.r#move(*m, *o, self.map[o.0][o.1].unit + 1);
+                false
             } else {
-                for n in self.neighbors(*tile) {
-                    if self.map[n.0][n.1].owner == Owner::Me && self.map[n.0][n.1].unit > 0 {
-                        self.r#move(n, *tile, self.map[n.0][n.1].unit, false);
-                        break;
-                    }
+                true
+            }
+        });
+    }
+
+    fn protect(&mut self, direct_contact: &mut Vec<(Coord, Coord)>, block: bool) {
+        let mut n_block = 0;
+        if block {
+            for (m, o) in direct_contact.iter() {
+                if self.map[m.0][m.1].unit == 0
+                    && self.map[m.0][m.1].can_build
+                    && self.map[o.0][o.1].unit > 0
+                {
+                    n_block += 1;
                 }
             }
         }
+
+        direct_contact.sort_by(|a, b| {
+            needed(self.map[a.0 .0][a.0 .1].unit, self.map[a.1 .0][a.1 .1].unit).cmp(&needed(
+                self.map[b.0 .0][b.0 .1].unit,
+                self.map[b.1 .0][b.1 .1].unit,
+            ))
+        });
+
+        direct_contact.retain(|(m, o)| {
+            self.m_units.retain(|i| *i != *m);
+            let needed = needed(self.map[m.0][m.1].unit, self.map[o.0][o.1].unit);
+
+            if (self.m_m as i32 - (needed as i32 * 10)) <= 10 * n_block || needed == 0 {
+                true
+            } else {
+                if block && self.map[m.0][m.1].unit == 0 && self.map[m.0][m.1].can_build {
+                    n_block -= 1;
+                }
+                self.spawn(*m, needed);
+                false
+            }
+        });
     }
 
-    fn contact(&mut self, contact_tiles: &mut Vec<Coord>) {
-        self.attack(contact_tiles);
-        let (mut me_ct, mut other_ct): (Vec<Coord>, Vec<Coord>) = contact_tiles
-            .iter()
-            .partition(|tile| self.map[tile.0][tile.1].owner == Owner::Me);
-        me_ct.retain(|tile| self.next_to_op(*tile));
-        me_ct.sort_by(|a, b| self.map[a.0][a.1].unit.cmp(&self.map[b.0][b.1].unit));
-        self.protect(&mut me_ct);
-        self.block(&me_ct);
-
-        other_ct.sort_by(|a, b| self.map[a.0][a.1].unit.cmp(&self.map[b.0][b.1].unit));
-        *contact_tiles = other_ct;
+    fn block(&mut self, direct_contact: &[(Coord, Coord)]) {
+        for (m, o) in direct_contact.iter() {
+            if self.m_m >= 10
+                && self.map[m.0][m.1].unit == 0
+                && self.map[m.0][m.1].can_build
+                && self.map[o.0][o.1].unit > 0
+            {
+                self.build(*m);
+            }
+        }
     }
 
     fn move_to_contact(&mut self, contact_tiles: &mut Vec<Coord>) {
+        let mut cp = Vec::new();
+
+        if contact_tiles.len() > self.m_units.len() {
+            cp = contact_tiles.clone();
+        }
+
         while !contact_tiles.is_empty() && !self.m_units.is_empty() {
-            let tile = contact_tiles.pop().unwrap();
-            let mut needed_units = if self.map[tile.0][tile.1].owner == Owner::Op {
-                self.map[tile.0][tile.1].unit as usize + 1
+            let t = contact_tiles.pop().unwrap();
+            let mut closest: (Coord, usize) = ((0, 0), self.h + self.w);
+
+            for u in self.m_units.iter() {
+                let d = dist(*u, t);
+                if d < closest.1 {
+                    closest = (*u, d);
+                }
+            }
+
+            let x = if closest.0 .0 < t.0 {
+                closest.0 .0 + 1
             } else {
-                1
+                closest.0 .0 - 1
+            };
+            let y = if closest.0 .1 < t.1 {
+                closest.0 .1 + 1
+            } else {
+                closest.0 .1 - 1
             };
 
-            while needed_units > 0 && !self.m_units.is_empty() {
-                let closest = pop_closest(&mut self.m_units, tile).unwrap();
-                self.r#move(closest, tile, 1, false);
-                needed_units -= 1;
+            if closest.0 .0 != t.0
+                && self.map[x][closest.0 .1].scrap > 0
+                && !self.map[x][closest.0 .1].recycler
+                && self.map[x][closest.0 .1].owner != Owner::Me
+                && ((self.map[closest.0 .0][y].scrap > 0
+                    && self.map[closest.0 .0][y].owner == Owner::Me)
+                    || (self.map[closest.0 .0][y].scrap == 0))
+            {
+                self.r#move(closest.0, (x, closest.0 .1), 1);
+            } else {
+                self.r#move(closest.0, t, 1);
             }
+        }
+
+        if cp.is_empty() {
+            return;
+        }
+
+        while !self.m_units.is_empty() {
+            let u = self.m_units[0];
+            let mut closest: (Coord, usize) = ((0, 0), self.h + self.w);
+
+            for t in cp.iter() {
+                let d = dist(u, *t);
+                if d < closest.1 {
+                    closest = (*t, d);
+                }
+            }
+
+            self.r#move(u, closest.0, 1);
         }
     }
 
@@ -412,22 +440,39 @@ impl Env {
             return;
         }
 
-        while self.m_m >= 10 && self.m_recycler.len() <= self.o_recycler.len() {
-            let mut most_scrap: (Scrap, usize, usize) = (0, 0, 0);
+        while self.m_m >= 10 && self.m_recycler.len() < self.o_recycler.len() {
+            let mut most_scrap: (Scrap, u8, Coord) = (0, 0, (0, 0));
 
             for x in 0..self.h {
                 for y in 0..self.w {
                     if self.map[x][y].owner == Owner::Me
                         && self.map[x][y].can_build
-                        && self.map[x][y].scrap > most_scrap.0
+                        && self.map[x][y].scrap > 0
                         && self.map[x][y].unit == 0
                     {
-                        most_scrap = (self.map[x][y].scrap, x, y);
+                        let mut scrap = self.map[x][y].scrap;
+                        let neighbors = self.forced_neighbors((x, y));
+                        let mut empty = (neighbors.len() - 4) as u8;
+                        for n in neighbors.iter() {
+                            if self.map[n.0][n.1].recycler || self.map[n.0][n.1].scrap == 0 {
+                                empty += 1;
+                            } else if !self.map[n.0][n.1].in_range_of_recycler {
+                                scrap += self.map[n.0][n.1].scrap;
+                            }
+                        }
+
+                        if empty >= most_scrap.1 && scrap > most_scrap.0 {
+                            most_scrap = (scrap, empty, (x, y));
+                        }
                     }
                 }
             }
 
-            self.build((most_scrap.1, most_scrap.2));
+            if most_scrap.0 >= 30 {
+                self.build(most_scrap.2);
+            } else {
+                break;
+            }
         }
     }
 
@@ -449,12 +494,12 @@ impl Env {
                 }
             }
 
-            self.r#move(u, (closest.1, closest.2), 1, false);
+            self.r#move(u, (closest.1, closest.2), 1);
         }
     }
 
     fn spawn_all(&mut self) {
-        if self.m_m < 10 && self.m_units.len() < self.o_units.len() {
+        if self.m_m < 10 || self.m_units.len() > self.o_units.len() {
             return;
         }
 
@@ -463,7 +508,7 @@ impl Env {
             for y in 0..self.w {
                 if self.map[x][y].owner == Owner::Me
                     && self.map[x][y].can_spawn
-                    && self.map[x][y].unit == 0
+                    && self.map[x][y].scrap > 0
                     && !self.map[x][y].recycler
                     && self.next_to_not_owned((x, y))
                 {
@@ -472,7 +517,7 @@ impl Env {
             }
         }
 
-        while self.m_m >= 10 && self.m_units.len() < self.o_units.len() + 1 {
+        while self.m_m >= 10 && self.m_units.len() <= self.o_units.len() {
             // empty owned tile closest to center and next to not owned tile with scrap
             let mut closest: (usize, usize, usize) = (self.w + self.h, 0, 0);
             for (x, y) in set.iter() {
@@ -490,18 +535,117 @@ impl Env {
             self.spawn((closest.1, closest.2), 1);
         }
     }
+
+    fn direct_fight(&mut self, contact: &mut Vec<Coord>, block: bool) -> bool {
+        let mut direct_contact: Vec<(Coord, Coord)> =
+            self.find_direct_contact(Owner::Me, Owner::Op);
+        dbg!(direct_contact.len());
+
+        contact.retain(|c| !direct_contact.iter().any(|(m, o)| m == c || o == c));
+
+        if direct_contact.is_empty() {
+            return false;
+        } else if direct_contact.len() == 1 {
+            self.final_fight(direct_contact[0].1);
+            return true;
+        }
+
+        self.attack(&mut direct_contact);
+        self.protect(&mut direct_contact, block);
+        if block {
+            self.block(&direct_contact);
+        }
+        dbg!(direct_contact.len());
+
+        true
+    }
+
+    fn direct_explore(&mut self, protect: bool) -> bool {
+        let mut gray_direct_contact: Vec<(Coord, Coord)> =
+            self.find_direct_contact(Owner::Me, Owner::None);
+        let y: i32 = if !self.o_units.is_empty() {
+            if self.o_units[0].1 < self.w / 2 {
+                0
+            } else {
+                self.w as i32 - 1
+            }
+        } else {
+            self.w as i32 / 2
+        };
+        // sort by a.1 closest to y
+        gray_direct_contact.sort_by(|a, b| {
+            let a_dist = (a.0 .1 as i32 - y).abs();
+            let b_dist = (b.0 .1 as i32 - y).abs();
+            a_dist.cmp(&b_dist)
+        });
+        dbg!(gray_direct_contact.len());
+
+        if gray_direct_contact.is_empty() {
+            return false;
+        }
+
+        self.attack(&mut gray_direct_contact);
+        if protect {
+            self.protect(&mut gray_direct_contact, false);
+        }
+        dbg!(gray_direct_contact.len());
+
+        true
+    }
+
+    fn final_fight(&mut self, contact: Coord) {
+        // find closest owned tile to contact
+        let mut closest: (Coord, usize) = ((0, 0), self.h + self.w);
+        for x in 0..self.h {
+            for y in 0..self.w {
+                if self.map[x][y].owner == Owner::Me && self.map[x][y].can_spawn {
+                    let dist = dist((x, y), contact);
+                    if dist < closest.1 {
+                        closest = ((x, y), dist);
+                    }
+                }
+            }
+        }
+        self.spawn(closest.0, (self.m_m / 10).try_into().unwrap());
+
+        for u in self.m_units.clone() {
+            self.r#move(u, contact, 1);
+        }
+    }
 }
 
 fn dist(src: Coord, dst: Coord) -> usize {
     ((src.0 as isize - dst.0 as isize).abs() + (src.1 as isize - dst.1 as isize).abs()) as usize
 }
 
+fn needed(me: Unit, op: Unit) -> Unit {
+    if op == 0 && me == 0 {
+        1
+    } else {
+        let n: i32 = (op as i32 + 1) - me as i32;
+        if n < 0 {
+            0
+        } else {
+            n as Unit
+        }
+    }
+}
+
+/*
 fn pop_closest(src: &mut Vec<Coord>, dst: Coord) -> Option<Coord> {
     src.iter()
         .enumerate()
         .min_by_key(|(_, i)| dist(**i, dst))
         .map(|(i, _)| i)
         .map(|i| src.swap_remove(i))
+}
+*/
+
+fn end_of_loop(action: bool) {
+    if !action {
+        print!("WAIT");
+    }
+    println!();
 }
 
 fn main() {
@@ -519,32 +663,39 @@ fn main() {
     loop {
         e.get_input();
 
-        // need to find contact tiles for me to op with direct connection to attack
-        let (mut me_direct_contact, mut op_direct_contact): (Vec<Coord>, Vec<Coord>) = e.find_direct_contact();
-		e.attack(
-        // then me to op with direct connection to protect and block
-        // if none in both
-        // contact tile from me to op to move to contact
-        // might need to group unit by chunk of tile
-        let mut contact_tiles = e.find_contact();
-        if contact_tiles.is_empty() {
-            e.move_all();
+        let mut contact = e.find_contact();
+        dbg!(contact.len());
+
+        if contact.len() == 1 {
+            e.final_fight(contact[0]);
+            end_of_loop(e.action);
+            continue;
         }
 
-        dbg!(contact_tiles.len());
-        // dbg!(&contact_tiles);
-        e.contact(&mut contact_tiles);
-        dbg!(contact_tiles.len());
-        e.move_to_contact(&mut contact_tiles);
-        dbg!(contact_tiles.len());
+        let direct_touch = e.direct_fight(&mut contact, true);
+        dbg!(contact.len());
+        // when fixed move_to_contact, remove this
+        if direct_touch {
+            e.direct_explore(true);
+        }
 
-        // e.build_all();
+        if !contact.is_empty() {
+            // move to contact do not try to wrap around op
+            // just go to the closest and so it gets wrapped
+            e.move_to_contact(&mut contact);
+        } else {
+            e.direct_explore(true);
+            end_of_loop(e.action);
+            continue;
+        }
+        dbg!(contact.len());
+
+        if !direct_touch {
+            e.build_all();
+        }
         // e.move_all();
         e.spawn_all();
 
-        if !e.action {
-            print!("WAIT");
-        }
-        println!();
+        end_of_loop(e.action);
     }
 }
