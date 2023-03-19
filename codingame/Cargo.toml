@@ -9,4 +9,8 @@ edition = "2021"
 name = "Messed_up_mosaics"
 path = "solved/Messed_up_mosaics.rs"
 
+[[bin]]
+name = "Reverse_FizzBuzz"
+path = "solved/Reverse_FizzBuzz.rs"
+
 [dependencies]
