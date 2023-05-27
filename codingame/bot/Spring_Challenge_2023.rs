@@ -46,9 +46,40 @@ impl FromStr for Cell {
         Ok(Self {
             type: i.next().parse::<CellType>().unwrap(),
             ressource: i.next().parse::<Ressource>().unwrap(),
-            neighbor: i.map(|s| s.parse::<usize>().unwrap()).collect::<Vec<usize>>(),
+            neighbor: i.map(|s| s.parse::<usize>().unwrap()).collect::<Vec<usize>>(), // does a cell always has 6 neighbors? // TODO
             my_ant: 0,
             opp_ant: 0
         })
     }
 }
+
+impl Env {
+	    fn new() -> Self {
+		        let mut buf = String::new();
+
+				        stdin().read_line(&mut buf).unwrap();
+						        let n_cell = buf.parse::<usize>();
+								        
+										        let cell = Vec::with_capacity(n_cell);
+												        
+														        for i in 0..n_cell {
+																            stdin().read_line(&mut buf).unwrap();
+																			            
+																						            cell[i] = buf.parse::<Cell>();
+																									        }
+																											        
+																													        stdin().read_line(&mut buf).unwrap();
+																															        let n_base = buf.parse::<usize>();
+																																	        stdin().read_line(&mut buf).unwrap();
+																																			        let my_base = buf.split_whitespace().map(|s| s.parse::<usize>().unwrap()).collect();
+																																					        stdin().read_line(&mut buf).unwrap();
+																																							        let my_base = buf.split_whitespace().map(|s| s.parse::<usize>().unwrap()).collect();
+																																									        
+																																											        Env {
+																																													            cell,
+																																																            n_base,
+																																																			            my_base,
+																																																						            opp_base
+																																																									        }
+																																																											    }
+																																																												}
