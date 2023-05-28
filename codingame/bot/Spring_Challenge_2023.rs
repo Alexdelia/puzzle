@@ -83,3 +83,44 @@ impl Env {
 																																																									        }
 																																																											    }
 																																																												}
+
+																						
+																																																												#[cfg(test)]
+																																																												mod test {
+																																																												    use super::*;
+																																																													    
+																																																														    fn test_cell_parse() {
+																																																															        assert_eq!(
+																																																																	            "0 0 1 2 3 4 5 6".parse::<Cell>(),
+																																																																				            Cell {
+																																																																							                type: CellType::None,
+																																																																											                ressource: 0,
+																																																																															                neighbor: vec![1, 2, 3, 4, 5, 6],
+																																																																																			                my_ant: 0,
+																																																																																							                opp_ant: 0
+																																																																																											            }
+																																																																																														        )
+																																																																																																        
+																																																																																																		        assert_eq!(
+																																																																																																				            "1 0 7 8 9 10 11 12".parse::<Cell>(),
+																																																																																																							            Cell {
+																																																																																																										                type: CellType::Egg,
+																																																																																																														                ressource: 0,
+																																																																																																																		                neighbor: vec![7, 8, 9, 10, 11, 12],
+																																																																																																																						                my_ant: 0,
+																																																																																																																										                opp_ant: 0
+																																																																																																																														            }
+																																																																																																																																	        )
+																																																																																																																																			        
+																																																																																																																																					        assert_eq!(
+																																																																																																																																							            "2 42 13 14 15 2 1 0".parse::<Cell>(),
+																																																																																																																																										            Cell {
+																																																																																																																																													                type: CellType::Crystal,
+																																																																																																																																																	                ressource: 42,
+																																																																																																																																																					                neighbor: vec![13, 14, 15, 2, 1, 0],
+																																																																																																																																																									                my_ant: 0,
+																																																																																																																																																													                opp_ant: 0
+																																																																																																																																																																	            }
+																																																																																																																																																																				        )
+																																																																																																																																																																						    }
+																																																																																																																																																																							}
