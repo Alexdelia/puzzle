@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 type Ressource = u32;
-type Ant = u32
+type Ant = u32;
 
 enum CellType {
     None,
@@ -10,7 +10,7 @@ enum CellType {
 }
 
 struct Cell {
-    type: CellType,
+    r#type: CellType,
     ressource: Ressource,
     neighbor: Vec<usize>,
     my_ant: Ant,
@@ -41,11 +41,11 @@ impl FromStr for Cell {
     type Err = ();
     
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let i = s.split_whitespace();
+        let mut i = s.split_whitespace();
         
         Ok(Self {
-            type: i.next().parse::<CellType>().unwrap(),
-            ressource: i.next().parse::<Ressource>().unwrap(),
+            r#type: i.next().unwrap().parse::<CellType>().unwrap(),
+            ressource: i.next().unwrap().parse::<Ressource>().unwrap(),
             neighbor: i.map(|s| s.parse::<usize>().unwrap()).collect::<Vec<usize>>(), // does a cell always has 6 neighbors? // TODO
             my_ant: 0,
             opp_ant: 0
