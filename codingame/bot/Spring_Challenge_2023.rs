@@ -20,11 +20,19 @@ struct Cell {
     opp_ant: Ant,
 }
 
+enum Action {
+    Beacon(usize),
+    Line(usize, usize, usize),
+    // Wait,
+    // Message(String),
+}
+
 struct Env {
     cell: Vec<Cell>,
     n_base: usize,
     my_base: Vec<usize>,
     opp_base: Vec<usize>,
+    action: Vec<Action>,
 }
 
 impl FromStr for CellType {
@@ -96,7 +104,95 @@ impl Env {
             n_base,
             my_base,
             opp_base,
+            action: Vec::new(),
         }
+    }
+
+    fn update(&mut self) {
+        self.action.clear();
+
+        let mut buf = String::new();
+
+        for i in 0..self.cell.len() {
+            stdin().read_line(&mut buf).unwrap();
+
+            let mut sw = buf.split_whitespace();
+
+            self.cell[i].ressource = sw.next().unwrap().parse::<Ressource>().unwrap();
+            self.cell[i].my_ant = sw.next().unwrap().parse::<Ant>().unwrap();
+            self.cell[i].opp_ant = sw.next().unwrap().parse::<Ant>().unwrap();
+        }
+    }
+
+    #[inline]
+    fn act_beacon(&mut self, index: usize) {
+        self.action.push(Action::Beacon(index));
+    }
+
+    #[inline]
+    fn act_line(&mut self, index1: usize, index2: usize, strength: usize) {
+        self.action.push(Action::Line(index1, index2, strength));
+    }
+
+    fn act_output(&self) {
+        let mut output = String::new();
+
+        for i in 0..self.action.len() {
+            match self.action[i] {
+                Action::Beacon(index) => output.push_str(&format!("BEACON {index};")),
+                Action::Line(index1, index2, strength) => {
+                    output.push_str(&format!("LINE {index1} {index2} {strength};"))
+                }
+            }
+        }
+
+        if output.is_empty() {
+            println!("WAIT");
+        } else {
+            println!("{output}");
+        }
+    }
+
+    /// return index of closest crystal
+    fn closest_crystal(&self, index: usize) -> Option<usize> {
+        let mut queue = Vec::new();
+        let mut visited = vec![false; self.cell.len()];
+
+        queue.push(index);
+        visited[index] = true;
+
+        while !queue.is_empty() {
+            let n = queue.pop().unwrap();
+
+            if self.cell[n].r#type == CellType::Crystal && self.cell[n].ressource > 0 {
+                return Some(n);
+            }
+
+            for i in 0..6 {
+                if let Some(m) = self.cell[n].neighbor[i] {
+                    if !visited[m] {
+                        queue.push(m);
+                        visited[m] = true;
+                    }
+                }
+            }
+        }
+
+        None
+    }
+}
+
+fn main() {
+    let mut env = Env::new();
+
+    loop {
+        env.update();
+
+        if let Some(index) = env.closest_crystal(env.my_base[0]) {
+            env.act_line(env.my_base[0], index, 1);
+        }
+
+        env.act_output();
     }
 }
 
