@@ -1,6 +1,12 @@
 use std::io::stdin;
 use std::str::FromStr;
 
+macro_rules! parse_input {
+    ($x:expr, $t:ident) => {
+        $x.trim().parse::<$t>().unwrap()
+    };
+}
+
 type Ressource = u32;
 type Ant = u32;
 
@@ -74,25 +80,30 @@ impl FromStr for Cell {
 impl Env {
     fn new() -> Self {
         let mut buf = String::new();
-
         stdin().read_line(&mut buf).unwrap();
-        let n_cell = buf.parse::<usize>().unwrap();
+        let n_cell = parse_input!(buf, usize);
 
         let mut cell: Vec<Cell> = Vec::with_capacity(n_cell);
 
-        for i in 0..n_cell {
+        for _ in 0..n_cell {
+            let mut buf = String::new();
             stdin().read_line(&mut buf).unwrap();
 
-            cell[i] = buf.parse::<Cell>().unwrap();
+            cell.push(buf.parse::<Cell>().unwrap());
         }
 
+        let mut buf = String::new();
         stdin().read_line(&mut buf).unwrap();
-        let n_base = buf.parse::<usize>().unwrap();
+        let n_base = parse_input!(buf, usize);
+
+        let mut buf = String::new();
         stdin().read_line(&mut buf).unwrap();
         let my_base = buf
             .split_whitespace()
             .map(|s| s.parse::<usize>().unwrap())
             .collect();
+
+        let mut buf = String::new();
         stdin().read_line(&mut buf).unwrap();
         let opp_base = buf
             .split_whitespace()
@@ -111,9 +122,8 @@ impl Env {
     fn update(&mut self) {
         self.action.clear();
 
-        let mut buf = String::new();
-
         for i in 0..self.cell.len() {
+            let mut buf = String::new();
             stdin().read_line(&mut buf).unwrap();
 
             let mut sw = buf.split_whitespace();
