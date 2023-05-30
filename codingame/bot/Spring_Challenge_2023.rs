@@ -15,7 +15,7 @@ enum CellType {
 struct Cell {
     r#type: CellType,
     ressource: Ressource,
-    neighbor: Vec<usize>,
+    neighbor: [Option<usize>; 6],
     my_ant: Ant,
     opp_ant: Ant,
 }
@@ -49,9 +49,14 @@ impl FromStr for Cell {
         Ok(Self {
             r#type: i.next().unwrap().parse::<CellType>().unwrap(),
             ressource: i.next().unwrap().parse::<Ressource>().unwrap(),
-            neighbor: i
-                .map(|s| s.parse::<usize>().unwrap())
-                .collect::<Vec<usize>>(), // does a cell always has 6 neighbors? // TODO
+            neighbor: [
+                i.next().unwrap().parse::<usize>().ok(),
+                i.next().unwrap().parse::<usize>().ok(),
+                i.next().unwrap().parse::<usize>().ok(),
+                i.next().unwrap().parse::<usize>().ok(),
+                i.next().unwrap().parse::<usize>().ok(),
+                i.next().unwrap().parse::<usize>().ok(),
+            ],
             my_ant: 0,
             opp_ant: 0,
         })
@@ -106,18 +111,18 @@ mod test {
             Ok(Cell {
                 r#type: CellType::None,
                 ressource: 0,
-                neighbor: vec![1, 2, 3, 4, 5, 6],
+                neighbor: [Some(1), Some(2), Some(3), Some(4), Some(5), Some(6)],
                 my_ant: 0,
                 opp_ant: 0
             })
         );
 
         assert_eq!(
-            "1 0 7 8 9 10 11 12".parse::<Cell>(),
+            "1 0 -1 -1 8 -1 -1 -1".parse::<Cell>(),
             Ok(Cell {
                 r#type: CellType::Egg,
                 ressource: 0,
-                neighbor: vec![7, 8, 9, 10, 11, 12],
+                neighbor: [None, None, Some(8), None, None, None],
                 my_ant: 0,
                 opp_ant: 0
             })
@@ -128,7 +133,7 @@ mod test {
             Ok(Cell {
                 r#type: CellType::Crystal,
                 ressource: 42,
-                neighbor: vec![13, 14, 15, 2, 1, 0],
+                neighbor: [Some(13), Some(14), Some(15), Some(2), Some(1), Some(0)],
                 my_ant: 0,
                 opp_ant: 0
             })
