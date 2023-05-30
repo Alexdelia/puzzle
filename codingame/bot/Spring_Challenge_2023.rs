@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::io::stdin;
 use std::str::FromStr;
 
@@ -27,7 +28,7 @@ struct Cell {
 }
 
 enum Action {
-    Beacon(usize),
+    Beacon(usize, usize),
     Line(usize, usize, usize),
     // Wait,
     // Message(String),
@@ -38,6 +39,10 @@ struct Env {
     n_base: usize,
     my_base: Vec<usize>,
     opp_base: Vec<usize>,
+    my_score: Ressource,
+    opp_score: Ressource,
+    my_ant: Ant,
+    opp_ant: Ant,
     action: Vec<Action>,
 }
 
@@ -116,11 +121,17 @@ impl Env {
             my_base,
             opp_base,
             action: Vec::new(),
+            my_score: 0,
+            opp_score: 0,
+            my_ant: 0,
+            opp_ant: 0,
         }
     }
 
-    fn update(&mut self) {
-        self.action.clear();
+    fn update(&mut self, clear_action: bool) {
+        if clear_action {
+            self.action.clear();
+        }
 
         for i in 0..self.cell.len() {
             let mut buf = String::new();
@@ -130,13 +141,15 @@ impl Env {
 
             self.cell[i].ressource = sw.next().unwrap().parse::<Ressource>().unwrap();
             self.cell[i].my_ant = sw.next().unwrap().parse::<Ant>().unwrap();
+            self.my_ant += self.cell[i].my_ant;
             self.cell[i].opp_ant = sw.next().unwrap().parse::<Ant>().unwrap();
+            self.opp_ant += self.cell[i].opp_ant;
         }
     }
 
     #[inline]
-    fn act_beacon(&mut self, index: usize) {
-        self.action.push(Action::Beacon(index));
+    fn act_beacon(&mut self, index: usize, strength: usize) {
+        self.action.push(Action::Beacon(index, strength));
     }
 
     #[inline]
@@ -149,7 +162,9 @@ impl Env {
 
         for i in 0..self.action.len() {
             match self.action[i] {
-                Action::Beacon(index) => output.push_str(&format!("BEACON {index};")),
+                Action::Beacon(index, strength) => {
+                    output.push_str(&format!("BEACON {index} {strength};"))
+                }
                 Action::Line(index1, index2, strength) => {
                     output.push_str(&format!("LINE {index1} {index2} {strength};"))
                 }
@@ -163,26 +178,25 @@ impl Env {
         }
     }
 
-    /// return index of closest crystal
-    fn closest_crystal(&self, index: usize) -> Option<usize> {
-        let mut queue = Vec::new();
+    /// find closest ressource from given index in hexagonal grid
+    /// return index of cell and distance
+    fn closest_ressource(&self, index: usize) -> Option<(usize, usize)> {
+        let mut queue = VecDeque::new();
         let mut visited = vec![false; self.cell.len()];
 
-        queue.push(index);
+        queue.push_back((index, 0));
         visited[index] = true;
 
-        while !queue.is_empty() {
-            let n = queue.pop().unwrap();
-
-            if self.cell[n].r#type == CellType::Crystal && self.cell[n].ressource > 0 {
-                return Some(n);
+        while let Some((index, distance)) = queue.pop_front() {
+            if self.cell[index].ressource > 0 {
+                return Some((index, distance));
             }
 
             for i in 0..6 {
-                if let Some(m) = self.cell[n].neighbor[i] {
-                    if !visited[m] {
-                        queue.push(m);
-                        visited[m] = true;
+                if let Some(i) = self.cell[index].neighbor[i] {
+                    if !visited[i] {
+                        queue.push_back((i, distance + 1));
+                        visited[i] = true;
                     }
                 }
             }
@@ -190,16 +204,66 @@ impl Env {
 
         None
     }
+
+    fn ressource_group(&self, index: usize) -> Vec<usize> {
+        let mut queue = VecDeque::new();
+        let mut visited = vec![false; self.cell.len()];
+        let mut group = Vec::new();
+
+        queue.push_back(index);
+        visited[index] = true;
+
+        while let Some(index) = queue.pop_front() {
+            if self.cell[index].ressource > 0 {
+                group.push(index);
+            }
+
+            for i in 0..6 {
+                if let Some(i) = self.cell[index].neighbor[i] {
+                    if !visited[i] && self.cell[i].ressource > 0 {
+                        queue.push_back(i);
+                        visited[i] = true;
+                    }
+                }
+            }
+        }
+
+        group
+    }
+
+    fn depleted_group(&self, group: &[usize]) -> bool {
+        for index in group {
+            if self.cell[*index].ressource > 0 {
+                return false;
+            }
+        }
+
+        true
+    }
 }
 
 fn main() {
     let mut env = Env::new();
 
-    loop {
-        env.update();
+    let mut group: Vec<usize> = Vec::new();
 
-        if let Some(index) = env.closest_crystal(env.my_base[0]) {
-            env.act_line(env.my_base[0], index, 1);
+    loop {
+        let depleted = env.depleted_group(&group);
+
+        env.update(depleted);
+
+        if depleted {
+            group.clear();
+
+            if let Some((index, _)) = env.closest_ressource(env.my_base[0]) {
+                env.act_line(env.my_base[0], index, 1);
+                group.push(index);
+
+                for index in env.ressource_group(index) {
+                    env.act_beacon(index, 1);
+                    group.push(index);
+                }
+            }
         }
 
         env.act_output();
