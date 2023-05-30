@@ -9,7 +9,6 @@ macro_rules! parse_input {
 }
 
 type Ressource = u32;
-type Ant = u32;
 
 #[derive(Debug, Eq, PartialEq)]
 enum CellType {
@@ -23,8 +22,8 @@ struct Cell {
     r#type: CellType,
     ressource: Ressource,
     neighbor: [Option<usize>; 6],
-    my_ant: Ant,
-    opp_ant: Ant,
+    my_ant: Ressource,
+    opp_ant: Ressource,
 }
 
 enum Action {
@@ -36,13 +35,16 @@ enum Action {
 
 struct Env {
     cell: Vec<Cell>,
+    init_crystal: Ressource,
+    remain_crystal: Ressource,
+    remain_ant: Ressource,
     n_base: usize,
     my_base: Vec<usize>,
     opp_base: Vec<usize>,
     my_score: Ressource,
     opp_score: Ressource,
-    my_ant: Ant,
-    opp_ant: Ant,
+    my_ant: Ressource,
+    opp_ant: Ressource,
     action: Vec<Action>,
 }
 
@@ -89,12 +91,14 @@ impl Env {
         let n_cell = parse_input!(buf, usize);
 
         let mut cell: Vec<Cell> = Vec::with_capacity(n_cell);
+        let mut init_crystal = 0;
 
         for _ in 0..n_cell {
             let mut buf = String::new();
             stdin().read_line(&mut buf).unwrap();
 
             cell.push(buf.parse::<Cell>().unwrap());
+            init_crystal += cell.last().unwrap().ressource;
         }
 
         let mut buf = String::new();
@@ -117,6 +121,9 @@ impl Env {
 
         Env {
             cell,
+            init_crystal,
+            remain_crystal: init_crystal,
+            remain_ant: 0,
             n_base,
             my_base,
             opp_base,
@@ -133,6 +140,9 @@ impl Env {
             self.action.clear();
         }
 
+        self.remain_crystal = 0;
+        self.remain_ant = 0;
+
         for i in 0..self.cell.len() {
             let mut buf = String::new();
             stdin().read_line(&mut buf).unwrap();
@@ -140,9 +150,15 @@ impl Env {
             let mut sw = buf.split_whitespace();
 
             self.cell[i].ressource = sw.next().unwrap().parse::<Ressource>().unwrap();
-            self.cell[i].my_ant = sw.next().unwrap().parse::<Ant>().unwrap();
+            match self.cell[i].r#type {
+                CellType::Crystal => self.remain_crystal += self.cell[i].ressource,
+                CellType::Egg => self.remain_ant += self.cell[i].ressource,
+                _ => (),
+            }
+
+            self.cell[i].my_ant = sw.next().unwrap().parse::<Ressource>().unwrap();
             self.my_ant += self.cell[i].my_ant;
-            self.cell[i].opp_ant = sw.next().unwrap().parse::<Ant>().unwrap();
+            self.cell[i].opp_ant = sw.next().unwrap().parse::<Ressource>().unwrap();
             self.opp_ant += self.cell[i].opp_ant;
         }
     }
@@ -172,10 +188,17 @@ impl Env {
         }
 
         if output.is_empty() {
-            println!("WAIT");
-        } else {
-            println!("{output}");
+            output.push_str("WAIT;");
         }
+
+        let in_game_ant = self.my_ant + self.opp_ant;
+        println!(
+            "{output} MESSAGE 💎 {}%  |  🐜 {}%  |  🧙 {}% - 👤 {}%",
+            self.remain_crystal * 100 / self.init_crystal,
+            self.remain_ant * 100 / in_game_ant,
+            self.my_ant * 100 / in_game_ant,
+            self.opp_ant * 100 / in_game_ant,
+        );
     }
 
     fn closest(&self, index: usize, r#type: Option<CellType>) -> Option<(usize, usize)> {
@@ -237,30 +260,50 @@ impl Env {
 fn main() {
     let mut env = Env::new();
 
-    let mut group_egg = Vec::new();
+    let mut sent = Vec::new();
 
     loop {
         env.update(true);
 
+        sent.clear();
+
         // search closest egg
-        group_egg.clear();
-        if let Some((index, _)) = env.closest(env.my_base[0], Some(CellType::Egg)) {
-            env.act_line(env.my_base[0], index, 1);
-            group_egg.push(index);
-
-            for index in env.ressource_group(index) {
-                env.act_beacon(index, 1);
-                group_egg.push(index);
-            }
-        }
-
-        // search closest crystal and only send ants if not in group_egg
-        if let Some((index, _)) = env.closest(env.my_base[0], Some(CellType::Crystal)) {
-            if !group_egg.contains(&index) {
+        if env.remain_crystal > env.init_crystal / 2 {
+            if let Some((index, _)) = env.closest(env.my_base[0], Some(CellType::Egg)) {
                 env.act_line(env.my_base[0], index, 1);
+                sent.push(index);
 
                 for index in env.ressource_group(index) {
                     env.act_beacon(index, 1);
+                    sent.push(index);
+                }
+            }
+        }
+
+        // search closest crystal
+        if let Some((index, _)) = env.closest(env.my_base[0], Some(CellType::Crystal)) {
+            if !sent.contains(&index) {
+                env.act_line(env.my_base[0], index, 1);
+                sent.push(index);
+
+                for index in env.ressource_group(index) {
+                    env.act_beacon(index, 1);
+                    sent.push(index);
+                }
+            }
+        }
+
+        if env.my_ant > (env.opp_ant as f32 * 1.10) as Ressource
+            || (env.remain_ant * 100 / (env.my_ant + env.opp_ant)) < 5
+            || env.remain_crystal < env.init_crystal / 2
+        {
+            for i in 0..env.cell.len() {
+                if !sent.contains(&i)
+                    && env.cell[i].ressource > 0
+                    && env.cell[i].r#type == CellType::Crystal
+                {
+                    env.act_line(env.my_base[0], i, 1);
+                    // sent.push(c.index);
                 }
             }
         }
