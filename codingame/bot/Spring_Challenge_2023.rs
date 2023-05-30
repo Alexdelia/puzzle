@@ -178,9 +178,7 @@ impl Env {
         }
     }
 
-    /// find closest ressource from given index in hexagonal grid
-    /// return index of cell and distance
-    fn closest_ressource(&self, index: usize) -> Option<(usize, usize)> {
+    fn closest(&self, index: usize, r#type: Option<CellType>) -> Option<(usize, usize)> {
         let mut queue = VecDeque::new();
         let mut visited = vec![false; self.cell.len()];
 
@@ -188,7 +186,11 @@ impl Env {
         visited[index] = true;
 
         while let Some((index, distance)) = queue.pop_front() {
-            if self.cell[index].ressource > 0 {
+            if self.cell[index].ressource > 0
+                && r#type
+                    .as_ref()
+                    .map_or(true, |t| self.cell[index].r#type == *t)
+            {
                 return Some((index, distance));
             }
 
@@ -230,38 +232,35 @@ impl Env {
 
         group
     }
-
-    fn depleted_group(&self, group: &[usize]) -> bool {
-        for index in group {
-            if self.cell[*index].ressource > 0 {
-                return false;
-            }
-        }
-
-        true
-    }
 }
 
 fn main() {
     let mut env = Env::new();
 
-    let mut group: Vec<usize> = Vec::new();
+    let mut group_egg = Vec::new();
 
     loop {
-        let depleted = env.depleted_group(&group);
+        env.update(true);
 
-        env.update(depleted);
+        // search closest egg
+        group_egg.clear();
+        if let Some((index, _)) = env.closest(env.my_base[0], Some(CellType::Egg)) {
+            env.act_line(env.my_base[0], index, 1);
+            group_egg.push(index);
 
-        if depleted {
-            group.clear();
+            for index in env.ressource_group(index) {
+                env.act_beacon(index, 1);
+                group_egg.push(index);
+            }
+        }
 
-            if let Some((index, _)) = env.closest_ressource(env.my_base[0]) {
+        // search closest crystal and only send ants if not in group_egg
+        if let Some((index, _)) = env.closest(env.my_base[0], Some(CellType::Crystal)) {
+            if !group_egg.contains(&index) {
                 env.act_line(env.my_base[0], index, 1);
-                group.push(index);
 
                 for index in env.ressource_group(index) {
                     env.act_beacon(index, 1);
-                    group.push(index);
                 }
             }
         }
