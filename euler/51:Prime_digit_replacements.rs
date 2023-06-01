@@ -217,9 +217,76 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_solve() {
+    fn test_solve_6() {
         assert_eq!(solve(6), 13);
+    }
+
+    #[test]
+    fn test_solve_7() {
         assert_eq!(solve(7), 56003);
+    }
+
+    #[test]
+    fn test_solve_8() {
         assert_eq!(solve(8), 121313);
+    }
+
+    #[test]
+    fn test_combination() {
+        let n = Digit(vec![5, 6]);
+        let change = vec![1];
+        let result = combination(&n, &change);
+        assert_eq!(
+            result,
+            vec![
+                Digit(vec![5, 0]),
+                Digit(vec![5, 1]),
+                Digit(vec![5, 2]),
+                Digit(vec![5, 3]),
+                Digit(vec![5, 4]),
+                Digit(vec![5, 5]),
+                Digit(vec![5, 7]),
+                Digit(vec![5, 8]),
+                Digit(vec![5, 9])
+            ]
+        );
+        // do not create Digit(vec![0, 6])
+
+        let n = Digit(vec![5, 6]);
+        let change = vec![1];
+        let result = combination(n, change);
+        assert_eq!(
+            result,
+            [
+                Digit(vec![5, 0]),
+                Digit(vec![5, 1]),
+                Digit(vec![5, 2]),
+                Digit(vec![5, 3]),
+                Digit(vec![5, 4]),
+                Digit(vec![5, 5]),
+                Digit(vec![5, 7]),
+                Digit(vec![5, 8]),
+                Digit(vec![5, 9])
+            ]
+        );
+
+        let n = Digit(vec![4, 3, 2]);
+        let change = vec![0, 2];
+        let result = combination(&n, &change);
+        assert_eq!(
+            result,
+            [
+                Digit(vec![1, 3, 1]),
+                Digit(vec![2, 3, 2]),
+                Digit(vec![3, 3, 3]),
+                Digit(vec![4, 3, 4]),
+                Digit(vec![5, 3, 5]),
+                Digit(vec![6, 3, 6]),
+                Digit(vec![7, 3, 7]),
+                Digit(vec![8, 3, 8]),
+                Digit(vec![9, 3, 9])
+            ]
+        );
+        // do not create Digit(vec![0, 3, 0]) nor Digit(vec![0, 3, 1]) nor Digit(vec![0, 3, 2]) ...
     }
 }
