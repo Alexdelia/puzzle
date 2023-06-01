@@ -11,3 +11,7 @@ path = "Game_of_Drones.rs"
 [[bin]]
 name = "fall_2022"
 path = "Fall_Challenge_2022.rs"
+
+[[bin]]
+name = "spring_2023"
+path = "Spring_Challenge_2023.rs"
