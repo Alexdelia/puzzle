@@ -187,8 +187,8 @@ impl Env {
                 let dist = get_distance(
                     x,
                     y,
-                    self.d[self.id][did as usize].x,
-                    self.d[self.id][did as usize].y,
+                    self.d[self.id][did].x,
+                    self.d[self.id][did].y,
                 );
                 if dist < min_dist {
                     min_dist = dist;
@@ -279,7 +279,7 @@ impl Env {
                 for did in 0..self.n_d as usize {
                     if !self.free_d.contains(&(did as Id))
                         && !is_d_in_z(&self.d[self.id][did], &self.z[zid])
-                        && self.d[self.id][did as usize].target == zid as Id
+                        && self.d[self.id][did].target == zid as Id
                     {
                         self.free_d.push(did as Id);
                     }
