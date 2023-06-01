@@ -140,6 +140,8 @@ impl Env {
     }
 
     fn update(&mut self) {
+        self.my_ant = 0;
+        self.opp_ant = 0;
         self.remain_crystal = 0;
         self.remain_ant = 0;
 
@@ -175,6 +177,7 @@ impl Env {
         }
 
         let in_game_ant = self.my_ant + self.opp_ant;
+        dbg!(self.my_ant, self.opp_ant, self.remain_ant);
         println!(
             "{output} MESSAGE 💎 {}%  |  🐜 {}%  |  🧙 {}% - 👤 {}%",
             self.remain_crystal * 100 / self.init_crystal,
@@ -233,6 +236,7 @@ impl Env {
             let index = *path.last().unwrap();
 
             if self.cell[index].ressource > 0
+                && !self.beacon.contains_key(&index)
                 && r#type
                     .as_ref()
                     .map_or(true, |t| self.cell[index].r#type == *t)
@@ -267,6 +271,10 @@ impl Env {
         only_calc: Option<CellType>,
         force: bool,
     ) -> Option<(Ressource, HashMap<usize, Strength>)> {
+        if beacon.is_empty() {
+            return None;
+        }
+
         let current_gain = gain_type(self.gain(&self.beacon, self.my_ant), only_calc);
 
         let mut best: Option<(Ressource, HashMap<usize, Strength>)> = None;
@@ -322,15 +330,15 @@ impl Env {
             self.beacon.clear();
         }
 
-        self.beacon.extend(self.my_base.iter().map(|i| {
-            (
+        for i in self.my_base.iter() {
+            self.beacon.insert(
                 *i,
                 Strength::new(
                     (self.cell[*i].opp_ant as f32 / self.cell[*i].my_ant as f32).ceil() as u32,
                 )
                 .unwrap_or(Strength::new(1).unwrap()),
-            )
-        }));
+            );
+        }
 
         while let Some((gain, beacon)) = self.best_beacon_list(
             self.beacon_flood(None)
@@ -345,6 +353,7 @@ impl Env {
         ) {
             dbg!(gain);
             self.beacon = beacon;
+            dbg!(self.beacon.len());
         }
     }
 }
