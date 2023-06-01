@@ -1,5 +1,5 @@
 use std::cmp::min;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::io::stdin;
 use std::str::FromStr;
 
@@ -10,6 +10,7 @@ macro_rules! parse_input {
 }
 
 type Ressource = u32;
+type Strength = std::num::NonZeroU32;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 enum CellType {
@@ -39,7 +40,7 @@ struct Env {
     opp_score: Ressource,
     my_ant: Ressource,
     opp_ant: Ressource,
-    beacon: HashSet<usize>,
+    beacon: HashMap<usize, Strength>,
 }
 
 impl FromStr for CellType {
@@ -134,7 +135,7 @@ impl Env {
             opp_score: 0,
             my_ant: 0,
             opp_ant: 0,
-            beacon: HashSet::new(),
+            beacon: HashMap::new(),
         }
     }
 
@@ -165,8 +166,8 @@ impl Env {
     fn output(&self) {
         let mut output = String::new();
 
-        for b in &self.beacon {
-            output.push_str(&format!("BEACON {b};"));
+        for (index, strength) in &self.beacon {
+            output.push_str(&format!("BEACON {index} {strength};"));
         }
 
         if output.is_empty() {
@@ -184,17 +185,31 @@ impl Env {
     }
 
     /// return (Crystal, Ant)
-    fn gain(&self, beacon: &HashSet<usize>, ant: Ressource) -> (Ressource, Ressource) {
-        let weakest = ant / beacon.len() as Ressource;
+    fn gain(&self, beacon: &HashMap<usize, Strength>, ant: Ressource) -> (Ressource, Ressource) {
+        if beacon.is_empty() {
+            return (0, 0);
+        }
+
+        // weakest == ant / (sum of strength / lowest strength)
+        let mut sum = 0;
+        let mut lowest = u32::MAX;
+        for i in beacon.values() {
+            sum += i.get();
+            if i.get() < lowest {
+                lowest = i.get();
+            }
+        }
+
+        let weakest = ant / (sum / lowest);
         let mut crystal = 0;
         let mut egg = 0;
 
         // does not yet calculate ant battle
 
         for i in beacon {
-            match self.cell[*i].r#type {
-                CellType::Crystal => crystal += min(self.cell[*i].ressource, weakest),
-                CellType::Egg => egg += min(self.cell[*i].ressource, weakest),
+            match self.cell[*i.0].r#type {
+                CellType::Crystal => crystal += min(self.cell[*i.0].ressource, weakest),
+                CellType::Egg => egg += min(self.cell[*i.0].ressource, weakest),
                 _ => (),
             }
         }
@@ -202,17 +217,17 @@ impl Env {
         (crystal, egg)
     }
 
-    // return (Ressource, path (+ Ressource found))
-    fn beacon_flood(&self, r#type: Option<CellType>) -> Vec<(usize, HashSet<usize>)> {
+    // return path (+ Ressource found as last element)
+    fn beacon_flood(&self, r#type: Option<CellType>) -> Vec<Vec<usize>> {
         let mut queue: VecDeque<Vec<usize>> = VecDeque::new();
         let mut visited = vec![false; self.cell.len()];
 
         for i in self.beacon.iter() {
-            queue.push_back(vec![*i]);
-            visited[*i] = true;
+            queue.push_back(vec![*i.0]);
+            visited[*i.0] = true;
         }
 
-        let mut found: Vec<(usize, HashSet<usize>)> = Vec::new();
+        let mut found: Vec<Vec<usize>> = Vec::new();
 
         while let Some(path) = queue.pop_front() {
             let index = *path.last().unwrap();
@@ -222,11 +237,11 @@ impl Env {
                     .as_ref()
                     .map_or(true, |t| self.cell[index].r#type == *t)
             {
-                found.push((index, path.into_iter().collect()));
+                found.push(path);
                 continue;
             }
 
-            if !found.is_empty() && path.len() >= found[0].1.len() {
+            if !found.is_empty() && path.len() >= found[0].len() {
                 break;
             }
 
@@ -245,31 +260,35 @@ impl Env {
         found
     }
 
+    /// return (gain, best_beacon + self.beacon)
     fn best_beacon_list(
         &self,
-        beacon: Vec<HashSet<usize>>,
+        beacon: Vec<Vec<usize>>,
         only_calc: Option<CellType>,
         force: bool,
-    ) -> Option<HashSet<usize>> {
+    ) -> Option<(Ressource, HashMap<usize, Strength>)> {
         let current_gain = gain_type(self.gain(&self.beacon, self.my_ant), only_calc);
 
-        let mut best_gain: Option<Ressource> = None;
-        let mut best_beacon: Option<HashSet<usize>> = None;
+        let mut best: Option<(Ressource, HashMap<usize, Strength>)> = None;
 
-        for b in beacon {
+        for b in beacon.into_iter() {
             // calculate gain of self.beacon + b
-            let tmp_beacon: HashSet<usize> = self.beacon.union(&b).cloned().collect();
-            let gain = gain_type(self.gain(&tmp_beacon, self.my_ant), only_calc);
+            let b: HashMap<usize, Strength> = self
+                .beacon
+                .iter()
+                .map(|(k, v)| (*k, *v))
+                .chain(b.iter().map(|i| (*i, Strength::new(1).unwrap())))
+                .collect();
+            let gain = gain_type(self.gain(&b, self.my_ant), only_calc);
 
-            if (gain >= current_gain || force)
-                && (best_gain.is_none() || gain >= best_gain.unwrap())
+            if (force || gain > current_gain || gain == current_gain && b.len() > self.beacon.len())
+                && best.as_ref().map_or(true, |b| gain > b.0)
             {
-                best_gain = Some(gain);
-                best_beacon = Some(b.clone());
+                best = Some((gain, b));
             }
         }
 
-        best_beacon
+        best
     }
 
     fn ressource_group(&self, index: usize) -> Vec<usize> {
@@ -303,19 +322,29 @@ impl Env {
             self.beacon.clear();
         }
 
-        let mut gain = 0;
+        self.beacon.extend(self.my_base.iter().map(|i| {
+            (
+                *i,
+                Strength::new(
+                    (self.cell[*i].opp_ant as f32 / self.cell[*i].my_ant as f32).ceil() as u32,
+                )
+                .unwrap_or(Strength::new(1).unwrap()),
+            )
+        }));
 
-        while gain >= gain_type(self.gain(&self.beacon, self.my_ant), None) {
-            let mut beacon: Vec<HashSet<usize>> = Vec::new();
-
-            for b in self.beacon_flood(None) {
-                // add to beacon, union of b.1 and ressource_group of b.0
-                beacon.push(b.1);
-                beacon.last_mut().unwrap().extend(self.ressource_group(b.0));
-            }
-
-            // get best beacon list gain
-            self.best_beacon_list(beacon, None, false);
+        while let Some((gain, beacon)) = self.best_beacon_list(
+            self.beacon_flood(None)
+                .into_iter()
+                .map(|mut b| {
+                    b.extend(self.ressource_group(*b.last().unwrap()));
+                    b
+                })
+                .collect::<Vec<_>>(),
+            None,
+            false,
+        ) {
+            dbg!(gain);
+            self.beacon = beacon;
         }
     }
 }
