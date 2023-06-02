@@ -436,9 +436,17 @@ impl Env {
             );
         }
 
-        if self.remain_ant > 0 || !endgame {
+        if (self.remain_ant > 0 && self.my_ant < self.opp_ant) || !endgame {
             if let Some(gain) = self.apply_best_beacon(Some(CellType::Egg), None, true) {
                 dbg!(gain, self.beacon.len());
+            }
+
+            while self.my_ant + self.gain(&self.beacon, self.my_ant).1 < self.opp_ant {
+                if let Some(gain) = self.apply_best_beacon(Some(CellType::Egg), None, false) {
+                    dbg!(gain, self.beacon.len());
+                } else {
+                    break;
+                }
             }
         }
 
@@ -462,7 +470,9 @@ impl Env {
             }
 
             for _ in 0..(crystal_cell as f32 / 0.66).ceil() as usize {
-                if let Some(gain) = self.apply_best_beacon(Some(CellType::Crystal), None, true) {
+                if let Some(gain) =
+                    self.apply_best_beacon(Some(CellType::Crystal), Some(CellType::Crystal), true)
+                {
                     dbg!(gain, self.beacon.len());
                 } else {
                     break;
