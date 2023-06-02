@@ -1,5 +1,5 @@
 use std::cmp::min;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BinaryHeap, HashMap, VecDeque};
 use std::io::stdin;
 use std::str::FromStr;
 
@@ -41,6 +41,24 @@ struct Env {
     my_ant: Ressource,
     opp_ant: Ressource,
     beacon: HashMap<usize, Strength>,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+struct Flood {
+    path: Vec<usize>,
+    score: u32,
+}
+
+impl Ord for Flood {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.score.cmp(&self.score)
+    }
+}
+
+impl PartialOrd for Flood {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl FromStr for CellType {
@@ -222,18 +240,21 @@ impl Env {
 
     // return path (+ Ressource found as last element)
     fn beacon_flood(&self, r#type: Option<CellType>) -> Vec<Vec<usize>> {
-        let mut queue: VecDeque<Vec<usize>> = VecDeque::new();
+        let mut queue: BinaryHeap<Flood> = BinaryHeap::new();
         let mut visited = vec![false; self.cell.len()];
 
         for i in self.beacon.iter() {
-            queue.push_back(vec![*i.0]);
+            queue.push(Flood {
+                path: vec![*i.0],
+                score: 0,
+            });
             visited[*i.0] = true;
         }
 
         let mut found: Vec<Vec<usize>> = Vec::new();
 
-        while let Some(path) = queue.pop_front() {
-            let index = *path.last().unwrap();
+        while let Some(f) = queue.pop() {
+            let index = *f.path.last().unwrap();
 
             if self.cell[index].ressource > 0
                 && !self.beacon.contains_key(&index)
@@ -241,20 +262,24 @@ impl Env {
                     .as_ref()
                     .map_or(true, |t| self.cell[index].r#type == *t)
             {
-                found.push(path);
+                found.push(f.path);
                 continue;
             }
 
-            if !found.is_empty() && path.len() >= found[0].len() {
+            if !found.is_empty() && f.path.len() >= found[0].len() + 1 {
+                // >= because another index is gonna be added this turn
+                // + 1 because want to parse +1 index
+                // (I do not use > in case I remove or modify the +1)
                 break;
             }
 
             for i in 0..6 {
                 if let Some(i) = self.cell[index].neighbor[i] {
                     if !visited[i] {
-                        let mut path = path.clone();
-                        path.push(i);
-                        queue.push_back(path);
+                        let mut flood = f.clone();
+                        flood.path.push(i);
+                        flood.score += if self.cell[i].my_ant > 0 { 1 } else { 2 };
+                        queue.push(flood);
                         visited[i] = true;
                     }
                 }
@@ -356,6 +381,14 @@ impl Env {
             dbg!(self.beacon.len());
         }
 
+        // endgame if:
+        // need 10% of crystal to win
+        // or
+        // less than 10% of ant left
+        let endgame = self.remain_crystal * 10 <= self.init_crystal
+			// self.my_score * 10 <= self.my_score + self.opp_score || self.opp_score * 10 <= self.my_score + self.opp_score
+            || self.remain_ant * 10 <= self.my_ant + self.opp_ant;
+
         while let Some((gain, beacon)) = self.best_beacon_list(
             self.beacon_flood(None)
                 .into_iter()
@@ -365,7 +398,7 @@ impl Env {
                 })
                 .collect::<Vec<_>>(),
             None,
-            false,
+            endgame,
         ) {
             dbg!(gain);
             self.beacon = beacon;
@@ -422,6 +455,57 @@ mod test {
                 neighbor: [Some(13), Some(14), Some(15), Some(2), Some(1), Some(0)],
                 my_ant: 0,
                 opp_ant: 0
+            })
+        );
+    }
+
+    #[test]
+    fn test_flood_binary_heap() {
+        let mut heap: BinaryHeap<Flood> = BinaryHeap::new();
+
+        heap.push(Flood {
+            path: vec![0],
+            score: 0,
+        });
+        heap.push(Flood {
+            path: vec![2],
+            score: 2,
+        });
+        heap.push(Flood {
+            path: vec![1],
+            score: 1,
+        });
+        heap.push(Flood {
+            path: vec![3],
+            score: 3,
+        });
+
+        assert_eq!(
+            heap.pop(),
+            Some(Flood {
+                path: vec![0],
+                score: 0
+            })
+        );
+        assert_eq!(
+            heap.pop(),
+            Some(Flood {
+                path: vec![1],
+                score: 1
+            })
+        );
+        assert_eq!(
+            heap.pop(),
+            Some(Flood {
+                path: vec![2],
+                score: 2
+            })
+        );
+        assert_eq!(
+            heap.pop(),
+            Some(Flood {
+                path: vec![3],
+                score: 3
             })
         );
     }
