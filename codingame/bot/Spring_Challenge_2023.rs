@@ -197,9 +197,10 @@ impl Env {
         let in_game_ant = self.my_ant + self.opp_ant;
         dbg!(self.my_ant, self.opp_ant, self.remain_ant);
         println!(
-            "{output} MESSAGE 💎 {}%  |  🐜 {}%  |  🧙 {}% - 👤 {}%",
+            "{output} MESSAGE 💎 {}%  |  🐜 {}%  |  {} {}% - 👤 {}%",
             self.remain_crystal * 100 / self.init_crystal,
             self.remain_ant * 100 / in_game_ant,
+            if !self.endgame() { "🧙" } else { "🔥" },
             self.my_ant * 100 / in_game_ant,
             self.opp_ant * 100 / in_game_ant,
         );
@@ -236,6 +237,44 @@ impl Env {
         }
 
         (crystal, egg)
+    }
+
+    fn endgame(&self) -> bool {
+        // endgame if:
+        // need 10% of crystal to win
+        // or
+        // crystal to win < 50	// crystal < 100 if no score
+        // or
+        // less than 10% of ant left
+
+        // self.my_score * 10 <= self.my_score + self.opp_score || self.opp_score * 10 <= self.my_score + self.opp_score
+        self.remain_crystal * 10 <= self.init_crystal
+            || self.remain_crystal < 100
+            || self.remain_ant * 10 <= self.my_ant + self.opp_ant
+    }
+
+    fn ant_around(&self, index: usize) -> bool {
+        for i in 0..6 {
+            if let Some(i) = self.cell[index].neighbor[i] {
+                if self.cell[i].my_ant > 0 {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    fn beacon_around(&self, index: usize) -> bool {
+        for i in 0..6 {
+            if let Some(i) = self.cell[index].neighbor[i] {
+                if self.beacon.contains_key(&i) {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 
     // return path (+ Ressource found as last element)
@@ -278,7 +317,11 @@ impl Env {
                     if !visited[i] {
                         let mut flood = f.clone();
                         flood.path.push(i);
-                        flood.score += if self.cell[i].my_ant > 0 { 1 } else { 2 };
+                        flood.score += if self.cell[i].my_ant > 0 || self.ant_around(i) {
+                            1
+                        } else {
+                            2
+                        };
                         queue.push(flood);
                         visited[i] = true;
                     }
@@ -350,59 +393,73 @@ impl Env {
         group
     }
 
+    fn apply_best_beacon(
+        &mut self,
+        search: Option<CellType>,
+        only_calc: Option<CellType>,
+        force: bool,
+    ) -> Option<Ressource> {
+        if let Some((gain, beacon)) = self.best_beacon_list(
+            self.beacon_flood(search)
+                .into_iter()
+                .map(|mut b| {
+                    b.extend(self.ressource_group(*b.last().unwrap()));
+                    b
+                })
+                .collect::<Vec<_>>(),
+            only_calc,
+            force,
+        ) {
+            self.beacon = beacon;
+
+            Some(gain)
+        } else {
+            None
+        }
+    }
+
     fn compute_beacon(&mut self, clear_beacon: bool) {
         if clear_beacon {
             self.beacon.clear();
         }
 
+        let endgame = self.endgame();
+
         for i in self.my_base.iter() {
             self.beacon.insert(
                 *i,
-                Strength::new(
-                    (self.cell[*i].opp_ant as f32 / self.cell[*i].my_ant as f32).ceil() as u32,
-                )
-                .unwrap_or(Strength::new(1).unwrap()),
+                Strength::new(1).unwrap(),
+                // Strength::new(
+                //     (self.cell[*i].opp_ant as f32 / self.cell[*i].my_ant as f32).ceil() as u32,
+                // )
+                // .unwrap_or(Strength::new(1).unwrap()),
             );
         }
 
-        if let Some((gain, beacon)) = self.best_beacon_list(
-            self.beacon_flood(Some(CellType::Egg))
-                .into_iter()
-                .map(|mut b| {
-                    b.extend(self.ressource_group(*b.last().unwrap()));
-                    b
-                })
-                .collect::<Vec<_>>(),
-            None,
-            true,
-        ) {
-            dbg!(gain);
-            self.beacon = beacon;
-            dbg!(self.beacon.len());
+        if self.remain_ant > 0 || !endgame {
+            if let Some(gain) = self.apply_best_beacon(Some(CellType::Egg), None, true) {
+                dbg!(gain, self.beacon.len());
+            }
         }
 
-        // endgame if:
-        // need 10% of crystal to win
-        // or
-        // less than 10% of ant left
-        let endgame = self.remain_crystal * 10 <= self.init_crystal
-			// self.my_score * 10 <= self.my_score + self.opp_score || self.opp_score * 10 <= self.my_score + self.opp_score
-            || self.remain_ant * 10 <= self.my_ant + self.opp_ant;
+        if !endgame {
+            while let Some(gain) = self.apply_best_beacon(None, None, false) {
+                dbg!(gain, self.beacon.len());
+            }
+        }
 
-        while let Some((gain, beacon)) = self.best_beacon_list(
-            self.beacon_flood(None)
-                .into_iter()
-                .map(|mut b| {
-                    b.extend(self.ressource_group(*b.last().unwrap()));
-                    b
-                })
-                .collect::<Vec<_>>(),
-            None,
-            endgame,
-        ) {
-            dbg!(gain);
-            self.beacon = beacon;
-            dbg!(self.beacon.len());
+        if endgame || self.my_ant > (self.opp_ant as f32 * 1.50) as Ressource {
+            if let Some(gain) =
+                self.apply_best_beacon(Some(CellType::Crystal), Some(CellType::Crystal), true)
+            {
+                dbg!(gain, self.beacon.len());
+            }
+        }
+
+        for i in self.my_base.iter() {
+            if !self.beacon_around(*i) {
+                self.beacon.remove(i);
+            }
         }
     }
 }
