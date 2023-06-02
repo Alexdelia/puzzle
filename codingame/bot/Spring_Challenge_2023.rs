@@ -248,7 +248,7 @@ impl Env {
         // less than 10% of ant left
 
         // self.my_score * 10 <= self.my_score + self.opp_score || self.opp_score * 10 <= self.my_score + self.opp_score
-        self.remain_crystal * 10 <= self.init_crystal
+        self.remain_crystal * 20 <= self.init_crystal
             || self.remain_crystal < 100
             || self.remain_ant * 10 <= self.my_ant + self.opp_ant
     }
@@ -448,11 +448,25 @@ impl Env {
             }
         }
 
-        if endgame || self.my_ant > (self.opp_ant as f32 * 1.50) as Ressource {
-            if let Some(gain) =
-                self.apply_best_beacon(Some(CellType::Crystal), Some(CellType::Crystal), true)
-            {
-                dbg!(gain, self.beacon.len());
+        if endgame || self.my_ant > (self.opp_ant as f32 * 1.25) as Ressource {
+            // count crystal cell left
+            let mut crystal_cell = 0;
+
+            for i in 0..self.cell.len() {
+                if self.cell[i].r#type == CellType::Crystal
+                    && self.cell[i].ressource > 0
+                    && !self.beacon.contains_key(&i)
+                {
+                    crystal_cell += 1;
+                }
+            }
+
+            for _ in 0..(crystal_cell as f32 / 0.66).ceil() as usize {
+                if let Some(gain) = self.apply_best_beacon(Some(CellType::Crystal), None, true) {
+                    dbg!(gain, self.beacon.len());
+                } else {
+                    break;
+                }
             }
         }
 
