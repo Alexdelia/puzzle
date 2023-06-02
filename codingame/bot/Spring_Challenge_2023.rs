@@ -340,6 +340,22 @@ impl Env {
             );
         }
 
+        if let Some((gain, beacon)) = self.best_beacon_list(
+            self.beacon_flood(Some(CellType::Egg))
+                .into_iter()
+                .map(|mut b| {
+                    b.extend(self.ressource_group(*b.last().unwrap()));
+                    b
+                })
+                .collect::<Vec<_>>(),
+            None,
+            true,
+        ) {
+            dbg!(gain);
+            self.beacon = beacon;
+            dbg!(self.beacon.len());
+        }
+
         while let Some((gain, beacon)) = self.best_beacon_list(
             self.beacon_flood(None)
                 .into_iter()
