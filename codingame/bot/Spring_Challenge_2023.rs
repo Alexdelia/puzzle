@@ -163,6 +163,12 @@ impl Env {
         self.remain_crystal = 0;
         self.remain_ant = 0;
 
+        let mut buf = String::new();
+        stdin().read_line(&mut buf).unwrap();
+        let mut sw = buf.split_whitespace();
+        self.my_score = sw.next().unwrap().parse::<Ressource>().unwrap();
+        self.opp_score = sw.next().unwrap().parse::<Ressource>().unwrap();
+
         for i in 0..self.cell.len() {
             let mut buf = String::new();
             stdin().read_line(&mut buf).unwrap();
@@ -195,7 +201,6 @@ impl Env {
         }
 
         let in_game_ant = self.my_ant + self.opp_ant;
-        dbg!(self.my_ant, self.opp_ant, self.remain_ant);
         println!(
             "{output} MESSAGE 💎 {}%  |  🐜 {}%  |  {} {}% - 👤 {}%",
             self.remain_crystal * 100 / self.init_crystal,
@@ -247,8 +252,11 @@ impl Env {
         // or
         // less than 10% of ant left
 
+        let endgame_score_threshold = (self.init_crystal as f32 / 2.0 * 0.9) as Ressource;
+
         // self.my_score * 10 <= self.my_score + self.opp_score || self.opp_score * 10 <= self.my_score + self.opp_score
-        self.remain_crystal * 20 <= self.init_crystal
+        self.my_score >= endgame_score_threshold
+            || self.opp_score >= endgame_score_threshold
             || self.remain_crystal < 100
             || self.remain_ant * 10 <= self.my_ant + self.opp_ant
     }
