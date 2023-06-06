@@ -13,4 +13,8 @@ path = "solved/Messed_up_mosaics.rs"
 name = "Reverse_FizzBuzz"
 path = "solved/Reverse_FizzBuzz.rs"
 
+[[bin]]
+name = "Encryption_Decryption_of_Enigma_Machine"
+path = "solved/Encryption_Decryption_of_Enigma_Machine.rs"
+
 [dependencies]
