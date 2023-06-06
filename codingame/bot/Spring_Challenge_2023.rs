@@ -426,6 +426,15 @@ impl Env {
         }
     }
 
+    fn on_crystal(&self) -> usize {
+        self.beacon
+            .iter()
+            .filter(|(i, _)| {
+                self.cell[**i].r#type == CellType::Crystal && self.cell[**i].ressource > 0
+            })
+            .count()
+    }
+
     fn compute_beacon(&mut self, clear_beacon: bool) {
         if clear_beacon {
             self.beacon.clear();
@@ -457,19 +466,15 @@ impl Env {
         }
 
         if endgame || self.my_ant > (self.opp_ant as f32 * 1.25) as Ressource {
-            // count crystal cell left
-            let mut crystal_cell = 0;
+            let crystal_cell = self
+                .cell
+                .iter()
+                .filter(|c| c.r#type == CellType::Crystal && c.ressource > 0)
+                .count();
 
-            for i in 0..self.cell.len() {
-                if self.cell[i].r#type == CellType::Crystal
-                    && self.cell[i].ressource > 0
-                    && !self.beacon.contains_key(&i)
-                {
-                    crystal_cell += 1;
-                }
-            }
+            let objective = (crystal_cell as f32 / 0.66).ceil() as usize;
 
-            for _ in 0..(crystal_cell as f32 / 0.66).ceil() as usize {
+            while self.on_crystal() < objective {
                 if let Some(gain) = self.apply_best_beacon(Some(CellType::Crystal), None, true) {
                     dbg!(gain, self.beacon.len());
                 } else {
