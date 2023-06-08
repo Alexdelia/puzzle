@@ -11,7 +11,7 @@ fn solve(a: f64) -> u32 {
     let mut s: f64 = 0.0;
     let log_a = a.ln();
 
-    while s < i * log_a {
+    while s <= i * log_a {
         i += 1.0;
         s += i.ln();
     }
@@ -43,4 +43,15 @@ fn main() {
             .collect::<Vec<_>>()
             .join(" ")
     );
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_solve() {
+        assert_eq!(solve(2.0), 4);
+        assert_eq!(solve(3.0), 7);
+    }
 }
