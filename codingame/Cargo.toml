@@ -17,4 +17,8 @@ path = "solved/Reverse_FizzBuzz.rs"
 name = "Encryption_Decryption_of_Enigma_Machine"
 path = "solved/Encryption_Decryption_of_Enigma_Machine.rs"
 
+[[bin]]
+name = "Factorial_vs_Exponential"
+path = "solved/Factorial_vs_Exponential.rs"
+
 [dependencies]
