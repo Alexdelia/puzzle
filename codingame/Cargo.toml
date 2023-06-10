@@ -21,4 +21,8 @@ path = "solved/Encryption_Decryption_of_Enigma_Machine.rs"
 name = "Factorial_vs_Exponential"
 path = "solved/Factorial_vs_Exponential.rs"
 
+[[bin]]
+name = "Shoot_Enemy_Aircraft"
+path = "solved/Shoot_Enemy_Aircraft.rs"
+
 [dependencies]
