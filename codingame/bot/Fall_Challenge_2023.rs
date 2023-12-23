@@ -18,10 +18,17 @@ type Score = u8;
 type Turn = u8;
 
 type MapSize = u16;
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 struct Coord {
     x: MapSize,
     y: MapSize,
+}
+
+type VectorPrecision = i32;
+#[derive(Default)]
+struct Vector {
+    x: VectorPrecision,
+    y: VectorPrecision,
 }
 
 type Id = u8;
@@ -30,6 +37,8 @@ const CREATURE_CAPACITY: usize = 12;
 type CreatureSpecSize = u8;
 
 const DRONE_CAPACITY: usize = 1;
+
+const SCAN_DISTANCE: f64 = 800.0;
 
 type Battery = u8;
 
@@ -61,7 +70,7 @@ struct Creature {
     color: CreatureSpecSize,
     r#type: CreatureSpecSize,
     p: Coord,
-    v: Coord,
+    v: Vector,
 }
 
 #[derive(Default)]
@@ -90,7 +99,7 @@ impl Env {
                     color: parse_input!(inputs[1], CreatureSpecSize),
                     r#type: parse_input!(inputs[2], CreatureSpecSize),
                     p: Coord::default(),
-                    v: Coord::default(),
+                    v: Vector::default(),
                 },
             );
 
@@ -142,9 +151,10 @@ impl Env {
 
             creature.p.x = parse_input!(inputs[1], MapSize);
             creature.p.y = parse_input!(inputs[2], MapSize);
-            creature.v.x = parse_input!(inputs[3], MapSize);
-            creature.v.y = parse_input!(inputs[4], MapSize);
+            creature.v.x = parse_input!(inputs[3], VectorPrecision);
+            creature.v.y = parse_input!(inputs[4], VectorPrecision);
 
+            /*
             eprintln!(
                 "creature[{creature_id}]\tp: ({x}, {y}) v: ({vx}, {vy})",
                 x = creature.p.x,
@@ -152,19 +162,20 @@ impl Env {
                 vx = creature.v.x,
                 vy = creature.v.y,
             );
+            */
         }
 
         let radar_blip_count = read_parse_line!(Id);
         for _ in 0..radar_blip_count as usize {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
-            let inputs = input_line.split(" ").collect::<Vec<_>>();
+            // let inputs = input_line.split(" ").collect::<Vec<_>>();
 
-            let drone_id = parse_input!(inputs[0], Id);
-            let creature_id = parse_input!(inputs[1], Id);
-            let radar = inputs[2].trim().to_string();
+            // let drone_id = parse_input!(inputs[0], Id);
+            // let creature_id = parse_input!(inputs[1], Id);
+            // let radar = inputs[2].trim().to_string();
 
-            eprintln!("drone[{drone_id}] radar creature[{creature_id}] {radar}");
+            // eprintln!("drone[{drone_id}] radar creature[{creature_id}] {radar}");
         }
     }
 
@@ -180,14 +191,44 @@ impl Env {
                 battery = drone.battery,
             );
 
-            // Write an action using println!("message...");
-            // To debug: eprintln!("Debug message...");
+            let light = self.not_scanned_in_range(drone);
 
-            // println!("WAIT 1"); // MOVE <x> <y> <light (1|0)> | WAIT <light (1|0)>
-            println!("MOVE 4000 0 0");
+            if let Some(target) = self.closest_not_scanned(drone) {
+                r#move(target.p, light);
+            } else {
+                wait(light);
+            }
         }
 
         self.turn += 1;
+    }
+
+    fn closest_not_scanned(&self, drone: &Drone) -> Option<&Creature> {
+        let mut closest = None;
+        let mut closest_dist = 0f64;
+
+        for (id, creature) in &self.creature {
+            if !self.me.id_scaned.contains(id) {
+                let dist = dist(drone.p, creature.p);
+
+                if closest.is_none() || dist < closest_dist {
+                    closest = Some(creature);
+                    closest_dist = dist;
+                }
+            }
+        }
+
+        closest
+    }
+
+    fn not_scanned_in_range(&self, drone: &Drone) -> bool {
+        for (id, creature) in &self.creature {
+            if !self.me.id_scaned.contains(id) && dist(drone.p, creature.p) < SCAN_DISTANCE as f64 {
+                return true;
+            }
+        }
+
+        false
     }
 }
 
@@ -231,6 +272,28 @@ impl Player {
             }
         }
     }
+}
+
+fn dist(p1: Coord, p2: Coord) -> f64 {
+    let x1 = p1.x as i32;
+    let y1 = p1.y as i32;
+    let x2 = p2.x as i32;
+    let y2 = p2.y as i32;
+
+    (((x1 - x2).pow(2) + (y1 - y2).pow(2)) as f64).sqrt()
+}
+
+fn r#move(p: Coord, light: bool) {
+    println!(
+        "MOVE {x} {y} {light}",
+        x = p.x,
+        y = p.y,
+        light = if light { 1 } else { 0 }
+    );
+}
+
+fn wait(light: bool) {
+    println!("WAIT {light}", light = if light { 1 } else { 0 });
 }
 
 fn main() {
