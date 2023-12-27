@@ -89,7 +89,7 @@ impl Env {
         for _ in 0..creature_count {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
-            let inputs = input_line.split(" ").collect::<Vec<_>>();
+            let inputs = input_line.split(' ').collect::<Vec<_>>();
 
             let id = parse_input!(inputs[0], Id);
 
@@ -131,7 +131,7 @@ impl Env {
         for _ in 0..drone_scan_count as usize {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
-            let inputs = input_line.split(" ").collect::<Vec<_>>();
+            let inputs = input_line.split(' ').collect::<Vec<_>>();
 
             let drone_id = parse_input!(inputs[0], Id);
             let creature_id = parse_input!(inputs[1], Id);
@@ -143,7 +143,7 @@ impl Env {
         for _ in 0..visible_creature_count as usize {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
-            let inputs = input_line.split(" ").collect::<Vec<_>>();
+            let inputs = input_line.split(' ').collect::<Vec<_>>();
 
             let creature_id = parse_input!(inputs[0], Id);
 
@@ -223,7 +223,7 @@ impl Env {
 
     fn not_scanned_in_range(&self, drone: &Drone) -> bool {
         for (id, creature) in &self.creature {
-            if !self.me.id_scaned.contains(id) && dist(drone.p, creature.p) < SCAN_DISTANCE as f64 {
+            if !self.me.id_scaned.contains(id) && dist(drone.p, creature.p) < SCAN_DISTANCE {
                 return true;
             }
         }
@@ -246,7 +246,7 @@ impl Player {
         for _ in 0..count as usize {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
-            let inputs = input_line.split(" ").collect::<Vec<_>>();
+            let inputs = input_line.split(' ').collect::<Vec<_>>();
 
             let id = parse_input!(inputs[0], Id);
 
