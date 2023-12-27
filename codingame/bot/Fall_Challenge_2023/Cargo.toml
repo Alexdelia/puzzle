@@ -1,5 +1,5 @@
 [package]
-name = "Fall_Challenge_2023"
+name = "fall_challenge_2023"
 version = "0.1.0"
 edition = "2021"
 default-run = "main"
@@ -10,8 +10,8 @@ default-run = "main"
 
 [[bin]]
 name = "main"
-path = "src/main.rs"
+path = "bin/main.rs"
 
 [[bin]]
 name = "answer"
-path = "src/answer.rs"
+path = "bin/answer.rs"
