@@ -1,7 +1,4 @@
-use std::{
-    io::Read,
-    process::{Command, Stdio},
-};
+use std::process::Command;
 
 const JAR_REFEREE_PATH: &str = "./referee.jar";
 
