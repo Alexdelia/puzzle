@@ -1,8 +1,7 @@
+use crate::Layer;
+
+// ANSWER START
 pub struct Network {
     pub layers: Vec<Layer>,
 }
-
-pub struct Layer {
-    pub weight: Matrix,
-    pub bias: Matrix,
-}
+// ANSWER END
