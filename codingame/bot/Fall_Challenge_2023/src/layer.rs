@@ -1,5 +1,7 @@
 use crate::{Activation, Float, Matrix};
 
+// could think about having a different activation function for each neuron (per bias)
+
 // ANSWER START
 pub struct Layer {
     pub weight: Matrix,
@@ -8,7 +10,7 @@ pub struct Layer {
 }
 
 impl Layer {
-    // input • weight + bias -> activation
+    // input • weight + bias -> activation = output
     pub fn process(&self, input: &[Float]) -> Vec<Float> {
         assert_eq!(input.len(), self.weight.row);
         assert_eq!(self.weight.col, self.bias.len());
@@ -44,19 +46,19 @@ mod tests {
             weight: Matrix {
                 row: 4,
                 col: 5,
-                data: vec![
-                    -1.0, -1.0, -1.0, -1.0, //
-                    -0.5, -0.5, -0.5, -0.5, //
-                    0.0, 0.0, 0.0, 0.0, //
-                    0.5, 0.5, 0.5, 0.5, //
-                    1.0, 1.0, 1.0, 1.0,
-                ],
                 // data: vec![
-                //     -1.0, -0.5, 0.0, 0.5, 1.0, //
-                //     -1.0, -0.5, 0.0, 0.5, 1.0, //
-                //     -1.0, -0.5, 0.0, 0.5, 1.0, //
-                //     -1.0, -0.5, 0.0, 0.5, 1.0, //
+                //     -1.0, -1.0, -1.0, -1.0, //
+                //     -0.5, -0.5, -0.5, -0.5, //
+                //     0.0, 0.0, 0.0, 0.0, //
+                //     0.5, 0.5, 0.5, 0.5, //
+                //     1.0, 1.0, 1.0, 1.0,
                 // ],
+                data: vec![
+                    -1.0, -0.5, 0.0, 0.5, 1.0, //
+                    -1.0, -0.5, 0.0, 0.5, 1.0, //
+                    -1.0, -0.5, 0.0, 0.5, 1.0, //
+                    -1.0, -0.5, 0.0, 0.5, 1.0,
+                ],
             },
             bias: vec![-1.0, -0.5, 0.0, 0.5, 1.0],
             activation: relu,
@@ -66,6 +68,7 @@ mod tests {
         let output = layer.process(&input);
 
         assert_eq!(output.len(), 5);
-        assert_eq!(output, vec![0.5, 1.5, 2.25, 2.75, 2.75]);
+        // assert_eq!(output, vec![0.5, 1.5, 2.25, 2.75, 2.75]);
+        assert_eq!(output, vec![0.0, 0.0, 0.0, 0.75, 1.5]);
     }
 }
