@@ -1,4 +1,5 @@
-use std::{collections::HashMap, io};
+use fall_challenge_2023::{referencial, referencial_bool, Float};
+use std::{collections::HashMap, io, ops::Range, str::FromStr};
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => {
@@ -40,6 +41,23 @@ const DRONE_CAPACITY: usize = 1;
 
 const SCAN_DISTANCE: f64 = 800.0;
 
+const MAX_TURN: Turn = 200;
+const MAX_SCORE: Score = 100; // to check
+const MAX_MAP_SIZE: MapSize = 10_000;
+const MAX_BATTERY: Battery = 30;
+
+const DRONE_ID_START: Id = 0;
+const DRONE_ID_END: Id = DRONE_ID_START + (DRONE_CAPACITY as Id * 2) - 1;
+
+const CREATURE_ID_START: Id = DRONE_ID_END + 1;
+const CREATURE_ID_END: Id = CREATURE_ID_START + CREATURE_CAPACITY as Id - 1;
+
+const PLAYER_COUNT: usize = 2;
+const INPUT_VEC_SIZE: usize = 1	// turn
+    + (1 * PLAYER_COUNT)	// score
+    + (CREATURE_CAPACITY * PLAYER_COUNT)
+    + (DRONE_CAPACITY * 9 * PLAYER_COUNT);
+
 type Battery = u8;
 
 struct Env {
@@ -47,6 +65,7 @@ struct Env {
     me: Player,
     foe: Player,
     creature: HashMap<Id, Creature>,
+    drone_radar: HashMap<Id, DroneRadar>,
 }
 
 struct Player {
@@ -78,6 +97,45 @@ struct Drone {
     p: Coord,
     emergency: bool,
     battery: Battery,
+}
+
+type DroneRadar = [Radar; CREATURE_CAPACITY];
+
+/**
+ * `TL`: `vertical`: `false`, `horizontal`: `false`
+ * `TR`: `vertical`: `false`, `horizontal`: `true`
+ * `BL`: `vertical`: `true`, `horizontal`: `false`
+ * `BR`: `vertical`: `true`, `horizontal`: `true`
+*/
+struct Radar {
+    vertical: bool,
+    horizontal: bool,
+}
+
+impl FromStr for Radar {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "TL" => Ok(Self {
+                vertical: false,
+                horizontal: false,
+            }),
+            "TR" => Ok(Self {
+                vertical: false,
+                horizontal: true,
+            }),
+            "BL" => Ok(Self {
+                vertical: true,
+                horizontal: false,
+            }),
+            "BR" => Ok(Self {
+                vertical: true,
+                horizontal: true,
+            }),
+            _ => Err(()),
+        }
+    }
 }
 
 impl Env {
@@ -114,6 +172,7 @@ impl Env {
             me: Player::default(),
             foe: Player::default(),
             creature,
+            drone_radar: HashMap::with_capacity(DRONE_CAPACITY),
         }
     }
 
@@ -169,13 +228,33 @@ impl Env {
         for _ in 0..radar_blip_count as usize {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
-            // let inputs = input_line.split(" ").collect::<Vec<_>>();
+            let inputs = input_line.split(" ").collect::<Vec<_>>();
 
-            // let drone_id = parse_input!(inputs[0], Id);
-            // let creature_id = parse_input!(inputs[1], Id);
-            // let radar = inputs[2].trim().to_string();
+            let drone_id = parse_input!(inputs[0], Id);
+            let creature_id = parse_input!(inputs[1], Id);
+            let radar = parse_input!(inputs[2], Radar);
+        }
+    }
 
-            // eprintln!("drone[{drone_id}] radar creature[{creature_id}] {radar}");
+    fn update_radar(&mut self) {
+        let init = self.turn == 0;
+
+        if init {
+            self.drone_radar
+                .insert(drone_id, [Radar; CREATURE_CAPACITY]);
+        }
+
+        let radar_blip_count = read_parse_line!(Id);
+        for _ in 0..radar_blip_count as usize {
+            let mut input_line = String::new();
+            io::stdin().read_line(&mut input_line).unwrap();
+            let inputs = input_line.split(" ").collect::<Vec<_>>();
+
+            let drone_id = parse_input!(inputs[0], Id);
+            let creature_id = parse_input!(inputs[1], Id);
+            let radar = parse_input!(inputs[2], Radar);
+
+            self.drone_radar.get_mut(&drone_id).unwrap()[creature_id - FISH_ID_START] = radar;
         }
     }
 
@@ -201,6 +280,61 @@ impl Env {
         }
 
         self.turn += 1;
+    }
+
+    fn input_vec(&self) -> Vec<Float> {
+        let mut input = Vec::new();
+
+        let out_range = 0.0..1.0;
+
+        self.input_turn(&mut input, &out_range);
+        self.input_score(&mut input, &out_range);
+        self.input_scan(&mut input, &out_range);
+        self.input_drone(&mut input, &out_range);
+        // no drone scan for now
+        self.input_drone_radar(&mut input, &out_range);
+
+        assert_eq!(input.len(), INPUT_VEC_SIZE);
+
+        input
+    }
+
+    fn input_turn(&self, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        let in_range = 0.0..MAX_TURN as Float;
+        input.push(referencial(self.turn as Float, &in_range, &out_range));
+    }
+
+    fn input_score(&self, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        self.me.input_score(input, out_range);
+        self.foe.input_score(input, out_range);
+    }
+
+    fn input_scan(&self, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        self.me.input_scan(input, out_range);
+        self.foe.input_scan(input, out_range);
+    }
+
+    fn input_drone(&self, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        for id in DRONE_ID_START..=DRONE_ID_END {
+            if let Some(drone) = self.me.drone.get(&id) {
+                drone.input(true, input, out_range);
+            } else if let Some(drone) = self.foe.drone.get(&id) {
+                drone.input(false, input, out_range);
+            } else {
+                panic!("drone {id} does not exist");
+            }
+        }
+    }
+
+    fn input_drone_radar(&self, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        for id in DRONE_ID_START..=DRONE_ID_END {
+            if let Some(radar) = self.drone_radar.get(&id) {
+                for r in radar {
+                    input.push(referencial_bool(r.vertical, out_range));
+                    input.push(referencial_bool(r.horizontal, out_range));
+                }
+            }
+        }
     }
 
     fn closest_not_scanned(&self, drone: &Drone) -> Option<&Creature> {
@@ -271,6 +405,58 @@ impl Player {
                 drone.battery = parse_input!(inputs[4], Battery);
             }
         }
+    }
+
+    fn input_score(&self, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        let in_range = 0.0..MAX_SCORE as Float;
+        input.push(referencial(self.score as Float, &in_range, out_range));
+    }
+
+    fn input_scan(&self, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        for id in FISH_ID_START..=FISH_ID_END {
+            let scanned = self.id_scaned.contains(&id);
+            input.push(referencial_bool(scanned, out_range));
+        }
+    }
+}
+
+impl Drone {
+    fn input(&self, me: bool, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        input.push(referencial_bool(me, out_range));
+
+        self.input_coord(input, out_range);
+        self.input_emergency(input, out_range);
+        self.input_battery(input, out_range);
+    }
+
+    fn input_coord(&self, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        self.p.input(input, out_range);
+    }
+
+    fn input_emergency(&self, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        input.push(referencial_bool(self.emergency, out_range));
+    }
+
+    fn input_battery(&self, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        let in_range = 0.0..MAX_BATTERY as Float;
+        input.push(referencial(self.battery as Float, &in_range, out_range));
+
+        let empty = self.battery == 0;
+        input.push(referencial_bool(empty, out_range));
+
+        let full = self.battery == MAX_BATTERY;
+        input.push(referencial_bool(full, out_range));
+
+        let three_quarter = self.battery >= MAX_BATTERY * 3 / 4;
+        input.push(referencial_bool(three_quarter, out_range));
+    }
+}
+
+impl Coord {
+    fn input(&self, input: &mut Vec<Float>, out_range: &Range<Float>) {
+        let in_range = 0.0..MAX_MAP_SIZE as Float;
+        input.push(referencial(self.x as Float, &in_range, out_range));
+        input.push(referencial(self.y as Float, &in_range, out_range));
     }
 }
 
