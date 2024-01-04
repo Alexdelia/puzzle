@@ -315,7 +315,7 @@ impl Env {
             let light = output_vec[i * 3 + 2];
 
             let min = 0.0;
-            let max = MAX_MAP_SIZE as Float;
+            let max = (MAX_MAP_SIZE - 1) as Float;
 
             let x = (x * max).round().clamp(min, max) as MapSize;
             let y = (y * max).round().clamp(min, max) as MapSize;
