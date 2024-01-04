@@ -20,6 +20,7 @@ impl Layer {
         for c in 0..self.weight.col {
             let mut sum = 0.0;
 
+            #[allow(clippy::needless_range_loop)]
             for r in 0..self.weight.row {
                 sum += input[r] * self.weight.data[r * self.weight.col + c];
             }

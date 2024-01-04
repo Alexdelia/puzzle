@@ -42,7 +42,7 @@ const DRONE_CAPACITY: usize = 1;
 const CREATURE_COLOR_COUNT: CreatureSpecSize = 4;
 const CREATURE_TYPE_COUNT: CreatureSpecSize = 3;
 
-const SCAN_DISTANCE: f64 = 800.0;
+// const SCAN_DISTANCE: f64 = 800.0;
 
 const MAX_TURN: Turn = 200;
 const MAX_SCORE: Score = 100; // to check
@@ -221,7 +221,7 @@ impl Env {
     }
 
     fn update_visible_creature(&mut self) {
-        for (_, creature) in &mut self.creature {
+        for creature in &mut self.creature.values_mut() {
             creature.visible = false;
 
             let min = 0;
@@ -272,7 +272,9 @@ impl Env {
             let radar = parse_input!(inputs[2], Radar);
 
             if init {
-                self.drone_radar.entry(drone_id).or_insert_with(|| [Radar::default(); CREATURE_CAPACITY]);
+                self.drone_radar
+                    .entry(drone_id)
+                    .or_insert_with(|| [Radar::default(); CREATURE_CAPACITY]);
             }
 
             self.drone_radar.get_mut(&drone_id).unwrap()
