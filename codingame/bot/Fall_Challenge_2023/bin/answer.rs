@@ -1,4 +1,5 @@
-use fall_challenge_2023::{referencial, referencial_bool, Float, Network};
+use fall_challenge_2023::{referencial, referencial_bool, relu, Float, Layer, Matrix, Network};
+use rand::{rngs::ThreadRng, Rng};
 use std::{collections::HashMap, io, ops::Range, str::FromStr};
 
 macro_rules! parse_input {
@@ -291,9 +292,7 @@ impl Env {
     fn output(&mut self, network: &Network) {
         eprintln!("turn: {}", self.turn);
 
-        let input_vec = self.input_vec();
-
-        let output_vec = network.forward(input_vec);
+        let output_vec = network.forward(self.input_vec());
         assert_eq!(output_vec.len(), OUTPUT_VEC_SIZE);
 
         let mut i = 0;
@@ -552,8 +551,61 @@ fn wait(light: bool) {
 }
 */
 
+fn random_matrix(row: usize, col: usize, rng: &mut ThreadRng) -> Matrix {
+    let mut data = Vec::with_capacity(row * col);
+
+    for _ in 0..row * col {
+        data.push(rng.gen_range(OUT_RANGE));
+    }
+
+    Matrix { row, col, data }
+}
+
+fn random_vec(size: usize, rng: &mut ThreadRng) -> Vec<Float> {
+    let mut data = Vec::with_capacity(size);
+
+    for _ in 0..size {
+        data.push(rng.gen_range(OUT_RANGE));
+    }
+
+    data
+}
+
 fn network() -> Network {
-    todo!()
+    // basic random network
+
+    let network_hidden_layer_count = 42;
+    let network_hidden_layer_size = 255;
+
+    let mut rng = rand::thread_rng();
+
+    let mut layers = Vec::with_capacity(network_hidden_layer_count + 2);
+
+    layers.push(Layer {
+        weight: random_matrix(INPUT_VEC_SIZE, network_hidden_layer_size, &mut rng),
+        bias: random_vec(network_hidden_layer_size, &mut rng),
+        activation: relu,
+    });
+
+    for _ in 0..network_hidden_layer_count {
+        layers.push(Layer {
+            weight: random_matrix(
+                network_hidden_layer_size,
+                network_hidden_layer_size,
+                &mut rng,
+            ),
+            bias: random_vec(network_hidden_layer_size, &mut rng),
+            activation: relu,
+        });
+    }
+
+    layers.push(Layer {
+        weight: random_matrix(network_hidden_layer_size, OUTPUT_VEC_SIZE, &mut rng),
+        bias: random_vec(OUTPUT_VEC_SIZE, &mut rng),
+        activation: relu,
+    });
+
+    Network { layers }
 }
 
 fn main() {
