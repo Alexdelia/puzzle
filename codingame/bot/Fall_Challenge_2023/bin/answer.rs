@@ -58,7 +58,7 @@ const CREATURE_ID_END: Id = CREATURE_ID_START + CREATURE_CAPACITY as Id - 1;
 
 const PLAYER_COUNT: usize = 2;
 const INPUT_VEC_SIZE: usize = 1	// turn
-    + (1 * PLAYER_COUNT)	// score
+    + PLAYER_COUNT	// score
     + (CREATURE_CAPACITY * PLAYER_COUNT)
     + (DRONE_CAPACITY * 9 * PLAYER_COUNT);
 
@@ -265,17 +265,14 @@ impl Env {
         for _ in 0..radar_blip_count as usize {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
-            let inputs = input_line.split(" ").collect::<Vec<_>>();
+            let inputs = input_line.split(' ').collect::<Vec<_>>();
 
             let drone_id = parse_input!(inputs[0], Id);
             let creature_id = parse_input!(inputs[1], Id);
             let radar = parse_input!(inputs[2], Radar);
 
             if init {
-                if !self.drone_radar.contains_key(&drone_id) {
-                    self.drone_radar
-                        .insert(drone_id, [Radar::default(); CREATURE_CAPACITY]);
-                }
+                self.drone_radar.entry(drone_id).or_insert_with(|| [Radar::default(); CREATURE_CAPACITY]);
             }
 
             self.drone_radar.get_mut(&drone_id).unwrap()
@@ -309,7 +306,7 @@ impl Env {
                 battery = drone.battery,
             );
 
-            let x = output_vec[i * 3 + 0];
+            let x = output_vec[i * 3];
             let y = output_vec[i * 3 + 1];
             let light = output_vec[i * 3 + 2];
 
