@@ -59,8 +59,11 @@ const CREATURE_ID_END: Id = CREATURE_ID_START + CREATURE_CAPACITY as Id - 1;
 const PLAYER_COUNT: usize = 2;
 const INPUT_VEC_SIZE: usize = 1	// turn
     + PLAYER_COUNT	// score
-    + (CREATURE_CAPACITY * PLAYER_COUNT)
-    + (DRONE_CAPACITY * 9 * PLAYER_COUNT);
+    + (CREATURE_CAPACITY * PLAYER_COUNT)	// scan
+    + (DRONE_CAPACITY * 8 * PLAYER_COUNT)	// drone
+	+ (CREATURE_CAPACITY * 7) // creature
+	// drone scan is not implemented
+	+ (DRONE_CAPACITY * CREATURE_CAPACITY * 2); // drone radar
 
 const OUTPUT_VEC_SIZE: usize = DRONE_CAPACITY * 3;
 
