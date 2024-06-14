@@ -1,4 +1,4 @@
-use std::io;
+use std::{fmt, io};
 
 enum Game {
     HurdleRace = 0,
@@ -7,6 +7,7 @@ enum Game {
     Diving = 3,
 }
 
+#[derive(Copy, Clone)]
 enum Action {
     Right = 0,
     Up = 1,
@@ -16,6 +17,11 @@ enum Action {
 
 type Register = i32;
 
+struct Input {
+	gpu: String,
+	reg: [Register; 7],
+}
+
 const PLAYER_NUMBER: usize = 3;
 const GAME_AMOUNT: usize = 4;
 
@@ -23,9 +29,21 @@ struct Env {
     player_idx: usize,
 }
 
-struct GameInput {
-    gpu: String,
-    reg: [Register; 7],
+macro_rules! parse_input {
+    ($x:expr, $t:ident) => {
+        $x.trim().parse::<$t>().unwrap()
+    };
+}
+
+impl fmt::Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Right => write!(f, "RIGHT"),
+            Self::Up => write!(f, "UP"),
+            Self::Left => write!(f, "LEFT"),
+            Self::Down => write!(f, "DOWN"),
+        }
+    }
 }
 
 impl Env {
@@ -44,33 +62,75 @@ impl Env {
         Self { player_idx }
     }
 
-    fn read_scores() {
-        for i in 0..PLAYER_NUMBER {
-            eprintln!("{i}: {}", Self::read_line().trim());
+    fn read_score(&self) {
+        for _ in 0..PLAYER_NUMBER {
+            dbg!(Self::read_line());
         }
     }
 
-    fn read_game_input() -> GameInput {
-        let inputs = Self::read_line().split(" ").collect::<Vec<_>>();
+    fn solve(&self) -> Action {
+        let mut hurdle = 0;
 
-        let gpu = inputs[0].trim().to_string();
-        let reg = [
-            inputs[1].trim().parse::<Register>().unwrap(),
-            inputs[2].trim().parse::<Register>().unwrap(),
-            inputs[3].trim().parse::<Register>().unwrap(),
-            inputs[4].trim().parse::<Register>().unwrap(),
-            inputs[5].trim().parse::<Register>().unwrap(),
-            inputs[6].trim().parse::<Register>().unwrap(),
-            inputs[7].trim().parse::<Register>().unwrap(),
-        ];
+        for i in 0..GAME_AMOUNT {
+            let game = Game::from(i);
+
+            let line = Self::read_line();
+            let inputs = line.split(' ').collect::<Vec<_>>();
+
+            let gpu = inputs[0].trim().to_string();
+            dbg!(&gpu);
+
+			let reg = [
+				inputs[1].trim().parse::<i32>().unwrap(),
+				inputs[2].trim().parse::<i32>().unwrap(),
+				inputs[3].trim().parse::<i32>().unwrap(),
+				inputs[4].trim().parse::<i32>().unwrap(),
+				inputs[5].trim().parse::<i32>().unwrap(),
+				inputs[6].trim().parse::<i32>().unwrap(),
+				inputs[7].trim().parse::<i32>().unwrap(),
+			];
+
+            dbg!(game.dispatch(line, reg));
+
+            if i == 0 {
+                let player_positions = [reg_0, reg_1, reg_2];
+                let my_player_position = player_positions[self.player_idx] as usize;
+                dbg!(my_player_position);
+
+                hurdle = hurdle_in(&gpu, my_player_position);
+            }
+        }
+
+        let choice = [Action::Right, Action::Up, Action::Left, Action::Down];
+
+        choice[hurdle % choice.len()]
     }
 }
 
-macro_rules! parse_input {
-    ($x:expr, $t:ident) => {
-        $x.trim().parse::<$t>().unwrap()
-    };
+impl From<usize> for Game {
+    fn from(value: usize) -> Self {
+        match value {
+            0 => Self::HurdleRace,
+            1 => Self::Archery,
+            2 => Self::RollerSpeedSkating,
+            3 => Self::Diving,
+            _ => panic!("{value} is not a valid game"),
+        }
+    }
 }
+
+impl Game {
+    fn dispatch(&self, gpu: String, reg: [Register; 7]) -> [i8; 4] {
+        match self {
+            Self::HurdleRace => [0, 0, 0, 0],
+            Self::Archery => [0, 0, 0, 0],
+            Self::RollerSpeedSkating => [0, 0, 0, 0],
+            Self::Diving => [0, 0, 0, 0],
+        }
+    }
+}
+
+impl Input
 
 fn hurdle_in(track: &str, index: usize) -> usize {
     let track = track.chars().collect::<Vec<char>>();
@@ -89,39 +149,8 @@ fn main() {
     let e = Env::init();
 
     loop {
-        Env::read_scores();
+        e.read_score();
 
-        let mut hurdle = 0;
-
-        for i in 0..GAME_AMOUNT {
-            let mut input_line = String::new();
-            io::stdin().read_line(&mut input_line).unwrap();
-
-            let inputs = input_line.split(" ").collect::<Vec<_>>();
-            let gpu = inputs[0].trim().to_string();
-            dbg!(&gpu);
-
-            let reg_0 = parse_input!(inputs[1], i32);
-            let reg_1 = parse_input!(inputs[2], i32);
-            let reg_2 = parse_input!(inputs[3], i32);
-
-            let _reg_3 = parse_input!(inputs[4], i32);
-            let _reg_4 = parse_input!(inputs[5], i32);
-            let _reg_5 = parse_input!(inputs[6], i32);
-
-            let _reg_6 = parse_input!(inputs[7], i32);
-
-            if i == 0 {
-                let player_positions = [reg_0, reg_1, reg_2];
-                let my_player_position = player_positions[e.player_idx] as usize;
-                dbg!(my_player_position);
-
-                hurdle = hurdle_in(&gpu, my_player_position);
-            }
-        }
-
-        let choice = ["RIGHT", "UP", "LEFT", "DOWN"];
-
-        println!("{}", choice[hurdle % choice.len()]);
+        println!("{action}", action = e.solve());
     }
 }
