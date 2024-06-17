@@ -18,12 +18,16 @@ enum Action {
 type Register = i32;
 
 struct Input {
-	gpu: String,
-	reg: [Register; 7],
+    gpu: String,
+    reg: [Register; REG_SIZE],
 }
+
+type ActionScore = [i32; ACTION_AMOUNT];
 
 const PLAYER_NUMBER: usize = 3;
 const GAME_AMOUNT: usize = 4;
+const REG_SIZE: usize = 7;
+const ACTION_AMOUNT: usize = 4;
 
 struct Env {
     player_idx: usize,
@@ -69,41 +73,29 @@ impl Env {
     }
 
     fn solve(&self) -> Action {
-        let mut hurdle = 0;
+        let mut score_sum = ActionScore::default();
 
         for i in 0..GAME_AMOUNT {
             let game = Game::from(i);
 
-            let line = Self::read_line();
-            let inputs = line.split(' ').collect::<Vec<_>>();
+            let input = Input::from_stdin();
 
-            let gpu = inputs[0].trim().to_string();
-            dbg!(&gpu);
+            let game_score = game.dispatch(self, input);
+            dbg!(&game_score);
 
-			let reg = [
-				inputs[1].trim().parse::<i32>().unwrap(),
-				inputs[2].trim().parse::<i32>().unwrap(),
-				inputs[3].trim().parse::<i32>().unwrap(),
-				inputs[4].trim().parse::<i32>().unwrap(),
-				inputs[5].trim().parse::<i32>().unwrap(),
-				inputs[6].trim().parse::<i32>().unwrap(),
-				inputs[7].trim().parse::<i32>().unwrap(),
-			];
-
-            dbg!(game.dispatch(line, reg));
-
-            if i == 0 {
-                let player_positions = [reg_0, reg_1, reg_2];
-                let my_player_position = player_positions[self.player_idx] as usize;
-                dbg!(my_player_position);
-
-                hurdle = hurdle_in(&gpu, my_player_position);
+            for (x, score) in game_score.iter().enumerate() {
+                score_sum[x] += score;
             }
         }
 
-        let choice = [Action::Right, Action::Up, Action::Left, Action::Down];
+        let highest_score = score_sum
+            .iter()
+            .enumerate()
+            .max_by_key(|x| x.1)
+            .expect("No max score")
+            .0;
 
-        choice[hurdle % choice.len()]
+        Action::from(highest_score)
     }
 }
 
@@ -119,10 +111,39 @@ impl From<usize> for Game {
     }
 }
 
+impl From<usize> for Action {
+    fn from(value: usize) -> Self {
+        match value {
+            0 => Self::Right,
+            1 => Self::Up,
+            2 => Self::Left,
+            3 => Self::Down,
+            _ => panic!("{value} is not a valid action"),
+        }
+    }
+}
+
+impl Input {
+    fn from_stdin() -> Self {
+        let line = Env::read_line();
+        let inputs = line.split(' ').collect::<Vec<_>>();
+
+        let gpu = inputs[0].trim().to_string();
+        dbg!(&gpu);
+
+        let mut reg = [0; REG_SIZE];
+        for i in 1..REG_SIZE {
+            reg[i] = inputs[i + 1].trim().parse::<i32>().unwrap();
+        }
+
+        Self { gpu, reg }
+    }
+}
+
 impl Game {
-    fn dispatch(&self, gpu: String, reg: [Register; 7]) -> [i8; 4] {
+    fn dispatch(&self, env: &Env, input: Input) -> ActionScore {
         match self {
-            Self::HurdleRace => [0, 0, 0, 0],
+            Self::HurdleRace => hurdle(env, input),
             Self::Archery => [0, 0, 0, 0],
             Self::RollerSpeedSkating => [0, 0, 0, 0],
             Self::Diving => [0, 0, 0, 0],
@@ -130,7 +151,26 @@ impl Game {
     }
 }
 
-impl Input
+fn hurdle(env: &Env, input: Input) -> ActionScore {
+    let position = input.reg[env.player_idx] as usize;
+    let hurdle = hurdle_in(&input.gpu, position);
+
+	let mut action_score = [0; ACTION_AMOUNT];
+
+	match hurdle {
+		1 => {
+			action_score[Action::Left] =  
+
+    /*
+    if i == 0 {
+        let player_positions = [reg_0, reg_1, reg_2];
+        let my_player_position = player_positions[self.player_idx] as usize;
+        dbg!(my_player_position);
+
+        hurdle = hurdle_in(&gpu, my_player_position);
+    }
+    */
+}
 
 fn hurdle_in(track: &str, index: usize) -> usize {
     let track = track.chars().collect::<Vec<char>>();
