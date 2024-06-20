@@ -185,16 +185,6 @@ fn hurdle(env: &Env, input: Input) -> ActionScore {
     }
 
     action_score
-
-    /*
-    if i == 0 {
-        let player_positions = [reg_0, reg_1, reg_2];
-        let my_player_position = player_positions[self.player_idx] as usize;
-        dbg!(my_player_position);
-
-        hurdle = hurdle_in(&gpu, my_player_position);
-    }
-    */
 }
 
 fn hurdle_in(track: &str, index: usize) -> usize {
