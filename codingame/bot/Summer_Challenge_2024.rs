@@ -155,11 +155,36 @@ fn hurdle(env: &Env, input: Input) -> ActionScore {
     let position = input.reg[env.player_idx] as usize;
     let hurdle = hurdle_in(&input.gpu, position);
 
-	let mut action_score = [0; ACTION_AMOUNT];
+    let mut action_score = [0; ACTION_AMOUNT];
 
-	match hurdle {
-		1 => {
-			action_score[Action::Left] =  
+    match hurdle {
+        1 => {
+            action_score[Action::Left as usize] = -2;
+            action_score[Action::Down as usize] = -2;
+            action_score[Action::Right as usize] = -2;
+            action_score[Action::Up as usize] = 2;
+        }
+        2 => {
+            action_score[Action::Left as usize] = 2;
+            action_score[Action::Down as usize] = -1;
+            action_score[Action::Right as usize] = -1;
+            action_score[Action::Up as usize] = -1;
+        }
+        3 => {
+            action_score[Action::Left as usize] = 1;
+            action_score[Action::Down as usize] = 2;
+            action_score[Action::Right as usize] = 0;
+            action_score[Action::Up as usize] = 2;
+        }
+        _ => {
+            action_score[Action::Left as usize] = 1;
+            action_score[Action::Down as usize] = 2;
+            action_score[Action::Right as usize] = 3;
+            action_score[Action::Up as usize] = 2;
+        }
+    }
+
+    action_score
 
     /*
     if i == 0 {
