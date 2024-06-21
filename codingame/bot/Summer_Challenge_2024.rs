@@ -157,7 +157,7 @@ impl Game {
     fn dispatch(&self, env: &Env, input: Input) -> ActionScore {
         match self {
             Self::HurdleRace => hurdle(env, input),
-            Self::Archery => [0; ACTION_AMOUNT],
+            Self::Archery => archery(env, input),
             Self::RollerSpeedSkating => [0; ACTION_AMOUNT],
             Self::Diving => diving(env, input),
         }
@@ -211,6 +211,54 @@ fn hurdle_in(track: &str, index: usize) -> usize {
         i += 1;
     }
     64
+}
+
+fn archery(env: &Env, input: Input) -> ActionScore {
+    let mut action_score = [0; ACTION_AMOUNT];
+
+    let wind = input
+        .gpu
+        .chars()
+        .next()
+        .unwrap()
+        .to_digit(10)
+        .unwrap_or_else(|| panic!("could not parse wind {}", input.gpu));
+
+    let position = (input.reg[env.player_idx], input.reg[env.player_idx + 1]);
+    dbg!(position);
+    let distance = euclidean_distance(position, (0, 0));
+    dbg!(distance);
+
+    for direction in [Action::Right, Action::Up, Action::Left, Action::Down] {
+        let new_position = match direction {
+            Action::Right => (position.0 + wind as i32, position.1),
+            Action::Up => (position.0, position.1 - wind as i32),
+            Action::Left => (position.0 - wind as i32, position.1),
+            Action::Down => (position.0, position.1 + wind as i32),
+        };
+        dbg!(new_position);
+        let new_distance = euclidean_distance(new_position, (0, 0));
+        dbg!(new_distance);
+
+        let improvement = distance - new_distance;
+
+		action_score[direction as usize] = 
+        match improvement {
+			-64.0..=-7.0 =>  -2,
+			-7.0..=-1.0 =>  -1,
+			-1.0..=0.0 =>   0,
+			0.0..=1.0 =>   1,
+			1.0..=7.0 =>   2,
+			7.0..=64.0 =>   3,
+            _ => panic!("improvement of {improvement} is not valid\n{position:?} -> {new_position:?}\n{distance} -> {new_distance}"),
+        };
+    }
+
+    action_score
+}
+
+fn euclidean_distance(a: (i32, i32), b: (i32, i32)) -> f64 {
+    (((b.0 - a.0) as f64).powi(2) + ((b.1 - a.1) as f64).powi(2)).sqrt()
 }
 
 fn diving(_env: &Env, input: Input) -> ActionScore {
