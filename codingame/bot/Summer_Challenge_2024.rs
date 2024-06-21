@@ -24,6 +24,12 @@ struct Input {
 
 type ActionScore = [f64; ACTION_AMOUNT];
 
+enum Rank {
+    Gold,
+    Silver,
+    Bronze,
+}
+
 const PLAYER_NUMBER: usize = 3;
 const GAME_AMOUNT: usize = 4;
 const REG_SIZE: usize = 7;
@@ -32,6 +38,7 @@ const GAME_OVER: &str = "GAME_OVER";
 
 struct Env {
     player_idx: usize,
+    opponent_idx: [usize; PLAYER_NUMBER - 1],
 }
 
 impl fmt::Display for Action {
@@ -58,7 +65,19 @@ impl Env {
         let game_amount = Self::read_line().trim().parse::<usize>().unwrap();
         assert_eq!(game_amount, GAME_AMOUNT);
 
-        Self { player_idx }
+        let mut opponent_idx = [0; PLAYER_NUMBER - 1];
+        let mut opponent_idx_index = 0;
+        for i in 0..PLAYER_NUMBER {
+            if i != player_idx {
+                opponent_idx[opponent_idx_index] = i;
+                opponent_idx_index += 1;
+            }
+        }
+
+        Self {
+            player_idx,
+            opponent_idx,
+        }
     }
 
     fn read_score(&self) {
@@ -77,11 +96,13 @@ impl Env {
                 continue;
             };
 
-            let game_score = game.dispatch(self, input);
+            let (game_score, rank) = game.dispatch(self, input);
             dbg!(&game_score);
+            let game_score = prioritize(game_score, rank);
+            dbg!(game_score);
 
             for (x, score) in game_score.iter().enumerate() {
-                score_sum[x] += score;
+                score_sum[x] += score
             }
         }
 
@@ -132,6 +153,19 @@ impl From<char> for Action {
     }
 }
 
+impl From<(f64, [f64; PLAYER_NUMBER - 1])> for Rank {
+    fn from((score, op_score): (f64, [f64; PLAYER_NUMBER - 1])) -> Self {
+        let win_one = score > op_score[0];
+        let win_two = score > op_score[1];
+
+        match (win_one, win_two) {
+            (true, true) => Self::Gold,
+            (true, false) | (false, true) => Self::Silver,
+            (false, false) => Self::Bronze,
+        }
+    }
+}
+
 impl Input {
     fn from_stdin() -> Option<Self> {
         let line = Env::read_line();
@@ -154,20 +188,37 @@ impl Input {
 }
 
 impl Game {
-    fn dispatch(&self, env: &Env, input: Input) -> ActionScore {
+    fn dispatch(&self, env: &Env, input: Input) -> (ActionScore, Rank) {
         match self {
             Self::HurdleRace => hurdle(env, input),
             Self::Archery => archery(env, input),
-            Self::RollerSpeedSkating => [0.0; ACTION_AMOUNT],
+            Self::RollerSpeedSkating => ([0.0; ACTION_AMOUNT], Rank::Bronze),
             Self::Diving => diving(env, input),
         }
     }
 }
 
-fn hurdle(env: &Env, input: Input) -> ActionScore {
+fn prioritize(mut action_score: ActionScore, rank: Rank) -> ActionScore {
+    match rank {
+        Rank::Gold => {
+            for score in action_score.iter_mut() {
+                *score /= 4.0
+            }
+            action_score
+        }
+        Rank::Silver => {
+            for score in action_score.iter_mut() {
+                *score /= 2.0
+            }
+            action_score
+        }
+        Rank::Bronze => action_score,
+    }
+}
+
+fn hurdle(env: &Env, input: Input) -> (ActionScore, Rank) {
     let position = input.reg[env.player_idx] as usize;
     let hurdle = hurdle_in(&input.gpu, position);
-    dbg!(hurdle);
 
     let mut action_score = [0.0; ACTION_AMOUNT];
 
@@ -198,7 +249,15 @@ fn hurdle(env: &Env, input: Input) -> ActionScore {
         }
     }
 
-    action_score
+    let rank = Rank::from((
+        position as f64,
+        [
+            input.reg[env.opponent_idx[0]] as f64,
+            input.reg[env.opponent_idx[1]] as f64,
+        ],
+    ));
+
+    (action_score, rank)
 }
 
 fn hurdle_in(track: &str, index: usize) -> usize {
@@ -214,7 +273,7 @@ fn hurdle_in(track: &str, index: usize) -> usize {
     64
 }
 
-fn archery(env: &Env, input: Input) -> ActionScore {
+fn archery(env: &Env, input: Input) -> (ActionScore, Rank) {
     let mut action_score = [0.0; ACTION_AMOUNT];
 
     let wind = input
@@ -225,7 +284,10 @@ fn archery(env: &Env, input: Input) -> ActionScore {
         .to_digit(10)
         .unwrap_or_else(|| panic!("could not parse wind {}", input.gpu));
 
-    let position = (input.reg[env.player_idx], input.reg[env.player_idx + 1]);
+    let position = (
+        input.reg[env.player_idx * 2],
+        input.reg[(env.player_idx * 2) + 1],
+    );
     let distance = euclidean_distance(position, (0, 0));
 
     for direction in [Action::Right, Action::Up, Action::Left, Action::Down] {
@@ -242,21 +304,43 @@ fn archery(env: &Env, input: Input) -> ActionScore {
         action_score[direction as usize] = improvement;
     }
 
-    action_score
+    let rank = Rank::from((
+        distance,
+        [
+            euclidean_distance(
+                (
+                    input.reg[env.opponent_idx[0] * 2],
+                    input.reg[(env.opponent_idx[0] * 2) + 1],
+                ),
+                (0, 0),
+            ),
+            euclidean_distance(
+                (
+                    input.reg[env.opponent_idx[1] * 2],
+                    input.reg[(env.opponent_idx[1] * 2) + 1],
+                ),
+                (0, 0),
+            ),
+        ],
+    ));
+
+    (action_score, rank)
 }
 
 fn euclidean_distance(a: (i32, i32), b: (i32, i32)) -> f64 {
     (((b.0 - a.0) as f64).powi(2) + ((b.1 - a.1) as f64).powi(2)).sqrt()
 }
 
-fn diving(env: &Env, input: Input) -> ActionScore {
+fn diving(env: &Env, input: Input) -> (ActionScore, Rank) {
     let mut action_score = [0.0; ACTION_AMOUNT];
 
     let Some(goal) = input.gpu.chars().next() else {
-        return action_score;
+        return (action_score, Rank::Bronze);
     };
 
     let goal = Action::from(goal);
+
+    action_score[goal as usize] = 2.0;
 
     let mut my_score = 0;
     let mut op_score = [0; PLAYER_NUMBER - 1];
@@ -281,7 +365,15 @@ fn diving(env: &Env, input: Input) -> ActionScore {
         3.0
     };
 
-    action_score
+    let rank = Rank::from((
+        input.reg[env.player_idx] as f64,
+        [
+            input.reg[env.opponent_idx[0]] as f64,
+            input.reg[env.opponent_idx[1]] as f64,
+        ],
+    ));
+
+    (action_score, rank)
 }
 
 fn main() {
