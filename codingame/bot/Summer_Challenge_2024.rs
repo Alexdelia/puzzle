@@ -132,7 +132,7 @@ impl Input {
         dbg!(&gpu);
 
         let mut reg = [0; REG_SIZE];
-        for i in 1..REG_SIZE {
+        for i in 0..REG_SIZE {
             reg[i] = inputs[i + 1].trim().parse::<i32>().unwrap();
         }
 
