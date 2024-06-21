@@ -30,8 +30,6 @@ const REG_SIZE: usize = 7;
 const ACTION_AMOUNT: usize = 4;
 const GAME_OVER: &str = "GAME_OVER";
 
-const DIVING_ROUND: usize = 14;
-
 struct Env {
     player_idx: usize,
 }
@@ -251,12 +249,8 @@ fn euclidean_distance(a: (i32, i32), b: (i32, i32)) -> f64 {
     (((b.0 - a.0) as f64).powi(2) + ((b.1 - a.1) as f64).powi(2)).sqrt()
 }
 
-fn diving(_env: &Env, input: Input) -> ActionScore {
+fn diving(env: &Env, input: Input) -> ActionScore {
     let mut action_score = [0.0; ACTION_AMOUNT];
-
-    if input.gpu.len() <= DIVING_ROUND / 2 {
-        return action_score;
-    }
 
     let Some(goal) = input.gpu.chars().next() else {
         return action_score;
@@ -264,7 +258,28 @@ fn diving(_env: &Env, input: Input) -> ActionScore {
 
     let goal = Action::from(goal);
 
-    action_score[goal as usize] = 64.0;
+    let mut my_score = 0;
+    let mut op_score = [0; PLAYER_NUMBER - 1];
+
+    {
+        let mut op_score_index = 0;
+        for i in 0..PLAYER_NUMBER {
+            if i == env.player_idx {
+                my_score = input.reg[i];
+            } else {
+                op_score[op_score_index] = input.reg[i];
+                op_score_index += 1;
+            }
+        }
+    }
+
+    action_score[goal as usize] = if my_score > op_score[0] && my_score > op_score[1] {
+        0.5
+    } else if my_score > op_score[0] || my_score > op_score[1] {
+        1.5
+    } else {
+        3.0
+    };
 
     action_score
 }
