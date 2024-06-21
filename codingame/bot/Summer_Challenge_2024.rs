@@ -22,7 +22,7 @@ struct Input {
     reg: [Register; REG_SIZE],
 }
 
-type ActionScore = [i32; ACTION_AMOUNT];
+type ActionScore = [f64; ACTION_AMOUNT];
 
 const PLAYER_NUMBER: usize = 3;
 const GAME_AMOUNT: usize = 4;
@@ -88,7 +88,7 @@ impl Env {
         let highest_score = score_sum
             .iter()
             .enumerate()
-            .max_by_key(|x| x.1)
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
             .expect("No max score")
             .0;
 
@@ -158,7 +158,7 @@ impl Game {
         match self {
             Self::HurdleRace => hurdle(env, input),
             Self::Archery => archery(env, input),
-            Self::RollerSpeedSkating => [0; ACTION_AMOUNT],
+            Self::RollerSpeedSkating => [0.0; ACTION_AMOUNT],
             Self::Diving => diving(env, input),
         }
     }
@@ -167,33 +167,34 @@ impl Game {
 fn hurdle(env: &Env, input: Input) -> ActionScore {
     let position = input.reg[env.player_idx] as usize;
     let hurdle = hurdle_in(&input.gpu, position);
+    dbg!(hurdle);
 
-    let mut action_score = [0; ACTION_AMOUNT];
+    let mut action_score = [0.0; ACTION_AMOUNT];
 
     match hurdle {
         1 => {
-            action_score[Action::Left as usize] = -2;
-            action_score[Action::Down as usize] = -2;
-            action_score[Action::Right as usize] = -2;
-            action_score[Action::Up as usize] = 2;
+            action_score[Action::Left as usize] = -2.0;
+            action_score[Action::Down as usize] = -2.0;
+            action_score[Action::Right as usize] = -2.0;
+            action_score[Action::Up as usize] = 2.0;
         }
         2 => {
-            action_score[Action::Left as usize] = 2;
-            action_score[Action::Down as usize] = -1;
-            action_score[Action::Right as usize] = -1;
-            action_score[Action::Up as usize] = -1;
+            action_score[Action::Left as usize] = 2.0;
+            action_score[Action::Down as usize] = -1.0;
+            action_score[Action::Right as usize] = -1.0;
+            action_score[Action::Up as usize] = -1.0;
         }
         3 => {
-            action_score[Action::Left as usize] = 1;
-            action_score[Action::Down as usize] = 2;
-            action_score[Action::Right as usize] = 0;
-            action_score[Action::Up as usize] = 2;
+            action_score[Action::Left as usize] = 1.0;
+            action_score[Action::Down as usize] = 2.0;
+            action_score[Action::Right as usize] = 0.0;
+            action_score[Action::Up as usize] = 2.0;
         }
         _ => {
-            action_score[Action::Left as usize] = 1;
-            action_score[Action::Down as usize] = 2;
-            action_score[Action::Right as usize] = 3;
-            action_score[Action::Up as usize] = 2;
+            action_score[Action::Left as usize] = 1.0;
+            action_score[Action::Down as usize] = 2.0;
+            action_score[Action::Right as usize] = 3.0;
+            action_score[Action::Up as usize] = 2.0;
         }
     }
 
@@ -214,7 +215,7 @@ fn hurdle_in(track: &str, index: usize) -> usize {
 }
 
 fn archery(env: &Env, input: Input) -> ActionScore {
-    let mut action_score = [0; ACTION_AMOUNT];
+    let mut action_score = [0.0; ACTION_AMOUNT];
 
     let wind = input
         .gpu
@@ -225,9 +226,7 @@ fn archery(env: &Env, input: Input) -> ActionScore {
         .unwrap_or_else(|| panic!("could not parse wind {}", input.gpu));
 
     let position = (input.reg[env.player_idx], input.reg[env.player_idx + 1]);
-    dbg!(position);
     let distance = euclidean_distance(position, (0, 0));
-    dbg!(distance);
 
     for direction in [Action::Right, Action::Up, Action::Left, Action::Down] {
         let new_position = match direction {
@@ -236,22 +235,11 @@ fn archery(env: &Env, input: Input) -> ActionScore {
             Action::Left => (position.0 - wind as i32, position.1),
             Action::Down => (position.0, position.1 + wind as i32),
         };
-        dbg!(new_position);
         let new_distance = euclidean_distance(new_position, (0, 0));
-        dbg!(new_distance);
 
         let improvement = distance - new_distance;
 
-		action_score[direction as usize] = 
-        match improvement {
-			-64.0..=-7.0 =>  -2,
-			-7.0..=-1.0 =>  -1,
-			-1.0..=0.0 =>   0,
-			0.0..=1.0 =>   1,
-			1.0..=7.0 =>   2,
-			7.0..=64.0 =>   3,
-            _ => panic!("improvement of {improvement} is not valid\n{position:?} -> {new_position:?}\n{distance} -> {new_distance}"),
-        };
+        action_score[direction as usize] = improvement;
     }
 
     action_score
@@ -262,7 +250,7 @@ fn euclidean_distance(a: (i32, i32), b: (i32, i32)) -> f64 {
 }
 
 fn diving(_env: &Env, input: Input) -> ActionScore {
-    let mut action_score = [0; ACTION_AMOUNT];
+    let mut action_score = [0.0; ACTION_AMOUNT];
 
     let Some(goal) = input.gpu.chars().next() else {
         return action_score;
@@ -270,7 +258,7 @@ fn diving(_env: &Env, input: Input) -> ActionScore {
 
     let goal = Action::from(goal);
 
-    action_score[goal as usize] = 2;
+    action_score[goal as usize] = 2.0;
 
     action_score
 }
