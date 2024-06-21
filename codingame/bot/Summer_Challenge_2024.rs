@@ -28,15 +28,10 @@ const PLAYER_NUMBER: usize = 3;
 const GAME_AMOUNT: usize = 4;
 const REG_SIZE: usize = 7;
 const ACTION_AMOUNT: usize = 4;
+const GAME_OVER: &str = "GAME_OVER";
 
 struct Env {
     player_idx: usize,
-}
-
-macro_rules! parse_input {
-    ($x:expr, $t:ident) => {
-        $x.trim().parse::<$t>().unwrap()
-    };
 }
 
 impl fmt::Display for Action {
@@ -78,7 +73,9 @@ impl Env {
         for i in 0..GAME_AMOUNT {
             let game = Game::from(i);
 
-            let input = Input::from_stdin();
+            let Some(input) = Input::from_stdin() else {
+                continue;
+            };
 
             let game_score = game.dispatch(self, input);
             dbg!(&game_score);
@@ -123,20 +120,36 @@ impl From<usize> for Action {
     }
 }
 
+impl From<char> for Action {
+    fn from(value: char) -> Self {
+        match value {
+            'R' => Self::Right,
+            'U' => Self::Up,
+            'L' => Self::Left,
+            'D' => Self::Down,
+            _ => panic!("{value} is not a valid action"),
+        }
+    }
+}
+
 impl Input {
-    fn from_stdin() -> Self {
+    fn from_stdin() -> Option<Self> {
         let line = Env::read_line();
         let inputs = line.split(' ').collect::<Vec<_>>();
 
         let gpu = inputs[0].trim().to_string();
         dbg!(&gpu);
 
+        if gpu == GAME_OVER {
+            return None;
+        }
+
         let mut reg = [0; REG_SIZE];
         for i in 0..REG_SIZE {
             reg[i] = inputs[i + 1].trim().parse::<i32>().unwrap();
         }
 
-        Self { gpu, reg }
+        Some(Self { gpu, reg })
     }
 }
 
@@ -144,9 +157,9 @@ impl Game {
     fn dispatch(&self, env: &Env, input: Input) -> ActionScore {
         match self {
             Self::HurdleRace => hurdle(env, input),
-            Self::Archery => [0, 0, 0, 0],
-            Self::RollerSpeedSkating => [0, 0, 0, 0],
-            Self::Diving => [0, 0, 0, 0],
+            Self::Archery => [0; ACTION_AMOUNT],
+            Self::RollerSpeedSkating => [0; ACTION_AMOUNT],
+            Self::Diving => diving(env, input),
         }
     }
 }
@@ -198,6 +211,20 @@ fn hurdle_in(track: &str, index: usize) -> usize {
         i += 1;
     }
     64
+}
+
+fn diving(_env: &Env, input: Input) -> ActionScore {
+    let mut action_score = [0; ACTION_AMOUNT];
+
+    let Some(goal) = input.gpu.chars().next() else {
+        return action_score;
+    };
+
+    let goal = Action::from(goal);
+
+    action_score[goal as usize] = 2;
+
+    action_score
 }
 
 fn main() {
