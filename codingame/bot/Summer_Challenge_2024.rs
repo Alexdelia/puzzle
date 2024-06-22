@@ -1,6 +1,6 @@
 use std::{fmt, io, str::FromStr};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum Game {
     HurdleRace = 0,
     Archery = 1,
