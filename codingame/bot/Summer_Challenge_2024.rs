@@ -272,6 +272,7 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
     }
     */
 
+    /*
     match rank {
         Rank::Gold => {
             for score in action_score.iter_mut() {
@@ -285,6 +286,7 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
         }
         Rank::Bronze => (),
     }
+    */
 
     /*
     eprintln!("\nAfter rank adjustment");
@@ -303,7 +305,7 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
         .all(|game| game.total() >= total)
     {
         for score in action_score.iter_mut() {
-            *score *= 8.0;
+            *score *= 2.0;
         }
     }
 
