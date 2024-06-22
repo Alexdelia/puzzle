@@ -257,7 +257,10 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
     eprintln!("g:{game:?} r:{rank:?} t:{total}");
     /*
     for (i, score) in action_score.iter().enumerate() {
-        eprintln!("{action}:\t{score:.2}", action = Action::from(i));
+        eprintln!(
+            "{action}: {score:.2}",
+            action = Action::from(i).to_string().chars().next().unwrap(),
+        );
     }
     */
 
@@ -278,7 +281,10 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
     /*
     eprintln!("\nAfter rank adjustment");
     for (i, score) in action_score.iter().enumerate() {
-        eprintln!("{action}:\t{score:.2}", action = Action::from(i));
+        eprintln!(
+            "{action}: {score:.2}",
+            action = Action::from(i).to_string().chars().next().unwrap(),
+        );
     }
     */
 
@@ -295,7 +301,10 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
 
     // eprintln!("\nAfter total adjustment");
     for (i, score) in action_score.iter().enumerate() {
-        eprintln!("{action}:\t{score:.2}", action = Action::from(i));
+        eprintln!(
+            "{action}: {score:.2}",
+            action = Action::from(i).to_string().chars().next().unwrap(),
+        );
     }
 
     action_score
