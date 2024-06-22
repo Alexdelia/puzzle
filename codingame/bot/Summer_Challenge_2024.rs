@@ -1,6 +1,6 @@
 use std::{fmt, io, str::FromStr};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Game {
     HurdleRace = 0,
     Archery = 1,
@@ -25,7 +25,7 @@ struct Input {
 
 #[derive(Debug, Default, Clone, Copy)]
 struct Score {
-    total: u32,
+    _total: u32,
     games: [GameMedal; GAME_AMOUNT],
 }
 
@@ -196,15 +196,16 @@ impl FromStr for Score {
 
         let mut games = [GameMedal::default(); GAME_AMOUNT];
 
-        for i in 0..GAME_AMOUNT {
-            games[i] = GameMedal {
-                gold: scores.next().unwrap().parse().unwrap(),
-                silver: scores.next().unwrap().parse().unwrap(),
-                bronze: scores.next().unwrap().parse().unwrap(),
-            };
+        for game in games.iter_mut() {
+            game.gold = scores.next().unwrap().parse().unwrap();
+            game.silver = scores.next().unwrap().parse().unwrap();
+            game.bronze = scores.next().unwrap().parse().unwrap();
         }
 
-        Ok(Self { total, games })
+        Ok(Self {
+            _total: total,
+            games,
+        })
     }
 }
 
@@ -307,6 +308,9 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
         eprintln!("game {game:?} total {total} needs to win");
         for score in action_score.iter_mut() {
             *score *= 4.0;
+            if game == Game::Diving {
+                *score *= 2.0;
+            }
         }
     }
 
