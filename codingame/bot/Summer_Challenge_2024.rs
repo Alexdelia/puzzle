@@ -131,6 +131,14 @@ impl Env {
             }
         }
 
+        eprintln!("score sum");
+        for (i, score) in score_sum.iter().enumerate() {
+            eprintln!(
+                "{action}: {score:.2}",
+                action = Action::from(i).to_string().chars().next().unwrap(),
+            );
+        }
+
         let highest_score = score_sum
             .iter()
             .enumerate()
