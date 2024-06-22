@@ -1,5 +1,6 @@
 use std::{fmt, io, str::FromStr};
 
+#[derive(Debug)]
 enum Game {
     HurdleRace = 0,
     Archery = 1,
@@ -123,9 +124,7 @@ impl Env {
             };
 
             let (game_score, rank) = game.dispatch(self, input);
-            dbg!(&game_score);
             let game_score = prioritize(self, game, game_score, rank);
-            dbg!(game_score);
 
             for (x, score) in game_score.iter().enumerate() {
                 score_sum[x] += score
@@ -253,6 +252,11 @@ impl GameMedal {
 }
 
 fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) -> ActionScore {
+    eprintln!("g:{game:?} r:{rank:?}");
+    for (i, score) in action_score.iter().enumerate() {
+        eprint!("{action}: {score:.2}", action = Action::from(i));
+    }
+
     match rank {
         Rank::Gold => {
             for score in action_score.iter_mut() {
@@ -267,7 +271,29 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
         Rank::Bronze => (),
     }
 
-    dbg!(&action_score);
+    eprintln!("\nAfter rank adjustment");
+    for (i, score) in action_score.iter().enumerate() {
+        eprint!("{action}: {score:.2}", action = Action::from(i));
+    }
+
+    let total = env.player_score.games[game as usize].total();
+
+    if env
+        .player_score
+        .games
+        .iter()
+        .all(|game| game.total() >= total)
+    {
+        for score in action_score.iter_mut() {
+            *score *= 8.0;
+        }
+    }
+
+    eprintln!("\nAfter total adjustment");
+    for (i, score) in action_score.iter().enumerate() {
+        eprint!("{action}: {score:.2}", action = Action::from(i));
+    }
+    eprintln!();
 
     action_score
 }
