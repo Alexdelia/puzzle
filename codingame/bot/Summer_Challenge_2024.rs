@@ -307,7 +307,7 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
     {
         eprintln!("game {game:?} total {total} needs to win");
         for score in action_score.iter_mut() {
-            *score *= 6.0;
+            *score *= 8.0;
         }
     }
 
