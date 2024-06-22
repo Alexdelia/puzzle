@@ -381,30 +381,7 @@ fn diving(env: &Env, input: Input) -> (ActionScore, Rank) {
 
     let goal = Action::from(goal);
 
-    action_score[goal as usize] = 2.0;
-
-    let mut my_score = 0;
-    let mut op_score = [0; PLAYER_NUMBER - 1];
-
-    {
-        let mut op_score_index = 0;
-        for i in 0..PLAYER_NUMBER {
-            if i == env.player_idx {
-                my_score = input.reg[i];
-            } else {
-                op_score[op_score_index] = input.reg[i];
-                op_score_index += 1;
-            }
-        }
-    }
-
-    action_score[goal as usize] = if my_score > op_score[0] && my_score > op_score[1] {
-        0.5
-    } else if my_score > op_score[0] || my_score > op_score[1] {
-        1.5
-    } else {
-        3.0
-    };
+    action_score[goal as usize] = 3.0;
 
     let rank = Rank::from((
         input.reg[env.player_idx] as f64,
