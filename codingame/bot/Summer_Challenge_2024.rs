@@ -22,13 +22,13 @@ struct Input {
     reg: [Register; REG_SIZE],
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 struct Score {
     total: u32,
     games: [GameMedal; GAME_AMOUNT],
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 struct GameMedal {
     gold: u8,
     silver: u8,
@@ -37,6 +37,7 @@ struct GameMedal {
 
 type ActionScore = [f64; ACTION_AMOUNT];
 
+#[derive(Debug, PartialEq, Eq)]
 enum Rank {
     Gold,
     Silver,
@@ -99,9 +100,15 @@ impl Env {
         }
     }
 
-    fn read_score(&self) {
-        for _ in 0..PLAYER_NUMBER {
-            dbg!(Self::read_line());
+    fn read_score(&mut self) {
+        let mut op_idx = 0;
+        for i in 0..PLAYER_NUMBER {
+            if i == self.player_idx {
+                self.player_score = Self::read_line().parse().unwrap();
+            } else {
+                self.opponent_score[op_idx] = Self::read_line().parse().unwrap();
+                op_idx += 1;
+            }
         }
     }
 
@@ -117,7 +124,7 @@ impl Env {
 
             let (game_score, rank) = game.dispatch(self, input);
             dbg!(&game_score);
-            let game_score = prioritize(game_score, rank);
+            let game_score = prioritize(self, game, game_score, rank);
             dbg!(game_score);
 
             for (x, score) in game_score.iter().enumerate() {
@@ -176,7 +183,7 @@ impl FromStr for Score {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut scores = s.split(' ');
+        let mut scores = s.trim().split(' ');
 
         let total = scores.next().unwrap().parse().unwrap();
 
@@ -239,22 +246,24 @@ impl Game {
     }
 }
 
-fn prioritize(mut action_score: ActionScore, rank: Rank) -> ActionScore {
+fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) -> ActionScore {
     match rank {
         Rank::Gold => {
             for score in action_score.iter_mut() {
                 *score /= 4.0
             }
-            action_score
         }
         Rank::Silver => {
             for score in action_score.iter_mut() {
                 *score /= 2.0
             }
-            action_score
         }
-        Rank::Bronze => action_score,
+        Rank::Bronze => (),
     }
+
+    dbg!(&action_score);
+
+    action_score
 }
 
 fn hurdle(env: &Env, input: Input) -> (ActionScore, Rank) {
@@ -395,7 +404,7 @@ fn diving(env: &Env, input: Input) -> (ActionScore, Rank) {
 }
 
 fn main() {
-    let e = Env::init();
+    let mut e = Env::init();
 
     loop {
         e.read_score();
@@ -426,5 +435,60 @@ mod tests {
         assert_eq!(euclidean_distance((1, 1), (0, 0)), 1.4142135623730951);
         assert_eq!(euclidean_distance((2, 2), (0, 0)), 2.8284271247461903);
         assert_eq!(euclidean_distance((-2, -2), (0, 0)), 2.8284271247461903);
+    }
+
+    #[test]
+    fn test_from_str_score() {
+        let score = "42 1 2 3 4 5 6 7 8 9 10 11 12".parse::<Score>().unwrap();
+
+        assert_eq!(score.total, 42);
+
+        assert_eq!(score.games[Game::HurdleRace as usize].gold, 1);
+        assert_eq!(score.games[Game::HurdleRace as usize].silver, 2);
+        assert_eq!(score.games[Game::HurdleRace as usize].bronze, 3);
+
+        assert_eq!(score.games[Game::Archery as usize].gold, 4);
+        assert_eq!(score.games[Game::Archery as usize].silver, 5);
+        assert_eq!(score.games[Game::Archery as usize].bronze, 6);
+
+        assert_eq!(score.games[Game::RollerSpeedSkating as usize].gold, 7);
+        assert_eq!(score.games[Game::RollerSpeedSkating as usize].silver, 8);
+        assert_eq!(score.games[Game::RollerSpeedSkating as usize].bronze, 9);
+
+        assert_eq!(score.games[Game::Diving as usize].gold, 10);
+        assert_eq!(score.games[Game::Diving as usize].silver, 11);
+        assert_eq!(score.games[Game::Diving as usize].bronze, 12);
+
+        let score = "0 0 0 0 0 0 0 0 0 0 0 0 0\n".parse::<Score>().unwrap();
+
+        assert_eq!(score.total, 0);
+
+        assert_eq!(score.games[Game::HurdleRace as usize].gold, 0);
+        assert_eq!(score.games[Game::HurdleRace as usize].silver, 0);
+        assert_eq!(score.games[Game::HurdleRace as usize].bronze, 0);
+
+        assert_eq!(score.games[Game::Archery as usize].gold, 0);
+        assert_eq!(score.games[Game::Archery as usize].silver, 0);
+        assert_eq!(score.games[Game::Archery as usize].bronze, 0);
+
+        assert_eq!(score.games[Game::RollerSpeedSkating as usize].gold, 0);
+        assert_eq!(score.games[Game::RollerSpeedSkating as usize].silver, 0);
+        assert_eq!(score.games[Game::RollerSpeedSkating as usize].bronze, 0);
+
+        assert_eq!(score.games[Game::Diving as usize].gold, 0);
+        assert_eq!(score.games[Game::Diving as usize].silver, 0);
+        assert_eq!(score.games[Game::Diving as usize].bronze, 0);
+    }
+
+    #[test]
+    fn test_parse_rank() {
+        let rank = Rank::from((1.0, [0.0, 0.0]));
+        assert_eq!(rank, Rank::Gold);
+
+        let rank = Rank::from((1.0, [2.0, 0.0]));
+        assert_eq!(rank, Rank::Silver);
+
+        let rank = Rank::from((1.0, [2.0, 3.0]));
+        assert_eq!(rank, Rank::Bronze);
     }
 }
