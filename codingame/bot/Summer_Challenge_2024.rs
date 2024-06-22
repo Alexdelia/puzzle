@@ -246,6 +246,12 @@ impl Game {
     }
 }
 
+impl GameMedal {
+    fn total(&self) -> u32 {
+        (self.gold as u32) * 3 + (self.silver as u32)
+    }
+}
+
 fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) -> ActionScore {
     match rank {
         Rank::Gold => {
@@ -490,5 +496,32 @@ mod tests {
 
         let rank = Rank::from((1.0, [2.0, 3.0]));
         assert_eq!(rank, Rank::Bronze);
+    }
+
+    #[test]
+    fn test_game_medal_total() {
+        let medal = GameMedal {
+            gold: 1,
+            silver: 2,
+            bronze: 3,
+        };
+
+        assert_eq!(medal.total(), 1 * 3 + 2);
+
+        let medal = GameMedal {
+            gold: 0,
+            silver: 0,
+            bronze: 0,
+        };
+
+        assert_eq!(medal.total(), 0);
+
+        let medal = GameMedal {
+            gold: 42,
+            silver: 8,
+            bronze: 16,
+        };
+
+        assert_eq!(medal.total(), 42 * 3 + 8);
     }
 }
