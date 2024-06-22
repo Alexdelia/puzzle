@@ -1,4 +1,4 @@
-use std::{fmt, io};
+use std::{fmt, io, str::FromStr};
 
 enum Game {
     HurdleRace = 0,
@@ -22,6 +22,19 @@ struct Input {
     reg: [Register; REG_SIZE],
 }
 
+#[derive(Default, Clone, Copy)]
+struct Score {
+    total: u32,
+    games: [GameMedal; GAME_AMOUNT],
+}
+
+#[derive(Default, Clone, Copy)]
+struct GameMedal {
+    gold: u8,
+    silver: u8,
+    bronze: u8,
+}
+
 type ActionScore = [f64; ACTION_AMOUNT];
 
 enum Rank {
@@ -39,6 +52,9 @@ const GAME_OVER: &str = "GAME_OVER";
 struct Env {
     player_idx: usize,
     opponent_idx: [usize; PLAYER_NUMBER - 1],
+
+    player_score: Score,
+    opponent_score: [Score; PLAYER_NUMBER - 1],
 }
 
 impl fmt::Display for Action {
@@ -77,6 +93,9 @@ impl Env {
         Self {
             player_idx,
             opponent_idx,
+
+            player_score: Score::default(),
+            opponent_score: [Score::default(); PLAYER_NUMBER - 1],
         }
     }
 
@@ -150,6 +169,28 @@ impl From<char> for Action {
             'D' => Self::Down,
             _ => panic!("{value} is not a valid action"),
         }
+    }
+}
+
+impl FromStr for Score {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut scores = s.split(' ');
+
+        let total = scores.next().unwrap().parse().unwrap();
+
+        let mut games = [GameMedal::default(); GAME_AMOUNT];
+
+        for i in 0..GAME_AMOUNT {
+            games[i] = GameMedal {
+                gold: scores.next().unwrap().parse().unwrap(),
+                silver: scores.next().unwrap().parse().unwrap(),
+                bronze: scores.next().unwrap().parse().unwrap(),
+            };
+        }
+
+        Ok(Self { total, games })
     }
 }
 
@@ -383,5 +424,30 @@ fn main() {
         e.read_score();
 
         println!("{action}", action = e.solve());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hurdle_in() {
+        assert_eq!(hurdle_in("....#....", 0), 4);
+        assert_eq!(hurdle_in("....#....", 1), 3);
+        assert_eq!(hurdle_in("....#....", 2), 2);
+        assert_eq!(hurdle_in("....#....", 3), 1);
+        assert_eq!(hurdle_in("....#....", 4), 64);
+        assert_eq!(hurdle_in("....#....", 5), 64);
+    }
+
+    #[test]
+    fn test_euclidean_distance() {
+        assert_eq!(euclidean_distance((0, 0), (0, 0)), 0.0);
+        assert_eq!(euclidean_distance((1, 0), (0, 0)), 1.0);
+        assert_eq!(euclidean_distance((0, 1), (0, 0)), 1.0);
+        assert_eq!(euclidean_distance((1, 1), (0, 0)), 1.4142135623730951);
+        assert_eq!(euclidean_distance((2, 2), (0, 0)), 2.8284271247461903);
+        assert_eq!(euclidean_distance((-2, -2), (0, 0)), 2.8284271247461903);
     }
 }
