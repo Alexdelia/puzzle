@@ -307,10 +307,7 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
     {
         eprintln!("game {game:?} total {total} needs to win");
         for score in action_score.iter_mut() {
-            *score *= 4.0;
-            if game == Game::Diving {
-                *score *= 2.0;
-            }
+            *score *= 6.0;
         }
     }
 
