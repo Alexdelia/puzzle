@@ -252,10 +252,14 @@ impl GameMedal {
 }
 
 fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) -> ActionScore {
-    eprintln!("g:{game:?} r:{rank:?}");
+    let total = env.player_score.games[game as usize].total();
+
+    eprintln!("g:{game:?} r:{rank:?} t:{total}");
+    /*
     for (i, score) in action_score.iter().enumerate() {
-        eprint!("{action}: {score:.2}", action = Action::from(i));
+        eprintln!("{action}:\t{score:.2}", action = Action::from(i));
     }
+    */
 
     match rank {
         Rank::Gold => {
@@ -271,12 +275,12 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
         Rank::Bronze => (),
     }
 
+    /*
     eprintln!("\nAfter rank adjustment");
     for (i, score) in action_score.iter().enumerate() {
-        eprint!("{action}: {score:.2}", action = Action::from(i));
+        eprintln!("{action}:\t{score:.2}", action = Action::from(i));
     }
-
-    let total = env.player_score.games[game as usize].total();
+    */
 
     if env
         .player_score
@@ -289,11 +293,10 @@ fn prioritize(env: &Env, game: Game, mut action_score: ActionScore, rank: Rank) 
         }
     }
 
-    eprintln!("\nAfter total adjustment");
+    // eprintln!("\nAfter total adjustment");
     for (i, score) in action_score.iter().enumerate() {
-        eprint!("{action}: {score:.2}", action = Action::from(i));
+        eprintln!("{action}:\t{score:.2}", action = Action::from(i));
     }
-    eprintln!();
 
     action_score
 }
