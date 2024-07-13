@@ -3,8 +3,6 @@ name = "codingame"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [[bin]]
 name = "Messed_up_mosaics"
 path = "solved/Messed_up_mosaics.rs"
@@ -25,4 +23,6 @@ path = "solved/Factorial_vs_Exponential.rs"
 name = "Shoot_Enemy_Aircraft"
 path = "solved/Shoot_Enemy_Aircraft.rs"
 
-[dependencies]
+[[bin]]
+name = "Count_your_coins"
+path = "solved/Count_your_coins.rs"
