@@ -26,3 +26,7 @@ path = "solved/Shoot_Enemy_Aircraft.rs"
 [[bin]]
 name = "Count_your_coins"
 path = "solved/Count_your_coins.rs"
+
+[[bin]]
+name = "Annihilation"
+path = "solved/Annihilation.rs"
