@@ -1,8 +1,12 @@
+.vscode
+
 obj
 libft.a
 a.out
 *.out
 *~
-.vscode
 target/
 Cargo.lock
+
+.direnv
+.devenv
