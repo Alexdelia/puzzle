@@ -2,28 +2,32 @@ _: {
   projectRootFile = ".git/config";
 
   programs = {
-    rustfmt = {
-      enable = true;
-      edition = "2024";
-    };
+    rustfmt.enable = true;
 
     alejandra.enable = true;
     deadnix.enable = true;
     statix.enable = true;
   };
 
-  settings.global.excludes = [
-    ".gitingore"
+  settings = {
+    global.excludes = [
+      ".gitingore"
 
-    "*.lock"
+      "*.lock"
 
-    ".env*"
+      ".env*"
 
-    "*.png"
-    "*.ico"
+      "*.png"
+      "*.ico"
 
-    "*.toml"
+      "*.toml"
 
-    "codingame/code_golf/*"
-  ];
+      "codingame/code_golf/*"
+    ];
+
+    formatter.rustfmt.options = [
+      "--config-path"
+      (builtins.toString ./.rustfmt.toml)
+    ];
+  };
 }
