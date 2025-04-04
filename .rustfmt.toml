@@ -1,0 +1,4 @@
+edition = "2024"
+
+hard_tabs = true
+# group_imports = "StdExternalCrate"

@@ -24,6 +24,6 @@ _: {
 
     "*.toml"
 
-    "code_golf/"
+    "codingame/code_golf/*"
   ];
 }
