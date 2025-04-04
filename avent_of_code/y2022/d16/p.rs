@@ -3,151 +3,151 @@ use std::env::args;
 
 #[derive(Clone)]
 struct Node {
-    valve: String,
-    time: i8,
-    released: u16,
-    visited: HashSet<String>,
-    opened_all: bool,
+	valve: String,
+	time: i8,
+	released: u16,
+	visited: HashSet<String>,
+	opened_all: bool,
 }
 
 impl Eq for Node {}
 
 impl PartialEq for Node {
-    fn eq(&self, other: &Self) -> bool {
-        self.priority() == other.priority()
-    }
+	fn eq(&self, other: &Self) -> bool {
+		self.priority() == other.priority()
+	}
 }
 
 impl Ord for Node {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.priority().cmp(&other.priority())
-    }
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		self.priority().cmp(&other.priority())
+	}
 }
 
 impl PartialOrd for Node {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
 }
 
 impl Node {
-    fn new(
-        valve: String,
-        time: i8,
-        released: u16,
-        visited: HashSet<String>,
-        pressured: &HashSet<String>,
-    ) -> Self {
-        Self {
-            valve,
-            time,
-            released,
-            opened_all: pressured.is_subset(&visited),
-            visited,
-        }
-    }
+	fn new(
+		valve: String,
+		time: i8,
+		released: u16,
+		visited: HashSet<String>,
+		pressured: &HashSet<String>,
+	) -> Self {
+		Self {
+			valve,
+			time,
+			released,
+			opened_all: pressured.is_subset(&visited),
+			visited,
+		}
+	}
 
-    fn explore(&mut self, d: &HashMap<String, (u8, Vec<String>)>) {
-        if !self.visited.contains(&self.valve) {
-            self.time -= 1;
-            self.released += self.time as u16 * d[&self.valve].0 as u16;
-            self.visited.insert(self.valve.clone());
-        }
-        self.time -= 1;
-    }
+	fn explore(&mut self, d: &HashMap<String, (u8, Vec<String>)>) {
+		if !self.visited.contains(&self.valve) {
+			self.time -= 1;
+			self.released += self.time as u16 * d[&self.valve].0 as u16;
+			self.visited.insert(self.valve.clone());
+		}
+		self.time -= 1;
+	}
 
-    fn priority(&self) -> u16 {
-        self.released
-    }
+	fn priority(&self) -> u16 {
+		self.released
+	}
 }
 
 fn main() {
-    if args().len() != 2 {
-        panic!("usage: cargo run --bin y2022d16 <input file>");
-    }
+	if args().len() != 2 {
+		panic!("usage: cargo run --bin y2022d16 <input file>");
+	}
 
-    let lines: Vec<String> = std::fs::read_to_string(args().nth(1).unwrap())
-        .unwrap()
-        .lines()
-        .map(|s| s.to_string())
-        .collect();
+	let lines: Vec<String> = std::fs::read_to_string(args().nth(1).unwrap())
+		.unwrap()
+		.lines()
+		.map(|s| s.to_string())
+		.collect();
 
-    let mut d: HashMap<String, (u8, Vec<String>)> = HashMap::new();
-    let mut pressured: HashSet<String> = HashSet::new();
+	let mut d: HashMap<String, (u8, Vec<String>)> = HashMap::new();
+	let mut pressured: HashSet<String> = HashSet::new();
 
-    for l in lines {
-        let l = l
-            .chars()
-            .filter(|c| c.is_ascii_uppercase() || c.is_numeric() || c.is_ascii_whitespace())
-            .collect::<String>();
-        let l = l
-            .split(' ')
-            .filter(|s| !s.is_empty())
-            .skip(1)
-            .collect::<Vec<&str>>();
+	for l in lines {
+		let l = l
+			.chars()
+			.filter(|c| c.is_ascii_uppercase() || c.is_numeric() || c.is_ascii_whitespace())
+			.collect::<String>();
+		let l = l
+			.split(' ')
+			.filter(|s| !s.is_empty())
+			.skip(1)
+			.collect::<Vec<&str>>();
 
-        let mut v = Vec::new();
-        for i in l.iter().skip(2) {
-            v.push(i.to_string());
-        }
+		let mut v = Vec::new();
+		for i in l.iter().skip(2) {
+			v.push(i.to_string());
+		}
 
-        let rate = l[1].parse().unwrap();
+		let rate = l[1].parse().unwrap();
 
-        d.insert(l[0].to_string(), (rate, v));
-        if rate > 0 {
-            pressured.insert(l[0].to_string());
-        }
-    }
+		d.insert(l[0].to_string(), (rate, v));
+		if rate > 0 {
+			pressured.insert(l[0].to_string());
+		}
+	}
 
-    let mut q: BinaryHeap<Node> = BinaryHeap::from(vec![Node::new(
-        "AA".to_string(),
-        30,
-        0,
-        HashSet::new(),
-        &d.keys().cloned().collect(),
-    )]);
+	let mut q: BinaryHeap<Node> = BinaryHeap::from(vec![Node::new(
+		"AA".to_string(),
+		30,
+		0,
+		HashSet::new(),
+		&d.keys().cloned().collect(),
+	)]);
 
-    let mut max = 0;
-    let mut i: usize = 0;
+	let mut max = 0;
+	let mut i: usize = 0;
 
-    while let Some(cur) = q.pop() {
-        i += 1;
-        if i > 1_000 {
-            print!("                \r{}\t{}\r", q.len(), cur.released);
-            i = 0;
-        }
+	while let Some(cur) = q.pop() {
+		i += 1;
+		if i > 1_000 {
+			print!("                \r{}\t{}\r", q.len(), cur.released);
+			i = 0;
+		}
 
-        if cur.time <= 0 || cur.opened_all {
-            if cur.released > max {
-                max = cur.released;
-                println!("              \rnew max:\t{}", max)
-            }
-            continue;
-        }
-        for v in &d[&cur.valve].1 {
-            let mut n = cur.clone();
-            n.valve = v.clone();
-            n.explore(&d);
-            n.opened_all = pressured.is_subset(&n.visited);
-            q.push(n);
-        }
-    }
+		if cur.time <= 0 || cur.opened_all {
+			if cur.released > max {
+				max = cur.released;
+				println!("              \rnew max:\t{}", max)
+			}
+			continue;
+		}
+		for v in &d[&cur.valve].1 {
+			let mut n = cur.clone();
+			n.valve = v.clone();
+			n.explore(&d);
+			n.opened_all = pressured.is_subset(&n.visited);
+			q.push(n);
+		}
+	}
 
-    println!("{}", max);
+	println!("{}", max);
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+	use super::*;
 
-    #[test]
-    fn heap() {
-        let mut q: BinaryHeap<Node> = BinaryHeap::from(vec![
-            Node::new("AA".to_string(), 30, 0, HashSet::new(), &HashSet::new()),
-            Node::new("AA".to_string(), 30, 42, HashSet::new(), &HashSet::new()),
-        ]);
+	#[test]
+	fn heap() {
+		let mut q: BinaryHeap<Node> = BinaryHeap::from(vec![
+			Node::new("AA".to_string(), 30, 0, HashSet::new(), &HashSet::new()),
+			Node::new("AA".to_string(), 30, 42, HashSet::new(), &HashSet::new()),
+		]);
 
-        assert_eq!(q.pop().unwrap().released, 42);
-        assert_eq!(q.pop().unwrap().released, 0);
-    }
+		assert_eq!(q.pop().unwrap().released, 42);
+		assert_eq!(q.pop().unwrap().released, 0);
+	}
 }
