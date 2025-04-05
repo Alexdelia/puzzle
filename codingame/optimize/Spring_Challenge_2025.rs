@@ -1,6 +1,7 @@
 #![allow(clippy::zero_prefixed_literal)]
 
 use std::collections::VecDeque;
+use std::io::Read;
 
 type Depth = u8;
 
@@ -31,7 +32,7 @@ fn parse() -> (Depth, Board) {
 	std::io::stdin().read_line(&mut input_line).unwrap();
 	let depth = parse_input!(input_line, u8);
 
-	let starting_board = Board::parse();
+	let starting_board = Board::parse(Board::read());
 
 	(depth, starting_board)
 }
@@ -47,42 +48,26 @@ const C_T_: BoardIndex = 21;
 const C_TL: BoardIndex = 24;
 
 impl Board {
-	fn parse() -> Self {
-		let ascii_zero = '0' as BoardBitSize;
-		let mut line = String::with_capacity(6);
+	fn read() -> [u8; 18] {
+		let mut buffer = [0u8; 18];
+		std::io::stdin().read_exact(&mut buffer).unwrap();
+		dbg!(&buffer);
+		buffer
+	}
 
-		std::io::stdin().read_line(&mut line).unwrap();
-		std::io::stdin().read_line(&mut line).unwrap();
-		std::io::stdin().read_line(&mut line).unwrap();
-		let mut chars = line.chars();
-		let c0 = chars.next().unwrap() as BoardBitSize - ascii_zero;
-		chars.next();
-		let c1 = chars.next().unwrap() as BoardBitSize - ascii_zero;
-		chars.next();
-		let c2 = chars.next().unwrap() as BoardBitSize - ascii_zero;
-		chars.next();
-		let c3 = chars.next().unwrap() as BoardBitSize - ascii_zero;
-		chars.next();
-		let c4 = chars.next().unwrap() as BoardBitSize - ascii_zero;
-		chars.next();
-		let c5 = chars.next().unwrap() as BoardBitSize - ascii_zero;
-		chars.next();
-		let c6 = chars.next().unwrap() as BoardBitSize - ascii_zero;
-		chars.next();
-		let c7 = chars.next().unwrap() as BoardBitSize - ascii_zero;
-		chars.next();
-		let c8 = chars.next().unwrap() as BoardBitSize - ascii_zero;
+	fn parse(input: [u8; 18]) -> Self {
+		let ascii_zero = '0' as u8;
 
 		Self(
-			(c0 << C_TL)
-				| (c1 << C_T_)
-				| (c2 << C_TR)
-				| (c3 << C_L_)
-				| (c4 << C_M_)
-				| (c5 << C_R_)
-				| (c6 << C_BL)
-				| (c7 << C_B_)
-				| (c8 << C_BR),
+			(((input[0] - ascii_zero) as BoardBitSize) << C_TL)
+				| (((input[2] - ascii_zero) as BoardBitSize) << C_T_)
+				| (((input[4] - ascii_zero) as BoardBitSize) << C_TR)
+				| (((input[6] - ascii_zero) as BoardBitSize) << C_L_)
+				| (((input[8] - ascii_zero) as BoardBitSize) << C_M_)
+				| (((input[10] - ascii_zero) as BoardBitSize) << C_R_)
+				| (((input[12] - ascii_zero) as BoardBitSize) << C_BL)
+				| (((input[14] - ascii_zero) as BoardBitSize) << C_B_)
+				| ((input[16] - ascii_zero) as BoardBitSize),
 		)
 	}
 
@@ -230,6 +215,27 @@ mod tests {
 	use super::*;
 
 	#[test]
+	fn test_parse() {
+		let input = [
+			'1' as u8, ' ' as u8, '2' as u8, ' ' as u8, '3' as u8, '\n' as u8, //
+			'4' as u8, ' ' as u8, '5' as u8, ' ' as u8, '6' as u8, '\n' as u8, //
+			'0' as u8, ' ' as u8, '2' as u8, ' ' as u8, '4' as u8, '\n' as u8,
+		];
+		let board = Board::parse(input);
+		assert_eq!(board.0, 0b_001_010_011_100_101_110_000_010_100);
+		assert_eq!(board.get(C_TL), 1);
+		assert_eq!(board.get(C_T_), 2);
+		assert_eq!(board.get(C_TR), 3);
+		assert_eq!(board.get(C_L_), 4);
+		assert_eq!(board.get(C_M_), 5);
+		assert_eq!(board.get(C_R_), 6);
+		assert_eq!(board.get(C_BL), 0);
+		assert_eq!(board.get(C_B_), 2);
+		assert_eq!(board.get(C_BR), 4);
+		assert_eq!(board.hash(), 123_456_024);
+	}
+
+	#[test]
 	fn test_get() {
 		let board = Board(0b_001_010_011_100_101_110_000_010_100);
 		assert_eq!(board.get(C_TL), 1);
@@ -241,5 +247,11 @@ mod tests {
 		assert_eq!(board.get(C_BL), 0);
 		assert_eq!(board.get(C_B_), 2);
 		assert_eq!(board.get(C_BR), 4);
+	}
+
+	#[test]
+	fn test_hash() {
+		let board = Board(0b_001_010_011_100_101_110_000_010_100);
+		assert_eq!(board.hash(), 123_456_024);
 	}
 }
