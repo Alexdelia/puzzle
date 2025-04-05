@@ -207,6 +207,8 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 		}
 		let d = d + 1;
 
+		let queue_len = queue.len();
+
 		play_move!(board, C_BR, d, queue, neighbor_buf, C_B_, C_R_);
 		play_move!(board, C_B_, d, queue, neighbor_buf, C_BL, C_M_, C_BR);
 		play_move!(board, C_BL, d, queue, neighbor_buf, C_L_, C_B_);
@@ -217,7 +219,11 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 		play_move!(board, C_T_, d, queue, neighbor_buf, C_TL, C_TR, C_M_);
 		play_move!(board, C_TL, d, queue, neighbor_buf, C_T_, C_L_);
 
-		dbg!(d, queue.len());
+		if queue.len() == queue_len {
+			sum = (sum + board.hash()) % SUM_MOD;
+		}
+
+		dbg!(d, queue.len(), sum);
 	}
 
 	sum
