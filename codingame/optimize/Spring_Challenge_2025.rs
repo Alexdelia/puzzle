@@ -52,23 +52,21 @@ impl Board {
 		let mut line = String::with_capacity(6);
 
 		std::io::stdin().read_line(&mut line).unwrap();
+		std::io::stdin().read_line(&mut line).unwrap();
+		std::io::stdin().read_line(&mut line).unwrap();
 		let mut chars = line.chars();
 		let c0 = chars.next().unwrap() as BoardBitSize - ascii_zero;
 		chars.next();
 		let c1 = chars.next().unwrap() as BoardBitSize - ascii_zero;
 		chars.next();
 		let c2 = chars.next().unwrap() as BoardBitSize - ascii_zero;
-
-		std::io::stdin().read_line(&mut line).unwrap();
-		let mut chars = line.chars();
+		chars.next();
 		let c3 = chars.next().unwrap() as BoardBitSize - ascii_zero;
 		chars.next();
 		let c4 = chars.next().unwrap() as BoardBitSize - ascii_zero;
 		chars.next();
 		let c5 = chars.next().unwrap() as BoardBitSize - ascii_zero;
-
-		std::io::stdin().read_line(&mut line).unwrap();
-		let mut chars = line.chars();
+		chars.next();
 		let c6 = chars.next().unwrap() as BoardBitSize - ascii_zero;
 		chars.next();
 		let c7 = chars.next().unwrap() as BoardBitSize - ascii_zero;
