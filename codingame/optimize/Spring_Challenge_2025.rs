@@ -109,7 +109,8 @@ impl Board {
 }
 
 macro_rules! queue_insert {
-	($queue:ident, $board:expr, $path_count:ident) => {
+	($queue:ident, $moved:ident, $board:expr, $path_count:ident) => {
+		$moved = true;
 		let board_handle: Board = $board;
 		if let Some(count) = $queue.get_mut(&board_handle) {
 			*count += $path_count;
@@ -120,12 +121,12 @@ macro_rules! queue_insert {
 }
 
 macro_rules! play_single_move {
-	($board:ident, $index:ident, $path_count:ident, $queue:ident, $neighbors_buf:ident, $($neighbors:literal),+) => {
+	($board:ident, $index:ident, $path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $($neighbors:literal),+) => {
 		let n = 0 $(
 			+ $neighbors_buf[$neighbors].1
 		)+;
 		if n <= DICE_MAX {
-            queue_insert!($queue, Board(set(
+            queue_insert!($queue, $moved, Board(set(
 				$board.0,
 				empty_cell_mask($index)
 				$(
@@ -139,7 +140,7 @@ macro_rules! play_single_move {
 }
 
 macro_rules! play_move {
-	($board:ident, $index:ident, $path_count:ident, $queue:ident, $neighbors_buf:ident, $($neighbors:ident),+) => {
+	($board:ident, $index:ident, $path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $($neighbors:ident),+) => {
 		if $board.get($index) == 0 {
 			$neighbors_buf.clear();
 			$(
@@ -150,12 +151,12 @@ macro_rules! play_move {
 			)+
 
 			if $neighbors_buf.len() <= 1 {
-                queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+                queue_insert!($queue, $moved, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
 			} else {
 				if $neighbors_buf.len() == 2 {
 					let n = $neighbors_buf[0].1 + $neighbors_buf[1].1;
 					if n <= DICE_MAX {
-                        queue_insert!($queue, Board(set(
+                        queue_insert!($queue, $moved, Board(set(
 							$board.0,
 							empty_cell_mask($index)
 							& empty_cell_mask($neighbors_buf[0].0)
@@ -164,41 +165,41 @@ macro_rules! play_move {
 							n
 						)), $path_count);
 					} else {
-                        queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+                        queue_insert!($queue, $moved, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
 					}
 				} else if $neighbors_buf.len() == 3 {
-					let len = $queue.len();
+					let mut moved_here = false;
 
 					// 2 of 3
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 0, 1);
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 0, 2);
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 1, 2);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2);
 					// 3 of 3
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 0, 1, 2);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
 
-					if $queue.len() == len {
-                        queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+					if moved_here {
+                        queue_insert!($queue, $moved, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
 					}
 				} else {
-					let len = $queue.len();
+					let mut moved_here = false;
 
 					// 2 of 4
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 0, 1);
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 0, 2);
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 0, 3);
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 1, 2);
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 1, 3);
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 2, 3);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 3);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 3);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 2, 3);
 					// 3 of 4
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 0, 1, 2);
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 0, 1, 3);
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 0, 2, 3);
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 1, 2, 3);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 3);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2, 3);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2, 3);
 					// 4 of 4
-					play_single_move!($board, $index, $path_count, $queue, $neighbors_buf, 0, 1, 2, 3);
+					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2, 3);
 
-					if $queue.len() == len {
-                        queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+					if moved_here {
+                        queue_insert!($queue, $moved, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
 					}
 				}
 			}
@@ -210,28 +211,33 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 	let mut sum: Sum = 0;
 	let mut queue: HashMap<Board, PathCount> = HashMap::new();
 	let mut current_queue: HashMap<Board, PathCount> = HashMap::new();
-	let mut neighbor_buf = Vec::<(BoardIndex, BoardBitSize)>::with_capacity(4);
+	let mut ngb_buf = Vec::<(BoardIndex, BoardBitSize)>::with_capacity(4);
 	let mut d = 0;
 
 	queue.insert(starting_board, 1);
 
-	while d < depth {
+	while d < depth && !queue.is_empty() {
 		std::mem::swap(&mut queue, &mut current_queue);
+		// current_queue.extend(queue.drain());
 		for (board, pc) in current_queue.drain() {
-			let queue_len = queue.len();
+			let mut moved = false;
 
-			play_move!(board, C_BR, pc, queue, neighbor_buf, C_B_, C_R_);
-			play_move!(board, C_B_, pc, queue, neighbor_buf, C_BL, C_M_, C_BR);
-			play_move!(board, C_BL, pc, queue, neighbor_buf, C_L_, C_B_);
-			play_move!(board, C_R_, pc, queue, neighbor_buf, C_M_, C_TR, C_BR);
-			play_move!(board, C_M_, pc, queue, neighbor_buf, C_L_, C_T_, C_R_, C_B_);
-			play_move!(board, C_L_, pc, queue, neighbor_buf, C_TL, C_M_, C_BL);
-			play_move!(board, C_TR, pc, queue, neighbor_buf, C_T_, C_R_);
-			play_move!(board, C_T_, pc, queue, neighbor_buf, C_TL, C_TR, C_M_);
-			play_move!(board, C_TL, pc, queue, neighbor_buf, C_T_, C_L_);
+			play_move!(board, C_BR, pc, queue, moved, ngb_buf, C_B_, C_R_);
+			play_move!(board, C_B_, pc, queue, moved, ngb_buf, C_BL, C_M_, C_BR);
+			play_move!(board, C_BL, pc, queue, moved, ngb_buf, C_L_, C_B_);
+			play_move!(board, C_R_, pc, queue, moved, ngb_buf, C_M_, C_TR, C_BR);
+			play_move!(
+				board, C_M_, pc, queue, moved, ngb_buf, C_L_, C_T_, C_R_, C_B_
+			);
+			play_move!(board, C_L_, pc, queue, moved, ngb_buf, C_TL, C_M_, C_BL);
+			play_move!(board, C_TR, pc, queue, moved, ngb_buf, C_T_, C_R_);
+			play_move!(board, C_T_, pc, queue, moved, ngb_buf, C_TL, C_TR, C_M_);
+			play_move!(board, C_TL, pc, queue, moved, ngb_buf, C_T_, C_L_);
 
-			if queue.len() == queue_len {
-				queue_insert!(queue, board, pc);
+			if moved {
+				for _ in 0..pc {
+					sum = (sum + board.hash()) % SUM_MOD;
+				}
 			}
 		}
 
@@ -356,11 +362,13 @@ mod tests {
 		let board = board_from_hash(616101616);
 		let neighbors_buf = Vec::<(BoardIndex, BoardBitSize)>::from([(C_L_, 1), (C_T_, 1)]);
 		let mut queue = HashMap::new();
+		let mut moved = false;
 		let depth = 1;
 
-		play_single_move!(board, C_M_, depth, queue, neighbors_buf, 0, 1);
+		play_single_move!(board, C_M_, depth, queue, moved, neighbors_buf, 0, 1);
 
 		assert_eq!(queue.len(), 1);
+		assert!(moved);
 		let first = queue.iter().next().unwrap();
 		assert_eq!(first.0.hash(), 606021616);
 		assert_eq!(*first.1, 1);
