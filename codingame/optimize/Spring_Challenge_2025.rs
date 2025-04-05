@@ -236,9 +236,9 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 			play_move!(board, C_TL, pc, queue, moved, ngb_buf, C_T_, C_L_);
 
 			if !moved {
-				for _ in 0..pc {
-					sum = (sum + board.hash()) % SUM_MOD;
-				}
+				sum = (sum
+					+ ((board.hash() as usize * pc as usize) % SUM_MOD as usize) as BoardBitSize)
+					% SUM_MOD;
 			}
 		}
 
@@ -246,9 +246,9 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 	}
 
 	for (board, path_count) in queue {
-		for _ in 0..path_count {
-			sum = (sum + board.hash()) % SUM_MOD;
-		}
+		sum = (sum
+			+ ((board.hash() as usize * path_count as usize) % SUM_MOD as usize) as BoardBitSize)
+			% SUM_MOD;
 	}
 
 	sum
