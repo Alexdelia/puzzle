@@ -48,6 +48,22 @@ const C_TR: BoardIndex = 18;
 const C_T_: BoardIndex = 21;
 const C_TL: BoardIndex = 24;
 
+#[inline]
+fn empty_cell_mask(index: BoardIndex) -> BoardBitSize {
+	!(0b111 << index)
+}
+
+// (src & !(0b111 << index)) | (value << index)
+#[inline]
+fn set(
+	src: BoardBitSize,
+	mask: BoardBitSize,
+	index: BoardIndex,
+	value: BoardBitSize,
+) -> BoardBitSize {
+	(src & mask) | (value << index)
+}
+
 impl Board {
 	fn read() -> [u8; 18] {
 		let mut buffer = [0u8; 18];
@@ -69,11 +85,6 @@ impl Board {
 				| (((input[14] - ascii_zero) as BoardBitSize) << C_B_)
 				| ((input[16] - ascii_zero) as BoardBitSize),
 		)
-	}
-
-	#[inline]
-	fn set_single(&self, index: BoardIndex, value: BoardBitSize) -> BoardBitSize {
-		(self.0 & !(0b111 << index)) | (value << index)
 	}
 
 	#[inline]
@@ -101,12 +112,15 @@ macro_rules! play_single_move {
             + $neighbors_buf[$neighbors].1
         )+;
         if n <= DICE_MAX {
-            $queue.push_back((Board(
-                $board.set_single($index, n)
+            $queue.push_back((Board(set(
+                $board.0,
+                empty_cell_mask($index)
                 $(
-                    | $board.set_single($neighbors_buf[$neighbors].0, 0)
-                )+
-            ), $depth));
+                    & empty_cell_mask($neighbors_buf[$neighbors].0)
+                )+,
+                $index,
+                n
+            )), $depth));
         }
     };
 }
@@ -123,18 +137,21 @@ macro_rules! play_move {
             )+
 
             if $neighbors_buf.len() <= 1 {
-                $queue.push_back((Board($board.set_single($index, 1)), $depth));
+                $queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
             } else {
                 if $neighbors_buf.len() == 2 {
                     let n = $neighbors_buf[0].1 + $neighbors_buf[1].1;
                     if n <= DICE_MAX {
-                        $queue.push_back((Board(
-                            $board.set_single($index, n)
-                            | $board.set_single($neighbors_buf[0].0, 0)
-                            | $board.set_single($neighbors_buf[1].0, 0)
-                        ), $depth));
+                        $queue.push_back((Board(set(
+                            $board.0,
+                            empty_cell_mask($index)
+                            & empty_cell_mask($neighbors_buf[0].0)
+                            & empty_cell_mask($neighbors_buf[1].0),
+                            $index,
+                            n
+                        )), $depth));
                     } else {
-                        $queue.push_back((Board($board.set_single($index, 1)), $depth));
+                        $queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
                     }
                 } else if $neighbors_buf.len() == 3 {
                     let len = $queue.len();
@@ -147,7 +164,7 @@ macro_rules! play_move {
                     play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1, 2);
 
                     if $queue.len() == len {
-                        $queue.push_back((Board($board.set_single($index, 1)), $depth));
+                        $queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
                     }
                 } else {
                     let len = $queue.len();
@@ -168,7 +185,7 @@ macro_rules! play_move {
                     play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1, 2, 3);
 
                     if $queue.len() == len {
-                        $queue.push_back((Board($board.set_single($index, 1)), $depth));
+                        $queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
                     }
                 }
             }
@@ -250,6 +267,47 @@ mod tests {
 	}
 
 	#[test]
+	fn test_set() {
+		let src = 0b_001_010_011_100_101_110_000_010_100;
+		assert_eq!(
+			set(src, empty_cell_mask(C_TL), C_TL, 0),
+			0b_000_010_011_100_101_110_000_010_100
+		);
+		assert_eq!(
+			set(src, empty_cell_mask(C_T_), C_T_, 0),
+			0b_001_000_011_100_101_110_000_010_100
+		);
+		assert_eq!(
+			set(src, empty_cell_mask(C_TR), C_TR, 0),
+			0b_001_010_000_100_101_110_000_010_100
+		);
+		assert_eq!(
+			set(src, empty_cell_mask(C_L_), C_L_, 0),
+			0b_001_010_011_000_101_110_000_010_100
+		);
+		assert_eq!(
+			set(src, empty_cell_mask(C_M_), C_M_, 0),
+			0b_001_010_011_100_000_110_000_010_100
+		);
+		assert_eq!(
+			set(src, empty_cell_mask(C_R_), C_R_, 0),
+			0b_001_010_011_100_101_000_000_010_100
+		);
+		assert_eq!(
+			set(src, empty_cell_mask(C_BL), C_BL, 0),
+			0b_001_010_011_100_101_110_000_010_100
+		);
+		assert_eq!(
+			set(src, empty_cell_mask(C_B_), C_B_, 0),
+			0b_001_010_011_100_101_110_000_000_100
+		);
+		assert_eq!(
+			set(src, empty_cell_mask(C_BR), C_BR, 0),
+			0b_001_010_011_100_101_110_000_010_000
+		);
+	}
+
+	#[test]
 	fn test_get() {
 		let board = Board(0b_001_010_011_100_101_110_000_010_100);
 		assert_eq!(board.get(C_TL), 1);
@@ -261,47 +319,6 @@ mod tests {
 		assert_eq!(board.get(C_BL), 0);
 		assert_eq!(board.get(C_B_), 2);
 		assert_eq!(board.get(C_BR), 4);
-	}
-
-	#[test]
-	fn test_single() {
-		let board = Board(0b_001_010_011_100_101_110_000_010_100);
-		assert_eq!(
-			board.set_single(C_TL, 0),
-			0b_000_010_011_100_101_110_000_010_100
-		);
-		assert_eq!(
-			board.set_single(C_T_, 0),
-			0b_001_000_011_100_101_110_000_010_100
-		);
-		assert_eq!(
-			board.set_single(C_TR, 0),
-			0b_001_010_000_100_101_110_000_010_100
-		);
-		assert_eq!(
-			board.set_single(C_L_, 0),
-			0b_001_010_011_000_101_110_000_010_100
-		);
-		assert_eq!(
-			board.set_single(C_M_, 0),
-			0b_001_010_011_100_000_110_000_010_100
-		);
-		assert_eq!(
-			board.set_single(C_R_, 0),
-			0b_001_010_011_100_101_000_000_010_100
-		);
-		assert_eq!(
-			board.set_single(C_BL, 0),
-			0b_001_010_011_100_101_110_000_010_100
-		);
-		assert_eq!(
-			board.set_single(C_B_, 0),
-			0b_001_010_011_100_101_110_000_000_100
-		);
-		assert_eq!(
-			board.set_single(C_BR, 0),
-			0b_001_010_011_100_101_110_000_010_000
-		);
 	}
 
 	#[test]
@@ -317,7 +334,7 @@ mod tests {
 	#[test]
 	fn test_play_single_move() {
 		let board = board_from_hash(616101616);
-		let mut neighbors_buf = Vec::<(BoardIndex, BoardBitSize)>::from([(C_L_, 1), (C_T_, 1)]);
+		let neighbors_buf = Vec::<(BoardIndex, BoardBitSize)>::from([(C_L_, 1), (C_T_, 1)]);
 		let mut queue = VecDeque::<(Board, Depth)>::new();
 		let depth = 1;
 
@@ -332,6 +349,6 @@ mod tests {
 		assert_eq!(solve(20, board_from_hash(60222161)), 322444322);
 		assert_eq!(solve(20, board_from_hash(506450064)), 951223336);
 		assert_eq!(solve(1, board_from_hash(555005555)), 36379286);
-		// assert_eq!(solve(1, board_from_hash(616101616)), 264239762);
+		assert_eq!(solve(1, board_from_hash(616101616)), 264239762);
 	}
 }
