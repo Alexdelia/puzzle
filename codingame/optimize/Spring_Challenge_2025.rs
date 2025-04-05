@@ -107,90 +107,90 @@ impl Board {
 }
 
 macro_rules! play_single_move {
-    ($board:ident, $index:ident, $depth:ident, $queue:ident, $neighbors_buf:ident, $($neighbors:literal),+) => {
-        let n = 0 $(
-            + $neighbors_buf[$neighbors].1
-        )+;
-        if n <= DICE_MAX {
-            $queue.push_back((Board(set(
-                $board.0,
-                empty_cell_mask($index)
-                $(
-                    & empty_cell_mask($neighbors_buf[$neighbors].0)
-                )+,
-                $index,
-                n
-            )), $depth));
-        }
-    };
+	($board:ident, $index:ident, $depth:ident, $queue:ident, $neighbors_buf:ident, $($neighbors:literal),+) => {
+		let n = 0 $(
+			+ $neighbors_buf[$neighbors].1
+		)+;
+		if n <= DICE_MAX {
+			$queue.push_back((Board(set(
+				$board.0,
+				empty_cell_mask($index)
+				$(
+					& empty_cell_mask($neighbors_buf[$neighbors].0)
+				)+,
+				$index,
+				n
+			)), $depth));
+		}
+	};
 }
 
 macro_rules! play_move {
-    ($board:ident, $index:ident, $depth:ident, $queue:ident, $neighbors_buf:ident, $($neighbors:ident),+) => {
-        if $board.get($index) == 0 {
-            $neighbors_buf.clear();
-            $(
-                let neighbor = $board.get($neighbors);
-                if neighbor != 0 && neighbor != DICE_MAX {
-                    $neighbors_buf.push(($neighbors, neighbor));
-                }
-            )+
+	($board:ident, $index:ident, $depth:ident, $queue:ident, $neighbors_buf:ident, $($neighbors:ident),+) => {
+		if $board.get($index) == 0 {
+			$neighbors_buf.clear();
+			$(
+				let neighbor = $board.get($neighbors);
+				if neighbor != 0 && neighbor != DICE_MAX {
+					$neighbors_buf.push(($neighbors, neighbor));
+				}
+			)+
 
-            if $neighbors_buf.len() <= 1 {
-                $queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
-            } else {
-                if $neighbors_buf.len() == 2 {
-                    let n = $neighbors_buf[0].1 + $neighbors_buf[1].1;
-                    if n <= DICE_MAX {
-                        $queue.push_back((Board(set(
-                            $board.0,
-                            empty_cell_mask($index)
-                            & empty_cell_mask($neighbors_buf[0].0)
-                            & empty_cell_mask($neighbors_buf[1].0),
-                            $index,
-                            n
-                        )), $depth));
-                    } else {
-                        $queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
-                    }
-                } else if $neighbors_buf.len() == 3 {
-                    let len = $queue.len();
+			if $neighbors_buf.len() <= 1 {
+				$queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
+			} else {
+				if $neighbors_buf.len() == 2 {
+					let n = $neighbors_buf[0].1 + $neighbors_buf[1].1;
+					if n <= DICE_MAX {
+						$queue.push_back((Board(set(
+							$board.0,
+							empty_cell_mask($index)
+							& empty_cell_mask($neighbors_buf[0].0)
+							& empty_cell_mask($neighbors_buf[1].0),
+							$index,
+							n
+						)), $depth));
+					} else {
+						$queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
+					}
+				} else if $neighbors_buf.len() == 3 {
+					let len = $queue.len();
 
-                    // 2 of 3
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1);
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 2);
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 1, 2);
-                    // 3 of 3
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1, 2);
+					// 2 of 3
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1);
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 2);
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 1, 2);
+					// 3 of 3
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1, 2);
 
-                    if $queue.len() == len {
-                        $queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
-                    }
-                } else {
-                    let len = $queue.len();
+					if $queue.len() == len {
+						$queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
+					}
+				} else {
+					let len = $queue.len();
 
-                    // 2 of 4
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1);
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 2);
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 3);
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 1, 2);
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 1, 3);
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 2, 3);
-                    // 3 of 4
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1, 2);
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1, 3);
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 2, 3);
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 1, 2, 3);
-                    // 4 of 4
-                    play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1, 2, 3);
+					// 2 of 4
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1);
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 2);
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 3);
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 1, 2);
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 1, 3);
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 2, 3);
+					// 3 of 4
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1, 2);
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1, 3);
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 2, 3);
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 1, 2, 3);
+					// 4 of 4
+					play_single_move!($board, $index, $depth, $queue, $neighbors_buf, 0, 1, 2, 3);
 
-                    if $queue.len() == len {
-                        $queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
-                    }
-                }
-            }
-        }
-    };
+					if $queue.len() == len {
+						$queue.push_back((Board(set($board.0, empty_cell_mask($index), $index, 1)), $depth));
+					}
+				}
+			}
+		}
+	};
 }
 
 fn solve(depth: Depth, starting_board: Board) -> Sum {
