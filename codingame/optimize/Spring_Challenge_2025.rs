@@ -56,7 +56,7 @@ impl Board {
 	}
 
 	fn parse(input: [u8; 18]) -> Self {
-		let ascii_zero = '0' as u8;
+		let ascii_zero = b'0';
 
 		Self(
 			(((input[0] - ascii_zero) as BoardBitSize) << C_TL)
@@ -214,6 +214,20 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 mod tests {
 	use super::*;
 
+	fn board_from_hash(hash: BoardBitSize) -> Board {
+		Board(
+			(((hash / 100_000_000) % 10) << C_TL)
+				| (((hash / 010_000_000) % 10) << C_T_)
+				| (((hash / 001_000_000) % 10) << C_TR)
+				| (((hash / 000_100_000) % 10) << C_L_)
+				| (((hash / 000_010_000) % 10) << C_M_)
+				| (((hash / 000_001_000) % 10) << C_R_)
+				| (((hash / 000_000_100) % 10) << C_BL)
+				| (((hash / 000_000_010) % 10) << C_B_)
+				| (hash % 10),
+		)
+	}
+
 	#[test]
 	fn test_parse() {
 		let input = [
@@ -253,5 +267,14 @@ mod tests {
 	fn test_hash() {
 		let board = Board(0b_001_010_011_100_101_110_000_010_100);
 		assert_eq!(board.hash(), 123_456_024);
+
+		let board = board_from_hash(123_456_024);
+		assert_eq!(board.0, 0b_001_010_011_100_101_110_000_010_100);
+		assert_eq!(board.hash(), 123_456_024);
+	}
+
+	#[test]
+	fn test_solve() {
+		assert_eq!(solve(20, board_from_hash(60222161)), 322444322);
 	}
 }
