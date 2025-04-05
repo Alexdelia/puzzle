@@ -12,7 +12,7 @@ type Sum = u32;
 
 const DICE_MAX: BoardBitSize = 6;
 
-const SUM_MOD: Sum = 2 ^ 30;
+const SUM_MOD: Sum = 1 << 30;
 
 fn main() {
 	let (depth, starting_board) = parse();
@@ -222,8 +222,6 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 		if queue.len() == queue_len {
 			sum = (sum + board.hash()) % SUM_MOD;
 		}
-
-		dbg!(d, queue.len(), sum);
 	}
 
 	sum
