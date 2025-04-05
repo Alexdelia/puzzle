@@ -350,5 +350,6 @@ mod tests {
 		assert_eq!(solve(20, board_from_hash(506450064)), 951223336);
 		assert_eq!(solve(1, board_from_hash(555005555)), 36379286);
 		assert_eq!(solve(1, board_from_hash(616101616)), 264239762);
+		assert_eq!(solve(24, board_from_hash(300362102)), 661168294);
 	}
 }
