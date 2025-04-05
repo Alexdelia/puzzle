@@ -151,59 +151,63 @@ macro_rules! play_move {
 				}
 			)+
 
-			if $neighbors_buf.len() <= 1 {
+            if $neighbors_buf.len() <= 1 {
                 queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
-			} else {
-				if $neighbors_buf.len() == 2 {
-					let n = $neighbors_buf[0].1 + $neighbors_buf[1].1;
-					if n <= DICE_MAX {
-                        queue_insert!($queue, Board(set(
-							$board.0,
-							empty_cell_mask($index)
-							& empty_cell_mask($neighbors_buf[0].0)
-							& empty_cell_mask($neighbors_buf[1].0),
-							$index,
-							n
-						)), $path_count);
-					} else {
-                        queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
-					}
-				} else if $neighbors_buf.len() == 3 {
-					let mut moved_here = false;
+            } else {
+                match $neighbors_buf.len() {
+                    2 => {
+                        let n = $neighbors_buf[0].1 + $neighbors_buf[1].1;
+                        if n <= DICE_MAX {
+                            queue_insert!($queue, Board(set(
+		    					$board.0,
+		    					empty_cell_mask($index)
+		    					& empty_cell_mask($neighbors_buf[0].0)
+		    					& empty_cell_mask($neighbors_buf[1].0),
+		    					$index,
+		    					n
+		    				)), $path_count);
+		    			} else {
+                            queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+		    			}
+                    },
+                    3 => {
+		    			let mut moved_here = false;
 
-					// 2 of 3
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1);
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2);
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2);
-					// 3 of 3
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
+		    			// 2 of 3
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1);
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2);
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2);
+		    			// 3 of 3
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
 
-					if !moved_here {
-                        queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
-					}
-				} else {
-					let mut moved_here = false;
+		    			if !moved_here {
+                            queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+		    			}
+                    },
+                    _ => {
+		    			let mut moved_here = false;
 
-					// 2 of 4
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1);
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2);
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 3);
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2);
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 3);
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 2, 3);
-					// 3 of 4
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 3);
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2, 3);
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2, 3);
-					// 4 of 4
-					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2, 3);
+		    			// 2 of 4
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1);
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2);
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 3);
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2);
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 3);
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 2, 3);
+		    			// 3 of 4
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 3);
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2, 3);
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2, 3);
+		    			// 4 of 4
+		    			play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2, 3);
 
-					if !moved_here {
-                        queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
-					}
-				}
-			}
+		    			if !moved_here {
+                            queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+		    			}
+                    },
+		    	}
+            }
 		}
 	};
 }
