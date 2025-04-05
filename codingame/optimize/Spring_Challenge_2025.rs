@@ -276,5 +276,8 @@ mod tests {
 	#[test]
 	fn test_solve() {
 		assert_eq!(solve(20, board_from_hash(60222161)), 322444322);
+		assert_eq!(solve(20, board_from_hash(506450064)), 951223336);
+		assert_eq!(solve(1, board_from_hash(555005555)), 36379286);
+		assert_eq!(solve(1, board_from_hash(616101616)), 264239762);
 	}
 }
