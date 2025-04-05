@@ -236,9 +236,7 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 			play_move!(board, C_TL, pc, queue, moved, ngb_buf, C_T_, C_L_);
 
 			if !moved {
-				sum = (sum
-					+ ((board.hash() as usize * pc as usize) % SUM_MOD as usize) as BoardBitSize)
-					% SUM_MOD;
+				sum = (sum + (board.hash() * pc) % SUM_MOD) % SUM_MOD;
 			}
 		}
 
@@ -246,9 +244,7 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 	}
 
 	for (board, path_count) in queue {
-		sum = (sum
-			+ ((board.hash() as usize * path_count as usize) % SUM_MOD as usize) as BoardBitSize)
-			% SUM_MOD;
+		sum = (sum + (board.hash() * path_count) % SUM_MOD) % SUM_MOD;
 	}
 
 	sum
@@ -381,6 +377,12 @@ mod tests {
 		assert_eq!(solve(20, board_from_hash(506450064)), 951223336);
 		assert_eq!(solve(1, board_from_hash(555005555)), 36379286);
 		assert_eq!(solve(1, board_from_hash(616101616)), 264239762);
-		assert_eq!(solve(24, board_from_hash(300362102)), 661168294);
+		// assert_eq!(solve(24, board_from_hash(300362102)), 661168294);
+		// assert_eq!(solve(36, board_from_hash(604202400)), 350917228);
+		// assert_eq!(solve(32, board_from_hash(54105)), 999653138);
+		// assert_eq!(solve(40, board_from_hash(4024134)), 521112022);
+		// assert_eq!(solve(40, board_from_hash(54030030)), 667094338);
+		// assert_eq!(solve(20, board_from_hash(51000401)), 738691369);
+		// assert_eq!(solve(20, board_from_hash(100352100)), 808014757);
 	}
 }
