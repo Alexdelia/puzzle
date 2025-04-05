@@ -230,14 +230,14 @@ mod tests {
 	#[test]
 	fn test_get() {
 		let board = Board(0b_001_010_011_100_101_110_000_010_100);
-		assert_eq!(board.get(C_BR), 1);
-		assert_eq!(board.get(C_B_), 2);
-		assert_eq!(board.get(C_BL), 3);
-		assert_eq!(board.get(C_R_), 4);
-		assert_eq!(board.get(C_M_), 5);
-		assert_eq!(board.get(C_L_), 6);
-		assert_eq!(board.get(C_TR), 0);
+		assert_eq!(board.get(C_TL), 1);
 		assert_eq!(board.get(C_T_), 2);
-		assert_eq!(board.get(C_TL), 4);
+		assert_eq!(board.get(C_TR), 3);
+		assert_eq!(board.get(C_L_), 4);
+		assert_eq!(board.get(C_M_), 5);
+		assert_eq!(board.get(C_R_), 6);
+		assert_eq!(board.get(C_BL), 0);
+		assert_eq!(board.get(C_B_), 2);
+		assert_eq!(board.get(C_BR), 4);
 	}
 }
