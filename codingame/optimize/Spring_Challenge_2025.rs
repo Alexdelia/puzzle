@@ -33,6 +33,7 @@ fn parse() -> (Depth, Board) {
 	let depth = parse_input!(input_line, u8);
 
 	let starting_board = Board::parse(Board::read());
+	dbg!(starting_board.hash());
 
 	(depth, starting_board)
 }
@@ -51,7 +52,6 @@ impl Board {
 	fn read() -> [u8; 18] {
 		let mut buffer = [0u8; 18];
 		std::io::stdin().read_exact(&mut buffer).unwrap();
-		dbg!(&buffer);
 		buffer
 	}
 
