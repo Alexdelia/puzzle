@@ -109,8 +109,7 @@ impl Board {
 }
 
 macro_rules! queue_insert {
-	($queue:ident, $moved:ident, $board:expr, $path_count:ident) => {
-		$moved = true;
+	($queue:ident, $board:expr, $path_count:ident) => {
 		let board_handle: Board = $board;
 		if let Some(count) = $queue.get_mut(&board_handle) {
 			*count += $path_count;
@@ -126,7 +125,8 @@ macro_rules! play_single_move {
 			+ $neighbors_buf[$neighbors].1
 		)+;
 		if n <= DICE_MAX {
-            queue_insert!($queue, $moved, Board(set(
+            $moved = true;
+            queue_insert!($queue, Board(set(
 				$board.0,
 				empty_cell_mask($index)
 				$(
@@ -142,6 +142,8 @@ macro_rules! play_single_move {
 macro_rules! play_move {
 	($board:ident, $index:ident, $path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $($neighbors:ident),+) => {
 		if $board.get($index) == 0 {
+            $moved = true;
+
 			$neighbors_buf.clear();
 			$(
 				let neighbor = $board.get($neighbors);
@@ -151,12 +153,12 @@ macro_rules! play_move {
 			)+
 
 			if $neighbors_buf.len() <= 1 {
-                queue_insert!($queue, $moved, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+                queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
 			} else {
 				if $neighbors_buf.len() == 2 {
 					let n = $neighbors_buf[0].1 + $neighbors_buf[1].1;
 					if n <= DICE_MAX {
-                        queue_insert!($queue, $moved, Board(set(
+                        queue_insert!($queue, Board(set(
 							$board.0,
 							empty_cell_mask($index)
 							& empty_cell_mask($neighbors_buf[0].0)
@@ -165,7 +167,7 @@ macro_rules! play_move {
 							n
 						)), $path_count);
 					} else {
-                        queue_insert!($queue, $moved, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+                        queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
 					}
 				} else if $neighbors_buf.len() == 3 {
 					let mut moved_here = false;
@@ -178,7 +180,7 @@ macro_rules! play_move {
 					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
 
 					if !moved_here {
-                        queue_insert!($queue, $moved, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+                        queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
 					}
 				} else {
 					let mut moved_here = false;
@@ -199,7 +201,7 @@ macro_rules! play_move {
 					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2, 3);
 
 					if !moved_here {
-                        queue_insert!($queue, $moved, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+                        queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
 					}
 				}
 			}
