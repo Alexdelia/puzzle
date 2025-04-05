@@ -177,7 +177,7 @@ macro_rules! play_move {
 					// 3 of 3
 					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
 
-					if moved_here {
+					if !moved_here {
                         queue_insert!($queue, $moved, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
 					}
 				} else {
@@ -198,7 +198,7 @@ macro_rules! play_move {
 					// 4 of 4
 					play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2, 3);
 
-					if moved_here {
+					if !moved_here {
                         queue_insert!($queue, $moved, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
 					}
 				}
@@ -234,7 +234,7 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 			play_move!(board, C_T_, pc, queue, moved, ngb_buf, C_TL, C_TR, C_M_);
 			play_move!(board, C_TL, pc, queue, moved, ngb_buf, C_T_, C_L_);
 
-			if moved {
+			if !moved {
 				for _ in 0..pc {
 					sum = (sum + board.hash()) % SUM_MOD;
 				}
