@@ -111,7 +111,7 @@ macro_rules! queue_insert {
 	($queue:ident, $board:expr, $path_count:ident) => {
 		let board_handle: Board = $board;
 		if let Some(count) = $queue.get_mut(&board_handle) {
-			*count += $path_count;
+			*count = (*count).wrapping_add($path_count);
 		} else {
 			$queue.insert(board_handle, $path_count);
 		}
@@ -212,6 +212,13 @@ macro_rules! play_move {
 	};
 }
 
+// we can let it overflow because u32 is 4 times 2^30
+macro_rules! sum {
+	($sum:ident, $board:ident, $path_count:ident) => {
+		$sum = $sum.wrapping_add($board.hash().wrapping_mul($path_count));
+	};
+}
+
 fn solve(depth: Depth, starting_board: Board) -> Sum {
 	let mut sum: Sum = 0;
 	let mut queue: HashMap<Board, PathCount> = HashMap::new();
@@ -240,7 +247,7 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 			play_move!(board, C_TL, pc, queue, moved, ngb_buf, C_T_, C_L_);
 
 			if !moved {
-				sum = (sum + (board.hash() * pc) % SUM_MOD) % SUM_MOD;
+				sum!(sum, board, pc);
 			}
 		}
 
@@ -248,10 +255,10 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 	}
 
 	for (board, path_count) in queue {
-		sum = (sum + (board.hash() * path_count) % SUM_MOD) % SUM_MOD;
+		sum!(sum, board, path_count);
 	}
 
-	sum
+	sum % SUM_MOD
 }
 
 #[cfg(test)]
@@ -362,7 +369,7 @@ mod tests {
 	fn test_play_single_move() {
 		let board = board_from_hash(616101616);
 		let neighbors_buf = Vec::<(BoardIndex, BoardBitSize)>::from([(C_L_, 1), (C_T_, 1)]);
-		let mut queue = HashMap::new();
+		let mut queue: HashMap<Board, PathCount> = HashMap::new();
 		let mut moved = false;
 		let depth = 1;
 
@@ -381,12 +388,12 @@ mod tests {
 		assert_eq!(solve(20, board_from_hash(506450064)), 951223336);
 		assert_eq!(solve(1, board_from_hash(555005555)), 36379286);
 		assert_eq!(solve(1, board_from_hash(616101616)), 264239762);
-		// assert_eq!(solve(24, board_from_hash(300362102)), 661168294);
-		// assert_eq!(solve(36, board_from_hash(604202400)), 350917228);
-		// assert_eq!(solve(32, board_from_hash(54105)), 999653138);
-		// assert_eq!(solve(40, board_from_hash(4024134)), 521112022);
-		// assert_eq!(solve(40, board_from_hash(54030030)), 667094338);
-		// assert_eq!(solve(20, board_from_hash(51000401)), 738691369);
-		// assert_eq!(solve(20, board_from_hash(100352100)), 808014757);
+		assert_eq!(solve(24, board_from_hash(300362102)), 661168294);
+		assert_eq!(solve(36, board_from_hash(604202400)), 350917228);
+		assert_eq!(solve(32, board_from_hash(54105)), 999653138);
+		assert_eq!(solve(40, board_from_hash(4024134)), 521112022);
+		assert_eq!(solve(40, board_from_hash(54030030)), 667094338);
+		assert_eq!(solve(20, board_from_hash(51000401)), 738691369);
+		assert_eq!(solve(20, board_from_hash(100352100)), 808014757);
 	}
 }
