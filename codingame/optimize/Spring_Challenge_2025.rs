@@ -91,6 +91,8 @@ const HASH_TABLE_B_: HashDiceTable = generate_table(000_000_010);
 const HASH_TABLE_BR: HashDiceTable = generate_table(000_000_001);
 
 impl Board {
+	// const MAX: BoardBitSize = 0b110_110_110_110_110_110_110_110_110;
+
 	fn read() -> [u8; 18] {
 		let mut buffer = [0u8; 18];
 		std::io::stdin().read_exact(&mut buffer).unwrap();
