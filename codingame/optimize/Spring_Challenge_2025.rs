@@ -110,12 +110,12 @@ impl Board {
 
 macro_rules! queue_insert {
 	($queue:ident, $board:expr, $path_count:ident) => {
-		let board_handle: Board = $board;
-		if let Some(count) = $queue.get_mut(&board_handle) {
-			*count = (*count).wrapping_add($path_count);
-		} else {
-			$queue.insert(board_handle, $path_count);
-		}
+		$queue
+			.entry($board)
+			.and_modify(|count| {
+				*count = count.wrapping_add($path_count);
+			})
+			.or_insert($path_count);
 	};
 }
 
