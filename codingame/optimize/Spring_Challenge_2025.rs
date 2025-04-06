@@ -226,7 +226,7 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 	let mut queue: HashMap<Board, PathCount> = HashMap::new();
 	let mut current_queue: HashMap<Board, PathCount> = HashMap::new();
 	let mut ngb_buf: [(BoardIndex, DiceValue, BoardBitSize); 4] = [(0, 0, 0); 4];
-	let mut ngb_len: u8 = 0;
+	let mut ngb_len: u8;
 	let mut d = 0;
 
 	queue.insert(starting_board, 1);
