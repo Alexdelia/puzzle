@@ -140,22 +140,23 @@ macro_rules! play_single_move {
 }
 
 macro_rules! play_move {
-	($board:ident, $index:ident, $path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $($neighbors:ident),+) => {
+	($board:ident, $index:ident, $path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $neighbors_len:ident, $($neighbors:ident),+) => {
 		if $board.get($index) == 0 {
             $moved = true;
 
-			$neighbors_buf.clear();
+			$neighbors_len = 0;
 			$(
 				let neighbor = $board.get($neighbors);
 				if neighbor != 0 && neighbor != DICE_MAX {
-					$neighbors_buf.push(($neighbors, neighbor, empty_cell_mask($neighbors)));
+					$neighbors_buf[$neighbors_len as usize] = ($neighbors, neighbor, empty_cell_mask($neighbors));
+					$neighbors_len += 1;
 				}
 			)+
 
-            if $neighbors_buf.len() <= 1 {
+            if $neighbors_len <= 1 {
                 queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
             } else {
-                match $neighbors_buf.len() {
+                match $neighbors_len {
                     2 => {
                         let n = $neighbors_buf[0].1 + $neighbors_buf[1].1;
                         if n <= DICE_MAX {
@@ -224,7 +225,8 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 	let mut sum: Sum = 0;
 	let mut queue: HashMap<Board, PathCount> = HashMap::new();
 	let mut current_queue: HashMap<Board, PathCount> = HashMap::new();
-	let mut ngb_buf = Vec::<(BoardIndex, DiceValue, BoardBitSize)>::with_capacity(4);
+	let mut ngb_buf: [(BoardIndex, DiceValue, BoardBitSize); 4] = [(0, 0, 0); 4];
+	let mut ngb_len: u8 = 0;
 	let mut d = 0;
 
 	queue.insert(starting_board, 1);
@@ -235,17 +237,25 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 		for (board, pc) in current_queue.drain() {
 			let mut moved = false;
 
-			play_move!(board, C_BR, pc, queue, moved, ngb_buf, C_B_, C_R_);
-			play_move!(board, C_B_, pc, queue, moved, ngb_buf, C_BL, C_M_, C_BR);
-			play_move!(board, C_BL, pc, queue, moved, ngb_buf, C_L_, C_B_);
-			play_move!(board, C_R_, pc, queue, moved, ngb_buf, C_M_, C_TR, C_BR);
+			play_move!(board, C_BR, pc, queue, moved, ngb_buf, ngb_len, C_B_, C_R_);
 			play_move!(
-				board, C_M_, pc, queue, moved, ngb_buf, C_L_, C_T_, C_R_, C_B_
+				board, C_B_, pc, queue, moved, ngb_buf, ngb_len, C_BL, C_M_, C_BR
 			);
-			play_move!(board, C_L_, pc, queue, moved, ngb_buf, C_TL, C_M_, C_BL);
-			play_move!(board, C_TR, pc, queue, moved, ngb_buf, C_T_, C_R_);
-			play_move!(board, C_T_, pc, queue, moved, ngb_buf, C_TL, C_TR, C_M_);
-			play_move!(board, C_TL, pc, queue, moved, ngb_buf, C_T_, C_L_);
+			play_move!(board, C_BL, pc, queue, moved, ngb_buf, ngb_len, C_L_, C_B_);
+			play_move!(
+				board, C_R_, pc, queue, moved, ngb_buf, ngb_len, C_M_, C_TR, C_BR
+			);
+			play_move!(
+				board, C_M_, pc, queue, moved, ngb_buf, ngb_len, C_L_, C_T_, C_R_, C_B_
+			);
+			play_move!(
+				board, C_L_, pc, queue, moved, ngb_buf, ngb_len, C_TL, C_M_, C_BL
+			);
+			play_move!(board, C_TR, pc, queue, moved, ngb_buf, ngb_len, C_T_, C_R_);
+			play_move!(
+				board, C_T_, pc, queue, moved, ngb_buf, ngb_len, C_TL, C_TR, C_M_
+			);
+			play_move!(board, C_TL, pc, queue, moved, ngb_buf, ngb_len, C_T_, C_L_);
 
 			if !moved {
 				sum!(sum, board, pc);
