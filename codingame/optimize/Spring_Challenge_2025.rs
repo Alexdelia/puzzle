@@ -233,7 +233,6 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 
 	while d < depth && !queue.is_empty() {
 		std::mem::swap(&mut queue, &mut current_queue);
-		// current_queue.extend(queue.drain());
 		for (board, pc) in current_queue.drain() {
 			let mut moved = false;
 
