@@ -66,6 +66,28 @@ fn set(
 	(src & mask) | (value << index)
 }
 
+type HashDiceTable = [BoardBitSize; 7];
+
+const fn generate_table(multiplier: BoardBitSize) -> HashDiceTable {
+	let mut table = [0; 7];
+	let mut i = 0;
+	while i < 7 {
+		table[i] = i as u32 * multiplier;
+		i += 1;
+	}
+	table
+}
+
+const HASH_TABLE_TL: HashDiceTable = generate_table(100_000_000);
+const HASH_TABLE_T_: HashDiceTable = generate_table(010_000_000);
+const HASH_TABLE_TR: HashDiceTable = generate_table(001_000_000);
+const HASH_TABLE_L_: HashDiceTable = generate_table(000_100_000);
+const HASH_TABLE_M_: HashDiceTable = generate_table(000_010_000);
+const HASH_TABLE_R_: HashDiceTable = generate_table(000_001_000);
+const HASH_TABLE_BL: HashDiceTable = generate_table(000_000_100);
+const HASH_TABLE_B_: HashDiceTable = generate_table(000_000_010);
+const HASH_TABLE_BR: HashDiceTable = generate_table(000_000_001);
+
 impl Board {
 	fn read() -> [u8; 18] {
 		let mut buffer = [0u8; 18];
@@ -96,15 +118,15 @@ impl Board {
 
 	#[inline]
 	fn hash(&self) -> BoardBitSize {
-		(self.get(C_TL) as BoardBitSize * 100_000_000)
-			+ (self.get(C_T_) as BoardBitSize * 010_000_000)
-			+ (self.get(C_TR) as BoardBitSize * 001_000_000)
-			+ (self.get(C_L_) as BoardBitSize * 000_100_000)
-			+ (self.get(C_M_) as BoardBitSize * 000_010_000)
-			+ (self.get(C_R_) as BoardBitSize * 000_001_000)
-			+ (self.get(C_BL) as BoardBitSize * 000_000_100)
-			+ (self.get(C_B_) as BoardBitSize * 000_000_010)
-			+ self.get(C_BR) as BoardBitSize
+		HASH_TABLE_TL[self.get(C_TL) as usize]
+			+ HASH_TABLE_T_[self.get(C_T_) as usize]
+			+ HASH_TABLE_TR[self.get(C_TR) as usize]
+			+ HASH_TABLE_L_[self.get(C_L_) as usize]
+			+ HASH_TABLE_M_[self.get(C_M_) as usize]
+			+ HASH_TABLE_R_[self.get(C_R_) as usize]
+			+ HASH_TABLE_BL[self.get(C_BL) as usize]
+			+ HASH_TABLE_B_[self.get(C_B_) as usize]
+			+ HASH_TABLE_BR[self.get(C_BR) as usize]
 	}
 }
 
