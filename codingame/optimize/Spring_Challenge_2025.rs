@@ -18,6 +18,8 @@ const DICE_MAX: DiceValue = 6;
 
 const SUM_MOD: Sum = 1 << 30;
 
+const QUEUE_CAPACITY: usize = 90_000;
+
 fn main() {
 	let (depth, starting_board) = parse();
 
@@ -245,8 +247,8 @@ macro_rules! sum {
 
 fn solve(depth: Depth, starting_board: Board) -> Sum {
 	let mut sum: Sum = 0;
-	let mut queue: HashMap<Board, PathCount> = HashMap::new();
-	let mut current_queue: HashMap<Board, PathCount> = HashMap::new();
+	let mut queue: HashMap<Board, PathCount> = HashMap::with_capacity(QUEUE_CAPACITY);
+	let mut current_queue: HashMap<Board, PathCount> = HashMap::with_capacity(QUEUE_CAPACITY);
 	let mut ngb_buf: [(BoardIndex, DiceValue, BoardBitSize); 4] = [(0, 0, 0); 4];
 	let mut ngb_len: u8;
 	let mut d = 0;
@@ -255,6 +257,7 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 
 	while d < depth && !queue.is_empty() {
 		std::mem::swap(&mut queue, &mut current_queue);
+
 		for (board, pc) in current_queue.drain() {
 			let mut moved = false;
 
