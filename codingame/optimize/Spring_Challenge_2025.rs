@@ -14,6 +14,9 @@ type DiceValue = u8;
 type Sum = u32;
 type PathCount = u32;
 
+const SYMMETRY_COUNT: usize = 3;
+type SymmetryPathCount = [PathCount; SYMMETRY_COUNT];
+
 const DICE_MAX: DiceValue = 6;
 
 const SUM_MOD: Sum = 1 << 30;
@@ -51,6 +54,35 @@ const C_L_: DiceValue = 15;
 const C_TR: DiceValue = 18;
 const C_T_: DiceValue = 21;
 const C_TL: DiceValue = 24;
+
+static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT] = [
+	// identity
+	|board| board,
+	// vertical flip
+	|board| {
+		(((board >> C_TL) & 0b111) << C_TR)
+			| (((board >> C_T_) & 0b111) << C_T_)
+			| (((board >> C_TR) & 0b111) << C_TL)
+			| (((board >> C_L_) & 0b111) << C_R_)
+			| (((board >> C_M_) & 0b111) << C_M_)
+			| (((board >> C_R_) & 0b111) << C_L_)
+			| (((board >> C_BL) & 0b111) << C_BR)
+			| (((board >> C_B_) & 0b111) << C_B_)
+			| (((board >> C_BR) & 0b111) << C_BL)
+	},
+	// horizontal flip
+	|board| {
+		(((board >> C_TL) & 0b111) << C_BL)
+			| (((board >> C_T_) & 0b111) << C_B_)
+			| (((board >> C_TR) & 0b111) << C_BR)
+			| (((board >> C_L_) & 0b111) << C_L_)
+			| (((board >> C_M_) & 0b111) << C_M_)
+			| (((board >> C_R_) & 0b111) << C_R_)
+			| (((board >> C_BL) & 0b111) << C_TL)
+			| (((board >> C_B_) & 0b111) << C_T_)
+			| (((board >> C_BR) & 0b111) << C_TR)
+	},
+];
 
 #[inline]
 fn empty_cell_mask(index: BoardIndex) -> BoardBitSize {
@@ -132,14 +164,28 @@ impl Board {
 			+ HASH_TABLE_B_[self.get(C_B_) as usize]
 			+ HASH_TABLE_BR[self.get(C_BR) as usize]
 	}
+
+	fn canonical(&self) -> (BoardBitSize, usize) {
+		let mut min = (self.0, 0);
+		// skipping the first one because it's the original
+		for i in 1..SYMMETRY_COUNT {
+			let transformed = TRANSFORMERS[i](self.0);
+			if transformed < min.0 {
+				min = (transformed, i);
+			}
+		}
+		min
+	}
 }
 
 macro_rules! queue_insert {
-	($queue:ident, $board:expr, $path_count:ident) => {
+	($queue:ident, $board:expr, $symmetry_path_count:ident) => {
 		$queue
 			.entry($board)
 			.and_modify(|count| {
-				*count = count.wrapping_add($path_count);
+				for i in 0..SYMMETRY_COUNT {
+					count.1[i] = count.1[i].wrapping_add($symmetry_path_count[i]);
+				}
 			})
 			.or_insert($path_count);
 	};
@@ -166,7 +212,7 @@ macro_rules! play_single_move {
 }
 
 macro_rules! play_move {
-	($board:ident, $index:ident, $path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $neighbors_len:ident, $($neighbors:ident),+) => {
+	($board:ident, $index:ident, $symmetry_path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $neighbors_len:ident, $($neighbors:ident),+) => {
 		if $board.get($index) == 0 {
 			$moved = true;
 
@@ -242,57 +288,75 @@ macro_rules! play_move {
 
 // we can let it overflow because u32 is 4 times 2^30
 macro_rules! sum {
-	($sum:ident, $board:ident, $path_count:ident) => {
-		$sum = $sum.wrapping_add($board.hash().wrapping_mul($path_count));
+	($sum:ident, $board:ident, $symmetry_path_count:ident) => {
+		$sum = $sum.wrapping_add($board.hash().wrapping_mul($symmetry_path_count[0]));
+		for i in 1..SYMMETRY_COUNT {
+			$sum = $sum.wrapping_add(
+				Board(TRANSFORMERS[i]($board.0))
+					.hash()
+					.wrapping_mul($symmetry_path_count[i]),
+			);
+		}
 	};
 }
 
+type Queue = HashMap<
+	// canonical board
+	BoardBitSize,
+	(
+		// original board
+		Board,
+		// path count per symmetry
+		SymmetryPathCount,
+	),
+>;
+
 fn solve(depth: Depth, starting_board: Board) -> Sum {
 	let mut sum: Sum = 0;
-	let mut queue: HashMap<Board, PathCount> = HashMap::with_capacity(QUEUE_CAPACITY);
-	let mut current_queue: HashMap<Board, PathCount> = HashMap::with_capacity(QUEUE_CAPACITY);
+	let mut queue: Queue = HashMap::with_capacity(QUEUE_CAPACITY);
+	let mut current_queue: Queue = HashMap::with_capacity(QUEUE_CAPACITY);
 	let mut ngb_buf: [(BoardIndex, DiceValue, BoardBitSize); 4] = [(0, 0, 0); 4];
 	let mut ngb_len: u8;
 	let mut d = 0;
 
-	queue.insert(starting_board, 1);
+	queue.insert(starting_board.canonical().0, (starting_board, [1, 0, 0]));
 
 	while d < depth && !queue.is_empty() {
 		std::mem::swap(&mut queue, &mut current_queue);
 
-		for (board, pc) in current_queue.drain() {
+		for (_, (board, spc)) in current_queue.drain() {
 			let mut moved = false;
 
-			play_move!(board, C_BR, pc, queue, moved, ngb_buf, ngb_len, C_B_, C_R_);
+			play_move!(board, C_BR, spc, queue, moved, ngb_buf, ngb_len, C_B_, C_R_);
 			play_move!(
-				board, C_B_, pc, queue, moved, ngb_buf, ngb_len, C_BL, C_M_, C_BR
+				board, C_B_, spc, queue, moved, ngb_buf, ngb_len, C_BL, C_M_, C_BR
 			);
-			play_move!(board, C_BL, pc, queue, moved, ngb_buf, ngb_len, C_L_, C_B_);
+			play_move!(board, C_BL, spc, queue, moved, ngb_buf, ngb_len, C_L_, C_B_);
 			play_move!(
-				board, C_R_, pc, queue, moved, ngb_buf, ngb_len, C_M_, C_TR, C_BR
-			);
-			play_move!(
-				board, C_M_, pc, queue, moved, ngb_buf, ngb_len, C_L_, C_T_, C_R_, C_B_
+				board, C_R_, spc, queue, moved, ngb_buf, ngb_len, C_M_, C_TR, C_BR
 			);
 			play_move!(
-				board, C_L_, pc, queue, moved, ngb_buf, ngb_len, C_TL, C_M_, C_BL
+				board, C_M_, spc, queue, moved, ngb_buf, ngb_len, C_L_, C_T_, C_R_, C_B_
 			);
-			play_move!(board, C_TR, pc, queue, moved, ngb_buf, ngb_len, C_T_, C_R_);
 			play_move!(
-				board, C_T_, pc, queue, moved, ngb_buf, ngb_len, C_TL, C_TR, C_M_
+				board, C_L_, spc, queue, moved, ngb_buf, ngb_len, C_TL, C_M_, C_BL
 			);
-			play_move!(board, C_TL, pc, queue, moved, ngb_buf, ngb_len, C_T_, C_L_);
+			play_move!(board, C_TR, spc, queue, moved, ngb_buf, ngb_len, C_T_, C_R_);
+			play_move!(
+				board, C_T_, spc, queue, moved, ngb_buf, ngb_len, C_TL, C_TR, C_M_
+			);
+			play_move!(board, C_TL, spc, queue, moved, ngb_buf, ngb_len, C_T_, C_L_);
 
 			if !moved {
-				sum!(sum, board, pc);
+				sum!(sum, board, spc);
 			}
 		}
 
 		d += 1;
 	}
 
-	for (board, path_count) in queue {
-		sum!(sum, board, path_count);
+	for (_, (board, spc)) in queue {
+		sum!(sum, board, spc);
 	}
 
 	sum % SUM_MOD
@@ -400,6 +464,14 @@ mod tests {
 		let board = board_from_hash(123_456_024);
 		assert_eq!(board.0, 0b_001_010_011_100_101_110_000_010_100);
 		assert_eq!(board.hash(), 123_456_024);
+	}
+
+	#[test]
+	fn transform() {
+		let board = board_from_hash(123_456_024);
+		assert_eq!(Board(TRANSFORMERS[0](board.0)).hash(), board.hash());
+		assert_eq!(Board(TRANSFORMERS[1](board.0)).hash(), 321_654_420);
+		assert_eq!(Board(TRANSFORMERS[2](board.0)).hash(), 024_456_123);
 	}
 
 	#[test]
