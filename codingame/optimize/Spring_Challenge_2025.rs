@@ -130,7 +130,7 @@ macro_rules! play_single_move {
 				$board.0,
 				empty_cell_mask($index)
 				$(
-					& empty_cell_mask($neighbors_buf[$neighbors].0)
+					& $neighbors_buf[$neighbors].2
 				)+,
 				$index,
 				n as BoardBitSize
@@ -148,7 +148,7 @@ macro_rules! play_move {
 			$(
 				let neighbor = $board.get($neighbors);
 				if neighbor != 0 && neighbor != DICE_MAX {
-					$neighbors_buf.push(($neighbors, neighbor));
+					$neighbors_buf.push(($neighbors, neighbor, empty_cell_mask($neighbors)));
 				}
 			)+
 
@@ -162,8 +162,8 @@ macro_rules! play_move {
                             queue_insert!($queue, Board(set(
 		    					$board.0,
 		    					empty_cell_mask($index)
-		    					& empty_cell_mask($neighbors_buf[0].0)
-		    					& empty_cell_mask($neighbors_buf[1].0),
+                                & $neighbors_buf[0].2
+                                & $neighbors_buf[1].2,
 		    					$index,
 		    					n as BoardBitSize
 		    				)), $path_count);
@@ -224,7 +224,7 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 	let mut sum: Sum = 0;
 	let mut queue: HashMap<Board, PathCount> = HashMap::new();
 	let mut current_queue: HashMap<Board, PathCount> = HashMap::new();
-	let mut ngb_buf = Vec::<(BoardIndex, DiceValue)>::with_capacity(4);
+	let mut ngb_buf = Vec::<(BoardIndex, DiceValue, BoardBitSize)>::with_capacity(4);
 	let mut d = 0;
 
 	queue.insert(starting_board, 1);
@@ -369,7 +369,10 @@ mod tests {
 	#[test]
 	fn test_play_single_move() {
 		let board = board_from_hash(616101616);
-		let neighbors_buf = Vec::<(BoardIndex, DiceValue)>::from([(C_L_, 1), (C_T_, 1)]);
+		let neighbors_buf = Vec::<(BoardIndex, DiceValue, BoardBitSize)>::from([
+			(C_L_, 1, empty_cell_mask(C_L_)),
+			(C_T_, 1, empty_cell_mask(C_T_)),
+		]);
 		let mut queue: HashMap<Board, PathCount> = HashMap::new();
 		let mut moved = false;
 		let depth = 1;
