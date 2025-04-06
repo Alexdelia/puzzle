@@ -9,11 +9,12 @@ type BoardBitSize = u32;
 #[derive(Eq, Hash, PartialEq)]
 struct Board(BoardBitSize);
 type BoardIndex = u8;
+type DiceValue = u8;
 
 type Sum = u32;
 type PathCount = u32;
 
-const DICE_MAX: BoardBitSize = 6;
+const DICE_MAX: DiceValue = 6;
 
 const SUM_MOD: Sum = 1 << 30;
 
@@ -39,15 +40,15 @@ fn parse() -> (Depth, Board) {
 	(depth, starting_board)
 }
 
-const C_BR: BoardIndex = 0;
-const C_B_: BoardIndex = 3;
-const C_BL: BoardIndex = 6;
-const C_R_: BoardIndex = 9;
-const C_M_: BoardIndex = 12;
-const C_L_: BoardIndex = 15;
-const C_TR: BoardIndex = 18;
-const C_T_: BoardIndex = 21;
-const C_TL: BoardIndex = 24;
+const C_BR: DiceValue = 0;
+const C_B_: DiceValue = 3;
+const C_BL: DiceValue = 6;
+const C_R_: DiceValue = 9;
+const C_M_: DiceValue = 12;
+const C_L_: DiceValue = 15;
+const C_TR: DiceValue = 18;
+const C_T_: DiceValue = 21;
+const C_TL: DiceValue = 24;
 
 #[inline]
 fn empty_cell_mask(index: BoardIndex) -> BoardBitSize {
@@ -89,21 +90,21 @@ impl Board {
 	}
 
 	#[inline]
-	fn get(&self, index: BoardIndex) -> BoardBitSize {
-		(self.0 >> index) & 0b111
+	fn get(&self, index: BoardIndex) -> DiceValue {
+		(self.0 >> index) as DiceValue & 0b111
 	}
 
 	#[inline]
 	fn hash(&self) -> BoardBitSize {
-		(self.get(C_TL) * 100_000_000)
-			+ (self.get(C_T_) * 010_000_000)
-			+ (self.get(C_TR) * 001_000_000)
-			+ (self.get(C_L_) * 000_100_000)
-			+ (self.get(C_M_) * 000_010_000)
-			+ (self.get(C_R_) * 000_001_000)
-			+ (self.get(C_BL) * 000_000_100)
-			+ (self.get(C_B_) * 000_000_010)
-			+ self.get(C_BR)
+		(self.get(C_TL) as BoardBitSize * 100_000_000)
+			+ (self.get(C_T_) as BoardBitSize * 010_000_000)
+			+ (self.get(C_TR) as BoardBitSize * 001_000_000)
+			+ (self.get(C_L_) as BoardBitSize * 000_100_000)
+			+ (self.get(C_M_) as BoardBitSize * 000_010_000)
+			+ (self.get(C_R_) as BoardBitSize * 000_001_000)
+			+ (self.get(C_BL) as BoardBitSize * 000_000_100)
+			+ (self.get(C_B_) as BoardBitSize * 000_000_010)
+			+ self.get(C_BR) as BoardBitSize
 	}
 }
 
@@ -132,7 +133,7 @@ macro_rules! play_single_move {
 					& empty_cell_mask($neighbors_buf[$neighbors].0)
 				)+,
 				$index,
-				n
+				n as BoardBitSize
 			)), $path_count);
 		}
 	};
@@ -164,7 +165,7 @@ macro_rules! play_move {
 		    					& empty_cell_mask($neighbors_buf[0].0)
 		    					& empty_cell_mask($neighbors_buf[1].0),
 		    					$index,
-		    					n
+		    					n as BoardBitSize
 		    				)), $path_count);
 		    			} else {
                             queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
@@ -223,7 +224,7 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 	let mut sum: Sum = 0;
 	let mut queue: HashMap<Board, PathCount> = HashMap::new();
 	let mut current_queue: HashMap<Board, PathCount> = HashMap::new();
-	let mut ngb_buf = Vec::<(BoardIndex, BoardBitSize)>::with_capacity(4);
+	let mut ngb_buf = Vec::<(BoardIndex, DiceValue)>::with_capacity(4);
 	let mut d = 0;
 
 	queue.insert(starting_board, 1);
@@ -368,7 +369,7 @@ mod tests {
 	#[test]
 	fn test_play_single_move() {
 		let board = board_from_hash(616101616);
-		let neighbors_buf = Vec::<(BoardIndex, BoardBitSize)>::from([(C_L_, 1), (C_T_, 1)]);
+		let neighbors_buf = Vec::<(BoardIndex, DiceValue)>::from([(C_L_, 1), (C_T_, 1)]);
 		let mut queue: HashMap<Board, PathCount> = HashMap::new();
 		let mut moved = false;
 		let depth = 1;
