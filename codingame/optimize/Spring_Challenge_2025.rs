@@ -318,21 +318,15 @@ macro_rules! play_move {
 // we can let it overflow because u32 is 4 times 2^30
 macro_rules! sum {
 	($sum:ident, $board:ident, $rotation:ident, $symmetry_path_count:ident) => {
-		dbg!($rotation);
-		let bbb = REVERSE_TRANSFORMERS[($rotation % 4) as usize]($board);
+		let reversed_canonical = REVERSE_TRANSFORMERS[($rotation % 4) as usize]($board);
 		for i in 0..SYMMETRY_COUNT {
 			let current_rotation = ($rotation + i) % 4;
-			dbg!(
-				Board($board).hash(),
-				Board(REVERSE_TRANSFORMERS[current_rotation as usize]($board)).hash(),
-				current_rotation,
-				$symmetry_path_count[current_rotation as usize],
-				Board(REVERSE_TRANSFORMERS[current_rotation as usize](bbb)).hash(),
-			);
 			$sum = $sum.wrapping_add(
-				Board(REVERSE_TRANSFORMERS[current_rotation as usize](bbb))
-					.hash()
-					.wrapping_mul($symmetry_path_count[current_rotation as usize]),
+				Board(REVERSE_TRANSFORMERS[current_rotation as usize](
+					reversed_canonical,
+				))
+				.hash()
+				.wrapping_mul($symmetry_path_count[current_rotation as usize]),
 			);
 		}
 	};
