@@ -22,7 +22,7 @@ const DICE_MAX: DiceValue = 6;
 
 const SUM_MOD: Sum = 1 << 30;
 
-const QUEUE_CAPACITY: usize = 90_000;
+const QUEUE_CAPACITY: usize = 1 << 13;
 
 fn main() {
 	let (depth, starting_board) = parse();
