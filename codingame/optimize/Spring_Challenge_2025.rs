@@ -14,8 +14,9 @@ type DiceValue = u8;
 type Sum = u32;
 type PathCount = u32;
 
-const SYMMETRY_COUNT: usize = 3;
-type SymmetryPathCount = [PathCount; SYMMETRY_COUNT];
+const SYMMETRY_COUNT: u8 = 4;
+type SymmetryPathCount = [PathCount; SYMMETRY_COUNT as usize];
+type RotationIndex = u8;
 
 const DICE_MAX: DiceValue = 6;
 
@@ -55,31 +56,44 @@ const C_TR: DiceValue = 18;
 const C_T_: DiceValue = 21;
 const C_TL: DiceValue = 24;
 
-static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT] = [
-	// identity
+// TODO: make transformers function faster
+static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize] = [
+	// 0
 	|board| board,
-	// vertical flip
+	// 90 clockwise
 	|board| {
 		(((board >> C_TL) & 0b111) << C_TR)
-			| (((board >> C_T_) & 0b111) << C_T_)
-			| (((board >> C_TR) & 0b111) << C_TL)
+			| (((board >> C_T_) & 0b111) << C_R_)
+			| (((board >> C_TR) & 0b111) << C_BR)
+			| (((board >> C_L_) & 0b111) << C_T_)
+			| (((board >> C_M_) & 0b111) << C_M_)
+			| (((board >> C_R_) & 0b111) << C_B_)
+			| (((board >> C_BL) & 0b111) << C_TL)
+			| (((board >> C_B_) & 0b111) << C_L_)
+			| (((board >> C_BR) & 0b111) << C_BL)
+	},
+	// 180
+	|board| {
+		(((board >> C_TL) & 0b111) << C_BR)
+			| (((board >> C_T_) & 0b111) << C_B_)
+			| (((board >> C_TR) & 0b111) << C_BL)
 			| (((board >> C_L_) & 0b111) << C_R_)
 			| (((board >> C_M_) & 0b111) << C_M_)
 			| (((board >> C_R_) & 0b111) << C_L_)
-			| (((board >> C_BL) & 0b111) << C_BR)
-			| (((board >> C_B_) & 0b111) << C_B_)
-			| (((board >> C_BR) & 0b111) << C_BL)
+			| (((board >> C_BL) & 0b111) << C_TR)
+			| (((board >> C_B_) & 0b111) << C_T_)
+			| (((board >> C_BR) & 0b111) << C_TL)
 	},
-	// horizontal flip
+	// 270 clockwise or 90 counter-clockwise
 	|board| {
 		(((board >> C_TL) & 0b111) << C_BL)
-			| (((board >> C_T_) & 0b111) << C_B_)
-			| (((board >> C_TR) & 0b111) << C_BR)
-			| (((board >> C_L_) & 0b111) << C_L_)
+			| (((board >> C_T_) & 0b111) << C_L_)
+			| (((board >> C_TR) & 0b111) << C_TL)
+			| (((board >> C_L_) & 0b111) << C_B_)
 			| (((board >> C_M_) & 0b111) << C_M_)
-			| (((board >> C_R_) & 0b111) << C_R_)
-			| (((board >> C_BL) & 0b111) << C_TL)
-			| (((board >> C_B_) & 0b111) << C_T_)
+			| (((board >> C_R_) & 0b111) << C_T_)
+			| (((board >> C_BL) & 0b111) << C_BR)
+			| (((board >> C_B_) & 0b111) << C_R_)
 			| (((board >> C_BR) & 0b111) << C_TR)
 	},
 ];
@@ -165,11 +179,11 @@ impl Board {
 			+ HASH_TABLE_BR[self.get(C_BR) as usize]
 	}
 
-	fn canonical(&self) -> (BoardBitSize, usize) {
+	fn canonical(&self) -> (BoardBitSize, u8) {
 		let mut min = (self.0, 0);
 		// skipping the first one because it's the original
 		for i in 1..SYMMETRY_COUNT {
-			let transformed = TRANSFORMERS[i](self.0);
+			let transformed = TRANSFORMERS[i as usize](self.0);
 			if transformed < min.0 {
 				min = (transformed, i);
 			}
@@ -179,46 +193,49 @@ impl Board {
 }
 
 macro_rules! queue_insert {
-	($queue:ident, $board:expr, $symmetry_path_count:ident) => {
+	($queue:ident, $board:expr, $rotation:ident, $symmetry_path_count:ident) => {
+		let canonical = $board.canonical();
 		$queue
-			.entry($board)
-			.and_modify(|count| {
-				for i in 0..SYMMETRY_COUNT {
-					count.1[i] = count.1[i].wrapping_add($symmetry_path_count[i]);
-				}
+			.entry(canonical.0)
+			.and_modify(|(stored_rotation, count)| {
+				let rotation_delta = (*stored_rotation + 4 - $rotation) % 4;
+				count[0] += $symmetry_path_count[rotation_delta as usize];
+				count[1] += $symmetry_path_count[((rotation_delta + 1) % 4) as usize];
+				count[2] += $symmetry_path_count[((rotation_delta + 2) % 4) as usize];
+				count[3] += $symmetry_path_count[((rotation_delta + 3) % 4) as usize];
 			})
-			.or_insert($path_count);
+			.or_insert((($rotation + canonical.1), $symmetry_path_count));
 	};
 }
 
 macro_rules! play_single_move {
-	($board:ident, $index:ident, $path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $($neighbors:literal),+) => {
+	($board:ident, $index:ident, $rotation:ident, $symmetry_path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $($neighbors:literal),+) => {
 		let n = 0 $(
 			+ $neighbors_buf[$neighbors].1
 		)+;
 		if n <= DICE_MAX {
 			$moved = true;
 			queue_insert!($queue, Board(set(
-				$board.0,
+				$board,
 				empty_cell_mask($index)
 				$(
 					& $neighbors_buf[$neighbors].2
 				)+,
 				$index,
 				n as BoardBitSize
-			)), $path_count);
+			)), $rotation, $symmetry_path_count);
 		}
 	};
 }
 
 macro_rules! play_move {
-	($board:ident, $index:ident, $symmetry_path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $neighbors_len:ident, $($neighbors:ident),+) => {
-		if $board.get($index) == 0 {
+	($board:ident, $index:ident, $rotation:ident, $symmetry_path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $neighbors_len:ident, $($neighbors:ident),+) => {
+		if Board($board).get($index) == 0 {
 			$moved = true;
 
 			$neighbors_len = 0;
 			$(
-				let neighbor = $board.get($neighbors);
+				let neighbor = Board($board).get($neighbors);
 				if neighbor != 0 && neighbor != DICE_MAX {
 					$neighbors_buf[$neighbors_len as usize] = ($neighbors, neighbor, empty_cell_mask($neighbors));
 					$neighbors_len += 1;
@@ -226,58 +243,58 @@ macro_rules! play_move {
 			)+
 
 			if $neighbors_len <= 1 {
-				queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+				queue_insert!($queue, Board(set($board, empty_cell_mask($index), $index, 1)), $rotation, $symmetry_path_count);
 			} else {
 				match $neighbors_len {
 					2 => {
 						let n = $neighbors_buf[0].1 + $neighbors_buf[1].1;
 						if n <= DICE_MAX {
 							queue_insert!($queue, Board(set(
-								$board.0,
+								$board,
 								empty_cell_mask($index)
 								& $neighbors_buf[0].2
 								& $neighbors_buf[1].2,
 								$index,
 								n as BoardBitSize
-							)), $path_count);
+							)), $rotation, $symmetry_path_count);
 						} else {
-							queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+							queue_insert!($queue, Board(set($board, empty_cell_mask($index), $index, 1)), $rotation, $symmetry_path_count);
 						}
 					},
 					3 => {
 						let mut moved_here = false;
 
 						// 2 of 3
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1);
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2);
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 2);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 2);
 						// 3 of 3
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
 
 						if !moved_here {
-							queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+							queue_insert!($queue, Board(set($board, empty_cell_mask($index), $index, 1)), $rotation, $symmetry_path_count);
 						}
 					},
 					_ => {
 						let mut moved_here = false;
 
 						// 2 of 4
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1);
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2);
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 3);
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2);
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 3);
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 2, 3);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 2);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 3);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 2);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 3);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 2, 3);
 						// 3 of 4
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 3);
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 2, 3);
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 1, 2, 3);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 3);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 2, 3);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 2, 3);
 						// 4 of 4
-						play_single_move!($board, $index, $path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2, 3);
+						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2, 3);
 
 						if !moved_here {
-							queue_insert!($queue, Board(set($board.0, empty_cell_mask($index), $index, 1)), $path_count);
+							queue_insert!($queue, Board(set($board, empty_cell_mask($index), $index, 1)), $rotation, $symmetry_path_count);
 						}
 					},
 				}
@@ -288,13 +305,14 @@ macro_rules! play_move {
 
 // we can let it overflow because u32 is 4 times 2^30
 macro_rules! sum {
-	($sum:ident, $board:ident, $symmetry_path_count:ident) => {
-		$sum = $sum.wrapping_add($board.hash().wrapping_mul($symmetry_path_count[0]));
+	($sum:ident, $board:ident, $rotation:ident, $symmetry_path_count:ident) => {
+		$sum = $sum.wrapping_add(Board($board).hash().wrapping_mul($symmetry_path_count[0]));
 		for i in 1..SYMMETRY_COUNT {
+			let current_rotation = ($rotation + i) % 4;
 			$sum = $sum.wrapping_add(
-				Board(TRANSFORMERS[i]($board.0))
+				Board(TRANSFORMERS[current_rotation as usize]($board))
 					.hash()
-					.wrapping_mul($symmetry_path_count[i]),
+					.wrapping_mul($symmetry_path_count[current_rotation as usize]),
 			);
 		}
 	};
@@ -304,8 +322,8 @@ type Queue = HashMap<
 	// canonical board
 	BoardBitSize,
 	(
-		// original board
-		Board,
+		// current ratation count of 90 clockwise
+		RotationIndex,
 		// path count per symmetry
 		SymmetryPathCount,
 	),
@@ -319,44 +337,54 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 	let mut ngb_len: u8;
 	let mut d = 0;
 
-	queue.insert(starting_board.canonical().0, (starting_board, [1, 0, 0]));
+	// no need to compute first canonical
+	// there will be no duplicates possible with only 1 board on depth 0
+	queue.insert(starting_board.0, (0, [1, 0, 0, 0]));
 
 	while d < depth && !queue.is_empty() {
 		std::mem::swap(&mut queue, &mut current_queue);
 
-		for (_, (board, spc)) in current_queue.drain() {
+		for (board, (rot, spc)) in current_queue.drain() {
 			let mut moved = false;
 
-			play_move!(board, C_BR, spc, queue, moved, ngb_buf, ngb_len, C_B_, C_R_);
 			play_move!(
-				board, C_B_, spc, queue, moved, ngb_buf, ngb_len, C_BL, C_M_, C_BR
-			);
-			play_move!(board, C_BL, spc, queue, moved, ngb_buf, ngb_len, C_L_, C_B_);
-			play_move!(
-				board, C_R_, spc, queue, moved, ngb_buf, ngb_len, C_M_, C_TR, C_BR
+				board, C_BR, rot, spc, queue, moved, ngb_buf, ngb_len, C_B_, C_R_
 			);
 			play_move!(
-				board, C_M_, spc, queue, moved, ngb_buf, ngb_len, C_L_, C_T_, C_R_, C_B_
+				board, C_B_, rot, spc, queue, moved, ngb_buf, ngb_len, C_BL, C_M_, C_BR
 			);
 			play_move!(
-				board, C_L_, spc, queue, moved, ngb_buf, ngb_len, C_TL, C_M_, C_BL
+				board, C_BL, rot, spc, queue, moved, ngb_buf, ngb_len, C_L_, C_B_
 			);
-			play_move!(board, C_TR, spc, queue, moved, ngb_buf, ngb_len, C_T_, C_R_);
 			play_move!(
-				board, C_T_, spc, queue, moved, ngb_buf, ngb_len, C_TL, C_TR, C_M_
+				board, C_R_, rot, spc, queue, moved, ngb_buf, ngb_len, C_M_, C_TR, C_BR
 			);
-			play_move!(board, C_TL, spc, queue, moved, ngb_buf, ngb_len, C_T_, C_L_);
+			play_move!(
+				board, C_M_, rot, spc, queue, moved, ngb_buf, ngb_len, C_L_, C_T_, C_R_, C_B_
+			);
+			play_move!(
+				board, C_L_, rot, spc, queue, moved, ngb_buf, ngb_len, C_TL, C_M_, C_BL
+			);
+			play_move!(
+				board, C_TR, rot, spc, queue, moved, ngb_buf, ngb_len, C_T_, C_R_
+			);
+			play_move!(
+				board, C_T_, rot, spc, queue, moved, ngb_buf, ngb_len, C_TL, C_TR, C_M_
+			);
+			play_move!(
+				board, C_TL, rot, spc, queue, moved, ngb_buf, ngb_len, C_T_, C_L_
+			);
 
 			if !moved {
-				sum!(sum, board, spc);
+				sum!(sum, board, rot, spc);
 			}
 		}
 
 		d += 1;
 	}
 
-	for (_, (board, spc)) in queue {
-		sum!(sum, board, spc);
+	for (board, (rot, spc)) in queue {
+		sum!(sum, board, rot, spc);
 	}
 
 	sum % SUM_MOD
@@ -469,9 +497,32 @@ mod tests {
 	#[test]
 	fn transform() {
 		let board = board_from_hash(123_456_024);
+		// no transformation
 		assert_eq!(Board(TRANSFORMERS[0](board.0)).hash(), board.hash());
-		assert_eq!(Board(TRANSFORMERS[1](board.0)).hash(), 321_654_420);
-		assert_eq!(Board(TRANSFORMERS[2](board.0)).hash(), 024_456_123);
+		// 90 clockwise
+		assert_eq!(Board(TRANSFORMERS[1](board.0)).hash(), 041_252_463);
+		// 180
+		assert_eq!(Board(TRANSFORMERS[2](board.0)).hash(), 420_654_321);
+		// 270 clockwise or 90 counter-clockwise
+		assert_eq!(Board(TRANSFORMERS[3](board.0)).hash(), 364_252_140);
+		// vertical flip
+		// assert_eq!(Board(TRANSFORMERS[1](board.0)).hash(), 321_654_420);
+		// horizontal flip
+		// assert_eq!(Board(TRANSFORMERS[2](board.0)).hash(), 024_456_123);
+
+		let board = board_from_hash(616_101_616);
+		assert_eq!(Board(TRANSFORMERS[0](board.0)).hash(), 616_101_616);
+		assert_eq!(Board(TRANSFORMERS[1](board.0)).hash(), 616_101_616);
+		assert_eq!(Board(TRANSFORMERS[2](board.0)).hash(), 616_101_616);
+		assert_eq!(Board(TRANSFORMERS[3](board.0)).hash(), 616_101_616);
+	}
+
+	#[test]
+	fn test_canonical() {
+		let board = board_from_hash(616_101_616);
+		let c = board.canonical();
+		assert_eq!(c.1, 0);
+		assert_eq!(Board(c.0).hash(), 616_101_616);
 	}
 
 	#[test]
@@ -481,17 +532,19 @@ mod tests {
 			(C_L_, 1, empty_cell_mask(C_L_)),
 			(C_T_, 1, empty_cell_mask(C_T_)),
 		]);
-		let mut queue: HashMap<Board, PathCount> = HashMap::new();
+		let mut queue: Queue = HashMap::new();
 		let mut moved = false;
-		let depth = 1;
+		let spc: SymmetryPathCount = [1, 0, 0, 0];
+		let rot = 0;
 
-		play_single_move!(board, C_M_, depth, queue, moved, neighbors_buf, 0, 1);
+		let b = board.0;
+		play_single_move!(b, C_M_, rot, spc, queue, moved, neighbors_buf, 0, 1);
 
 		assert_eq!(queue.len(), 1);
 		assert!(moved);
 		let first = queue.iter().next().unwrap();
-		assert_eq!(first.0.hash(), 606021616);
-		assert_eq!(*first.1, 1);
+		assert_eq!(Board(*first.0).hash(), 606021616);
+		assert_eq!(*first.1, (0, [1, 0, 0, 0]));
 	}
 
 	#[test]
