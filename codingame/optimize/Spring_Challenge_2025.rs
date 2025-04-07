@@ -204,8 +204,13 @@ macro_rules! queue_insert {
 		let canonical = $board.canonical();
 		$queue
 			.entry(canonical.0)
-			.and_modify(|(_, count)| {
-				let r = (($rotation + canonical.1) % 4) as usize;
+			.and_modify(|(stored_rotation, count)| {
+				*stored_rotation = (*stored_rotation) % 4;
+				let new_rotation = ($rotation + canonical.1) % 4;
+				let delta_rotation = *stored_rotation + 4 - new_rotation;
+				// let delta_rotation = new_rotation + 4 - *stored_rotation;
+				let r = (delta_rotation % 4) as usize;
+				// (((*stored_rotation % 4) + 4 - (($rotation + canonical.1) % 4)) % 4) as usize;
 				count[0] = count[0].wrapping_add($symmetry_path_count[r]);
 				count[1] = count[1].wrapping_add($symmetry_path_count[(r + 1) % 4]);
 				count[2] = count[2].wrapping_add($symmetry_path_count[(r + 2) % 4]);
@@ -313,10 +318,19 @@ macro_rules! play_move {
 // we can let it overflow because u32 is 4 times 2^30
 macro_rules! sum {
 	($sum:ident, $board:ident, $rotation:ident, $symmetry_path_count:ident) => {
+		dbg!($rotation);
+		let bbb = REVERSE_TRANSFORMERS[($rotation % 4) as usize]($board);
 		for i in 0..SYMMETRY_COUNT {
 			let current_rotation = ($rotation + i) % 4;
+			dbg!(
+				Board($board).hash(),
+				Board(REVERSE_TRANSFORMERS[current_rotation as usize]($board)).hash(),
+				current_rotation,
+				$symmetry_path_count[current_rotation as usize],
+				Board(REVERSE_TRANSFORMERS[current_rotation as usize](bbb)).hash(),
+			);
 			$sum = $sum.wrapping_add(
-				Board(REVERSE_TRANSFORMERS[current_rotation as usize]($board))
+				Board(REVERSE_TRANSFORMERS[current_rotation as usize](bbb))
 					.hash()
 					.wrapping_mul($symmetry_path_count[current_rotation as usize]),
 			);
