@@ -98,6 +98,13 @@ static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize]
 	},
 ];
 
+static REVERSE_TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize] = [
+	TRANSFORMERS[0],
+	TRANSFORMERS[3],
+	TRANSFORMERS[2],
+	TRANSFORMERS[1],
+];
+
 #[inline]
 fn empty_cell_mask(index: BoardIndex) -> BoardBitSize {
 	!(0b111 << index)
@@ -198,11 +205,11 @@ macro_rules! queue_insert {
 		$queue
 			.entry(canonical.0)
 			.and_modify(|(_, count)| {
-				let r = ($rotation % 4) as usize;
+				let r = (($rotation + canonical.1) % 4) as usize;
 				count[0] = count[0].wrapping_add($symmetry_path_count[r]);
-				count[1] = count[1].wrapping_add($symmetry_path_count[r + 1 % 4]);
-				count[2] = count[2].wrapping_add($symmetry_path_count[r + 2 % 4]);
-				count[3] = count[3].wrapping_add($symmetry_path_count[r + 3 % 4]);
+				count[1] = count[1].wrapping_add($symmetry_path_count[(r + 1) % 4]);
+				count[2] = count[2].wrapping_add($symmetry_path_count[(r + 2) % 4]);
+				count[3] = count[3].wrapping_add($symmetry_path_count[(r + 3) % 4]);
 			})
 			.or_insert((($rotation + canonical.1), $symmetry_path_count));
 	};
@@ -306,11 +313,10 @@ macro_rules! play_move {
 // we can let it overflow because u32 is 4 times 2^30
 macro_rules! sum {
 	($sum:ident, $board:ident, $rotation:ident, $symmetry_path_count:ident) => {
-		$sum = $sum.wrapping_add(Board($board).hash().wrapping_mul($symmetry_path_count[0]));
-		for i in 1..SYMMETRY_COUNT {
+		for i in 0..SYMMETRY_COUNT {
 			let current_rotation = ($rotation + i) % 4;
 			$sum = $sum.wrapping_add(
-				Board(TRANSFORMERS[current_rotation as usize]($board))
+				Board(REVERSE_TRANSFORMERS[current_rotation as usize]($board))
 					.hash()
 					.wrapping_mul($symmetry_path_count[current_rotation as usize]),
 			);
