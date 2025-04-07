@@ -197,12 +197,12 @@ macro_rules! queue_insert {
 		let canonical = $board.canonical();
 		$queue
 			.entry(canonical.0)
-			.and_modify(|(stored_rotation, count)| {
-				let rotation_delta = (*stored_rotation + 4 - $rotation) % 4;
-				count[0] += $symmetry_path_count[rotation_delta as usize];
-				count[1] += $symmetry_path_count[((rotation_delta + 1) % 4) as usize];
-				count[2] += $symmetry_path_count[((rotation_delta + 2) % 4) as usize];
-				count[3] += $symmetry_path_count[((rotation_delta + 3) % 4) as usize];
+			.and_modify(|(_, count)| {
+				let r = ($rotation % 4) as usize;
+				count[0] = count[0].wrapping_add($symmetry_path_count[r]);
+				count[1] = count[1].wrapping_add($symmetry_path_count[r + 1 % 4]);
+				count[2] = count[2].wrapping_add($symmetry_path_count[r + 2 % 4]);
+				count[3] = count[3].wrapping_add($symmetry_path_count[r + 3 % 4]);
 			})
 			.or_insert((($rotation + canonical.1), $symmetry_path_count));
 	};
