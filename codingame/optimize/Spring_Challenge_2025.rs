@@ -318,17 +318,32 @@ macro_rules! play_move {
 // we can let it overflow because u32 is 4 times 2^30
 macro_rules! sum {
 	($sum:ident, $board:ident, $rotation:ident, $symmetry_path_count:ident) => {
-		let reversed_canonical = REVERSE_TRANSFORMERS[($rotation % 4) as usize]($board);
-		for i in 0..SYMMETRY_COUNT {
-			let current_rotation = ($rotation + i) % 4;
-			$sum = $sum.wrapping_add(
-				Board(REVERSE_TRANSFORMERS[current_rotation as usize](
-					reversed_canonical,
-				))
-				.hash()
-				.wrapping_mul($symmetry_path_count[current_rotation as usize]),
+		let r0 = ($rotation % 4) as usize;
+		let r1 = (($rotation + 1) % 4) as usize;
+		let r2 = (($rotation + 2) % 4) as usize;
+		let r3 = (($rotation + 3) % 4) as usize;
+		let reversed_canonical = REVERSE_TRANSFORMERS[r0]($board);
+		$sum = $sum
+			.wrapping_add(
+				Board(REVERSE_TRANSFORMERS[r0](reversed_canonical))
+					.hash()
+					.wrapping_mul($symmetry_path_count[r0]),
+			)
+			.wrapping_add(
+				Board(REVERSE_TRANSFORMERS[r1](reversed_canonical))
+					.hash()
+					.wrapping_mul($symmetry_path_count[r1]),
+			)
+			.wrapping_add(
+				Board(REVERSE_TRANSFORMERS[r2](reversed_canonical))
+					.hash()
+					.wrapping_mul($symmetry_path_count[r2]),
+			)
+			.wrapping_add(
+				Board(REVERSE_TRANSFORMERS[r3](reversed_canonical))
+					.hash()
+					.wrapping_mul($symmetry_path_count[r3]),
 			);
-		}
 	};
 }
 
