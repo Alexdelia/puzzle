@@ -58,8 +58,10 @@ const C_TL: DiceValue = 24;
 
 static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize] = [
 	// 0
+	#[inline(always)]
 	|board| board,
 	// 90 clockwise
+	#[inline(always)]
 	|board| {
 		// ((board & 0b111_000_000_000_000_000_000_000_000) >> 6)
 		((board & 0b000_111_000_000_000_000_000_000_000) >> 12)
@@ -74,6 +76,7 @@ static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize]
 			| ((board & 0b000_000_000_111_000_000_000_000_111) << 6)
 	},
 	// 180
+	#[inline(always)]
 	|board| {
 		((board & 0b111_000_000_000_000_000_000_000_000) >> 24)
 			| ((board & 0b000_111_000_000_000_000_000_000_000) >> 18)
@@ -86,6 +89,7 @@ static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize]
 			| ((board & 0b000_000_000_000_000_000_000_000_111) << 24)
 	},
 	// 270 clockwise or 90 counter-clockwise
+	#[inline(always)]
 	|board| {
 		((board & 0b111_000_000_000_000_000_000_000_000) >> 18)
 			// | ((board & 0b000_111_000_000_000_000_000_000_000) >> 6)
@@ -189,7 +193,7 @@ impl Board {
 			+ HASH_TABLE_BR[self.get(C_BR) as usize]
 	}
 
-	fn canonical(&self) -> (BoardBitSize, u8) {
+	fn canonical(&self) -> (BoardBitSize, RotationIndex) {
 		let mut min = (self.0, 0);
 
 		let transformed = TRANSFORMERS[1](self.0);
