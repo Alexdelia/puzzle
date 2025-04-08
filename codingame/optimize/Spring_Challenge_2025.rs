@@ -191,14 +191,22 @@ impl Board {
 
 	fn canonical(&self) -> (BoardBitSize, u8) {
 		let mut min = (self.0, 0);
-		// TODO: see if this can be optimized
-		// skipping the first one because it's the original
-		for i in 1..SYMMETRY_COUNT {
-			let transformed = TRANSFORMERS[i as usize](self.0);
-			if transformed < min.0 {
-				min = (transformed, i);
-			}
+
+		let transformed = TRANSFORMERS[1](self.0);
+		if transformed < min.0 {
+			min = (transformed, 1);
 		}
+
+		let transformed = TRANSFORMERS[2](self.0);
+		if transformed < min.0 {
+			min = (transformed, 2);
+		}
+
+		let transformed = TRANSFORMERS[3](self.0);
+		if transformed < min.0 {
+			min = (transformed, 3);
+		}
+
 		min
 	}
 }
