@@ -191,6 +191,7 @@ impl Board {
 
 	fn canonical(&self) -> (BoardBitSize, u8) {
 		let mut min = (self.0, 0);
+		// TODO: see if this can be optimized
 		// skipping the first one because it's the original
 		for i in 1..SYMMETRY_COUNT {
 			let transformed = TRANSFORMERS[i as usize](self.0);
@@ -208,18 +209,14 @@ macro_rules! queue_insert {
 		$queue
 			.entry(canonical.0)
 			.and_modify(|(stored_rotation, count)| {
-				*stored_rotation = (*stored_rotation) % 4;
-				let new_rotation = ($rotation + canonical.1) % 4;
-				let delta_rotation = *stored_rotation + 4 - new_rotation;
-				// let delta_rotation = new_rotation + 4 - *stored_rotation;
-				let r = (delta_rotation % 4) as usize;
-				// (((*stored_rotation % 4) + 4 - (($rotation + canonical.1) % 4)) % 4) as usize;
+				let r = ((*stored_rotation).wrapping_sub($rotation.wrapping_add(canonical.1)) % 4)
+					as usize;
 				count[0] = count[0].wrapping_add($symmetry_path_count[r]);
 				count[1] = count[1].wrapping_add($symmetry_path_count[(r + 1) % 4]);
 				count[2] = count[2].wrapping_add($symmetry_path_count[(r + 2) % 4]);
 				count[3] = count[3].wrapping_add($symmetry_path_count[(r + 3) % 4]);
 			})
-			.or_insert((($rotation + canonical.1), $symmetry_path_count));
+			.or_insert((($rotation.wrapping_add(canonical.1)), $symmetry_path_count));
 	};
 }
 
@@ -552,7 +549,7 @@ mod tests {
 		let mut queue: Queue = HashMap::new();
 		let mut moved = false;
 		let spc: SymmetryPathCount = [1, 0, 0, 0];
-		let rot = 0;
+		let rot: RotationIndex = 0;
 
 		let b = board.0;
 		play_single_move!(b, C_M_, rot, spc, queue, moved, neighbors_buf, 0, 1);
