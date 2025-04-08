@@ -56,7 +56,6 @@ const C_TR: DiceValue = 18;
 const C_T_: DiceValue = 21;
 const C_TL: DiceValue = 24;
 
-// TODO: make transformers function faster
 static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize] = [
 	// 0
 	|board| board,
