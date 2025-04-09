@@ -21,6 +21,7 @@ type RotationIndex = u8;
 const DICE_MAX: DiceValue = 6;
 
 const SUM_MOD: Sum = 1 << 30;
+const DEPTH_MAX: Depth = 40;
 
 const QUEUE_CAPACITY: usize = 1 << 13;
 
@@ -359,6 +360,14 @@ macro_rules! sum {
 	};
 }
 
+const EMPTY_SOLUTION: [Sum; DEPTH_MAX as usize + 1] = [
+	0, 111111111, 704035952, 840352818, 600875666, 50441886, 680243700, 597686656, 584450980,
+	55305380, 193520836, 521847116, 1054388152, 518795448, 366207036, 678967952, 476916052,
+	1009258340, 592651828, 1063467872, 400415524, 233248832, 230461008, 245411624, 899694236,
+	384163740, 888060600, 347933640, 340717612, 73295296, 851289228, 221286388, 375032784,
+	723342020, 92414440, 745533092, 331519112, 993643868, 72093236, 422667876, 503115192,
+];
+
 type Queue = HashMap<
 	// canonical board
 	BoardBitSize,
@@ -371,6 +380,10 @@ type Queue = HashMap<
 >;
 
 fn solve(depth: Depth, starting_board: Board) -> Sum {
+	if starting_board.0 == 0 {
+		return EMPTY_SOLUTION[depth as usize];
+	}
+
 	let mut sum: Sum = 0;
 	let mut queue: Queue = HashMap::with_capacity(QUEUE_CAPACITY);
 	let mut current_queue: Queue = HashMap::with_capacity(QUEUE_CAPACITY);
@@ -601,5 +614,51 @@ mod tests {
 		assert_eq!(solve(40, board_from_hash(54030030)), 667094338);
 		assert_eq!(solve(20, board_from_hash(51000401)), 738691369);
 		assert_eq!(solve(20, board_from_hash(100352100)), 808014757);
+	}
+
+	#[test]
+	fn test_solve_empty() {
+		let board = board_from_hash(0);
+		assert_eq!(solve(0, Board(board.0)), 0);
+		assert_eq!(solve(1, Board(board.0)), 111111111);
+		assert_eq!(solve(2, Board(board.0)), 704035952);
+		assert_eq!(solve(3, Board(board.0)), 840352818);
+		assert_eq!(solve(4, Board(board.0)), 600875666);
+		assert_eq!(solve(5, Board(board.0)), 50441886);
+		assert_eq!(solve(6, Board(board.0)), 680243700);
+		assert_eq!(solve(7, Board(board.0)), 597686656);
+		assert_eq!(solve(8, Board(board.0)), 584450980);
+		assert_eq!(solve(9, Board(board.0)), 55305380);
+		assert_eq!(solve(10, Board(board.0)), 193520836);
+		assert_eq!(solve(11, Board(board.0)), 521847116);
+		assert_eq!(solve(12, Board(board.0)), 1054388152);
+		assert_eq!(solve(13, Board(board.0)), 518795448);
+		assert_eq!(solve(14, Board(board.0)), 366207036);
+		assert_eq!(solve(15, Board(board.0)), 678967952);
+		assert_eq!(solve(16, Board(board.0)), 476916052);
+		assert_eq!(solve(17, Board(board.0)), 1009258340);
+		assert_eq!(solve(18, Board(board.0)), 592651828);
+		assert_eq!(solve(19, Board(board.0)), 1063467872);
+		assert_eq!(solve(20, Board(board.0)), 400415524);
+		assert_eq!(solve(21, Board(board.0)), 233248832);
+		assert_eq!(solve(22, Board(board.0)), 230461008);
+		assert_eq!(solve(23, Board(board.0)), 245411624);
+		assert_eq!(solve(24, Board(board.0)), 899694236);
+		assert_eq!(solve(25, Board(board.0)), 384163740);
+		assert_eq!(solve(26, Board(board.0)), 888060600);
+		assert_eq!(solve(27, Board(board.0)), 347933640);
+		assert_eq!(solve(28, Board(board.0)), 340717612);
+		assert_eq!(solve(29, Board(board.0)), 73295296);
+		assert_eq!(solve(30, Board(board.0)), 851289228);
+		assert_eq!(solve(31, Board(board.0)), 221286388);
+		assert_eq!(solve(32, Board(board.0)), 375032784);
+		assert_eq!(solve(33, Board(board.0)), 723342020);
+		assert_eq!(solve(34, Board(board.0)), 92414440);
+		assert_eq!(solve(35, Board(board.0)), 745533092);
+		assert_eq!(solve(36, Board(board.0)), 331519112);
+		assert_eq!(solve(37, Board(board.0)), 993643868);
+		assert_eq!(solve(38, Board(board.0)), 72093236);
+		assert_eq!(solve(39, Board(board.0)), 422667876);
+		assert_eq!(solve(DEPTH_MAX, Board(board.0)), 503115192);
 	}
 }
