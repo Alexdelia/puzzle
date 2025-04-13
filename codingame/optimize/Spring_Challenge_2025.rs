@@ -57,53 +57,20 @@ const C_TR: DiceValue = 18;
 const C_T_: DiceValue = 21;
 const C_TL: DiceValue = 24;
 
+type SymmetryIndex = usize;
+const S_I__: SymmetryIndex = 0;
+const S_V__: SymmetryIndex = 1;
+const S_H__: SymmetryIndex = 2;
+const S_DZ_: SymmetryIndex = 3;
+const S_DN_: SymmetryIndex = 4;
+const S_90_: SymmetryIndex = 5;
+const S_180: SymmetryIndex = 6;
+const S_270: SymmetryIndex = 7;
+
 static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize] = [
 	// 0
 	#[inline(always)]
 	|board| board,
-	// 90 clockwise
-	#[inline(always)]
-	|board| {
-		// ((board & 0b111_000_000_000_000_000_000_000_000) >> 6)
-		((board & 0b000_111_000_000_000_000_000_000_000) >> 12)
-			| ((board & 0b000_000_111_000_000_000_000_000_000) >> 18)
-			// | ((board & 0b000_000_000_111_000_000_000_000_000) << 6)
-			| (board & 0b000_000_000_000_111_000_000_000_000)
-			// | ((board & 0b000_000_000_000_000_111_000_000_000) >> 6)
-			| ((board & 0b000_000_000_000_000_000_111_000_000) << 18)
-			| ((board & 0b000_000_000_000_000_000_000_111_000) << 12)
-			// | ((board & 0b000_000_000_000_000_000_000_000_111) << 6)
-			| ((board & 0b111_000_000_000_000_111_000_000_000) >> 6)
-			| ((board & 0b000_000_000_111_000_000_000_000_111) << 6)
-	},
-	// 180
-	#[inline(always)]
-	|board| {
-		((board & 0b111_000_000_000_000_000_000_000_000) >> 24)
-			| ((board & 0b000_111_000_000_000_000_000_000_000) >> 18)
-			| ((board & 0b000_000_111_000_000_000_000_000_000) >> 12)
-			| ((board & 0b000_000_000_111_000_000_000_000_000) >> 6)
-			| (board & 0b000_000_000_000_111_000_000_000_000)
-			| ((board & 0b000_000_000_000_000_111_000_000_000) << 6)
-			| ((board & 0b000_000_000_000_000_000_111_000_000) << 12)
-			| ((board & 0b000_000_000_000_000_000_000_111_000) << 18)
-			| ((board & 0b000_000_000_000_000_000_000_000_111) << 24)
-	},
-	// 270 clockwise or 90 counter-clockwise
-	#[inline(always)]
-	|board| {
-		((board & 0b111_000_000_000_000_000_000_000_000) >> 18)
-			// | ((board & 0b000_111_000_000_000_000_000_000_000) >> 6)
-			// | ((board & 0b000_000_111_000_000_000_000_000_000) << 6)
-			| ((board & 0b000_000_000_111_000_000_000_000_000) >> 12)
-			| (board & 0b000_000_000_000_111_000_000_000_000)
-			| ((board & 0b000_000_000_000_000_111_000_000_000) << 12)
-			// | ((board & 0b000_000_000_000_000_000_111_000_000) >> 6)
-			// | ((board & 0b000_000_000_000_000_000_000_111_000) << 6)
-			| ((board & 0b000_000_000_000_000_000_000_000_111) << 18)
-			| ((board & 0b000_111_000_000_000_000_111_000_000) >> 6)
-			| ((board & 0b000_000_111_000_000_000_000_111_000) << 6)
-	},
 	// vertical flip
 	#[inline(always)]
 	|board| {
@@ -168,17 +135,68 @@ static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize]
             | ((board & 0b000_111_000_000_000_111_000_000_000) >> 6)
             | ((board & 0b000_000_000_111_000_000_000_111_000) << 6)
 	},
+	// 90 clockwise
+	#[inline(always)]
+	|board| {
+		// ((board & 0b111_000_000_000_000_000_000_000_000) >> 6)
+		((board & 0b000_111_000_000_000_000_000_000_000) >> 12)
+			| ((board & 0b000_000_111_000_000_000_000_000_000) >> 18)
+			// | ((board & 0b000_000_000_111_000_000_000_000_000) << 6)
+			| (board & 0b000_000_000_000_111_000_000_000_000)
+			// | ((board & 0b000_000_000_000_000_111_000_000_000) >> 6)
+			| ((board & 0b000_000_000_000_000_000_111_000_000) << 18)
+			| ((board & 0b000_000_000_000_000_000_000_111_000) << 12)
+			// | ((board & 0b000_000_000_000_000_000_000_000_111) << 6)
+			| ((board & 0b111_000_000_000_000_111_000_000_000) >> 6)
+			| ((board & 0b000_000_000_111_000_000_000_000_111) << 6)
+	},
+	// 180
+	#[inline(always)]
+	|board| {
+		((board & 0b111_000_000_000_000_000_000_000_000) >> 24)
+			| ((board & 0b000_111_000_000_000_000_000_000_000) >> 18)
+			| ((board & 0b000_000_111_000_000_000_000_000_000) >> 12)
+			| ((board & 0b000_000_000_111_000_000_000_000_000) >> 6)
+			| (board & 0b000_000_000_000_111_000_000_000_000)
+			| ((board & 0b000_000_000_000_000_111_000_000_000) << 6)
+			| ((board & 0b000_000_000_000_000_000_111_000_000) << 12)
+			| ((board & 0b000_000_000_000_000_000_000_111_000) << 18)
+			| ((board & 0b000_000_000_000_000_000_000_000_111) << 24)
+	},
+	// 270 clockwise or 90 counter-clockwise
+	#[inline(always)]
+	|board| {
+		((board & 0b111_000_000_000_000_000_000_000_000) >> 18)
+			// | ((board & 0b000_111_000_000_000_000_000_000_000) >> 6)
+			// | ((board & 0b000_000_111_000_000_000_000_000_000) << 6)
+			| ((board & 0b000_000_000_111_000_000_000_000_000) >> 12)
+			| (board & 0b000_000_000_000_111_000_000_000_000)
+			| ((board & 0b000_000_000_000_000_111_000_000_000) << 12)
+			// | ((board & 0b000_000_000_000_000_000_111_000_000) >> 6)
+			// | ((board & 0b000_000_000_000_000_000_000_111_000) << 6)
+			| ((board & 0b000_000_000_000_000_000_000_000_111) << 18)
+			| ((board & 0b000_111_000_000_000_000_111_000_000) >> 6)
+			| ((board & 0b000_000_111_000_000_000_000_111_000) << 6)
+	},
 ];
 
 static REVERSE_TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize] = [
-	TRANSFORMERS[0],
-	TRANSFORMERS[3],
-	TRANSFORMERS[2],
-	TRANSFORMERS[1],
-	TRANSFORMERS[4],
-	TRANSFORMERS[5],
-	TRANSFORMERS[6],
-	TRANSFORMERS[7],
+	// I
+	TRANSFORMERS[S_I__],
+	// V
+	TRANSFORMERS[S_V__],
+	// H
+	TRANSFORMERS[S_H__],
+	// DZ
+	TRANSFORMERS[S_DZ_],
+	// DN
+	TRANSFORMERS[S_DN_],
+	// 90
+	TRANSFORMERS[S_270],
+	// 180
+	TRANSFORMERS[S_180],
+	// 270
+	TRANSFORMERS[S_90_],
 ];
 
 #[inline]
@@ -619,30 +637,98 @@ mod tests {
 	#[test]
 	fn test_transform() {
 		let i = board_from_hash(123_456_024);
-		let r90 = board_from_hash(041_252_463);
-		let r180 = board_from_hash(420_654_321);
-		let r270 = board_from_hash(364_252_140);
 		let v = board_from_hash(321_654_420);
 		let h = board_from_hash(024_456_123);
 		// Z
 		let dz = board_from_hash(463_252_041);
 		// N
 		let dn = board_from_hash(140_252_364);
+		let r90 = board_from_hash(041_252_463);
+		let r180 = board_from_hash(420_654_321);
+		let r270 = board_from_hash(364_252_140);
 
-		assert_eq!(Board(TRANSFORMERS[0](i.0)).hash(), i.hash());
-		assert_eq!(Board(TRANSFORMERS[1](i.0)).hash(), r90.hash());
-		assert_eq!(Board(TRANSFORMERS[2](i.0)).hash(), r180.hash());
-		assert_eq!(Board(TRANSFORMERS[3](i.0)).hash(), r270.hash());
-		assert_eq!(Board(TRANSFORMERS[4](i.0)).hash(), v.hash());
-		assert_eq!(Board(TRANSFORMERS[5](i.0)).hash(), h.hash());
-		assert_eq!(Board(TRANSFORMERS[6](i.0)).hash(), dz.hash());
-		assert_eq!(Board(TRANSFORMERS[7](i.0)).hash(), dn.hash());
+		assert_eq!(Board(TRANSFORMERS[S_I__](i.0)).hash(), i.hash());
+		assert_eq!(Board(TRANSFORMERS[S_V__](i.0)).hash(), v.hash());
+		assert_eq!(Board(TRANSFORMERS[S_H__](i.0)).hash(), h.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DZ_](i.0)).hash(), dz.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DN_](i.0)).hash(), dn.hash());
+		assert_eq!(Board(TRANSFORMERS[S_90_](i.0)).hash(), r90.hash());
+		assert_eq!(Board(TRANSFORMERS[S_180](i.0)).hash(), r180.hash());
+		assert_eq!(Board(TRANSFORMERS[S_270](i.0)).hash(), r270.hash());
 
-		let i = board_from_hash(616_101_616);
-		assert_eq!(Board(TRANSFORMERS[0](i.0)).hash(), 616_101_616);
-		assert_eq!(Board(TRANSFORMERS[1](i.0)).hash(), 616_101_616);
-		assert_eq!(Board(TRANSFORMERS[2](i.0)).hash(), 616_101_616);
-		assert_eq!(Board(TRANSFORMERS[3](i.0)).hash(), 616_101_616);
+		assert_eq!(Board(TRANSFORMERS[S_I__](v.0)).hash(), v.hash());
+		assert_eq!(Board(TRANSFORMERS[S_V__](v.0)).hash(), i.hash());
+		assert_eq!(Board(TRANSFORMERS[S_H__](v.0)).hash(), r180.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DZ_](v.0)).hash(), r90.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DN_](v.0)).hash(), r270.hash());
+		assert_eq!(Board(TRANSFORMERS[S_90_](v.0)).hash(), dz.hash());
+		assert_eq!(Board(TRANSFORMERS[S_180](v.0)).hash(), h.hash());
+		assert_eq!(Board(TRANSFORMERS[S_270](v.0)).hash(), dn.hash());
+
+		assert_eq!(Board(TRANSFORMERS[S_I__](h.0)).hash(), h.hash());
+		assert_eq!(Board(TRANSFORMERS[S_V__](h.0)).hash(), r180.hash());
+		assert_eq!(Board(TRANSFORMERS[S_H__](h.0)).hash(), i.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DZ_](h.0)).hash(), r270.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DN_](h.0)).hash(), r90.hash());
+		assert_eq!(Board(TRANSFORMERS[S_90_](h.0)).hash(), dn.hash());
+		assert_eq!(Board(TRANSFORMERS[S_180](h.0)).hash(), v.hash());
+		assert_eq!(Board(TRANSFORMERS[S_270](h.0)).hash(), dz.hash());
+
+		assert_eq!(Board(TRANSFORMERS[S_I__](dz.0)).hash(), dz.hash());
+		assert_eq!(Board(TRANSFORMERS[S_V__](dz.0)).hash(), r270.hash());
+		assert_eq!(Board(TRANSFORMERS[S_H__](dz.0)).hash(), r90.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DZ_](dz.0)).hash(), i.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DN_](dz.0)).hash(), r180.hash());
+		assert_eq!(Board(TRANSFORMERS[S_90_](dz.0)).hash(), h.hash());
+		assert_eq!(Board(TRANSFORMERS[S_180](dz.0)).hash(), dn.hash());
+		assert_eq!(Board(TRANSFORMERS[S_270](dz.0)).hash(), v.hash());
+
+		assert_eq!(Board(TRANSFORMERS[S_I__](dn.0)).hash(), dn.hash());
+		assert_eq!(Board(TRANSFORMERS[S_V__](dn.0)).hash(), r90.hash());
+		assert_eq!(Board(TRANSFORMERS[S_H__](dn.0)).hash(), r270.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DZ_](dn.0)).hash(), r180.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DN_](dn.0)).hash(), i.hash());
+		assert_eq!(Board(TRANSFORMERS[S_90_](dn.0)).hash(), v.hash());
+		assert_eq!(Board(TRANSFORMERS[S_180](dn.0)).hash(), dz.hash());
+		assert_eq!(Board(TRANSFORMERS[S_270](dn.0)).hash(), h.hash());
+
+		assert_eq!(Board(TRANSFORMERS[S_I__](r90.0)).hash(), r90.hash());
+		assert_eq!(Board(TRANSFORMERS[S_V__](r90.0)).hash(), dn.hash());
+		assert_eq!(Board(TRANSFORMERS[S_H__](r90.0)).hash(), dz.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DZ_](r90.0)).hash(), v.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DN_](r90.0)).hash(), h.hash());
+		assert_eq!(Board(TRANSFORMERS[S_90_](r90.0)).hash(), r180.hash());
+		assert_eq!(Board(TRANSFORMERS[S_180](r90.0)).hash(), r270.hash());
+		assert_eq!(Board(TRANSFORMERS[S_270](r90.0)).hash(), i.hash());
+
+		assert_eq!(Board(TRANSFORMERS[S_I__](r180.0)).hash(), r180.hash());
+		assert_eq!(Board(TRANSFORMERS[S_V__](r180.0)).hash(), h.hash());
+		assert_eq!(Board(TRANSFORMERS[S_H__](r180.0)).hash(), v.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DZ_](r180.0)).hash(), dn.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DN_](r180.0)).hash(), dz.hash());
+		assert_eq!(Board(TRANSFORMERS[S_90_](r180.0)).hash(), r270.hash());
+		assert_eq!(Board(TRANSFORMERS[S_180](r180.0)).hash(), i.hash());
+		assert_eq!(Board(TRANSFORMERS[S_270](r180.0)).hash(), r90.hash());
+
+		assert_eq!(Board(TRANSFORMERS[S_I__](r270.0)).hash(), r270.hash());
+		assert_eq!(Board(TRANSFORMERS[S_V__](r270.0)).hash(), dz.hash());
+		assert_eq!(Board(TRANSFORMERS[S_H__](r270.0)).hash(), dn.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DZ_](r270.0)).hash(), h.hash());
+		assert_eq!(Board(TRANSFORMERS[S_DN_](r270.0)).hash(), v.hash());
+		assert_eq!(Board(TRANSFORMERS[S_90_](r270.0)).hash(), i.hash());
+		assert_eq!(Board(TRANSFORMERS[S_180](r270.0)).hash(), r90.hash());
+		assert_eq!(Board(TRANSFORMERS[S_270](r270.0)).hash(), r180.hash());
+
+		let src = 616_101_616;
+		let i = board_from_hash(src);
+		assert_eq!(Board(TRANSFORMERS[S_I__](i.0)).hash(), src);
+		assert_eq!(Board(TRANSFORMERS[S_V__](i.0)).hash(), src);
+		assert_eq!(Board(TRANSFORMERS[S_H__](i.0)).hash(), src);
+		assert_eq!(Board(TRANSFORMERS[S_DZ_](i.0)).hash(), src);
+		assert_eq!(Board(TRANSFORMERS[S_DN_](i.0)).hash(), src);
+		assert_eq!(Board(TRANSFORMERS[S_90_](i.0)).hash(), src);
+		assert_eq!(Board(TRANSFORMERS[S_180](i.0)).hash(), src);
+		assert_eq!(Board(TRANSFORMERS[S_270](i.0)).hash(), src);
 	}
 
 	#[test]
