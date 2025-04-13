@@ -444,29 +444,29 @@ macro_rules! sum {
 	($sum:ident, $board:ident, $symmetry_path_count:ident) => {
 		$sum = $sum
 			.wrapping_add(
-				// hash(REVERSE_TRANSFORMERS[0]($board)).wrapping_mul($symmetry_path_count[0]),
-				hash($board).wrapping_mul($symmetry_path_count[0]),
+				// hash(REVERSE_TRANSFORMERS[S_I__]($board)).wrapping_mul($symmetry_path_count[S_I__]),
+				hash($board).wrapping_mul($symmetry_path_count[S_I__]),
 			)
 			.wrapping_add(
-				hash(REVERSE_TRANSFORMERS[1]($board)).wrapping_mul($symmetry_path_count[1]),
+				hash(REVERSE_TRANSFORMERS[S_V__]($board)).wrapping_mul($symmetry_path_count[S_V__]),
 			)
 			.wrapping_add(
-				hash(REVERSE_TRANSFORMERS[2]($board)).wrapping_mul($symmetry_path_count[2]),
+				hash(REVERSE_TRANSFORMERS[S_H__]($board)).wrapping_mul($symmetry_path_count[S_H__]),
 			)
 			.wrapping_add(
-				hash(REVERSE_TRANSFORMERS[3]($board)).wrapping_mul($symmetry_path_count[3]),
+				hash(REVERSE_TRANSFORMERS[S_DZ_]($board)).wrapping_mul($symmetry_path_count[S_DZ_]),
 			)
 			.wrapping_add(
-				hash(REVERSE_TRANSFORMERS[4]($board)).wrapping_mul($symmetry_path_count[4]),
+				hash(REVERSE_TRANSFORMERS[S_DN_]($board)).wrapping_mul($symmetry_path_count[S_DN_]),
 			)
 			.wrapping_add(
-				hash(REVERSE_TRANSFORMERS[5]($board)).wrapping_mul($symmetry_path_count[5]),
+				hash(REVERSE_TRANSFORMERS[S_90_]($board)).wrapping_mul($symmetry_path_count[S_90_]),
 			)
 			.wrapping_add(
-				hash(REVERSE_TRANSFORMERS[6]($board)).wrapping_mul($symmetry_path_count[6]),
+				hash(REVERSE_TRANSFORMERS[S_180]($board)).wrapping_mul($symmetry_path_count[S_180]),
 			)
 			.wrapping_add(
-				hash(REVERSE_TRANSFORMERS[7]($board)).wrapping_mul($symmetry_path_count[7]),
+				hash(REVERSE_TRANSFORMERS[S_270]($board)).wrapping_mul($symmetry_path_count[S_270]),
 			);
 	};
 }
