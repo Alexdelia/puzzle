@@ -15,7 +15,6 @@ type PathCount = u32;
 
 const SYMMETRY_COUNT: u8 = 8;
 type SymmetryPathCount = [PathCount; SYMMETRY_COUNT as usize];
-type RotationIndex = u8;
 
 const DICE_MAX: DiceValue = 6;
 
@@ -292,23 +291,26 @@ fn hash(board: Board) -> BoardFinalHash {
 		+ HASH_TABLE_BR[get(board, C_BR) as usize]
 }
 
-fn canonical(board: Board) -> (Board, RotationIndex) {
-	let mut min = (board, 0);
+macro_rules! canonical_min {
+	($board:ident, $min:ident, $symmetry_index:ident) => {
+		let transformed = TRANSFORMERS[$symmetry_index as usize]($board);
+		if transformed < $min.0 {
+			$min = (transformed, $symmetry_index);
+		}
+	};
+}
 
-	let transformed = TRANSFORMERS[1](board);
-	if transformed < min.0 {
-		min = (transformed, 1);
-	}
+fn canonical(board: Board) -> (Board, SymmetryIndex) {
+	let mut min: (Board, SymmetryIndex) = (board, 0); // start with the identity
+	// canonical_min!(board, min, S_I__);
 
-	let transformed = TRANSFORMERS[2](board);
-	if transformed < min.0 {
-		min = (transformed, 2);
-	}
-
-	let transformed = TRANSFORMERS[3](board);
-	if transformed < min.0 {
-		min = (transformed, 3);
-	}
+	canonical_min!(board, min, S_V__);
+	canonical_min!(board, min, S_H__);
+	canonical_min!(board, min, S_DZ_);
+	canonical_min!(board, min, S_DN_);
+	canonical_min!(board, min, S_90_);
+	canonical_min!(board, min, S_180);
+	canonical_min!(board, min, S_270);
 
 	min
 }
