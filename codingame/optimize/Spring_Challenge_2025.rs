@@ -5,9 +5,8 @@ use std::io::Read;
 
 type Depth = u8;
 
-type BoardBitSize = u32;
-#[derive(Eq, Hash, PartialEq)]
-struct Board(BoardBitSize);
+type Board = u32;
+type BoardFinalHash = u32;
 type BoardIndex = u8;
 type DiceValue = u8;
 
@@ -42,7 +41,7 @@ fn parse() -> (Depth, Board) {
 	std::io::stdin().read_line(&mut input_line).unwrap();
 	let depth = parse_input!(input_line, u8);
 
-	let starting_board = Board::parse(Board::read());
+	let starting_board = board_parse(board_read());
 
 	(depth, starting_board)
 }
@@ -57,7 +56,7 @@ const C_TR: DiceValue = 18;
 const C_T_: DiceValue = 21;
 const C_TL: DiceValue = 24;
 
-static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize] = [
+static TRANSFORMERS: [fn(Board) -> Board; SYMMETRY_COUNT as usize] = [
 	// 0
 	#[inline(always)]
 	|board| board,
@@ -106,7 +105,7 @@ static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize]
 	},
 ];
 
-static REVERSE_TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize] = [
+static REVERSE_TRANSFORMERS: [fn(Board) -> Board; SYMMETRY_COUNT as usize] = [
 	TRANSFORMERS[0],
 	TRANSFORMERS[3],
 	TRANSFORMERS[2],
@@ -114,24 +113,19 @@ static REVERSE_TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT a
 ];
 
 #[inline]
-fn empty_cell_mask(index: BoardIndex) -> BoardBitSize {
+fn empty_cell_mask(index: BoardIndex) -> Board {
 	!(0b111 << index)
 }
 
 // (src & !(0b111 << index)) | (value << index)
 #[inline]
-fn set(
-	src: BoardBitSize,
-	mask: BoardBitSize,
-	index: BoardIndex,
-	value: BoardBitSize,
-) -> BoardBitSize {
+fn set(src: Board, mask: Board, index: BoardIndex, value: Board) -> Board {
 	(src & mask) | (value << index)
 }
 
-type HashDiceTable = [BoardBitSize; 7];
+type HashDiceTable = [Board; 7];
 
-const fn generate_table(multiplier: BoardBitSize) -> HashDiceTable {
+const fn generate_table(multiplier: Board) -> HashDiceTable {
 	let mut table = [0; 7];
 	let mut i = 0;
 	while i < 7 {
@@ -151,74 +145,70 @@ const HASH_TABLE_BL: HashDiceTable = generate_table(000_000_100);
 const HASH_TABLE_B_: HashDiceTable = generate_table(000_000_010);
 const HASH_TABLE_BR: HashDiceTable = generate_table(000_000_001);
 
-impl Board {
-	// const MAX: BoardBitSize = 0b110_110_110_110_110_110_110_110_110;
+// const BOARD_MAX: Board = 0b110_110_110_110_110_110_110_110_110;
 
-	fn read() -> [u8; 18] {
-		let mut buffer = [0u8; 18];
-		std::io::stdin().read_exact(&mut buffer).unwrap();
-		buffer
+fn board_read() -> [u8; 18] {
+	let mut buffer = [0u8; 18];
+	std::io::stdin().read_exact(&mut buffer).unwrap();
+	buffer
+}
+
+fn board_parse(input: [u8; 18]) -> Board {
+	let ascii_zero = b'0';
+
+	(((input[0] - ascii_zero) as Board) << C_TL)
+		| (((input[2] - ascii_zero) as Board) << C_T_)
+		| (((input[4] - ascii_zero) as Board) << C_TR)
+		| (((input[6] - ascii_zero) as Board) << C_L_)
+		| (((input[8] - ascii_zero) as Board) << C_M_)
+		| (((input[10] - ascii_zero) as Board) << C_R_)
+		| (((input[12] - ascii_zero) as Board) << C_BL)
+		| (((input[14] - ascii_zero) as Board) << C_B_)
+		| ((input[16] - ascii_zero) as Board)
+}
+
+#[inline]
+fn get(board: Board, index: BoardIndex) -> DiceValue {
+	(board >> index) as DiceValue & 0b111
+}
+
+#[inline]
+fn hash(board: Board) -> BoardFinalHash {
+	HASH_TABLE_TL[get(board, C_TL) as usize]
+		+ HASH_TABLE_T_[get(board, C_T_) as usize]
+		+ HASH_TABLE_TR[get(board, C_TR) as usize]
+		+ HASH_TABLE_L_[get(board, C_L_) as usize]
+		+ HASH_TABLE_M_[get(board, C_M_) as usize]
+		+ HASH_TABLE_R_[get(board, C_R_) as usize]
+		+ HASH_TABLE_BL[get(board, C_BL) as usize]
+		+ HASH_TABLE_B_[get(board, C_B_) as usize]
+		+ HASH_TABLE_BR[get(board, C_BR) as usize]
+}
+
+fn canonical(board: Board) -> (Board, RotationIndex) {
+	let mut min = (board, 0);
+
+	let transformed = TRANSFORMERS[1](board);
+	if transformed < min.0 {
+		min = (transformed, 1);
 	}
 
-	fn parse(input: [u8; 18]) -> Self {
-		let ascii_zero = b'0';
-
-		Self(
-			(((input[0] - ascii_zero) as BoardBitSize) << C_TL)
-				| (((input[2] - ascii_zero) as BoardBitSize) << C_T_)
-				| (((input[4] - ascii_zero) as BoardBitSize) << C_TR)
-				| (((input[6] - ascii_zero) as BoardBitSize) << C_L_)
-				| (((input[8] - ascii_zero) as BoardBitSize) << C_M_)
-				| (((input[10] - ascii_zero) as BoardBitSize) << C_R_)
-				| (((input[12] - ascii_zero) as BoardBitSize) << C_BL)
-				| (((input[14] - ascii_zero) as BoardBitSize) << C_B_)
-				| ((input[16] - ascii_zero) as BoardBitSize),
-		)
+	let transformed = TRANSFORMERS[2](board);
+	if transformed < min.0 {
+		min = (transformed, 2);
 	}
 
-	#[inline]
-	fn get(&self, index: BoardIndex) -> DiceValue {
-		(self.0 >> index) as DiceValue & 0b111
+	let transformed = TRANSFORMERS[3](board);
+	if transformed < min.0 {
+		min = (transformed, 3);
 	}
 
-	#[inline]
-	fn hash(&self) -> BoardBitSize {
-		HASH_TABLE_TL[self.get(C_TL) as usize]
-			+ HASH_TABLE_T_[self.get(C_T_) as usize]
-			+ HASH_TABLE_TR[self.get(C_TR) as usize]
-			+ HASH_TABLE_L_[self.get(C_L_) as usize]
-			+ HASH_TABLE_M_[self.get(C_M_) as usize]
-			+ HASH_TABLE_R_[self.get(C_R_) as usize]
-			+ HASH_TABLE_BL[self.get(C_BL) as usize]
-			+ HASH_TABLE_B_[self.get(C_B_) as usize]
-			+ HASH_TABLE_BR[self.get(C_BR) as usize]
-	}
-
-	fn canonical(&self) -> (BoardBitSize, RotationIndex) {
-		let mut min = (self.0, 0);
-
-		let transformed = TRANSFORMERS[1](self.0);
-		if transformed < min.0 {
-			min = (transformed, 1);
-		}
-
-		let transformed = TRANSFORMERS[2](self.0);
-		if transformed < min.0 {
-			min = (transformed, 2);
-		}
-
-		let transformed = TRANSFORMERS[3](self.0);
-		if transformed < min.0 {
-			min = (transformed, 3);
-		}
-
-		min
-	}
+	min
 }
 
 macro_rules! queue_insert {
 	($queue:ident, $board:expr, $rotation:ident, $symmetry_path_count:ident) => {
-		let canonical = $board.canonical();
+		let canonical = canonical($board);
 		$queue
 			.entry(canonical.0)
 			.and_modify(|(stored_rotation, count)| {
@@ -240,27 +230,27 @@ macro_rules! play_single_move {
 		)+;
 		if n <= DICE_MAX {
 			$moved = true;
-			queue_insert!($queue, Board(set(
+			queue_insert!($queue, set(
 				$board,
 				empty_cell_mask($index)
 				$(
 					& $neighbors_buf[$neighbors].2
 				)+,
 				$index,
-				n as BoardBitSize
-			)), $rotation, $symmetry_path_count);
+				n as Board
+			), $rotation, $symmetry_path_count);
 		}
 	};
 }
 
 macro_rules! play_move {
 	($board:ident, $index:ident, $rotation:ident, $symmetry_path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $neighbors_len:ident, $($neighbors:ident),+) => {
-		if Board($board).get($index) == 0 {
+		if get($board, $index) == 0 {
 			$moved = true;
 
 			$neighbors_len = 0;
 			$(
-				let neighbor = Board($board).get($neighbors);
+				let neighbor = get($board, $neighbors);
 				if neighbor != 0 && neighbor != DICE_MAX {
 					$neighbors_buf[$neighbors_len as usize] = ($neighbors, neighbor, empty_cell_mask($neighbors));
 					$neighbors_len += 1;
@@ -268,22 +258,22 @@ macro_rules! play_move {
 			)+
 
 			if $neighbors_len <= 1 {
-				queue_insert!($queue, Board(set($board, empty_cell_mask($index), $index, 1)), $rotation, $symmetry_path_count);
+				queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $rotation, $symmetry_path_count);
 			} else {
 				match $neighbors_len {
 					2 => {
 						let n = $neighbors_buf[0].1 + $neighbors_buf[1].1;
 						if n <= DICE_MAX {
-							queue_insert!($queue, Board(set(
+							queue_insert!($queue, set(
 								$board,
 								empty_cell_mask($index)
 								& $neighbors_buf[0].2
 								& $neighbors_buf[1].2,
 								$index,
-								n as BoardBitSize
-							)), $rotation, $symmetry_path_count);
+								n as Board
+							), $rotation, $symmetry_path_count);
 						} else {
-							queue_insert!($queue, Board(set($board, empty_cell_mask($index), $index, 1)), $rotation, $symmetry_path_count);
+							queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $rotation, $symmetry_path_count);
 						}
 					},
 					3 => {
@@ -297,7 +287,7 @@ macro_rules! play_move {
 						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
 
 						if !moved_here {
-							queue_insert!($queue, Board(set($board, empty_cell_mask($index), $index, 1)), $rotation, $symmetry_path_count);
+							queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $rotation, $symmetry_path_count);
 						}
 					},
 					_ => {
@@ -319,7 +309,7 @@ macro_rules! play_move {
 						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2, 3);
 
 						if !moved_here {
-							queue_insert!($queue, Board(set($board, empty_cell_mask($index), $index, 1)), $rotation, $symmetry_path_count);
+							queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $rotation, $symmetry_path_count);
 						}
 					},
 				}
@@ -338,23 +328,19 @@ macro_rules! sum {
 		let reversed_canonical = REVERSE_TRANSFORMERS[r0]($board);
 		$sum = $sum
 			.wrapping_add(
-				Board(REVERSE_TRANSFORMERS[r0](reversed_canonical))
-					.hash()
+				hash(REVERSE_TRANSFORMERS[r0](reversed_canonical))
 					.wrapping_mul($symmetry_path_count[r0]),
 			)
 			.wrapping_add(
-				Board(REVERSE_TRANSFORMERS[r1](reversed_canonical))
-					.hash()
+				hash(REVERSE_TRANSFORMERS[r1](reversed_canonical))
 					.wrapping_mul($symmetry_path_count[r1]),
 			)
 			.wrapping_add(
-				Board(REVERSE_TRANSFORMERS[r2](reversed_canonical))
-					.hash()
+				hash(REVERSE_TRANSFORMERS[r2](reversed_canonical))
 					.wrapping_mul($symmetry_path_count[r2]),
 			)
 			.wrapping_add(
-				Board(REVERSE_TRANSFORMERS[r3](reversed_canonical))
-					.hash()
+				hash(REVERSE_TRANSFORMERS[r3](reversed_canonical))
 					.wrapping_mul($symmetry_path_count[r3]),
 			);
 	};
@@ -370,7 +356,7 @@ const EMPTY_SOLUTION: [Sum; DEPTH_MAX as usize + 1] = [
 
 type Queue = HashMap<
 	// canonical board
-	BoardBitSize,
+	Board,
 	(
 		// current ratation count of 90 clockwise
 		RotationIndex,
@@ -380,20 +366,20 @@ type Queue = HashMap<
 >;
 
 fn solve(depth: Depth, starting_board: Board) -> Sum {
-	if starting_board.0 == 0 {
+	if starting_board == 0 {
 		return EMPTY_SOLUTION[depth as usize];
 	}
 
 	let mut sum: Sum = 0;
 	let mut queue: Queue = HashMap::with_capacity(QUEUE_CAPACITY);
 	let mut current_queue: Queue = HashMap::with_capacity(QUEUE_CAPACITY);
-	let mut ngb_buf: [(BoardIndex, DiceValue, BoardBitSize); 4] = [(0, 0, 0); 4];
+	let mut ngb_buf: [(BoardIndex, DiceValue, Board); 4] = [(0, 0, 0); 4];
 	let mut ngb_len: u8;
 	let mut d = 0;
 
 	// no need to compute first canonical
 	// there will be no duplicates possible with only 1 board on depth 0
-	queue.insert(starting_board.0, (0, [1, 0, 0, 0]));
+	queue.insert(starting_board, (0, [1, 0, 0, 0]));
 
 	while d < depth && !queue.is_empty() {
 		std::mem::swap(&mut queue, &mut current_queue);
@@ -448,18 +434,16 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 mod tests {
 	use super::*;
 
-	fn board_from_hash(hash: BoardBitSize) -> Board {
-		Board(
-			(((hash / 100_000_000) % 10) << C_TL)
-				| (((hash / 010_000_000) % 10) << C_T_)
-				| (((hash / 001_000_000) % 10) << C_TR)
-				| (((hash / 000_100_000) % 10) << C_L_)
-				| (((hash / 000_010_000) % 10) << C_M_)
-				| (((hash / 000_001_000) % 10) << C_R_)
-				| (((hash / 000_000_100) % 10) << C_BL)
-				| (((hash / 000_000_010) % 10) << C_B_)
-				| (hash % 10),
-		)
+	fn board_from_hash(hash: BoardFinalHash) -> Board {
+		(((hash / 100_000_000) % 10) << C_TL)
+			| (((hash / 010_000_000) % 10) << C_T_)
+			| (((hash / 001_000_000) % 10) << C_TR)
+			| (((hash / 000_100_000) % 10) << C_L_)
+			| (((hash / 000_010_000) % 10) << C_M_)
+			| (((hash / 000_001_000) % 10) << C_R_)
+			| (((hash / 000_000_100) % 10) << C_BL)
+			| (((hash / 000_000_010) % 10) << C_B_)
+			| (hash % 10)
 	}
 
 	#[test]
@@ -469,18 +453,18 @@ mod tests {
 			'4' as u8, ' ' as u8, '5' as u8, ' ' as u8, '6' as u8, '\n' as u8, //
 			'0' as u8, ' ' as u8, '2' as u8, ' ' as u8, '4' as u8, '\n' as u8,
 		];
-		let board = Board::parse(input);
-		assert_eq!(board.0, 0b_001_010_011_100_101_110_000_010_100);
-		assert_eq!(board.get(C_TL), 1);
-		assert_eq!(board.get(C_T_), 2);
-		assert_eq!(board.get(C_TR), 3);
-		assert_eq!(board.get(C_L_), 4);
-		assert_eq!(board.get(C_M_), 5);
-		assert_eq!(board.get(C_R_), 6);
-		assert_eq!(board.get(C_BL), 0);
-		assert_eq!(board.get(C_B_), 2);
-		assert_eq!(board.get(C_BR), 4);
-		assert_eq!(board.hash(), 123_456_024);
+		let board = board_parse(input);
+		assert_eq!(board, 0b_001_010_011_100_101_110_000_010_100);
+		assert_eq!(get(board, C_TL), 1);
+		assert_eq!(get(board, C_T_), 2);
+		assert_eq!(get(board, C_TR), 3);
+		assert_eq!(get(board, C_L_), 4);
+		assert_eq!(get(board, C_M_), 5);
+		assert_eq!(get(board, C_R_), 6);
+		assert_eq!(get(board, C_BL), 0);
+		assert_eq!(get(board, C_B_), 2);
+		assert_eq!(get(board, C_BR), 4);
+		assert_eq!(hash(board), 123_456_024);
 	}
 
 	#[test]
@@ -526,63 +510,63 @@ mod tests {
 
 	#[test]
 	fn test_get() {
-		let board = Board(0b_001_010_011_100_101_110_000_010_100);
-		assert_eq!(board.get(C_TL), 1);
-		assert_eq!(board.get(C_T_), 2);
-		assert_eq!(board.get(C_TR), 3);
-		assert_eq!(board.get(C_L_), 4);
-		assert_eq!(board.get(C_M_), 5);
-		assert_eq!(board.get(C_R_), 6);
-		assert_eq!(board.get(C_BL), 0);
-		assert_eq!(board.get(C_B_), 2);
-		assert_eq!(board.get(C_BR), 4);
+		let board = 0b_001_010_011_100_101_110_000_010_100;
+		assert_eq!(get(board, C_TL), 1);
+		assert_eq!(get(board, C_T_), 2);
+		assert_eq!(get(board, C_TR), 3);
+		assert_eq!(get(board, C_L_), 4);
+		assert_eq!(get(board, C_M_), 5);
+		assert_eq!(get(board, C_R_), 6);
+		assert_eq!(get(board, C_BL), 0);
+		assert_eq!(get(board, C_B_), 2);
+		assert_eq!(get(board, C_BR), 4);
 	}
 
 	#[test]
 	fn test_hash() {
-		let board = Board(0b_001_010_011_100_101_110_000_010_100);
-		assert_eq!(board.hash(), 123_456_024);
+		let board = 0b_001_010_011_100_101_110_000_010_100;
+		assert_eq!(hash(board), 123_456_024);
 
 		let board = board_from_hash(123_456_024);
-		assert_eq!(board.0, 0b_001_010_011_100_101_110_000_010_100);
-		assert_eq!(board.hash(), 123_456_024);
+		assert_eq!(board, 0b_001_010_011_100_101_110_000_010_100);
+		assert_eq!(hash(board), 123_456_024);
 	}
 
 	#[test]
 	fn test_transform() {
 		let board = board_from_hash(123_456_024);
 		// no transformation
-		assert_eq!(Board(TRANSFORMERS[0](board.0)).hash(), board.hash());
+		assert_eq!(hash(TRANSFORMERS[0](board)), hash(board));
 		// 90 clockwise
-		assert_eq!(Board(TRANSFORMERS[1](board.0)).hash(), 041_252_463);
+		assert_eq!(hash(TRANSFORMERS[1](board)), 041_252_463);
 		// 180
-		assert_eq!(Board(TRANSFORMERS[2](board.0)).hash(), 420_654_321);
+		assert_eq!(hash(TRANSFORMERS[2](board)), 420_654_321);
 		// 270 clockwise or 90 counter-clockwise
-		assert_eq!(Board(TRANSFORMERS[3](board.0)).hash(), 364_252_140);
+		assert_eq!(hash(TRANSFORMERS[3](board)), 364_252_140);
 		// vertical flip
-		// assert_eq!(Board(TRANSFORMERS[1](board.0)).hash(), 321_654_420);
+		// assert_eq!(hash(TRANSFORMERS[1](board)), 321_654_420);
 		// horizontal flip
-		// assert_eq!(Board(TRANSFORMERS[2](board.0)).hash(), 024_456_123);
+		// assert_eq!(hash(TRANSFORMERS[2](board)), 024_456_123);
 
 		let board = board_from_hash(616_101_616);
-		assert_eq!(Board(TRANSFORMERS[0](board.0)).hash(), 616_101_616);
-		assert_eq!(Board(TRANSFORMERS[1](board.0)).hash(), 616_101_616);
-		assert_eq!(Board(TRANSFORMERS[2](board.0)).hash(), 616_101_616);
-		assert_eq!(Board(TRANSFORMERS[3](board.0)).hash(), 616_101_616);
+		assert_eq!(hash(TRANSFORMERS[0](board)), 616_101_616);
+		assert_eq!(hash(TRANSFORMERS[1](board)), 616_101_616);
+		assert_eq!(hash(TRANSFORMERS[2](board)), 616_101_616);
+		assert_eq!(hash(TRANSFORMERS[3](board)), 616_101_616);
 	}
 
 	#[test]
 	fn test_canonical() {
 		let board = board_from_hash(616_101_616);
-		let c = board.canonical();
+		let c = canonical(board);
 		assert_eq!(c.1, 0);
-		assert_eq!(Board(c.0).hash(), 616_101_616);
+		assert_eq!(hash(c.0), 616_101_616);
 	}
 
 	#[test]
 	fn test_play_single_move() {
 		let board = board_from_hash(616101616);
-		let neighbors_buf = Vec::<(BoardIndex, DiceValue, BoardBitSize)>::from([
+		let neighbors_buf = Vec::<(BoardIndex, DiceValue, Board)>::from([
 			(C_L_, 1, empty_cell_mask(C_L_)),
 			(C_T_, 1, empty_cell_mask(C_T_)),
 		]);
@@ -591,13 +575,13 @@ mod tests {
 		let spc: SymmetryPathCount = [1, 0, 0, 0];
 		let rot: RotationIndex = 0;
 
-		let b = board.0;
+		let b = board;
 		play_single_move!(b, C_M_, rot, spc, queue, moved, neighbors_buf, 0, 1);
 
 		assert_eq!(queue.len(), 1);
 		assert!(moved);
 		let first = queue.iter().next().unwrap();
-		assert_eq!(Board(*first.0).hash(), 606021616);
+		assert_eq!(hash(*first.0), 606021616);
 		assert_eq!(*first.1, (0, [1, 0, 0, 0]));
 	}
 
@@ -619,46 +603,46 @@ mod tests {
 	#[test]
 	fn test_solve_empty() {
 		let board = board_from_hash(0);
-		assert_eq!(solve(0, Board(board.0)), 0);
-		assert_eq!(solve(1, Board(board.0)), 111111111);
-		assert_eq!(solve(2, Board(board.0)), 704035952);
-		assert_eq!(solve(3, Board(board.0)), 840352818);
-		assert_eq!(solve(4, Board(board.0)), 600875666);
-		assert_eq!(solve(5, Board(board.0)), 50441886);
-		assert_eq!(solve(6, Board(board.0)), 680243700);
-		assert_eq!(solve(7, Board(board.0)), 597686656);
-		assert_eq!(solve(8, Board(board.0)), 584450980);
-		assert_eq!(solve(9, Board(board.0)), 55305380);
-		assert_eq!(solve(10, Board(board.0)), 193520836);
-		assert_eq!(solve(11, Board(board.0)), 521847116);
-		assert_eq!(solve(12, Board(board.0)), 1054388152);
-		assert_eq!(solve(13, Board(board.0)), 518795448);
-		assert_eq!(solve(14, Board(board.0)), 366207036);
-		assert_eq!(solve(15, Board(board.0)), 678967952);
-		assert_eq!(solve(16, Board(board.0)), 476916052);
-		assert_eq!(solve(17, Board(board.0)), 1009258340);
-		assert_eq!(solve(18, Board(board.0)), 592651828);
-		assert_eq!(solve(19, Board(board.0)), 1063467872);
-		assert_eq!(solve(20, Board(board.0)), 400415524);
-		assert_eq!(solve(21, Board(board.0)), 233248832);
-		assert_eq!(solve(22, Board(board.0)), 230461008);
-		assert_eq!(solve(23, Board(board.0)), 245411624);
-		assert_eq!(solve(24, Board(board.0)), 899694236);
-		assert_eq!(solve(25, Board(board.0)), 384163740);
-		assert_eq!(solve(26, Board(board.0)), 888060600);
-		assert_eq!(solve(27, Board(board.0)), 347933640);
-		assert_eq!(solve(28, Board(board.0)), 340717612);
-		assert_eq!(solve(29, Board(board.0)), 73295296);
-		assert_eq!(solve(30, Board(board.0)), 851289228);
-		assert_eq!(solve(31, Board(board.0)), 221286388);
-		assert_eq!(solve(32, Board(board.0)), 375032784);
-		assert_eq!(solve(33, Board(board.0)), 723342020);
-		assert_eq!(solve(34, Board(board.0)), 92414440);
-		assert_eq!(solve(35, Board(board.0)), 745533092);
-		assert_eq!(solve(36, Board(board.0)), 331519112);
-		assert_eq!(solve(37, Board(board.0)), 993643868);
-		assert_eq!(solve(38, Board(board.0)), 72093236);
-		assert_eq!(solve(39, Board(board.0)), 422667876);
-		assert_eq!(solve(DEPTH_MAX, Board(board.0)), 503115192);
+		assert_eq!(solve(0, board), 0);
+		assert_eq!(solve(1, board), 111111111);
+		assert_eq!(solve(2, board), 704035952);
+		assert_eq!(solve(3, board), 840352818);
+		assert_eq!(solve(4, board), 600875666);
+		assert_eq!(solve(5, board), 50441886);
+		assert_eq!(solve(6, board), 680243700);
+		assert_eq!(solve(7, board), 597686656);
+		assert_eq!(solve(8, board), 584450980);
+		assert_eq!(solve(9, board), 55305380);
+		assert_eq!(solve(10, board), 193520836);
+		assert_eq!(solve(11, board), 521847116);
+		assert_eq!(solve(12, board), 1054388152);
+		assert_eq!(solve(13, board), 518795448);
+		assert_eq!(solve(14, board), 366207036);
+		assert_eq!(solve(15, board), 678967952);
+		assert_eq!(solve(16, board), 476916052);
+		assert_eq!(solve(17, board), 1009258340);
+		assert_eq!(solve(18, board), 592651828);
+		assert_eq!(solve(19, board), 1063467872);
+		assert_eq!(solve(20, board), 400415524);
+		assert_eq!(solve(21, board), 233248832);
+		assert_eq!(solve(22, board), 230461008);
+		assert_eq!(solve(23, board), 245411624);
+		assert_eq!(solve(24, board), 899694236);
+		assert_eq!(solve(25, board), 384163740);
+		assert_eq!(solve(26, board), 888060600);
+		assert_eq!(solve(27, board), 347933640);
+		assert_eq!(solve(28, board), 340717612);
+		assert_eq!(solve(29, board), 73295296);
+		assert_eq!(solve(30, board), 851289228);
+		assert_eq!(solve(31, board), 221286388);
+		assert_eq!(solve(32, board), 375032784);
+		assert_eq!(solve(33, board), 723342020);
+		assert_eq!(solve(34, board), 92414440);
+		assert_eq!(solve(35, board), 745533092);
+		assert_eq!(solve(36, board), 331519112);
+		assert_eq!(solve(37, board), 993643868);
+		assert_eq!(solve(38, board), 72093236);
+		assert_eq!(solve(39, board), 422667876);
+		assert_eq!(solve(DEPTH_MAX, board), 503115192);
 	}
 }
