@@ -55,7 +55,7 @@ const C_TR: DiceValue = 18;
 const C_T_: DiceValue = 21;
 const C_TL: DiceValue = 24;
 
-type SymmetryIndex = u8;
+type SymmetryIndex = usize;
 const S_I__: SymmetryIndex = 0;
 const S_V__: SymmetryIndex = 1;
 const S_H__: SymmetryIndex = 2;
@@ -180,21 +180,21 @@ static TRANSFORMERS: [fn(Board) -> Board; SYMMETRY_COUNT as usize] = [
 
 static REVERSE_TRANSFORMERS: [fn(Board) -> Board; SYMMETRY_COUNT as usize] = [
 	// I
-	TRANSFORMERS[S_I__ as usize],
+	TRANSFORMERS[S_I__],
 	// V
-	TRANSFORMERS[S_V__ as usize],
+	TRANSFORMERS[S_V__],
 	// H
-	TRANSFORMERS[S_H__ as usize],
+	TRANSFORMERS[S_H__],
 	// DZ
-	TRANSFORMERS[S_DZ_ as usize],
+	TRANSFORMERS[S_DZ_],
 	// DN
-	TRANSFORMERS[S_DN_ as usize],
+	TRANSFORMERS[S_DN_],
 	// 90
-	TRANSFORMERS[S_270 as usize],
+	TRANSFORMERS[S_270],
 	// 180
-	TRANSFORMERS[S_180 as usize],
+	TRANSFORMERS[S_180],
 	// 270
-	TRANSFORMERS[S_90_ as usize],
+	TRANSFORMERS[S_90_],
 ];
 
 // SYMMETRY_INDEX_TRANSFORMER[transformation][state]
@@ -293,7 +293,7 @@ fn hash(board: Board) -> BoardFinalHash {
 
 macro_rules! canonical_min {
 	($board:ident, $min:ident, $symmetry_index:ident) => {
-		let transformed = TRANSFORMERS[$symmetry_index as usize]($board);
+		let transformed = TRANSFORMERS[$symmetry_index]($board);
 		if transformed < $min.0 {
 			$min = (transformed, $symmetry_index);
 		}
@@ -319,22 +319,14 @@ macro_rules! queue_insert {
 	($queue:ident, $board:expr, $symmetry_path_count:ident) => {
 		let canonical = canonical($board);
 		let mut transformed_count = [0; SYMMETRY_COUNT as usize];
-		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][0] as usize] =
-			$symmetry_path_count[0];
-		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][1] as usize] =
-			$symmetry_path_count[1];
-		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][2] as usize] =
-			$symmetry_path_count[2];
-		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][3] as usize] =
-			$symmetry_path_count[3];
-		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][4] as usize] =
-			$symmetry_path_count[4];
-		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][5] as usize] =
-			$symmetry_path_count[5];
-		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][6] as usize] =
-			$symmetry_path_count[6];
-		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][7] as usize] =
-			$symmetry_path_count[7];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1][0]] = $symmetry_path_count[0];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1][1]] = $symmetry_path_count[1];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1][2]] = $symmetry_path_count[2];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1][3]] = $symmetry_path_count[3];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1][4]] = $symmetry_path_count[4];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1][5]] = $symmetry_path_count[5];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1][6]] = $symmetry_path_count[6];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1][7]] = $symmetry_path_count[7];
 
 		$queue
 			.entry(canonical.0)
@@ -570,9 +562,9 @@ mod tests {
 	#[test]
 	fn test_parse() {
 		let input = [
-			'1' as u8, ' ' as u8, '2' as u8, ' ' as u8, '3' as u8, '\n' as u8, //
-			'4' as u8, ' ' as u8, '5' as u8, ' ' as u8, '6' as u8, '\n' as u8, //
-			'0' as u8, ' ' as u8, '2' as u8, ' ' as u8, '4' as u8, '\n' as u8,
+			b'1', b' ', b'2', b' ', b'3', b'\n', //
+			b'4', b' ', b'5', b' ', b'6', b'\n', //
+			b'0', b' ', b'2', b' ', b'4', b'\n',
 		];
 		let board = board_parse(input);
 		assert_eq!(board, 0b_001_010_011_100_101_110_000_010_100);
@@ -655,10 +647,7 @@ mod tests {
 
 	fn test_transform_from_state(state: Board, expected_result: [Board; SYMMETRY_COUNT as usize]) {
 		for i in [S_I__, S_V__, S_H__, S_DZ_, S_DN_, S_90_, S_180, S_270] {
-			assert_eq!(
-				hash(TRANSFORMERS[i as usize](state)),
-				hash(expected_result[i as usize]),
-			);
+			assert_eq!(hash(TRANSFORMERS[i](state)), hash(expected_result[i]),);
 		}
 	}
 
@@ -668,8 +657,8 @@ mod tests {
 	) {
 		for transformation in [S_I__, S_V__, S_H__, S_DZ_, S_DN_, S_90_, S_180, S_270] {
 			assert_eq!(
-				SYMMETRY_INDEX_TRANSFORMER[transformation as usize][state as usize],
-				expected_result[transformation as usize],
+				SYMMETRY_INDEX_TRANSFORMER[transformation][state],
+				expected_result[transformation],
 			);
 		}
 	}
@@ -731,14 +720,14 @@ mod tests {
 
 		let src = 616_101_616;
 		let i = board_from_hash(src);
-		assert_eq!(hash(TRANSFORMERS[S_I__ as usize](i)), src);
-		assert_eq!(hash(TRANSFORMERS[S_V__ as usize](i)), src);
-		assert_eq!(hash(TRANSFORMERS[S_H__ as usize](i)), src);
-		assert_eq!(hash(TRANSFORMERS[S_DZ_ as usize](i)), src);
-		assert_eq!(hash(TRANSFORMERS[S_DN_ as usize](i)), src);
-		assert_eq!(hash(TRANSFORMERS[S_90_ as usize](i)), src);
-		assert_eq!(hash(TRANSFORMERS[S_180 as usize](i)), src);
-		assert_eq!(hash(TRANSFORMERS[S_270 as usize](i)), src);
+		assert_eq!(hash(TRANSFORMERS[S_I__](i)), src);
+		assert_eq!(hash(TRANSFORMERS[S_V__](i)), src);
+		assert_eq!(hash(TRANSFORMERS[S_H__](i)), src);
+		assert_eq!(hash(TRANSFORMERS[S_DZ_](i)), src);
+		assert_eq!(hash(TRANSFORMERS[S_DN_](i)), src);
+		assert_eq!(hash(TRANSFORMERS[S_90_](i)), src);
+		assert_eq!(hash(TRANSFORMERS[S_180](i)), src);
+		assert_eq!(hash(TRANSFORMERS[S_270](i)), src);
 	}
 
 	#[test]
