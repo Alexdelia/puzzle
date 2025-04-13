@@ -198,8 +198,26 @@ static REVERSE_TRANSFORMERS: [fn(Board) -> Board; SYMMETRY_COUNT as usize] = [
 	TRANSFORMERS[S_90_ as usize],
 ];
 
-// static SYMMETRY_INDEX_TRANSFORMER: [[SymmetryIndex; SYMMETRY_COUNT as usize];
-// SYMMETRY_COUNT as usize] = [[], [], [], [], [], [], [], []];
+// SYMMETRY_INDEX_TRANSFORMER[transformation][state]
+static SYMMETRY_INDEX_TRANSFORMER: [[SymmetryIndex; SYMMETRY_COUNT as usize];
+	SYMMETRY_COUNT as usize] = [
+	// I
+	[S_I__, S_V__, S_H__, S_DZ_, S_DN_, S_90_, S_180, S_270],
+	// V
+	[S_V__, S_I__, S_180, S_270, S_90_, S_DN_, S_H__, S_DZ_],
+	// H
+	[S_H__, S_180, S_I__, S_90_, S_270, S_DZ_, S_V__, S_DN_],
+	// DZ
+	[S_DZ_, S_90_, S_270, S_I__, S_180, S_V__, S_DN_, S_H__],
+	// DN
+	[S_DN_, S_270, S_90_, S_180, S_I__, S_H__, S_DZ_, S_V__],
+	// 90
+	[S_90_, S_DZ_, S_DN_, S_H__, S_V__, S_180, S_270, S_I__],
+	// 180
+	[S_180, S_H__, S_V__, S_DN_, S_DZ_, S_270, S_I__, S_90_],
+	// 270
+	[S_270, S_DN_, S_DZ_, S_V__, S_H__, S_I__, S_90_, S_180],
+];
 
 #[inline]
 fn empty_cell_mask(index: BoardIndex) -> Board {
@@ -630,6 +648,18 @@ mod tests {
 		}
 	}
 
+	fn test_symmetry_index_transform(
+		state: SymmetryIndex,
+		expected_result: [SymmetryIndex; SYMMETRY_COUNT as usize],
+	) {
+		for transformation in [S_I__, S_V__, S_H__, S_DZ_, S_DN_, S_90_, S_180, S_270] {
+			assert_eq!(
+				SYMMETRY_INDEX_TRANSFORMER[transformation as usize][state as usize],
+				expected_result[transformation as usize],
+			);
+		}
+	}
+
 	#[test]
 	fn test_transform() {
 		let i = board_from_hash(123_456_024);
@@ -651,6 +681,39 @@ mod tests {
 		test_transform_from_state(r90, [r90, dn, dz, v, h, r180, r270, i]);
 		test_transform_from_state(r180, [r180, h, v, dn, dz, r270, i, r90]);
 		test_transform_from_state(r270, [r270, dz, dn, h, v, i, r90, r180]);
+
+		test_symmetry_index_transform(
+			S_I__,
+			[S_I__, S_V__, S_H__, S_DZ_, S_DN_, S_90_, S_180, S_270],
+		);
+		test_symmetry_index_transform(
+			S_V__,
+			[S_V__, S_I__, S_180, S_90_, S_270, S_DZ_, S_H__, S_DN_],
+		);
+		test_symmetry_index_transform(
+			S_H__,
+			[S_H__, S_180, S_I__, S_270, S_90_, S_DN_, S_V__, S_DZ_],
+		);
+		test_symmetry_index_transform(
+			S_DZ_,
+			[S_DZ_, S_270, S_90_, S_I__, S_180, S_H__, S_DN_, S_V__],
+		);
+		test_symmetry_index_transform(
+			S_DN_,
+			[S_DN_, S_90_, S_270, S_180, S_I__, S_V__, S_DZ_, S_H__],
+		);
+		test_symmetry_index_transform(
+			S_90_,
+			[S_90_, S_DN_, S_DZ_, S_V__, S_H__, S_180, S_270, S_I__],
+		);
+		test_symmetry_index_transform(
+			S_180,
+			[S_180, S_H__, S_V__, S_DN_, S_DZ_, S_270, S_I__, S_90_],
+		);
+		test_symmetry_index_transform(
+			S_270,
+			[S_270, S_DZ_, S_DN_, S_H__, S_V__, S_I__, S_90_, S_180],
+		);
 
 		let src = 616_101_616;
 		let i = board_from_hash(src);
