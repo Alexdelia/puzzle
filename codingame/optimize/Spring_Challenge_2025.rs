@@ -14,7 +14,7 @@ type DiceValue = u8;
 type Sum = u32;
 type PathCount = u32;
 
-const SYMMETRY_COUNT: u8 = 4;
+const SYMMETRY_COUNT: u8 = 5;
 type SymmetryPathCount = [PathCount; SYMMETRY_COUNT as usize];
 type RotationIndex = u8;
 
@@ -104,6 +104,22 @@ static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize]
 			| ((board & 0b000_111_000_000_000_000_111_000_000) >> 6)
 			| ((board & 0b000_000_111_000_000_000_000_111_000) << 6)
 	},
+	// vertical flip
+	#[inline(always)]
+	|board| {
+		// ((board & 0b111_000_000_000_000_000_000_000_000) >> 6)
+		// | (board & 0b000_111_000_000_000_000_000_000_000)
+		// | ((board & 0b000_000_111_000_000_000_000_000_000) << 6)
+		// | ((board & 0b000_000_000_111_000_000_000_000_000) >> 6)
+		// | (board & 0b000_000_000_000_111_000_000_000_000)
+		// | ((board & 0b000_000_000_000_000_111_000_000_000) << 6)
+		// | ((board & 0b000_000_000_000_000_000_111_000_000) >> 6)
+		// | (board & 0b000_000_000_000_000_000_000_111_000)
+		// | ((board & 0b000_000_000_000_000_000_000_000_111) << 6)
+		((board & 0b111_000_000_111_000_000_111_000_000) >> 6)
+			| (board & 0b000_111_000_000_111_000_000_111_000)
+			| ((board & 0b000_000_111_000_000_111_000_000_111) << 6)
+	},
 ];
 
 static REVERSE_TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize] = [
@@ -111,6 +127,7 @@ static REVERSE_TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT a
 	TRANSFORMERS[3],
 	TRANSFORMERS[2],
 	TRANSFORMERS[1],
+	TRANSFORMERS[4],
 ];
 
 #[inline]
@@ -393,7 +410,7 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 
 	// no need to compute first canonical
 	// there will be no duplicates possible with only 1 board on depth 0
-	queue.insert(starting_board.0, (0, [1, 0, 0, 0]));
+	queue.insert(starting_board.0, (0, [1, 0, 0, 0, 0]));
 
 	while d < depth && !queue.is_empty() {
 		std::mem::swap(&mut queue, &mut current_queue);
@@ -560,7 +577,7 @@ mod tests {
 		// 270 clockwise or 90 counter-clockwise
 		assert_eq!(Board(TRANSFORMERS[3](board.0)).hash(), 364_252_140);
 		// vertical flip
-		// assert_eq!(Board(TRANSFORMERS[1](board.0)).hash(), 321_654_420);
+		assert_eq!(Board(TRANSFORMERS[4](board.0)).hash(), 321_654_420);
 		// horizontal flip
 		// assert_eq!(Board(TRANSFORMERS[2](board.0)).hash(), 024_456_123);
 
@@ -588,7 +605,7 @@ mod tests {
 		]);
 		let mut queue: Queue = HashMap::new();
 		let mut moved = false;
-		let spc: SymmetryPathCount = [1, 0, 0, 0];
+		let spc: SymmetryPathCount = [1, 0, 0, 0, 0];
 		let rot: RotationIndex = 0;
 
 		let b = board.0;
@@ -598,7 +615,7 @@ mod tests {
 		assert!(moved);
 		let first = queue.iter().next().unwrap();
 		assert_eq!(Board(*first.0).hash(), 606021616);
-		assert_eq!(*first.1, (0, [1, 0, 0, 0]));
+		assert_eq!(*first.1, (0, [1, 0, 0, 0, 0]));
 	}
 
 	#[test]
