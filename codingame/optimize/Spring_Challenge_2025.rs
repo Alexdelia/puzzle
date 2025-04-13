@@ -14,7 +14,7 @@ type DiceValue = u8;
 type Sum = u32;
 type PathCount = u32;
 
-const SYMMETRY_COUNT: u8 = 6;
+const SYMMETRY_COUNT: u8 = 8;
 type SymmetryPathCount = [PathCount; SYMMETRY_COUNT as usize];
 type RotationIndex = u8;
 
@@ -123,15 +123,42 @@ static TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT as usize]
 	// horizontal flip
 	#[inline(always)]
 	|board| {
-		((board & 0b111_000_000_000_000_000_000_000_000) >> 18)
-			| ((board & 0b000_111_000_000_000_000_000_000_000) >> 18)
-			| ((board & 0b000_000_111_000_000_000_000_000_000) >> 18)
-			| (board & 0b000_000_000_111_000_000_000_000_000)
+		// ((board & 0b111_000_000_000_000_000_000_000_000) >> 18)
+		// | ((board & 0b000_111_000_000_000_000_000_000_000) >> 18)
+		// | ((board & 0b000_000_111_000_000_000_000_000_000) >> 18)
+		// | (board & 0b000_000_000_111_000_000_000_000_000)
+		// | (board & 0b000_000_000_000_111_000_000_000_000)
+		// | (board & 0b000_000_000_000_000_111_000_000_000)
+		// | ((board & 0b000_000_000_000_000_000_111_000_000) << 18)
+		// | ((board & 0b000_000_000_000_000_000_000_111_000) << 18)
+		// | ((board & 0b000_000_000_000_000_000_000_000_111) << 18)
+		((board & 0b111_111_111_000_000_000_000_000_000) >> 18)
+			| (board & 0b000_000_000_111_111_111_000_000_000)
+			| ((board & 0b000_000_000_000_000_000_111_111_111) << 18)
+	},
+	// diagonal /
+	#[inline(always)]
+	|board| {
+		((board & 0b111_000_000_000_000_000_000_000_000) >> 24)
+			| ((board & 0b000_111_000_000_000_000_000_000_000) >> 12)
+			| (board & 0b000_000_111_000_000_000_000_000_000)
+			| ((board & 0b000_000_000_111_000_000_000_000_000) >> 12)
 			| (board & 0b000_000_000_000_111_000_000_000_000)
-			| (board & 0b000_000_000_000_000_111_000_000_000)
-			| ((board & 0b000_000_000_000_000_000_111_000_000) << 18)
-			| ((board & 0b000_000_000_000_000_000_000_111_000) << 18)
-			| ((board & 0b000_000_000_000_000_000_000_000_111) << 18)
+			| ((board & 0b000_000_000_000_000_111_000_000_000) << 12)
+			| (board & 0b000_000_000_000_000_000_111_000_000)
+			| ((board & 0b000_000_000_000_000_000_000_111_000) << 12)
+			| ((board & 0b000_000_000_000_000_000_000_000_111) << 24)
+	},
+	// diagonal \
+	#[inline(always)]
+	|board| {
+		((board & 0b111_000_000_000_000_000_000_000_000) >> 6)
+			| ((board & 0b000_111_000_000_000_000_000_000_000) >> 12)
+			| ((board & 0b000_000_111_000_000_000_000_000_000) >> 18)
+			| (board & 0b000_000_000_111)
+			| ((board & 0b000_000_000_111) << 6)
+			| ((board & 0b111) << 12)
+			| ((board & 0b111) << 18)
 	},
 ];
 
@@ -142,6 +169,8 @@ static REVERSE_TRANSFORMERS: [fn(BoardBitSize) -> BoardBitSize; SYMMETRY_COUNT a
 	TRANSFORMERS[1],
 	TRANSFORMERS[4],
 	TRANSFORMERS[5],
+	TRANSFORMERS[6],
+	TRANSFORMERS[7],
 ];
 
 #[inline]
@@ -424,7 +453,7 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 
 	// no need to compute first canonical
 	// there will be no duplicates possible with only 1 board on depth 0
-	queue.insert(starting_board.0, (0, [1, 0, 0, 0, 0, 0]));
+	queue.insert(starting_board.0, (0, [1, 0, 0, 0, 0, 0, 0, 0]));
 
 	while d < depth && !queue.is_empty() {
 		std::mem::swap(&mut queue, &mut current_queue);
@@ -581,25 +610,27 @@ mod tests {
 
 	#[test]
 	fn test_transform() {
-		let board = board_from_hash(123_456_024);
-		// no transformation
-		assert_eq!(Board(TRANSFORMERS[0](board.0)).hash(), board.hash());
-		// 90 clockwise
-		assert_eq!(Board(TRANSFORMERS[1](board.0)).hash(), 041_252_463);
-		// 180
-		assert_eq!(Board(TRANSFORMERS[2](board.0)).hash(), 420_654_321);
-		// 270 clockwise or 90 counter-clockwise
-		assert_eq!(Board(TRANSFORMERS[3](board.0)).hash(), 364_252_140);
-		// vertical flip
-		assert_eq!(Board(TRANSFORMERS[4](board.0)).hash(), 321_654_420);
-		// horizontal flip
-		assert_eq!(Board(TRANSFORMERS[5](board.0)).hash(), 024_456_123);
+		let i = board_from_hash(123_456_024);
+		let r90 = board_from_hash(041_252_463);
+		let r180 = board_from_hash(420_654_321);
+		let r270 = board_from_hash(364_252_140);
+		let v = board_from_hash(321_654_420);
+		let h = board_from_hash(024_456_123);
+		let dz = board_from_hash(463_252_041);
 
-		let board = board_from_hash(616_101_616);
-		assert_eq!(Board(TRANSFORMERS[0](board.0)).hash(), 616_101_616);
-		assert_eq!(Board(TRANSFORMERS[1](board.0)).hash(), 616_101_616);
-		assert_eq!(Board(TRANSFORMERS[2](board.0)).hash(), 616_101_616);
-		assert_eq!(Board(TRANSFORMERS[3](board.0)).hash(), 616_101_616);
+		assert_eq!(Board(TRANSFORMERS[0](i.0)).hash(), i.hash());
+		assert_eq!(Board(TRANSFORMERS[1](i.0)).hash(), r90.hash());
+		assert_eq!(Board(TRANSFORMERS[2](i.0)).hash(), r180.hash());
+		assert_eq!(Board(TRANSFORMERS[3](i.0)).hash(), r270.hash());
+		assert_eq!(Board(TRANSFORMERS[4](i.0)).hash(), v.hash());
+		assert_eq!(Board(TRANSFORMERS[5](i.0)).hash(), h.hash());
+		assert_eq!(Board(TRANSFORMERS[6](i.0)).hash(), dz.hash());
+
+		let i = board_from_hash(616_101_616);
+		assert_eq!(Board(TRANSFORMERS[0](i.0)).hash(), 616_101_616);
+		assert_eq!(Board(TRANSFORMERS[1](i.0)).hash(), 616_101_616);
+		assert_eq!(Board(TRANSFORMERS[2](i.0)).hash(), 616_101_616);
+		assert_eq!(Board(TRANSFORMERS[3](i.0)).hash(), 616_101_616);
 	}
 
 	#[test]
