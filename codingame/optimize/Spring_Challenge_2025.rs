@@ -21,7 +21,7 @@ const DICE_MAX: DiceValue = 6;
 const SUM_MOD: Sum = 1 << 30;
 const DEPTH_MAX: Depth = 40;
 
-const QUEUE_CAPACITY: usize = 1 << 13;
+const QUEUE_CAPACITY: usize = 1 << 12;
 
 fn main() {
 	let (depth, starting_board) = parse();
