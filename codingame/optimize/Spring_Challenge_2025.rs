@@ -106,17 +106,17 @@ static TRANSFORMERS: [fn(Board) -> Board; SYMMETRY_COUNT as usize] = [
 	#[inline(always)]
 	|board| {
 		((board & 0b111_000_000_000_000_000_000_000_000) >> 24)
-        // | ((board & 0b000_111_000_000_000_000_000_000_000) >> 12)
-        // | (board & 0b000_000_111_000_000_000_000_000_000)
-        // | ((board & 0b000_000_000_111_000_000_000_000_000) >> 12)
-        // | (board & 0b000_000_000_000_111_000_000_000_000)
-        // | ((board & 0b000_000_000_000_000_111_000_000_000) << 12)
-        // | (board & 0b000_000_000_000_000_000_111_000_000)
-        // | ((board & 0b000_000_000_000_000_000_000_111_000) << 12)
+		// | ((board & 0b000_111_000_000_000_000_000_000_000) >> 12)
+		// | (board & 0b000_000_111_000_000_000_000_000_000)
+		// | ((board & 0b000_000_000_111_000_000_000_000_000) >> 12)
+		// | (board & 0b000_000_000_000_111_000_000_000_000)
+		// | ((board & 0b000_000_000_000_000_111_000_000_000) << 12)
+		// | (board & 0b000_000_000_000_000_000_111_000_000)
+		// | ((board & 0b000_000_000_000_000_000_000_111_000) << 12)
 			| ((board & 0b000_000_000_000_000_000_000_000_111) << 24)
-            | ((board & 0b000_111_000_111_000_000_000_000_000) >> 12)
-            | (board & 0b000_000_111_000_111_000_111_000_000)
-            | ((board & 0b000_000_000_000_000_111_000_111_000) << 12)
+			| ((board & 0b000_111_000_111_000_000_000_000_000) >> 12)
+			| (board & 0b000_000_111_000_111_000_111_000_000)
+			| ((board & 0b000_000_000_000_000_111_000_111_000) << 12)
 	},
 	// diagonal \
 	#[inline(always)]
@@ -124,15 +124,15 @@ static TRANSFORMERS: [fn(Board) -> Board; SYMMETRY_COUNT as usize] = [
 		// (board & 0b111_000_000_000_000_000_000_000_000)
 		// | ((board & 0b000_111_000_000_000_000_000_000_000) >> 6)
 		((board & 0b000_000_111_000_000_000_000_000_000) >> 12)
-        // | ((board & 0b000_000_000_111_000_000_000_000_000) << 6)
-        // | (board & 0b000_000_000_000_111_000_000_000_000)
-        // | ((board & 0b000_000_000_000_000_111_000_000_000) >> 6)
+		// | ((board & 0b000_000_000_111_000_000_000_000_000) << 6)
+		// | (board & 0b000_000_000_000_111_000_000_000_000)
+		// | ((board & 0b000_000_000_000_000_111_000_000_000) >> 6)
 			| ((board & 0b000_000_000_000_000_000_111_000_000) << 12)
-        // | ((board & 0b000_000_000_000_000_000_000_111_000) << 6)
-        // | (board & 0b000_000_000_000_000_000_000_000_111)
-            | (board & 0b111_000_000_000_111_000_000_000_111)
-            | ((board & 0b000_111_000_000_000_111_000_000_000) >> 6)
-            | ((board & 0b000_000_000_111_000_000_000_111_000) << 6)
+		// | ((board & 0b000_000_000_000_000_000_000_111_000) << 6)
+		// | (board & 0b000_000_000_000_000_000_000_000_111)
+			| (board & 0b111_000_000_000_111_000_000_000_111)
+			| ((board & 0b000_111_000_000_000_111_000_000_000) >> 6)
+			| ((board & 0b000_000_000_111_000_000_000_111_000) << 6)
 	},
 	// 90 clockwise
 	#[inline(always)]
@@ -314,24 +314,44 @@ fn canonical(board: Board) -> (Board, RotationIndex) {
 }
 
 macro_rules! queue_insert {
-	($queue:ident, $board:expr, $rotation:ident, $symmetry_path_count:ident) => {
+	($queue:ident, $board:expr, $symmetry_path_count:ident) => {
 		let canonical = canonical($board);
+		let mut transformed_count = [0; SYMMETRY_COUNT as usize];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][0] as usize] =
+			$symmetry_path_count[0];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][1] as usize] =
+			$symmetry_path_count[1];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][2] as usize] =
+			$symmetry_path_count[2];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][3] as usize] =
+			$symmetry_path_count[3];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][4] as usize] =
+			$symmetry_path_count[4];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][5] as usize] =
+			$symmetry_path_count[5];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][6] as usize] =
+			$symmetry_path_count[6];
+		transformed_count[SYMMETRY_INDEX_TRANSFORMER[canonical.1 as usize][7] as usize] =
+			$symmetry_path_count[7];
+
 		$queue
 			.entry(canonical.0)
-			.and_modify(|(stored_rotation, count)| {
-				let r = ((*stored_rotation).wrapping_sub($rotation.wrapping_add(canonical.1)) % 4)
-					as usize;
-				count[0] = count[0].wrapping_add($symmetry_path_count[r]);
-				count[1] = count[1].wrapping_add($symmetry_path_count[(r + 1) % 4]);
-				count[2] = count[2].wrapping_add($symmetry_path_count[(r + 2) % 4]);
-				count[3] = count[3].wrapping_add($symmetry_path_count[(r + 3) % 4]);
+			.and_modify(|count| {
+				count[0] = count[0].wrapping_add(transformed_count[0]);
+				count[1] = count[1].wrapping_add(transformed_count[1]);
+				count[2] = count[2].wrapping_add(transformed_count[2]);
+				count[3] = count[3].wrapping_add(transformed_count[3]);
+				count[4] = count[4].wrapping_add(transformed_count[4]);
+				count[5] = count[5].wrapping_add(transformed_count[5]);
+				count[6] = count[6].wrapping_add(transformed_count[6]);
+				count[7] = count[7].wrapping_add(transformed_count[7]);
 			})
-			.or_insert((($rotation.wrapping_add(canonical.1)), $symmetry_path_count));
+			.or_insert(transformed_count);
 	};
 }
 
 macro_rules! play_single_move {
-	($board:ident, $index:ident, $rotation:ident, $symmetry_path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $($neighbors:literal),+) => {
+	($board:ident, $index:ident, $symmetry_path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $($neighbors:literal),+) => {
 		let n = 0 $(
 			+ $neighbors_buf[$neighbors].1
 		)+;
@@ -345,13 +365,13 @@ macro_rules! play_single_move {
 				)+,
 				$index,
 				n as Board
-			), $rotation, $symmetry_path_count);
+			), $symmetry_path_count);
 		}
 	};
 }
 
 macro_rules! play_move {
-	($board:ident, $index:ident, $rotation:ident, $symmetry_path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $neighbors_len:ident, $($neighbors:ident),+) => {
+	($board:ident, $index:ident, $symmetry_path_count:ident, $queue:ident, $moved:ident, $neighbors_buf:ident, $neighbors_len:ident, $($neighbors:ident),+) => {
 		if get($board, $index) == 0 {
 			$moved = true;
 
@@ -365,7 +385,7 @@ macro_rules! play_move {
 			)+
 
 			if $neighbors_len <= 1 {
-				queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $rotation, $symmetry_path_count);
+				queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $symmetry_path_count);
 			} else {
 				match $neighbors_len {
 					2 => {
@@ -378,45 +398,45 @@ macro_rules! play_move {
 								& $neighbors_buf[1].2,
 								$index,
 								n as Board
-							), $rotation, $symmetry_path_count);
+							), $symmetry_path_count);
 						} else {
-							queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $rotation, $symmetry_path_count);
+							queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $symmetry_path_count);
 						}
 					},
 					3 => {
 						let mut moved_here = false;
 
 						// 2 of 3
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1);
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 2);
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 2);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 2);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 2);
 						// 3 of 3
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
 
 						if !moved_here {
-							queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $rotation, $symmetry_path_count);
+							queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $symmetry_path_count);
 						}
 					},
 					_ => {
 						let mut moved_here = false;
 
 						// 2 of 4
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1);
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 2);
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 3);
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 2);
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 3);
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 2, 3);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 2);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 3);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 2);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 3);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 2, 3);
 						// 3 of 4
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 3);
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 2, 3);
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 2, 3);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 3);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 2, 3);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 1, 2, 3);
 						// 4 of 4
-						play_single_move!($board, $index, $rotation, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2, 3);
+						play_single_move!($board, $index, $symmetry_path_count, $queue, moved_here, $neighbors_buf, 0, 1, 2, 3);
 
 						if !moved_here {
-							queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $rotation, $symmetry_path_count);
+							queue_insert!($queue, set($board, empty_cell_mask($index), $index, 1), $symmetry_path_count);
 						}
 					},
 				}
@@ -427,28 +447,32 @@ macro_rules! play_move {
 
 // we can let it overflow because u32 is 4 times 2^30
 macro_rules! sum {
-	($sum:ident, $board:ident, $rotation:ident, $symmetry_path_count:ident) => {
-		let r0 = ($rotation % 4) as usize;
-		let r1 = (($rotation + 1) % 4) as usize;
-		let r2 = (($rotation + 2) % 4) as usize;
-		let r3 = (($rotation + 3) % 4) as usize;
-		let reversed_canonical = REVERSE_TRANSFORMERS[r0]($board);
+	($sum:ident, $board:ident, $symmetry_path_count:ident) => {
 		$sum = $sum
 			.wrapping_add(
-				hash(REVERSE_TRANSFORMERS[r0](reversed_canonical))
-					.wrapping_mul($symmetry_path_count[r0]),
+				// hash(REVERSE_TRANSFORMERS[0]($board)).wrapping_mul($symmetry_path_count[0]),
+				hash($board).wrapping_mul($symmetry_path_count[0]),
 			)
 			.wrapping_add(
-				hash(REVERSE_TRANSFORMERS[r1](reversed_canonical))
-					.wrapping_mul($symmetry_path_count[r1]),
+				hash(REVERSE_TRANSFORMERS[1]($board)).wrapping_mul($symmetry_path_count[1]),
 			)
 			.wrapping_add(
-				hash(REVERSE_TRANSFORMERS[r2](reversed_canonical))
-					.wrapping_mul($symmetry_path_count[r2]),
+				hash(REVERSE_TRANSFORMERS[2]($board)).wrapping_mul($symmetry_path_count[2]),
 			)
 			.wrapping_add(
-				hash(REVERSE_TRANSFORMERS[r3](reversed_canonical))
-					.wrapping_mul($symmetry_path_count[r3]),
+				hash(REVERSE_TRANSFORMERS[3]($board)).wrapping_mul($symmetry_path_count[3]),
+			)
+			.wrapping_add(
+				hash(REVERSE_TRANSFORMERS[4]($board)).wrapping_mul($symmetry_path_count[4]),
+			)
+			.wrapping_add(
+				hash(REVERSE_TRANSFORMERS[5]($board)).wrapping_mul($symmetry_path_count[5]),
+			)
+			.wrapping_add(
+				hash(REVERSE_TRANSFORMERS[6]($board)).wrapping_mul($symmetry_path_count[6]),
+			)
+			.wrapping_add(
+				hash(REVERSE_TRANSFORMERS[7]($board)).wrapping_mul($symmetry_path_count[7]),
 			);
 	};
 }
@@ -464,12 +488,8 @@ const EMPTY_SOLUTION: [Sum; DEPTH_MAX as usize + 1] = [
 type Queue = HashMap<
 	// canonical board
 	Board,
-	(
-		// current ratation count of 90 clockwise
-		RotationIndex,
-		// path count per symmetry
-		SymmetryPathCount,
-	),
+	// current symmetry state as index (S_I__, S_V__, S_H__, S_DZ_, S_DN_, S_90_, S_180, S_270)
+	SymmetryPathCount,
 >;
 
 fn solve(depth: Depth, starting_board: Board) -> Sum {
@@ -486,52 +506,44 @@ fn solve(depth: Depth, starting_board: Board) -> Sum {
 
 	// no need to compute first canonical
 	// there will be no duplicates possible with only 1 board on depth 0
-	queue.insert(starting_board, (0, [1, 0, 0, 0, 0, 0, 0, 0]));
+	queue.insert(starting_board, [1, 0, 0, 0, 0, 0, 0, 0]);
 
 	while d < depth && !queue.is_empty() {
 		std::mem::swap(&mut queue, &mut current_queue);
 
-		for (board, (rot, spc)) in current_queue.drain() {
+		for (board, spc) in current_queue.drain() {
 			let mut moved = false;
 
+			play_move!(board, C_BR, spc, queue, moved, ngb_buf, ngb_len, C_B_, C_R_);
 			play_move!(
-				board, C_BR, rot, spc, queue, moved, ngb_buf, ngb_len, C_B_, C_R_
+				board, C_B_, spc, queue, moved, ngb_buf, ngb_len, C_BL, C_M_, C_BR
+			);
+			play_move!(board, C_BL, spc, queue, moved, ngb_buf, ngb_len, C_L_, C_B_);
+			play_move!(
+				board, C_R_, spc, queue, moved, ngb_buf, ngb_len, C_M_, C_TR, C_BR
 			);
 			play_move!(
-				board, C_B_, rot, spc, queue, moved, ngb_buf, ngb_len, C_BL, C_M_, C_BR
+				board, C_M_, spc, queue, moved, ngb_buf, ngb_len, C_L_, C_T_, C_R_, C_B_
 			);
 			play_move!(
-				board, C_BL, rot, spc, queue, moved, ngb_buf, ngb_len, C_L_, C_B_
+				board, C_L_, spc, queue, moved, ngb_buf, ngb_len, C_TL, C_M_, C_BL
 			);
+			play_move!(board, C_TR, spc, queue, moved, ngb_buf, ngb_len, C_T_, C_R_);
 			play_move!(
-				board, C_R_, rot, spc, queue, moved, ngb_buf, ngb_len, C_M_, C_TR, C_BR
+				board, C_T_, spc, queue, moved, ngb_buf, ngb_len, C_TL, C_TR, C_M_
 			);
-			play_move!(
-				board, C_M_, rot, spc, queue, moved, ngb_buf, ngb_len, C_L_, C_T_, C_R_, C_B_
-			);
-			play_move!(
-				board, C_L_, rot, spc, queue, moved, ngb_buf, ngb_len, C_TL, C_M_, C_BL
-			);
-			play_move!(
-				board, C_TR, rot, spc, queue, moved, ngb_buf, ngb_len, C_T_, C_R_
-			);
-			play_move!(
-				board, C_T_, rot, spc, queue, moved, ngb_buf, ngb_len, C_TL, C_TR, C_M_
-			);
-			play_move!(
-				board, C_TL, rot, spc, queue, moved, ngb_buf, ngb_len, C_T_, C_L_
-			);
+			play_move!(board, C_TL, spc, queue, moved, ngb_buf, ngb_len, C_T_, C_L_);
 
 			if !moved {
-				sum!(sum, board, rot, spc);
+				sum!(sum, board, spc);
 			}
 		}
 
 		d += 1;
 	}
 
-	for (board, (rot, spc)) in queue {
-		sum!(sum, board, rot, spc);
+	for (board, spc) in queue {
+		sum!(sum, board, spc);
 	}
 
 	sum % SUM_MOD
@@ -746,16 +758,15 @@ mod tests {
 		let mut moved = false;
 		let mut spc: SymmetryPathCount = [0; SYMMETRY_COUNT as usize];
 		spc[0] = 1;
-		let rot: RotationIndex = 0;
 
 		let b = board;
-		play_single_move!(b, C_M_, rot, spc, queue, moved, neighbors_buf, 0, 1);
+		play_single_move!(b, C_M_, spc, queue, moved, neighbors_buf, 0, 1);
 
 		assert_eq!(queue.len(), 1);
 		assert!(moved);
 		let first = queue.iter().next().unwrap();
 		assert_eq!(hash(*first.0), 606021616);
-		assert_eq!(*first.1, (0, spc));
+		assert_eq!(*first.1, spc);
 	}
 
 	#[test]
