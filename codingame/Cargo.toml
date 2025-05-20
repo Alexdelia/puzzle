@@ -30,3 +30,7 @@ path = "solved/Count_your_coins.rs"
 [[bin]]
 name = "Annihilation"
 path = "solved/Annihilation.rs"
+
+[[bin]]
+name = "Island_Escape"
+path = "solved/Island_Escape.rs"
