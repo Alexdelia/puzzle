@@ -150,18 +150,28 @@ macro_rules! play_shift {
 			$q.push(new_board);
 		}
 
-		if target_value >= ($value as Cell) {
+		{
+			let (new_minus, new_offset) = if target_value as usize >= $value {
+				(
+					target_value as Cell - ($value as Cell),
+					$b.offset - ($value as Offset),
+				)
+			} else {
+				(
+					($value as Cell) - target_value,
+					$b.offset + ((target_value as Offset) - ($value as Offset)),
+				)
+			};
 			let mut new_board = Board {
-				offset: $b.offset - ($value as Offset),
+				offset: new_offset,
 				grid: $b.grid.clone(),
 				moves: $b.moves.clone(),
 				active_cell: $b.active_cell.clone(),
 			};
-			let target_value = target_value - ($value as Cell);
 			new_board.grid[$y][$x] = 0;
-			new_board.grid[$target_y][$target_x] = target_value;
+			new_board.grid[$target_y][$target_x] = new_minus;
 			new_board.active_cell.remove($active_cell_index);
-			if target_value == 0 {
+			if new_minus == 0 {
 				new_board.active_cell.retain(|&(tx, ty)| {
 					!(tx == (($target_x) as GridSize) && ty == (($target_y) as GridSize))
 				});
