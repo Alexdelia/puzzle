@@ -147,6 +147,7 @@ macro_rules! play_shift {
 			new_board
 				.moves
 				.push((($x as GridSize, $y as GridSize), $d, Operation::Add));
+			$q.push(new_board);
 		}
 
 		if target_value >= ($value as Cell) {
