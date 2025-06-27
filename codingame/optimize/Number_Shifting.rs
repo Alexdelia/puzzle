@@ -136,7 +136,7 @@ macro_rules! play_shift {
 		let new_plus = target_value as usize + $value;
 		if new_plus <= Cell::MAX as usize {
 			let mut new_board = Board {
-				offset: $b.offset + $value as Offset,
+				offset: $b.offset + ($value as Offset),
 				grid: $b.grid.clone(),
 				moves: $b.moves.clone(),
 				active_cell: $b.active_cell.clone(),
@@ -178,7 +178,26 @@ macro_rules! play_cell {
 		let (x, y) = (*$x as usize, *$y as usize);
 		let value = $b.grid[y][x] as usize;
 
-		if value < $h && $b.grid[y + value][x] != 0 {
+		if value <= y {
+			let new_y = y - value;
+			if $b.grid[new_y][x] != 0 {
+				play_shift!(
+					$w,
+					$h,
+					$q,
+					$b,
+					$active_cell_index,
+					x,
+					y,
+					x,
+					new_y,
+					value,
+					Direction::Up
+				);
+			}
+		}
+		let new_y = y + value;
+		if new_y < $h && $b.grid[new_y][x] != 0 {
 			play_shift!(
 				$w,
 				$h,
@@ -188,9 +207,43 @@ macro_rules! play_cell {
 				x,
 				y,
 				x,
-				(y - (value as usize)),
+				new_y,
 				value,
-				Direction::Up
+				Direction::Down
+			);
+		}
+		if value <= x {
+			let new_x = x - value;
+			if $b.grid[y][new_x] != 0 {
+				play_shift!(
+					$w,
+					$h,
+					$q,
+					$b,
+					$active_cell_index,
+					x,
+					y,
+					new_x,
+					y,
+					value,
+					Direction::Left
+				);
+			}
+		}
+		let new_x = x + value;
+		if new_x < $w && $b.grid[y][new_x] != 0 {
+			play_shift!(
+				$w,
+				$h,
+				$q,
+				$b,
+				$active_cell_index,
+				x,
+				y,
+				new_x,
+				y,
+				value,
+				Direction::Right
 			);
 		}
 	};
