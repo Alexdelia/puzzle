@@ -1,6 +1,8 @@
 use core::fmt::Display;
 use std::{collections::BinaryHeap, io};
 
+const LEVEL: &str = "first_level";
+
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
 		$x.trim().parse::<$t>().unwrap()
@@ -120,7 +122,7 @@ impl Board {
 }
 
 fn main() {
-	println!("first_level");
+	println!("{LEVEL}");
 
 	loop {
 		let ((w, h), board) = Board::parse();
