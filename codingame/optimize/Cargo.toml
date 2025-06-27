@@ -8,3 +8,7 @@ authors = ["Alexandre Delille <adelille@student.42.fr>"]
 [[bin]]
 name = "spring_2025"
 path = "Spring_Challenge_2025.rs"
+
+[[bin]]
+name = "number_shifting"
+path = "Number_Shifting.rs"
