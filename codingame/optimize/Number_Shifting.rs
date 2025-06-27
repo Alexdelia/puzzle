@@ -279,16 +279,19 @@ mod tests {
 			offset: 10,
 			grid: Vec::new(),
 			moves: Vec::new(),
+			active_cell: Vec::new(),
 		});
 		q.push(Board {
 			offset: 5,
 			grid: Vec::new(),
 			moves: Vec::new(),
+			active_cell: Vec::new(),
 		});
 		q.push(Board {
 			offset: 15,
 			grid: Vec::new(),
 			moves: Vec::new(),
+			active_cell: Vec::new(),
 		});
 
 		assert_eq!(q.pop().unwrap().offset, 5);
