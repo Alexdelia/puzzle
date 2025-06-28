@@ -1,5 +1,8 @@
 use core::fmt::Display;
-use std::{collections::BinaryHeap, io};
+use std::{
+	collections::{BinaryHeap, HashSet},
+	io,
+};
 
 const LOCAL: bool = true;
 
@@ -20,11 +23,12 @@ type Offset = usize;
 
 type Coord = (GridSize, GridSize);
 
+type Grid = Vec<Vec<Cell>>;
 type Move = (Coord, Direction, Operation);
 
 struct Board {
 	offset: Offset,
-	grid: Vec<Vec<Cell>>,
+	grid: Grid,
 	active_cell: Vec<Coord>,
 	moves: Vec<Move>,
 }
@@ -143,11 +147,11 @@ fn main() {
 }
 
 macro_rules! play_shift {
-	($w:expr, $h:expr, $q:expr, $b:expr, $active_cell_index:expr, $x:expr, $y:expr, $target_x:expr, $target_y:expr, $value:expr, $d:expr) => {
+	($w:expr, $h:expr, $q:expr, $s:expr, $b:expr, $active_cell_index:expr, $x:expr, $y:expr, $target_x:expr, $target_y:expr, $value:expr, $d:expr) => {
 		let target_value = $b.grid[$target_y][$target_x];
 
 		let new_plus = target_value as usize + $value;
-		if new_plus <= Cell::MAX as usize {
+		if new_plus <= $w {
 			let mut new_board = Board {
 				offset: $b.offset + ($value as Offset),
 				grid: $b.grid.clone(),
@@ -156,15 +160,14 @@ macro_rules! play_shift {
 			};
 			new_board.grid[$y][$x] = 0;
 			new_board.grid[$target_y][$target_x] = new_plus as Cell;
-			new_board.active_cell.remove($active_cell_index);
-			new_board
-				.moves
-				.push((($x as GridSize, $y as GridSize), $d, Operation::Add));
-			if new_board.active_cell.is_empty() {
-				new_board.print_moves();
-				return;
+			if !$s.contains(&new_board.grid) {
+				$s.insert(new_board.grid.clone());
+				new_board.active_cell.remove($active_cell_index);
+				new_board
+					.moves
+					.push((($x as GridSize, $y as GridSize), $d, Operation::Add));
+				$q.push(new_board);
 			}
-			$q.push(new_board);
 		}
 
 		{
@@ -187,26 +190,29 @@ macro_rules! play_shift {
 			};
 			new_board.grid[$y][$x] = 0;
 			new_board.grid[$target_y][$target_x] = new_minus;
-			new_board.active_cell.remove($active_cell_index);
-			if new_minus == 0 {
-				new_board.active_cell.retain(|&(tx, ty)| {
-					!(tx == (($target_x) as GridSize) && ty == (($target_y) as GridSize))
-				});
+			if !$s.contains(&new_board.grid) {
+				$s.insert(new_board.grid.clone());
+				new_board.active_cell.remove($active_cell_index);
+				if new_minus == 0 {
+					new_board.active_cell.retain(|&(tx, ty)| {
+						!(tx == (($target_x) as GridSize) && ty == (($target_y) as GridSize))
+					});
+				}
+				new_board
+					.moves
+					.push((($x as GridSize, $y as GridSize), $d, Operation::Sub));
+				if new_board.active_cell.is_empty() {
+					new_board.print_moves();
+					return;
+				}
+				$q.push(new_board);
 			}
-			new_board
-				.moves
-				.push((($x as GridSize, $y as GridSize), $d, Operation::Sub));
-			if new_board.active_cell.is_empty() {
-				new_board.print_moves();
-				return;
-			}
-			$q.push(new_board);
 		}
 	};
 }
 
 macro_rules! play_cell {
-	($w:expr, $h:expr, $q:expr, $b:expr, $active_cell_index:expr, $x:expr, $y:expr) => {
+	($w:expr, $h:expr, $q:expr, $s:expr, $b:expr, $active_cell_index:expr, $x:expr, $y:expr) => {
 		let (x, y) = (*$x as usize, *$y as usize);
 		let value = $b.grid[y][x] as usize;
 
@@ -217,6 +223,7 @@ macro_rules! play_cell {
 					$w,
 					$h,
 					$q,
+					$s,
 					$b,
 					$active_cell_index,
 					x,
@@ -234,6 +241,7 @@ macro_rules! play_cell {
 				$w,
 				$h,
 				$q,
+				$s,
 				$b,
 				$active_cell_index,
 				x,
@@ -251,6 +259,7 @@ macro_rules! play_cell {
 					$w,
 					$h,
 					$q,
+					$s,
 					$b,
 					$active_cell_index,
 					x,
@@ -268,6 +277,7 @@ macro_rules! play_cell {
 				$w,
 				$h,
 				$q,
+				$s,
 				$b,
 				$active_cell_index,
 				x,
@@ -283,12 +293,13 @@ macro_rules! play_cell {
 
 fn solve(board: Board, w: usize, h: usize) {
 	let mut q = Queue::new();
+	let mut s = HashSet::<Grid>::new();
 
 	q.push(board);
 
 	while let Some(current_board) = q.pop() {
 		for (i, (x, y)) in current_board.active_cell.iter().enumerate() {
-			play_cell!(w, h, q, current_board, i, x, y);
+			play_cell!(w, h, q, s, current_board, i, x, y);
 		}
 
 		if q.len() > MAX_QUEUE_SIZE {
