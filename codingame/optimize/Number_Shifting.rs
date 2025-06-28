@@ -76,7 +76,7 @@ type Queue = BinaryHeap<Board>;
 
 impl Ord for Board {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		other.offset.cmp(&self.offset)
+		other.active_cell.len().cmp(&self.active_cell.len())
 	}
 }
 
@@ -308,8 +308,9 @@ macro_rules! play_cell {
 }
 
 fn solve(board: Board, w: usize, h: usize) {
-	let mut q = Queue::new();
-	let mut s = HashMap::<Depth, HashSet<Grid>>::new();
+	let mut q = Queue::with_capacity(MAX_QUEUE_SIZE + u8::MAX as usize);
+	let mut s =
+		HashMap::<Depth, HashSet<Grid>>::with_capacity(board.active_cell.len() as usize + 1);
 
 	q.push(board);
 

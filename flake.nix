@@ -45,6 +45,9 @@
               # https://devenv.sh/packages/
               packages = with pkgs; [
                 git
+
+                cargo-flamegraph
+                hyperfine
               ];
 
               # https://devenv.sh/languages/
