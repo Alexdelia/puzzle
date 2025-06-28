@@ -1,6 +1,6 @@
 use core::fmt::Display;
 use std::{
-	collections::{BinaryHeap, HashSet},
+	collections::{BinaryHeap, HashMap, HashSet},
 	io,
 };
 
@@ -19,7 +19,8 @@ macro_rules! parse_input {
 
 type GridSize = u8;
 type Cell = u8;
-type Offset = usize;
+type Offset = u32;
+type Depth = u16; // max board is 56 * 32 = 1792
 
 type Coord = (GridSize, GridSize);
 
@@ -146,6 +147,7 @@ fn main() {
 	}
 }
 
+// TODO: .clone() .push() should be replaced by .into_iter().collect() or .with_capacity()
 macro_rules! play_shift {
 	($w:expr, $h:expr, $q:expr, $s:expr, $b:expr, $active_cell_index:expr, $x:expr, $y:expr, $target_x:expr, $target_y:expr, $value:expr, $d:expr) => {
 		let target_value = $b.grid[$target_y][$target_x];
@@ -160,12 +162,16 @@ macro_rules! play_shift {
 			};
 			new_board.grid[$y][$x] = 0;
 			new_board.grid[$target_y][$target_x] = new_plus as Cell;
-			if !$s.contains(&new_board.grid) {
-				$s.insert(new_board.grid.clone());
-				new_board.active_cell.remove($active_cell_index);
-				new_board
-					.moves
-					.push((($x as GridSize, $y as GridSize), $d, Operation::Add));
+			new_board.active_cell.remove($active_cell_index);
+			new_board
+				.moves
+				.push((($x as GridSize, $y as GridSize), $d, Operation::Add));
+
+			let entry = $s
+				.entry(new_board.active_cell.len() as Depth)
+				.or_insert(HashSet::new());
+			if !entry.contains(&new_board.grid) {
+				entry.insert(new_board.grid.clone());
 				$q.push(new_board);
 			}
 		}
@@ -190,21 +196,25 @@ macro_rules! play_shift {
 			};
 			new_board.grid[$y][$x] = 0;
 			new_board.grid[$target_y][$target_x] = new_minus;
-			if !$s.contains(&new_board.grid) {
-				$s.insert(new_board.grid.clone());
-				new_board.active_cell.remove($active_cell_index);
-				if new_minus == 0 {
-					new_board.active_cell.retain(|&(tx, ty)| {
-						!(tx == (($target_x) as GridSize) && ty == (($target_y) as GridSize))
-					});
-				}
-				new_board
-					.moves
-					.push((($x as GridSize, $y as GridSize), $d, Operation::Sub));
-				if new_board.active_cell.is_empty() {
-					new_board.print_moves();
-					return;
-				}
+			new_board.active_cell.remove($active_cell_index);
+			if new_minus == 0 {
+				new_board.active_cell.retain(|&(tx, ty)| {
+					!(tx == (($target_x) as GridSize) && ty == (($target_y) as GridSize))
+				});
+			}
+			new_board
+				.moves
+				.push((($x as GridSize, $y as GridSize), $d, Operation::Sub));
+			if new_board.active_cell.is_empty() {
+				new_board.print_moves();
+				return;
+			}
+
+			let entry = $s
+				.entry(new_board.active_cell.len() as Depth)
+				.or_insert(HashSet::new());
+			if !entry.contains(&new_board.grid) {
+				entry.insert(new_board.grid.clone());
 				$q.push(new_board);
 			}
 		}
@@ -293,7 +303,9 @@ macro_rules! play_cell {
 
 fn solve(board: Board, w: usize, h: usize) {
 	let mut q = Queue::new();
-	let mut s = HashSet::<Grid>::new();
+	let mut s = HashMap::<Depth, HashSet<Grid>>::new();
+
+	let mut max_s = 0;
 
 	q.push(board);
 
@@ -307,6 +319,17 @@ fn solve(board: Board, w: usize, h: usize) {
 				.into_iter()
 				.take(MAX_QUEUE_SIZE - QUEUE_DROP_SIZE)
 				.collect();
+		}
+
+		let s_total = s.values().map(|set| set.len()).sum::<usize>();
+
+		if s_total > max_s + 1_000 {
+			if LOCAL {
+				let mut s_list = s.iter().map(|(k, v)| (k, v.len())).collect::<Vec<_>>();
+				s_list.sort_by_key(|(k, _)| *k);
+				dbg!(q.len(), s.len(), s_total, s_list,);
+			}
+			max_s = s_total;
 		}
 	}
 }
