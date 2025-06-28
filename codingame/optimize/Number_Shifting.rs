@@ -1,8 +1,6 @@
-#![feature(hash_set_entry)]
-
 use core::fmt::Display;
 use std::{
-	collections::{BinaryHeap, HashMap, HashSet, hash_set::Entry},
+	collections::{BinaryHeap, HashMap, HashSet},
 	io,
 };
 
@@ -175,12 +173,9 @@ macro_rules! play_shift {
 				let entry = $s
 					.entry(new_board.active_cell.len() as Depth)
 					.or_insert(HashSet::new());
-				match entry.entry(new_board.grid.clone()) {
-					Entry::Vacant(entry) => {
-						$q.push(new_board);
-						entry.insert()
-					}
-					_ => {}
+				if !entry.contains(&new_board.grid) {
+					entry.insert(new_board.grid.clone());
+					$q.push(new_board);
 				}
 			}
 		}
@@ -223,12 +218,9 @@ macro_rules! play_shift {
 				let entry = $s
 					.entry(new_board.active_cell.len() as Depth)
 					.or_insert(HashSet::new());
-				match entry.entry(new_board.grid.clone()) {
-					Entry::Vacant(entry) => {
-						$q.push(new_board);
-						entry.insert()
-					}
-					_ => {}
+				if !entry.contains(&new_board.grid) {
+					entry.insert(new_board.grid.clone());
+					$q.push(new_board);
 				}
 			}
 		}
