@@ -76,9 +76,9 @@ type Queue = BinaryHeap<Board>;
 
 impl Ord for Board {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		other.offset.cmp(&self.offset)
 		// other.active_cell.len().cmp(&self.active_cell.len())
-		// other.offset.cmp(&self.offset)
-		(other.active_cell.len(), other.offset).cmp(&(self.active_cell.len(), self.offset))
+		// (other.active_cell.len(), other.offset).cmp(&(self.active_cell.len(), self.offset))
 	}
 }
 
