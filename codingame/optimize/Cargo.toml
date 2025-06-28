@@ -4,12 +4,6 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Alexandre Delille <adelille@student.42.fr>"]
 
-[dependencies]
-rayon = { version = "^1", optional = true }
-
-[features]
-default = []
-parallel = ["rayon"]
 
 [[bin]]
 name = "spring_2025"
@@ -18,4 +12,3 @@ path = "Spring_Challenge_2025.rs"
 [[bin]]
 name = "number_shifting"
 path = "Number_Shifting.rs"
-required-features = ["parallel"]
