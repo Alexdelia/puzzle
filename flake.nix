@@ -45,8 +45,6 @@
               # https://devenv.sh/packages/
               packages = with pkgs; [
                 git
-
-                bend
               ];
 
               # https://devenv.sh/languages/
