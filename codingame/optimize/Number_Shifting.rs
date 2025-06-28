@@ -4,6 +4,8 @@ use std::{
 	io,
 };
 
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
+
 const LOCAL: bool = true;
 
 const LEVEL: &str = "first_level";
@@ -73,6 +75,11 @@ impl Display for Operation {
 }
 
 type Queue = BinaryHeap<Board>;
+
+enum SolveResult {
+	Continue(Vec<Board>),
+	Solved(Board),
+}
 
 impl Ord for Board {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
@@ -170,11 +177,10 @@ macro_rules! play_shift {
 					.moves
 					.push((($x as GridSize, $y as GridSize), $d, Operation::Add));
 
-				let entry = $s
-					.entry(new_board.active_cell.len() as Depth)
-					.or_insert(HashSet::new());
-				if !entry.contains(&new_board.grid) {
-					entry.insert(new_board.grid.clone());
+				if !$s
+					.get(&(new_board.active_cell.len() as Depth))
+					.map_or(false, |set| set.contains(&new_board.grid))
+				{
 					$q.push(new_board);
 				}
 			}
@@ -210,27 +216,26 @@ macro_rules! play_shift {
 				.moves
 				.push((($x as GridSize, $y as GridSize), $d, Operation::Sub));
 			if new_board.active_cell.is_empty() {
-				new_board.print_moves();
-				return;
+				return SolveResult::Solved(new_board);
 			}
 
-			if new_board.active_cell.len() >= 2 {
-				let entry = $s
-					.entry(new_board.active_cell.len() as Depth)
-					.or_insert(HashSet::new());
-				if !entry.contains(&new_board.grid) {
-					entry.insert(new_board.grid.clone());
-					$q.push(new_board);
-				}
+			if new_board.active_cell.len() >= 2
+				&& !$s
+					.get(&(new_board.active_cell.len() as Depth))
+					.map_or(false, |set| set.contains(&new_board.grid))
+			{
+				$q.push(new_board);
 			}
 		}
 	};
 }
 
 macro_rules! play_cell {
-	($w:expr, $h:expr, $q:expr, $s:expr, $b:expr, $active_cell_index:expr, $x:expr, $y:expr) => {
+	($w:expr, $h:expr, $s:expr, $b:expr, $active_cell_index:expr, $x:expr, $y:expr) => {
 		let (x, y) = (*$x as usize, *$y as usize);
 		let value = $b.grid[y][x] as usize;
+
+		let mut next_boards = Vec::with_capacity(8);
 
 		if value <= y {
 			let new_y = y - value;
@@ -238,7 +243,7 @@ macro_rules! play_cell {
 				play_shift!(
 					$w,
 					$h,
-					$q,
+					next_boards,
 					$s,
 					$b,
 					$active_cell_index,
@@ -256,7 +261,7 @@ macro_rules! play_cell {
 			play_shift!(
 				$w,
 				$h,
-				$q,
+				next_boards,
 				$s,
 				$b,
 				$active_cell_index,
@@ -274,7 +279,7 @@ macro_rules! play_cell {
 				play_shift!(
 					$w,
 					$h,
-					$q,
+					next_boards,
 					$s,
 					$b,
 					$active_cell_index,
@@ -292,7 +297,7 @@ macro_rules! play_cell {
 			play_shift!(
 				$w,
 				$h,
-				$q,
+				next_boards,
 				$s,
 				$b,
 				$active_cell_index,
@@ -304,6 +309,8 @@ macro_rules! play_cell {
 				Direction::Right
 			);
 		}
+
+		return SolveResult::Continue(next_boards);
 	};
 }
 
@@ -314,8 +321,29 @@ fn solve(board: Board, w: usize, h: usize) {
 	q.push(board);
 
 	while let Some(current_board) = q.pop() {
-		for (i, (x, y)) in current_board.active_cell.iter().enumerate() {
-			play_cell!(w, h, q, s, current_board, i, x, y);
+		let result = current_board
+			.active_cell
+			.par_iter()
+			.enumerate()
+			.map(|(i, (x, y))| {
+				play_cell!(w, h, s, current_board, i, x, y);
+			})
+			.collect::<Vec<_>>();
+		for res in result {
+			match res {
+				SolveResult::Solved(solved_board) => {
+					solved_board.print_moves();
+					return;
+				}
+				SolveResult::Continue(next_boards) => {
+					for next_board in next_boards {
+						s.entry(next_board.active_cell.len() as Depth)
+							.or_default()
+							.insert(next_board.grid.clone());
+						q.push(next_board);
+					}
+				}
+			}
 		}
 
 		if q.len() > MAX_QUEUE_SIZE {
