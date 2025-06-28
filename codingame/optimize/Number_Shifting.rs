@@ -315,55 +315,62 @@ macro_rules! play_cell {
 }
 
 fn solve(board: Board, w: usize, h: usize) {
-	let mut q = Queue::new();
-	let mut s = HashMap::<Depth, HashSet<Grid>>::new();
+	let pool = rayon::ThreadPoolBuilder::new()
+		.num_threads(8)
+		.build()
+		.expect("failed to create thread pool");
 
-	q.push(board);
+	pool.install(|| {
+		let mut q = Queue::new();
+		let mut s = HashMap::<Depth, HashSet<Grid>>::new();
 
-	while let Some(current_board) = q.pop() {
-		let result = current_board
-			.active_cell
-			.par_iter()
-			.enumerate()
-			.map(|(i, (x, y))| {
-				play_cell!(w, h, s, current_board, i, x, y);
-			})
-			.collect::<Vec<_>>();
-		for res in result {
-			match res {
-				SolveResult::Solved(solved_board) => {
-					solved_board.print_moves();
-					return;
-				}
-				SolveResult::Continue(next_boards) => {
-					for next_board in next_boards {
-						s.entry(next_board.active_cell.len() as Depth)
-							.or_default()
-							.insert(next_board.grid.clone());
-						q.push(next_board);
+		q.push(board);
+
+		while let Some(current_board) = q.pop() {
+			let result = current_board
+				.active_cell
+				.par_iter()
+				.enumerate()
+				.map(|(i, (x, y))| {
+					play_cell!(w, h, s, current_board, i, x, y);
+				})
+				.collect::<Vec<_>>();
+			for res in result {
+				match res {
+					SolveResult::Solved(solved_board) => {
+						solved_board.print_moves();
+						return;
+					}
+					SolveResult::Continue(next_boards) => {
+						for next_board in next_boards {
+							s.entry(next_board.active_cell.len() as Depth)
+								.or_default()
+								.insert(next_board.grid.clone());
+							q.push(next_board);
+						}
 					}
 				}
 			}
-		}
 
-		if q.len() > MAX_QUEUE_SIZE {
-			q = q
-				.into_iter()
-				.take(MAX_QUEUE_SIZE - QUEUE_DROP_SIZE)
-				.collect();
-		}
+			if q.len() > MAX_QUEUE_SIZE {
+				q = q
+					.into_iter()
+					.take(MAX_QUEUE_SIZE - QUEUE_DROP_SIZE)
+					.collect();
+			}
 
-		let s_total = s.values().map(|set| set.len()).sum::<usize>();
-		if s_total > MAX_SEEN_TOTAL_SIZE {
-			let top_depth = q
-				.iter()
-				.map(|b| b.active_cell.len())
-				.max()
-				.unwrap_or(Depth::MAX as usize) as Depth;
-			let bottom_depth = s.keys().min().unwrap_or(&0) + 4;
-			s.retain(|&depth, _| depth <= top_depth && depth > bottom_depth);
+			let s_total = s.values().map(|set| set.len()).sum::<usize>();
+			if s_total > MAX_SEEN_TOTAL_SIZE {
+				let top_depth = q
+					.iter()
+					.map(|b| b.active_cell.len())
+					.max()
+					.unwrap_or(Depth::MAX as usize) as Depth;
+				let bottom_depth = s.keys().min().unwrap_or(&0) + 4;
+				s.retain(|&depth, _| depth <= top_depth && depth > bottom_depth);
+			}
 		}
-	}
+	});
 }
 
 #[cfg(test)]
