@@ -4,11 +4,6 @@
 
     flake-utils.url = "github:numtide/flake-utils";
 
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs = {nixpkgs.follows = "nixpkgs";};
-    };
-
     devenv = {
       url = "github:cachix/devenv";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -59,8 +54,6 @@
               languages = {
                 rust = {
                   enable = true;
-
-                  channel = "nightly";
                 };
               };
             }
