@@ -1,9 +1,12 @@
 use core::fmt::Display;
 use std::{collections::BinaryHeap, io};
 
-const LOCAL: bool = false;
+const LOCAL: bool = true;
 
 const LEVEL: &str = "first_level";
+
+const MAX_QUEUE_SIZE: usize = 4_000_000;
+const QUEUE_DROP_SIZE: usize = 100_000;
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
@@ -280,13 +283,19 @@ macro_rules! play_cell {
 
 fn solve(board: Board, w: usize, h: usize) {
 	let mut q = Queue::new();
-	// TODO: add visited storage & check optimization
 
 	q.push(board);
 
 	while let Some(current_board) = q.pop() {
 		for (i, (x, y)) in current_board.active_cell.iter().enumerate() {
 			play_cell!(w, h, q, current_board, i, x, y);
+		}
+
+		if q.len() > MAX_QUEUE_SIZE {
+			q = q
+				.into_iter()
+				.take(MAX_QUEUE_SIZE - QUEUE_DROP_SIZE)
+				.collect();
 		}
 	}
 }
