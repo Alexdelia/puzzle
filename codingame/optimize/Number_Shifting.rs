@@ -11,6 +11,8 @@ const LEVEL: &str = "first_level";
 const MAX_QUEUE_SIZE: usize = 4_000_000;
 const QUEUE_DROP_SIZE: usize = 100_000;
 
+const MAX_SEEN_TOTAL_SIZE: usize = 12_000_000;
+
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
 		$x.trim().parse::<$t>().unwrap()
@@ -309,8 +311,6 @@ fn solve(board: Board, w: usize, h: usize) {
 	let mut q = Queue::new();
 	let mut s = HashMap::<Depth, HashSet<Grid>>::new();
 
-	let mut max_s = 0;
-
 	q.push(board);
 
 	while let Some(current_board) = q.pop() {
@@ -326,14 +326,14 @@ fn solve(board: Board, w: usize, h: usize) {
 		}
 
 		let s_total = s.values().map(|set| set.len()).sum::<usize>();
-
-		if s_total > max_s + 1_000 {
-			if LOCAL {
-				let mut s_list = s.iter().map(|(k, v)| (k, v.len())).collect::<Vec<_>>();
-				s_list.sort_by_key(|(k, _)| *k);
-				dbg!(q.len(), s.len(), s_total, s_list,);
-			}
-			max_s = s_total;
+		if s_total > MAX_SEEN_TOTAL_SIZE {
+			let top_depth = q
+				.iter()
+				.map(|b| b.active_cell.len())
+				.max()
+				.unwrap_or(Depth::MAX as usize) as Depth;
+			let bottom_depth = s.keys().min().unwrap_or(&0) + 4;
+			s.retain(|&depth, _| depth <= top_depth && depth > bottom_depth);
 		}
 	}
 }
