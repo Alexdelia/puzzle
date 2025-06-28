@@ -76,7 +76,9 @@ type Queue = BinaryHeap<Board>;
 
 impl Ord for Board {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		other.active_cell.len().cmp(&self.active_cell.len())
+		// other.active_cell.len().cmp(&self.active_cell.len())
+		// other.offset.cmp(&self.offset)
+		(other.active_cell.len(), other.offset).cmp(&(self.active_cell.len(), self.offset))
 	}
 }
 
@@ -369,5 +371,33 @@ mod tests {
 		assert_eq!(q.pop().unwrap().offset, 5);
 		assert_eq!(q.pop().unwrap().offset, 10);
 		assert_eq!(q.pop().unwrap().offset, 15);
+	}
+
+	#[test]
+	fn test_board_priority_with_active_cells() {
+		let mut q = Queue::new();
+
+		q.push(Board {
+			offset: 10,
+			grid: Vec::new(),
+			moves: Vec::new(),
+			active_cell: vec![(0, 0)],
+		});
+		q.push(Board {
+			offset: 5,
+			grid: Vec::new(),
+			moves: Vec::new(),
+			active_cell: vec![(0, 0), (1, 1)],
+		});
+		q.push(Board {
+			offset: 15,
+			grid: Vec::new(),
+			moves: Vec::new(),
+			active_cell: vec![(0, 0)],
+		});
+
+		assert_eq!(q.pop().unwrap().offset, 10);
+		assert_eq!(q.pop().unwrap().offset, 15);
+		assert_eq!(q.pop().unwrap().offset, 5);
 	}
 }
