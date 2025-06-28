@@ -157,6 +157,10 @@ macro_rules! play_shift {
 			new_board
 				.moves
 				.push((($x as GridSize, $y as GridSize), $d, Operation::Add));
+			if new_board.active_cell.is_empty() {
+				new_board.print_moves();
+				return;
+			}
 			$q.push(new_board);
 		}
 
@@ -189,6 +193,10 @@ macro_rules! play_shift {
 			new_board
 				.moves
 				.push((($x as GridSize, $y as GridSize), $d, Operation::Sub));
+			if new_board.active_cell.is_empty() {
+				new_board.print_moves();
+				return;
+			}
 			$q.push(new_board);
 		}
 	};
@@ -279,11 +287,6 @@ fn solve(board: Board, w: usize, h: usize) {
 	while let Some(current_board) = q.pop() {
 		for (i, (x, y)) in current_board.active_cell.iter().enumerate() {
 			play_cell!(w, h, q, current_board, i, x, y);
-		}
-
-		if current_board.active_cell.is_empty() {
-			current_board.print_moves();
-			return;
 		}
 	}
 }
