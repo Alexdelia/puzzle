@@ -1,6 +1,8 @@
 use core::fmt::Display;
 use std::{collections::BinaryHeap, io};
 
+const LOCAL: bool = false;
+
 const LEVEL: &str = "first_level";
 
 macro_rules! parse_input {
@@ -122,12 +124,18 @@ impl Board {
 }
 
 fn main() {
-	println!("{LEVEL}");
+	if !LOCAL {
+		println!("{LEVEL}");
+	}
 
 	loop {
 		let ((w, h), board) = Board::parse();
 
 		solve(board, w as usize, h as usize);
+
+		if LOCAL {
+			break;
+		}
 	}
 }
 
