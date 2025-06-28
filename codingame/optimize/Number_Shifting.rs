@@ -152,27 +152,29 @@ macro_rules! play_shift {
 	($w:expr, $h:expr, $q:expr, $s:expr, $b:expr, $active_cell_index:expr, $x:expr, $y:expr, $target_x:expr, $target_y:expr, $value:expr, $d:expr) => {
 		let target_value = $b.grid[$target_y][$target_x];
 
-		let new_plus = target_value as usize + $value;
-		if new_plus <= $w {
-			let mut new_board = Board {
-				offset: $b.offset + ($value as Offset),
-				grid: $b.grid.clone(),
-				moves: $b.moves.clone(),
-				active_cell: $b.active_cell.clone(),
-			};
-			new_board.grid[$y][$x] = 0;
-			new_board.grid[$target_y][$target_x] = new_plus as Cell;
-			new_board.active_cell.remove($active_cell_index);
-			new_board
-				.moves
-				.push((($x as GridSize, $y as GridSize), $d, Operation::Add));
+		if $b.active_cell.len() > 2 {
+			let new_plus = target_value as usize + $value;
+			if new_plus <= $w {
+				let mut new_board = Board {
+					offset: $b.offset + ($value as Offset),
+					grid: $b.grid.clone(),
+					moves: $b.moves.clone(),
+					active_cell: $b.active_cell.clone(),
+				};
+				new_board.grid[$y][$x] = 0;
+				new_board.grid[$target_y][$target_x] = new_plus as Cell;
+				new_board.active_cell.remove($active_cell_index);
+				new_board
+					.moves
+					.push((($x as GridSize, $y as GridSize), $d, Operation::Add));
 
-			let entry = $s
-				.entry(new_board.active_cell.len() as Depth)
-				.or_insert(HashSet::new());
-			if !entry.contains(&new_board.grid) {
-				entry.insert(new_board.grid.clone());
-				$q.push(new_board);
+				let entry = $s
+					.entry(new_board.active_cell.len() as Depth)
+					.or_insert(HashSet::new());
+				if !entry.contains(&new_board.grid) {
+					entry.insert(new_board.grid.clone());
+					$q.push(new_board);
+				}
 			}
 		}
 
@@ -210,12 +212,14 @@ macro_rules! play_shift {
 				return;
 			}
 
-			let entry = $s
-				.entry(new_board.active_cell.len() as Depth)
-				.or_insert(HashSet::new());
-			if !entry.contains(&new_board.grid) {
-				entry.insert(new_board.grid.clone());
-				$q.push(new_board);
+			if new_board.active_cell.len() >= 2 {
+				let entry = $s
+					.entry(new_board.active_cell.len() as Depth)
+					.or_insert(HashSet::new());
+				if !entry.contains(&new_board.grid) {
+					entry.insert(new_board.grid.clone());
+					$q.push(new_board);
+				}
 			}
 		}
 	};
