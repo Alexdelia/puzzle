@@ -48,11 +48,17 @@
 
                 cargo-flamegraph
                 hyperfine
+
+                python312Packages.tqdm
               ];
 
               # https://devenv.sh/languages/
               languages = {
                 rust = {
+                  enable = true;
+                };
+
+                python = {
                   enable = true;
                 };
               };
