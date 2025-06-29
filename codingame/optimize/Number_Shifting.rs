@@ -159,70 +159,68 @@ fn main() {
 
 // TODO: .clone() .push() should be replaced by .into_iter().collect() or .with_capacity()
 macro_rules! play_shift {
-	($w:expr, $h:expr, $q:expr, $s:expr, $b:expr, $x:expr, $y:expr, $value:expr, $target_x:expr, $target_y:expr, $target_value:expr, $d:expr) => {
-		if $b.grid.len() > 2 {
-			let new_plus = $target_value + $value;
-			if new_plus <= $w {
-				let mut new_board = Board {
-					offset: $b.offset + ($value as Offset),
-					// TODO: look for shrink_to_fit or other way to avoid capacity carrying after clone
-					grid: $b.grid.clone(),
-					moves: $b.moves.clone(),
-				};
-				new_board.grid.remove(&($x, $y));
-				*new_board
-					.grid
-					.get_mut(&($target_x, $target_y))
-					.expect("target cell must exist") = new_plus as Cell;
-				new_board.moves.push((($x, $y), $d, Operation::Add));
-
-				// TODO: use .entry() + Vacant
-				let hashed_grid = hash_grid(&new_board.grid);
-				if !$s[new_board.grid.len()].contains(&hashed_grid) {
-					$s[new_board.grid.len()].insert(hashed_grid);
-					$q.push(new_board);
-				}
+	($w:expr, $h:expr, $q:expr, $s:expr, $b:expr, $x:expr, $y:expr, $value:expr, $target_x:expr, $target_y:expr, $target_value:expr, $d:expr) => {{
+		let (new_minus, new_offset) = if $target_value >= $value {
+			($target_value - ($value), $b.offset - ($value as Offset))
+		} else {
+			(
+				($value) - $target_value,
+				$b.offset + (($target_value as Offset) - ($value as Offset)),
+			)
+		};
+		let mut new_board = Board {
+			offset: new_offset,
+			grid: $b.grid.clone(),
+			moves: $b.moves.clone(),
+		};
+		new_board.grid.remove(&($x, $y));
+		new_board.moves.push((($x, $y), $d, Operation::Sub));
+		if new_minus != 0 {
+			*new_board
+				.grid
+				.get_mut(&($target_x, $target_y))
+				.expect("target cell must exist") = new_minus;
+		} else {
+			new_board.grid.remove(&($target_x, $target_y));
+			if new_board.grid.is_empty() {
+				new_board.print_moves();
+				return;
 			}
 		}
 
-		{
-			let (new_minus, new_offset) = if $target_value >= $value {
-				($target_value - ($value), $b.offset - ($value as Offset))
-			} else {
-				(
-					($value) - $target_value,
-					$b.offset + (($target_value as Offset) - ($value as Offset)),
-				)
-			};
+		if new_board.grid.len() >= 2 {
+			let hashed_grid = hash_grid(&new_board.grid);
+			if !$s[new_board.grid.len()].contains(&hashed_grid) {
+				$s[new_board.grid.len()].insert(hashed_grid);
+				$q.push(new_board);
+			}
+		}
+	}
+
+	if $b.grid.len() > 2 {
+		let new_plus = $target_value + $value;
+		if new_plus <= $w {
 			let mut new_board = Board {
-				offset: new_offset,
+				offset: $b.offset + ($value as Offset),
+				// TODO: look for shrink_to_fit or other way to avoid capacity carrying after clone
 				grid: $b.grid.clone(),
 				moves: $b.moves.clone(),
 			};
 			new_board.grid.remove(&($x, $y));
-			new_board.moves.push((($x, $y), $d, Operation::Sub));
-			if new_minus != 0 {
-				*new_board
-					.grid
-					.get_mut(&($target_x, $target_y))
-					.expect("target cell must exist") = new_minus;
-			} else {
-				new_board.grid.remove(&($target_x, $target_y));
-				if new_board.grid.is_empty() {
-					new_board.print_moves();
-					return;
-				}
-			}
+			*new_board
+				.grid
+				.get_mut(&($target_x, $target_y))
+				.expect("target cell must exist") = new_plus as Cell;
+			new_board.moves.push((($x, $y), $d, Operation::Add));
 
-			if new_board.grid.len() >= 2 {
-				let hashed_grid = hash_grid(&new_board.grid);
-				if !$s[new_board.grid.len()].contains(&hashed_grid) {
-					$s[new_board.grid.len()].insert(hashed_grid);
-					$q.push(new_board);
-				}
+			// TODO: use .entry() + Vacant
+			let hashed_grid = hash_grid(&new_board.grid);
+			if !$s[new_board.grid.len()].contains(&hashed_grid) {
+				$s[new_board.grid.len()].insert(hashed_grid);
+				$q.push(new_board);
 			}
 		}
-	};
+	}};
 }
 
 macro_rules! play_cell {
