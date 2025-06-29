@@ -10,3 +10,6 @@ Cargo.lock
 
 .direnv
 .devenv
+
+flamegraph.svg
+perf.data*
