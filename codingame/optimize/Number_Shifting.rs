@@ -11,7 +11,13 @@ const LEVEL: &str = "first_level";
 const MAX_QUEUE_SIZE: usize = 4_000_000;
 const QUEUE_DROP_SIZE: usize = 100_000;
 
-// const MAX_SEEN_TOTAL_SIZE: usize = 12_000_000;
+#[cfg(feature = "lossless")]
+const MAX_SEEN_TOTAL_SIZE: usize = 12_000_000;
+
+#[cfg(not(feature = "lossless"))]
+type HashedGrid = u32;
+#[cfg(feature = "lossless")]
+type HashedGrid = Vec<(Coord, Cell)>;
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
@@ -74,8 +80,6 @@ impl Display for Operation {
 type Queue = BinaryHeap<Board>;
 type Seen = Vec<HashSet<HashedGrid>>;
 
-type HashedGrid = u32;
-
 impl Ord for Board {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		other.offset.cmp(&self.offset)
@@ -133,12 +137,22 @@ impl Board {
 	}
 }
 
+#[cfg(not(feature = "lossless"))]
 fn hash_grid(grid: &Grid) -> HashedGrid {
 	grid.iter().fold(0, |acc, ((x, y), &value)| {
 		acc.wrapping_add(
 			((*x as HashedGrid) << 16) | ((*y as HashedGrid) << 8) | (value as HashedGrid),
 		)
 	})
+}
+#[cfg(feature = "lossless")]
+fn hash_grid(grid: &Grid) -> HashedGrid {
+	let mut hashed_grid = Vec::with_capacity(grid.len());
+	for (&(x, y), &value) in grid {
+		hashed_grid.push(((x, y), value));
+	}
+	hashed_grid.sort_by_key(|&(coord, _)| coord);
+	hashed_grid
 }
 
 fn main() {
@@ -330,6 +344,28 @@ fn solve(board: Board, w: GridSize, h: GridSize) {
 				.into_iter()
 				.take(MAX_QUEUE_SIZE - QUEUE_DROP_SIZE)
 				.collect();
+		}
+
+		#[cfg(feature = "lossless")]
+		{
+			let s_total = s.iter().map(|set| set.len()).sum::<usize>();
+			if s_total > MAX_SEEN_TOTAL_SIZE {
+				let top_depth = q
+					.iter()
+					.map(|b| b.grid.len())
+					.max()
+					.expect("queue should not be empty");
+				if s.len() - top_depth > 0 {
+					s.truncate(top_depth);
+					s.shrink_to_fit();
+				}
+
+				let bottom_depth = s.iter().position(|set| !set.is_empty()).unwrap_or(0) + 4;
+				#[allow(clippy::needless_range_loop)]
+				for i in 0..bottom_depth {
+					s[i] = Default::default();
+				}
+			}
 		}
 	}
 }
