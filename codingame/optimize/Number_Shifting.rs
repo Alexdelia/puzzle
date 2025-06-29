@@ -74,7 +74,7 @@ impl Display for Operation {
 type Queue = BinaryHeap<Board>;
 type Seen = Vec<HashSet<HashedGrid>>;
 
-type HashedGrid = u16;
+type HashedGrid = u32;
 
 impl Ord for Board {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
@@ -135,7 +135,9 @@ impl Board {
 
 fn hash_grid(grid: &Grid) -> HashedGrid {
 	grid.iter().fold(0, |acc, ((x, y), &value)| {
-		acc ^ (((*x as u16) << 12) | ((*y as u16) << 7) | (value as u16))
+		acc.wrapping_add(
+			((*x as HashedGrid) << 16) | ((*y as HashedGrid) << 8) | (value as HashedGrid),
+		)
 	})
 }
 
