@@ -11,7 +11,7 @@ const LEVEL: &str = "first_level";
 const MAX_QUEUE_SIZE: usize = 4_000_000;
 const QUEUE_DROP_SIZE: usize = 100_000;
 
-const MAX_SEEN_TOTAL_SIZE: usize = 12_000_000;
+// const MAX_SEEN_TOTAL_SIZE: usize = 12_000_000;
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
@@ -22,17 +22,16 @@ macro_rules! parse_input {
 type GridSize = u8;
 type Cell = u8;
 type Offset = u32;
-type Depth = u16; // max board is 56 * 32 = 1792
+// type Depth = u16; // max board is 56 * 32 = 1792
 
 type Coord = (GridSize, GridSize);
 
-type Grid = Vec<Vec<Cell>>;
+type Grid = HashMap<Coord, Cell>;
 type Move = (Coord, Direction, Operation);
 
 struct Board {
 	offset: Offset,
 	grid: Grid,
-	active_cell: Vec<Coord>,
 	moves: Vec<Move>,
 }
 
@@ -73,6 +72,9 @@ impl Display for Operation {
 }
 
 type Queue = BinaryHeap<Board>;
+type Seen = Vec<HashSet<HashedGrid>>;
+
+type HashedGrid = u16;
 
 impl Ord for Board {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
@@ -105,22 +107,18 @@ impl Board {
 
 		let mut board = Board {
 			offset: 0,
-			grid: Vec::with_capacity(h as usize),
-			active_cell: Vec::new(),
+			grid: Grid::new(),
 			moves: Vec::new(),
 		};
 
 		for y in 0..h as usize {
-			board.grid.push(Vec::with_capacity(w as usize));
-
 			let mut inputs = String::new();
 			io::stdin().read_line(&mut inputs).unwrap();
 			for (x, cell) in inputs.split_whitespace().enumerate() {
 				let cell = parse_input!(cell, Cell);
-				board.grid[y].push(cell);
 				if cell != 0 {
+					board.grid.insert((x as GridSize, y as GridSize), cell);
 					board.offset += cell as Offset;
-					board.active_cell.push((x as GridSize, y as GridSize));
 				}
 			}
 		}
@@ -135,6 +133,12 @@ impl Board {
 	}
 }
 
+fn hash_grid(grid: &Grid) -> HashedGrid {
+	grid.iter().fold(0, |acc, ((x, y), &value)| {
+		acc ^ (((*x as u16) << 12) | ((*y as u16) << 7) | (value as u16))
+	})
+}
+
 fn main() {
 	if !LOCAL {
 		println!("{LEVEL}");
@@ -143,7 +147,7 @@ fn main() {
 	loop {
 		let ((w, h), board) = Board::parse();
 
-		solve(board, w as usize, h as usize);
+		solve(board, w, h);
 
 		if LOCAL {
 			break;
@@ -153,75 +157,65 @@ fn main() {
 
 // TODO: .clone() .push() should be replaced by .into_iter().collect() or .with_capacity()
 macro_rules! play_shift {
-	($w:expr, $h:expr, $q:expr, $s:expr, $b:expr, $active_cell_index:expr, $x:expr, $y:expr, $target_x:expr, $target_y:expr, $value:expr, $d:expr) => {
-		let target_value = $b.grid[$target_y][$target_x];
-
-		if $b.active_cell.len() > 2 {
-			let new_plus = target_value as usize + $value;
+	($w:expr, $h:expr, $q:expr, $s:expr, $b:expr, $x:expr, $y:expr, $value:expr, $target_x:expr, $target_y:expr, $target_value:expr, $d:expr) => {
+		if $b.grid.len() > 2 {
+			let new_plus = $target_value + $value;
 			if new_plus <= $w {
 				let mut new_board = Board {
 					offset: $b.offset + ($value as Offset),
+					// TODO: look for shrink_to_fit or other way to avoid capacity carrying after clone
 					grid: $b.grid.clone(),
 					moves: $b.moves.clone(),
-					active_cell: $b.active_cell.clone(),
 				};
-				new_board.grid[$y][$x] = 0;
-				new_board.grid[$target_y][$target_x] = new_plus as Cell;
-				new_board.active_cell.remove($active_cell_index);
-				new_board
-					.moves
-					.push((($x as GridSize, $y as GridSize), $d, Operation::Add));
+				new_board.grid.remove(&($x, $y));
+				*new_board
+					.grid
+					.get_mut(&($target_x, $target_y))
+					.expect("target cell must exist") = new_plus as Cell;
+				new_board.moves.push((($x, $y), $d, Operation::Add));
 
-				let entry = $s
-					.entry(new_board.active_cell.len() as Depth)
-					.or_insert(HashSet::new());
-				if !entry.contains(&new_board.grid) {
-					entry.insert(new_board.grid.clone());
+				// TODO: use .entry() + Vacant
+				let hashed_grid = hash_grid(&new_board.grid);
+				if !$s[new_board.grid.len()].contains(&hashed_grid) {
+					$s[new_board.grid.len()].insert(hashed_grid);
 					$q.push(new_board);
 				}
 			}
 		}
 
 		{
-			let (new_minus, new_offset) = if target_value as usize >= $value {
-				(
-					target_value as Cell - ($value as Cell),
-					$b.offset - ($value as Offset),
-				)
+			let (new_minus, new_offset) = if $target_value >= $value {
+				($target_value - ($value), $b.offset - ($value as Offset))
 			} else {
 				(
-					($value as Cell) - target_value,
-					$b.offset + ((target_value as Offset) - ($value as Offset)),
+					($value) - $target_value,
+					$b.offset + (($target_value as Offset) - ($value as Offset)),
 				)
 			};
 			let mut new_board = Board {
 				offset: new_offset,
 				grid: $b.grid.clone(),
 				moves: $b.moves.clone(),
-				active_cell: $b.active_cell.clone(),
 			};
-			new_board.grid[$y][$x] = 0;
-			new_board.grid[$target_y][$target_x] = new_minus;
-			new_board.active_cell.remove($active_cell_index);
-			if new_minus == 0 {
-				new_board.active_cell.retain(|&(tx, ty)| {
-					!(tx == (($target_x) as GridSize) && ty == (($target_y) as GridSize))
-				});
-			}
-			new_board
-				.moves
-				.push((($x as GridSize, $y as GridSize), $d, Operation::Sub));
-			if new_board.active_cell.is_empty() {
-				new_board.print_moves();
-				return;
+			new_board.grid.remove(&($x, $y));
+			new_board.moves.push((($x, $y), $d, Operation::Sub));
+			if new_minus != 0 {
+				*new_board
+					.grid
+					.get_mut(&($target_x, $target_y))
+					.expect("target cell must exist") = new_minus;
+			} else {
+				new_board.grid.remove(&($target_x, $target_y));
+				if new_board.grid.is_empty() {
+					new_board.print_moves();
+					return;
+				}
 			}
 
-			if new_board.active_cell.len() >= 2 {
-				let entry = $s
-					.entry(new_board.active_cell.len() as Depth)
-					.or_insert(HashSet::new());
-				if !entry.contains(&new_board.grid) {
-					entry.insert(new_board.grid.clone());
+			if new_board.grid.len() >= 2 {
+				let hashed_grid = hash_grid(&new_board.grid);
+				if !$s[new_board.grid.len()].contains(&hashed_grid) {
+					$s[new_board.grid.len()].insert(hashed_grid);
 					$q.push(new_board);
 				}
 			}
@@ -230,95 +224,105 @@ macro_rules! play_shift {
 }
 
 macro_rules! play_cell {
-	($w:expr, $h:expr, $q:expr, $s:expr, $b:expr, $active_cell_index:expr, $x:expr, $y:expr) => {
-		let (x, y) = (*$x as usize, *$y as usize);
-		let value = $b.grid[y][x] as usize;
+	($w:expr, $h:expr, $q:expr, $s:expr, $b:expr, $x:expr, $y:expr, $value:expr) => {
+		let (x, y) = (*$x, *$y);
 
-		if value <= y {
-			let new_y = y - value;
-			if $b.grid[new_y][x] != 0 {
-				play_shift!(
-					$w,
-					$h,
-					$q,
-					$s,
-					$b,
-					$active_cell_index,
-					x,
-					y,
-					x,
-					new_y,
-					value,
-					Direction::Up
-				);
+		if $value <= y {
+			let new_y = y - $value;
+			if let Some(&target_value) = $b.grid.get(&(x, new_y)) {
+				if target_value != 0 {
+					play_shift!(
+						$w,
+						$h,
+						$q,
+						$s,
+						$b,
+						x,
+						y,
+						$value,
+						x,
+						new_y,
+						target_value,
+						Direction::Up
+					);
+				}
 			}
 		}
-		let new_y = y + value;
-		if new_y < $h && $b.grid[new_y][x] != 0 {
-			play_shift!(
-				$w,
-				$h,
-				$q,
-				$s,
-				$b,
-				$active_cell_index,
-				x,
-				y,
-				x,
-				new_y,
-				value,
-				Direction::Down
-			);
-		}
-		if value <= x {
-			let new_x = x - value;
-			if $b.grid[y][new_x] != 0 {
-				play_shift!(
-					$w,
-					$h,
-					$q,
-					$s,
-					$b,
-					$active_cell_index,
-					x,
-					y,
-					new_x,
-					y,
-					value,
-					Direction::Left
-				);
+		let new_y = y + $value;
+		if new_y < $h {
+			if let Some(&target_value) = $b.grid.get(&(x, new_y)) {
+				if target_value != 0 {
+					play_shift!(
+						$w,
+						$h,
+						$q,
+						$s,
+						$b,
+						x,
+						y,
+						$value,
+						x,
+						new_y,
+						target_value,
+						Direction::Down
+					);
+				}
 			}
 		}
-		let new_x = x + value;
-		if new_x < $w && $b.grid[y][new_x] != 0 {
-			play_shift!(
-				$w,
-				$h,
-				$q,
-				$s,
-				$b,
-				$active_cell_index,
-				x,
-				y,
-				new_x,
-				y,
-				value,
-				Direction::Right
-			);
+		if $value <= x {
+			let new_x = x - $value;
+			if let Some(&target_value) = $b.grid.get(&(new_x, y)) {
+				if target_value != 0 {
+					play_shift!(
+						$w,
+						$h,
+						$q,
+						$s,
+						$b,
+						x,
+						y,
+						$value,
+						new_x,
+						y,
+						target_value,
+						Direction::Left
+					);
+				}
+			}
+		}
+		let new_x = x + $value;
+		if new_x < $w as GridSize {
+			if let Some(&target_value) = $b.grid.get(&(new_x, y)) {
+				if target_value != 0 {
+					play_shift!(
+						$w,
+						$h,
+						$q,
+						$s,
+						$b,
+						x,
+						y,
+						$value,
+						new_x,
+						y,
+						target_value,
+						Direction::Right
+					);
+				}
+			}
 		}
 	};
 }
 
-fn solve(board: Board, w: usize, h: usize) {
+fn solve(board: Board, w: GridSize, h: GridSize) {
 	let mut q = Queue::with_capacity(MAX_QUEUE_SIZE + u8::MAX as usize);
-	let mut s =
-		HashMap::<Depth, HashSet<Grid>>::with_capacity(board.active_cell.len() as usize + 1);
+	let mut s: Seen = vec![Default::default(); board.grid.len()];
 
 	q.push(board);
 
 	while let Some(current_board) = q.pop() {
-		for (i, (x, y)) in current_board.active_cell.iter().enumerate() {
-			play_cell!(w, h, q, s, current_board, i, x, y);
+		for ((x, y), &value) in &current_board.grid {
+			play_cell!(w, h, q, s, current_board, x, y, value);
 		}
 
 		if q.len() > MAX_QUEUE_SIZE {
@@ -326,17 +330,6 @@ fn solve(board: Board, w: usize, h: usize) {
 				.into_iter()
 				.take(MAX_QUEUE_SIZE - QUEUE_DROP_SIZE)
 				.collect();
-		}
-
-		let s_total = s.values().map(|set| set.len()).sum::<usize>();
-		if s_total > MAX_SEEN_TOTAL_SIZE {
-			let top_depth = q
-				.iter()
-				.map(|b| b.active_cell.len())
-				.max()
-				.unwrap_or(Depth::MAX as usize) as Depth;
-			let bottom_depth = s.keys().min().unwrap_or(&0) + 4;
-			s.retain(|&depth, _| depth <= top_depth && depth > bottom_depth);
 		}
 	}
 }
