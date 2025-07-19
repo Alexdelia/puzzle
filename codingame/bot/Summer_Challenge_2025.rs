@@ -203,49 +203,9 @@ impl Env {
 	fn compute_max_incoming_damage(&self, pos: Coord) -> usize {
 		let mut sum: usize = 0;
 		for agent in self.foe.values() {
-			sum += self.compute_damage(agent, agent.pos, pos) as usize;
+			sum += compute_damage(&self.grid, agent, agent.pos, pos) as usize;
 		}
 		sum
-	}
-
-	fn compute_damage(&self, agent: &Agent, from: Coord, to: Coord) -> Wetness {
-		if agent.current_shoot_cooldown > 0 {
-			return 0;
-		}
-
-		let mut base = agent.shoot_power;
-
-		let distance = dist(from, to);
-
-		if distance > agent.optimal_range * 2 {
-			return 0;
-		} else if distance > agent.optimal_range {
-			base /= 2;
-		}
-
-		if distance <= 2 {
-			return base;
-		}
-
-		let dx = from.0 as isize - to.0 as isize;
-		let dy = from.1 as isize - to.1 as isize;
-
-		let vertical_cover = if dx > 0 {
-			self.grid[to.1][to.0 - 1]
-		} else {
-			self.grid[to.1][to.0 + 1]
-		};
-		let horizontal_cover = if dy > 0 {
-			self.grid[to.1 - 1][to.0]
-		} else {
-			self.grid[to.1 + 1][to.0]
-		};
-
-		let damage_reduction_factor = vertical_cover
-			.damage_reduction_factor()
-			.min(horizontal_cover.damage_reduction_factor());
-
-		return (base as f32 * damage_reduction_factor) as Wetness;
 	}
 }
 
@@ -365,6 +325,46 @@ impl PartialEq for MovePriority {
 
 impl Eq for MovePriority {}
 
+fn compute_damage(grid: &Grid, agent: &Agent, from: Coord, to: Coord) -> Wetness {
+	if agent.current_shoot_cooldown > 0 {
+		return 0;
+	}
+
+	let mut base = agent.shoot_power;
+
+	let distance = dist(from, to);
+
+	if distance > agent.optimal_range * 2 {
+		return 0;
+	} else if distance > agent.optimal_range {
+		base /= 2;
+	}
+
+	if distance <= 2 {
+		return base;
+	}
+
+	let dx = from.0 as isize - to.0 as isize;
+	let dy = from.1 as isize - to.1 as isize;
+
+	let vertical_cover = if dx > 0 {
+		grid[to.1][to.0 - 1]
+	} else {
+		grid[to.1][to.0 + 1]
+	};
+	let horizontal_cover = if dy > 0 {
+		grid[to.1 - 1][to.0]
+	} else {
+		grid[to.1 + 1][to.0]
+	};
+
+	let damage_reduction_factor = vertical_cover
+		.damage_reduction_factor()
+		.min(horizontal_cover.damage_reduction_factor());
+
+	return (base as f32 * damage_reduction_factor) as Wetness;
+}
+
 fn dist(src: Coord, dst: Coord) -> usize {
 	((src.0 as isize - dst.0 as isize).abs() + (src.1 as isize - dst.1 as isize).abs()) as usize
 }
@@ -392,7 +392,7 @@ fn main() {
 			let mut most_damage_id = None;
 			let mut most_damage_value = 0;
 			for foe in e.foe.values() {
-				let damage = e.compute_damage(ally, ally.pos, foe.pos);
+				let damage = compute_damage(&e.grid, ally, ally.pos, foe.pos);
 				if damage > most_damage_value {
 					most_damage_value = damage;
 					most_damage_id = Some(foe.id);
@@ -463,7 +463,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_priority_queue_technicaly_equal_distance() {
+	fn test_priority_queue_technically_equal_distance() {
 		let mut queue = MovePriorityQueue::new();
 		queue.insert(
 			MovePriority {
