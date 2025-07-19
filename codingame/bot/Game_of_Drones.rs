@@ -72,9 +72,11 @@ fn is_d_in_z(d: &Drone, z: &Zone) -> bool {
 	get_distance(d.x, d.y, z.x, z.y) <= 100.0
 }
 
+/*
 fn is_c_in_c(x1: Coord, y1: Coord, x2: Coord, y2: Coord) -> bool {
 	get_distance(x1, y1, x2, y2) <= 100.0
 }
+*/
 
 fn get_cz_to_center(x: Coord, y: Coord) -> (Coord, Coord) {
 	// we get a zone coord, need to find point in zone closest to center, with zone radius == 100

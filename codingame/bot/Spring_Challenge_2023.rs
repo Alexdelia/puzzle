@@ -9,7 +9,7 @@ macro_rules! parse_input {
 	};
 }
 
-type Ressource = u32;
+type Resource = u32;
 type Strength = std::num::NonZeroU32;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -22,24 +22,24 @@ enum CellType {
 #[derive(Debug, Eq, PartialEq)]
 struct Cell {
 	r#type: CellType,
-	ressource: Ressource,
+	resource: Resource,
 	neighbor: [Option<usize>; 6],
-	my_ant: Ressource,
-	opp_ant: Ressource,
+	my_ant: Resource,
+	opp_ant: Resource,
 }
 
 struct Env {
 	cell: Vec<Cell>,
-	init_crystal: Ressource,
-	remain_crystal: Ressource,
-	remain_ant: Ressource,
-	n_base: usize,
+	init_crystal: Resource,
+	remain_crystal: Resource,
+	remain_ant: Resource,
+	// n_base: usize,
 	my_base: Vec<usize>,
-	opp_base: Vec<usize>,
-	my_score: Ressource,
-	opp_score: Ressource,
-	my_ant: Ressource,
-	opp_ant: Ressource,
+	// opp_base: Vec<usize>,
+	my_score: Resource,
+	opp_score: Resource,
+	my_ant: Resource,
+	opp_ant: Resource,
 	beacon: HashMap<usize, Strength>,
 }
 
@@ -82,7 +82,7 @@ impl FromStr for Cell {
 
 		Ok(Self {
 			r#type: i.next().unwrap().parse::<CellType>().unwrap(),
-			ressource: i.next().unwrap().parse::<Ressource>().unwrap(),
+			resource: i.next().unwrap().parse::<Resource>().unwrap(),
 			neighbor: [
 				i.next().unwrap().parse::<usize>().ok(),
 				i.next().unwrap().parse::<usize>().ok(),
@@ -98,7 +98,7 @@ impl FromStr for Cell {
 }
 
 #[inline]
-fn gain_type(gain: (Ressource, Ressource), r#type: Option<CellType>) -> Ressource {
+fn gain_type(gain: (Resource, Resource), r#type: Option<CellType>) -> Resource {
 	match r#type {
 		Some(CellType::Crystal) => gain.0,
 		Some(CellType::Egg) => gain.1,
@@ -120,12 +120,12 @@ impl Env {
 			stdin().read_line(&mut buf).unwrap();
 
 			cell.push(buf.parse::<Cell>().unwrap());
-			init_crystal += cell.last().unwrap().ressource;
+			init_crystal += cell.last().unwrap().resource;
 		}
 
 		let mut buf = String::new();
 		stdin().read_line(&mut buf).unwrap();
-		let n_base = parse_input!(buf, usize);
+		// let n_base = parse_input!(buf, usize);
 
 		let mut buf = String::new();
 		stdin().read_line(&mut buf).unwrap();
@@ -136,19 +136,21 @@ impl Env {
 
 		let mut buf = String::new();
 		stdin().read_line(&mut buf).unwrap();
+		/*
 		let opp_base = buf
 			.split_whitespace()
 			.map(|s| s.parse::<usize>().unwrap())
 			.collect();
+		*/
 
 		Env {
 			cell,
 			init_crystal,
 			remain_crystal: init_crystal,
 			remain_ant: 0,
-			n_base,
+			// n_base,
 			my_base,
-			opp_base,
+			// opp_base,
 			my_score: 0,
 			opp_score: 0,
 			my_ant: 0,
@@ -166,8 +168,8 @@ impl Env {
 		let mut buf = String::new();
 		stdin().read_line(&mut buf).unwrap();
 		let mut sw = buf.split_whitespace();
-		self.my_score = sw.next().unwrap().parse::<Ressource>().unwrap();
-		self.opp_score = sw.next().unwrap().parse::<Ressource>().unwrap();
+		self.my_score = sw.next().unwrap().parse::<Resource>().unwrap();
+		self.opp_score = sw.next().unwrap().parse::<Resource>().unwrap();
 
 		for i in 0..self.cell.len() {
 			let mut buf = String::new();
@@ -175,16 +177,16 @@ impl Env {
 
 			let mut sw = buf.split_whitespace();
 
-			self.cell[i].ressource = sw.next().unwrap().parse::<Ressource>().unwrap();
+			self.cell[i].resource = sw.next().unwrap().parse::<Resource>().unwrap();
 			match self.cell[i].r#type {
-				CellType::Crystal => self.remain_crystal += self.cell[i].ressource,
-				CellType::Egg => self.remain_ant += self.cell[i].ressource,
+				CellType::Crystal => self.remain_crystal += self.cell[i].resource,
+				CellType::Egg => self.remain_ant += self.cell[i].resource,
 				_ => (),
 			}
 
-			self.cell[i].my_ant = sw.next().unwrap().parse::<Ressource>().unwrap();
+			self.cell[i].my_ant = sw.next().unwrap().parse::<Resource>().unwrap();
 			self.my_ant += self.cell[i].my_ant;
-			self.cell[i].opp_ant = sw.next().unwrap().parse::<Ressource>().unwrap();
+			self.cell[i].opp_ant = sw.next().unwrap().parse::<Resource>().unwrap();
 			self.opp_ant += self.cell[i].opp_ant;
 		}
 	}
@@ -212,7 +214,7 @@ impl Env {
 	}
 
 	/// return (Crystal, Ant)
-	fn gain(&self, beacon: &HashMap<usize, Strength>, ant: Ressource) -> (Ressource, Ressource) {
+	fn gain(&self, beacon: &HashMap<usize, Strength>, ant: Resource) -> (Resource, Resource) {
 		if beacon.is_empty() {
 			return (0, 0);
 		}
@@ -235,8 +237,8 @@ impl Env {
 
 		for i in beacon {
 			match self.cell[*i.0].r#type {
-				CellType::Crystal => crystal += min(self.cell[*i.0].ressource, weakest),
-				CellType::Egg => egg += min(self.cell[*i.0].ressource, weakest),
+				CellType::Crystal => crystal += min(self.cell[*i.0].resource, weakest),
+				CellType::Egg => egg += min(self.cell[*i.0].resource, weakest),
 				_ => (),
 			}
 		}
@@ -252,7 +254,7 @@ impl Env {
 		// or
 		// less than 10% of ant left
 
-		let endgame_score_threshold = (self.init_crystal as f32 / 2.0 * 0.9) as Ressource;
+		let endgame_score_threshold = (self.init_crystal as f32 / 2.0 * 0.9) as Resource;
 
 		// self.my_score * 10 <= self.my_score + self.opp_score || self.opp_score * 10 <= self.my_score + self.opp_score
 		self.my_score >= endgame_score_threshold
@@ -285,7 +287,7 @@ impl Env {
 		false
 	}
 
-	// return path (+ Ressource found as last element)
+	// return path (+ Resource found as last element)
 	fn beacon_flood(&self, r#type: Option<CellType>) -> Vec<Vec<usize>> {
 		let mut queue: BinaryHeap<Flood> = BinaryHeap::new();
 		let mut visited = vec![false; self.cell.len()];
@@ -303,7 +305,7 @@ impl Env {
 		while let Some(f) = queue.pop() {
 			let index = *f.path.last().unwrap();
 
-			if self.cell[index].ressource > 0
+			if self.cell[index].resource > 0
 				&& !self.beacon.contains_key(&index)
 				&& r#type
 					.as_ref()
@@ -346,14 +348,14 @@ impl Env {
 		beacon: Vec<Vec<usize>>,
 		only_calc: Option<CellType>,
 		force: bool,
-	) -> Option<(Ressource, HashMap<usize, Strength>)> {
+	) -> Option<(Resource, HashMap<usize, Strength>)> {
 		if beacon.is_empty() {
 			return None;
 		}
 
 		let current_gain = gain_type(self.gain(&self.beacon, self.my_ant), only_calc);
 
-		let mut best: Option<(Ressource, HashMap<usize, Strength>)> = None;
+		let mut best: Option<(Resource, HashMap<usize, Strength>)> = None;
 
 		for b in beacon.into_iter() {
 			// calculate gain of self.beacon + b
@@ -375,7 +377,7 @@ impl Env {
 		best
 	}
 
-	fn ressource_group(&self, index: usize) -> Vec<usize> {
+	fn resource_group(&self, index: usize) -> Vec<usize> {
 		let mut queue = VecDeque::new();
 		let mut visited = vec![false; self.cell.len()];
 		let mut group = Vec::new();
@@ -384,13 +386,13 @@ impl Env {
 		visited[index] = true;
 
 		while let Some(index) = queue.pop_front() {
-			if self.cell[index].ressource > 0 {
+			if self.cell[index].resource > 0 {
 				group.push(index);
 			}
 
 			for i in 0..6 {
 				if let Some(i) = self.cell[index].neighbor[i] {
-					if !visited[i] && self.cell[i].ressource > 0 {
+					if !visited[i] && self.cell[i].resource > 0 {
 						queue.push_back(i);
 						visited[i] = true;
 					}
@@ -406,12 +408,12 @@ impl Env {
 		search: Option<CellType>,
 		only_calc: Option<CellType>,
 		force: bool,
-	) -> Option<Ressource> {
+	) -> Option<Resource> {
 		if let Some((gain, beacon)) = self.best_beacon_list(
 			self.beacon_flood(search)
 				.into_iter()
 				.map(|mut b| {
-					b.extend(self.ressource_group(*b.last().unwrap()));
+					b.extend(self.resource_group(*b.last().unwrap()));
 					b
 				})
 				.collect::<Vec<_>>(),
@@ -430,7 +432,7 @@ impl Env {
 		self.beacon
 			.iter()
 			.filter(|(i, _)| {
-				self.cell[**i].r#type == CellType::Crystal && self.cell[**i].ressource > 0
+				self.cell[**i].r#type == CellType::Crystal && self.cell[**i].resource > 0
 			})
 			.count()
 	}
@@ -465,11 +467,11 @@ impl Env {
 			}
 		}
 
-		if endgame || self.my_ant > (self.opp_ant as f32 * 1.25) as Ressource {
+		if endgame || self.my_ant > (self.opp_ant as f32 * 1.25) as Resource {
 			let crystal_cell = self
 				.cell
 				.iter()
-				.filter(|c| c.r#type == CellType::Crystal && c.ressource > 0)
+				.filter(|c| c.r#type == CellType::Crystal && c.resource > 0)
 				.count();
 
 			let objective = (crystal_cell as f32 / 0.66).ceil() as usize;
@@ -513,7 +515,7 @@ mod test {
 			"0 0 1 2 3 4 5 6".parse::<Cell>(),
 			Ok(Cell {
 				r#type: CellType::None,
-				ressource: 0,
+				resource: 0,
 				neighbor: [Some(1), Some(2), Some(3), Some(4), Some(5), Some(6)],
 				my_ant: 0,
 				opp_ant: 0
@@ -524,7 +526,7 @@ mod test {
 			"1 0 -1 -1 8 -1 -1 -1".parse::<Cell>(),
 			Ok(Cell {
 				r#type: CellType::Egg,
-				ressource: 0,
+				resource: 0,
 				neighbor: [None, None, Some(8), None, None, None],
 				my_ant: 0,
 				opp_ant: 0
@@ -535,7 +537,7 @@ mod test {
 			"2 42 13 14 15 2 1 0".parse::<Cell>(),
 			Ok(Cell {
 				r#type: CellType::Crystal,
-				ressource: 42,
+				resource: 42,
 				neighbor: [Some(13), Some(14), Some(15), Some(2), Some(1), Some(0)],
 				my_ant: 0,
 				opp_ant: 0

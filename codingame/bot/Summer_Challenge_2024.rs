@@ -500,7 +500,7 @@ mod tests {
 	fn test_from_str_score() {
 		let score = "42 1 2 3 4 5 6 7 8 9 10 11 12".parse::<Score>().unwrap();
 
-		assert_eq!(score.total, 42);
+		assert_eq!(score._total, 42);
 
 		assert_eq!(score.games[Game::HurdleRace as usize].gold, 1);
 		assert_eq!(score.games[Game::HurdleRace as usize].silver, 2);
@@ -520,7 +520,7 @@ mod tests {
 
 		let score = "0 0 0 0 0 0 0 0 0 0 0 0 0\n".parse::<Score>().unwrap();
 
-		assert_eq!(score.total, 0);
+		assert_eq!(score._total, 0);
 
 		assert_eq!(score.games[Game::HurdleRace as usize].gold, 0);
 		assert_eq!(score.games[Game::HurdleRace as usize].silver, 0);
