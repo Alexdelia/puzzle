@@ -352,9 +352,18 @@ fn compute_damage(grid: &Grid, agent: &Agent, from: Coord, to: Coord) -> Wetness
 		grid[to.1 - 1][to.0]
 	};
 
-	let damage_reduction_factor = vertical_cover
-		.damage_reduction_factor()
-		.min(horizontal_cover.damage_reduction_factor());
+	let adx = dx.abs() as usize;
+	let ady = dy.abs() as usize;
+
+	let damage_reduction_factor = if adx > ady {
+		vertical_cover.damage_reduction_factor()
+	} else if adx < ady {
+		horizontal_cover.damage_reduction_factor()
+	} else {
+		vertical_cover
+			.damage_reduction_factor()
+			.min(horizontal_cover.damage_reduction_factor())
+	};
 
 	return (base as f32 * damage_reduction_factor) as Wetness;
 }
