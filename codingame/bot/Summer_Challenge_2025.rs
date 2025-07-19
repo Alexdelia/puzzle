@@ -151,14 +151,10 @@ impl Env {
 	}
 
 	fn update(&mut self) {
-		let mut input = String::new();
-		io::stdin().read_line(&mut input).unwrap();
-
-		let total_alive_agent_count = parse_input!(input, usize);
+		let total_alive_agent_count = parse_input!(read_line(), usize);
 
 		for _ in 0..total_alive_agent_count {
-			io::stdin().read_line(&mut input).unwrap();
-
+			let input = read_line();
 			let inputs = input.split(" ").collect::<Vec<_>>();
 			let id = parse_input!(inputs[0], Id);
 
@@ -174,8 +170,7 @@ impl Env {
 		}
 		// TODO: remove dead agents
 
-		// player agent count
-		io::stdin().read_line(&mut input).unwrap();
+		let _player_agent_count = read_line();
 	}
 
 	fn compute_move_priority(&mut self) {
