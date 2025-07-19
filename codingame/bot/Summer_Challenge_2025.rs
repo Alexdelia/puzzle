@@ -10,6 +10,12 @@ macro_rules! parse_input {
 	};
 }
 
+fn read_line() -> String {
+	let mut input = String::new();
+	io::stdin().read_line(&mut input).unwrap();
+	input
+}
+
 type Id = u8;
 type Coord = (usize, usize);
 type Grid = Vec<Vec<Cell>>;
@@ -60,22 +66,16 @@ enum Cell {
 
 impl Env {
 	fn parse() -> Self {
-		let mut input = String::new();
+		let player_id = parse_input!(read_line(), Id);
 
-		io::stdin().read_line(&mut input).unwrap();
-		let player_id = parse_input!(input, Id);
-
-		io::stdin().read_line(&mut input).unwrap();
-		let total_agent_count = parse_input!(input, usize);
+		let total_agent_count = parse_input!(read_line(), usize);
 		let player_agent_count = total_agent_count / 2;
 
 		let mut ally = HashMap::with_capacity(player_agent_count);
 		let mut foe = HashMap::with_capacity(player_agent_count);
 
 		for _ in 0..total_agent_count {
-			io::stdin().read_line(&mut input).unwrap();
-
-			let agent = Agent::parse(&input, player_id);
+			let agent = Agent::parse(player_id);
 
 			if agent.ally {
 				ally.insert(agent.id, agent);
@@ -84,12 +84,12 @@ impl Env {
 			}
 		}
 
-		io::stdin().read_line(&mut input).unwrap();
+		let input = read_line();
 		let inputs = input.split_whitespace().collect::<Vec<_>>();
 		let w = parse_input!(inputs[0], usize);
 		let h = parse_input!(inputs[1], usize);
 
-		let grid = Self::_parse_grid(&mut input, w, h);
+		let grid = Self::_parse_grid(w, h);
 
 		let covered_cells = Self::_get_covered_cells(w, h, &grid);
 
@@ -104,14 +104,15 @@ impl Env {
 		}
 	}
 
-	fn _parse_grid(buf: &mut String, _w: usize, h: usize) -> Vec<Vec<Cell>> {
+	fn _parse_grid(_w: usize, h: usize) -> Vec<Vec<Cell>> {
 		let mut grid = Vec::with_capacity(h);
 
 		for _ in 0..h {
-			io::stdin().read_line(buf).unwrap();
+			let input = read_line();
 
 			grid.push(
-				buf.split_whitespace()
+				input
+					.split_whitespace()
 					.skip(2)
 					.step_by(3)
 					.map(|s| s.parse::<Cell>().unwrap())
@@ -210,7 +211,8 @@ impl Env {
 }
 
 impl Agent {
-	fn parse(input: &str, player_id: Id) -> Self {
+	fn parse(player_id: Id) -> Self {
+		let input = read_line();
 		let inputs: Vec<&str> = input.split_whitespace().collect();
 
 		Self {
