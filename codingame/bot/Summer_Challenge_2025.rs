@@ -354,7 +354,6 @@ fn compute_damage(grid: &Grid, agent: &Agent, from: Coord, to: Coord) -> Wetness
 
 	let adx = dx.abs() as usize;
 	let ady = dy.abs() as usize;
-
 	let damage_reduction_factor = if adx > ady {
 		vertical_cover.damage_reduction_factor()
 	} else if adx < ady {
