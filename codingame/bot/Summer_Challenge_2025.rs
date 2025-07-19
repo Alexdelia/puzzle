@@ -161,7 +161,7 @@ impl Env {
 			let agent = self
 				.ally
 				.get_mut(&id)
-				.unwrap_or(self.foe.get_mut(&id).expect("agent does not exist"));
+				.unwrap_or_else(|| self.foe.get_mut(&id).expect("agent does not exist"));
 
 			agent.update(&inputs);
 		}
