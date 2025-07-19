@@ -158,10 +158,10 @@ impl Env {
 			let inputs = input.split(" ").collect::<Vec<_>>();
 			let id = parse_input!(inputs[0], Id);
 
-			let agent = self
-				.ally
-				.get_mut(&id)
-				.unwrap_or_else(|| self.foe.get_mut(&id).expect("agent does not exist"));
+			let agent = match self.ally.get_mut(&id) {
+				Some(agent) => agent,
+				None => self.foe.get_mut(&id).expect("agent does not exist"),
+			};
 
 			agent.update(&inputs);
 		}
@@ -342,14 +342,14 @@ fn compute_damage(grid: &Grid, agent: &Agent, from: Coord, to: Coord) -> Wetness
 	let dy = from.1 as isize - to.1 as isize;
 
 	let vertical_cover = if dx > 0 {
-		grid[to.1][to.0 - 1]
-	} else {
 		grid[to.1][to.0 + 1]
+	} else {
+		grid[to.1][to.0 - 1]
 	};
 	let horizontal_cover = if dy > 0 {
-		grid[to.1 - 1][to.0]
-	} else {
 		grid[to.1 + 1][to.0]
+	} else {
+		grid[to.1 - 1][to.0]
 	};
 
 	let damage_reduction_factor = vertical_cover
