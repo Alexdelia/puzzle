@@ -158,7 +158,7 @@ impl Env {
 			let inputs = input.split(" ").collect::<Vec<_>>();
 			let id = parse_input!(inputs[0], Id);
 
-			let is_ally = parse_input!(inputs[1], Id) == self.player_id;
+			let is_ally = id == self.player_id;
 			let set = if is_ally {
 				&mut self.ally
 			} else {
