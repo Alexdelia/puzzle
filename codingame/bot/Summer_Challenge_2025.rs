@@ -158,13 +158,10 @@ impl Env {
 			let inputs = input.split(" ").collect::<Vec<_>>();
 			let id = parse_input!(inputs[0], Id);
 
-			let is_ally = id == self.player_id;
-			let set = if is_ally {
-				&mut self.ally
-			} else {
-				&mut self.foe
-			};
-			let agent = set.get_mut(&id).expect("agent does not exist");
+			let agent = self
+				.ally
+				.get_mut(&id)
+				.unwrap_or(self.foe.get_mut(&id).expect("agent does not exist"));
 
 			agent.update(&inputs);
 		}
