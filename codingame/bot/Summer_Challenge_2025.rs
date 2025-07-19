@@ -1,4 +1,5 @@
-use std::io;
+use core::str::FromStr;
+use std::{collections::HashMap, io};
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
@@ -6,79 +7,184 @@ macro_rules! parse_input {
 	};
 }
 
-fn main() {
-	let mut enemy_ids = Vec::<i32>::new();
+type Id = u8;
+type Coord = (usize, usize);
 
-	let mut input_line = String::new();
-	io::stdin().read_line(&mut input_line).unwrap();
-	let my_id = parse_input!(input_line, i32); // Your player id (0 or 1)
-	let mut input_line = String::new();
-	io::stdin().read_line(&mut input_line).unwrap();
-	let agent_data_count = parse_input!(input_line, i32); // Total number of agents in the game
-	for i in 0..agent_data_count as usize {
-		let mut input_line = String::new();
-		io::stdin().read_line(&mut input_line).unwrap();
-		let inputs = input_line.split(" ").collect::<Vec<_>>();
-		let agent_id = parse_input!(inputs[0], i32); // Unique identifier for this agent
-		let player = parse_input!(inputs[1], i32); // Player id of this agent
-		if player != my_id {
-			enemy_ids.push(agent_id);
-		}
-		let shoot_cooldown = parse_input!(inputs[3], i32); // Number of turns between each of this agent's shots
-		let optimal_range = parse_input!(inputs[3], i32); // Maximum manhattan distance for greatest damage output
-		let soaking_power = parse_input!(inputs[4], i32); // Damage output within optimal conditions
-		let splash_bombs = parse_input!(inputs[5], i32); // Number of splash bombs this can throw this game
-	}
-	let mut input_line = String::new();
-	io::stdin().read_line(&mut input_line).unwrap();
-	let inputs = input_line.split(" ").collect::<Vec<_>>();
-	let width = parse_input!(inputs[0], i32); // Width of the game map
-	let height = parse_input!(inputs[1], i32); // Height of the game map
-	for i in 0..height as usize {
-		let mut input_line = String::new();
-		io::stdin().read_line(&mut input_line).unwrap();
-		let inputs = input_line.split_whitespace().collect::<Vec<_>>();
-		for j in 0..width as usize {
-			let x = parse_input!(inputs[3 * j], i32); // X coordinate, 0 is left edge
-			let y = parse_input!(inputs[3 * j + 1], i32); // Y coordinate, 0 is top edge
-			let tile_type = parse_input!(inputs[3 * j + 2], i32);
-		}
-	}
+struct Env {
+	player_id: Id,
 
-	// game loop
-	loop {
-		let mut wettest_id = 0;
-		let mut wettest_wetness = -1;
+	ally: HashMap<Id, Agent>,
+	foe: HashMap<Id, Agent>,
 
-		let mut input_line = String::new();
-		io::stdin().read_line(&mut input_line).unwrap();
-		let agent_count = parse_input!(input_line, i32); // Total number of agents still in the game
-		for i in 0..agent_count as usize {
-			let mut input_line = String::new();
-			io::stdin().read_line(&mut input_line).unwrap();
-			let inputs = input_line.split(" ").collect::<Vec<_>>();
-			let agent_id = parse_input!(inputs[0], i32);
-			let x = parse_input!(inputs[1], i32);
-			let y = parse_input!(inputs[2], i32);
-			let cooldown = parse_input!(inputs[3], i32); // Number of turns before this agent can shoot
-			let splash_bombs = parse_input!(inputs[4], i32);
-			let wetness = parse_input!(inputs[5], i32); // Damage (0-100) this agent has taken
+	w: usize,
+	h: usize,
+	grid: Vec<Vec<Cell>>,
+}
 
-			if enemy_ids.contains(&agent_id) && wetness > wettest_wetness {
-				wettest_id = agent_id;
-				wettest_wetness = wetness;
+type ShootCooldown = u8;
+type Wetness = u8;
+
+struct Agent {
+	id: Id,
+	ally: bool,
+	pos: Coord,
+	wet: Wetness,
+	total_shoot_cooldown: ShootCooldown,
+	current_shoot_cooldown: ShootCooldown,
+	optimal_range: usize,
+	shoot_power: Wetness,
+	slash_bombs: u8,
+}
+
+enum Cell {
+	Empty,
+	Agent,
+	Cover50,
+	Cover75,
+}
+
+impl Env {
+	fn parse() -> Self {
+		let mut input = String::new();
+
+		io::stdin().read_line(&mut input).unwrap();
+		let player_id = parse_input!(input, Id);
+
+		io::stdin().read_line(&mut input).unwrap();
+		let total_agent_count = parse_input!(input, usize);
+		let player_agent_count = total_agent_count / 2;
+
+		let mut ally = HashMap::with_capacity(player_agent_count);
+		let mut foe = HashMap::with_capacity(player_agent_count);
+
+		for _ in 0..total_agent_count {
+			io::stdin().read_line(&mut input).unwrap();
+
+			let agent = Agent::parse(&input, player_id);
+
+			if agent.ally {
+				ally.insert(agent.id, agent);
+			} else {
+				foe.insert(agent.id, agent);
 			}
 		}
-		let mut input_line = String::new();
-		io::stdin().read_line(&mut input_line).unwrap();
-		let my_agent_count = parse_input!(input_line, i32); // Number of alive agents controlled by you
-		for i in 0..my_agent_count as usize {
-			// Write an action using println!("message...");
-			// To debug: eprintln!("Debug message...");
 
-			// One line per agent: <agentId>;<action1;action2;...> actions are "MOVE x y | SHOOT id | THROW x y | HUNKER_DOWN | MESSAGE text"
+		io::stdin().read_line(&mut input).unwrap();
+		let inputs = input.split_whitespace().collect::<Vec<_>>();
+		let w = parse_input!(inputs[0], usize);
+		let h = parse_input!(inputs[1], usize);
 
-			println!("SHOOT {wettest_id}");
+		let grid = parse_grid(&mut input, w, h);
+
+		Self {
+			player_id,
+			ally,
+			foe,
+			w,
+			h,
+			grid,
+		}
+	}
+
+	fn update(&mut self) {
+		let mut input = String::new();
+		io::stdin().read_line(&mut input).unwrap();
+
+		let total_alive_agent_count = parse_input!(input, usize);
+
+		for _ in 0..total_alive_agent_count {
+			io::stdin().read_line(&mut input).unwrap();
+
+			let inputs = input.split(" ").collect::<Vec<_>>();
+			let id = parse_input!(inputs[0], Id);
+
+			let is_ally = parse_input!(inputs[1], Id) == self.player_id;
+			let set = if is_ally {
+				&mut self.ally
+			} else {
+				&mut self.foe
+			};
+			let agent = set.get_mut(&id).expect("agent does not exist");
+
+			self.grid[agent.pos.1][agent.pos.0] = Cell::Empty;
+
+			agent.update(&inputs);
+
+			self.grid[agent.pos.1][agent.pos.0] = Cell::Agent;
+		}
+
+		// player agent count
+		io::stdin().read_line(&mut input).unwrap();
+	}
+}
+
+impl Agent {
+	fn parse(input: &str, player_id: Id) -> Self {
+		let inputs: Vec<&str> = input.split_whitespace().collect();
+
+		Self {
+			id: parse_input!(inputs[0], Id),
+			ally: parse_input!(inputs[1], Id) == player_id,
+			pos: (0, 0),
+			wet: 0,
+			total_shoot_cooldown: parse_input!(inputs[2], ShootCooldown),
+			current_shoot_cooldown: 0,
+			optimal_range: parse_input!(inputs[3], usize),
+			shoot_power: parse_input!(inputs[4], Wetness),
+			slash_bombs: parse_input!(inputs[5], u8),
+		}
+	}
+
+	fn update(&mut self, inputs: &[&str]) {
+		self.pos = (
+			parse_input!(inputs[1], usize),
+			parse_input!(inputs[2], usize),
+		);
+		self.current_shoot_cooldown = parse_input!(inputs[3], ShootCooldown);
+		self.slash_bombs = parse_input!(inputs[4], u8);
+		self.wet = parse_input!(inputs[5], Wetness);
+	}
+}
+
+fn parse_grid(buf: &mut String, _w: usize, h: usize) -> Vec<Vec<Cell>> {
+	let mut grid = Vec::with_capacity(h);
+
+	for _ in 0..h {
+		io::stdin().read_line(buf).unwrap();
+
+		grid.push(
+			buf.split_whitespace()
+				.skip(2)
+				.step_by(3)
+				.map(|s| s.parse::<Cell>().unwrap())
+				.collect::<Vec<Cell>>(),
+		);
+	}
+
+	grid
+}
+
+impl FromStr for Cell {
+	type Err = ();
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"0" => Ok(Cell::Empty),
+			"1" => Ok(Cell::Cover50),
+			"2" => Ok(Cell::Cover75),
+			_ => Err(()),
+		}
+	}
+}
+
+fn main() {
+	let mut e = Env::parse();
+
+	loop {
+		e.update();
+
+		for agent in e.ally.values() {
+			println!("{id}; HUNKER_DOWN", id = agent.id);
 		}
 	}
 }
