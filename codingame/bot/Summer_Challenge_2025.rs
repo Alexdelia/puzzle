@@ -171,12 +171,17 @@ impl Env {
 
 			agent.update(&inputs);
 		}
+		// TODO: remove dead agents
 
 		// player agent count
 		io::stdin().read_line(&mut input).unwrap();
 	}
 
 	fn compute_move_priority(&mut self) {
+		for agent in self.ally.values_mut() {
+			agent.actions.move_priority.clear();
+		}
+
 		for cell in &self.covered_cells {
 			let total_max_incoming_damage = self.compute_max_incoming_damage(*cell);
 
@@ -194,42 +199,13 @@ impl Env {
 		}
 	}
 
+	// TODO: compute max incoming damage for all covered cells once per turn
 	fn compute_max_incoming_damage(&self, pos: Coord) -> usize {
-		// TODO: actually calculate each foe damage
-
-		let mut damage = 4 * 100;
-
-		let (x, y) = pos;
-		if x > 0 {
-			match self.grid[y][x - 1] {
-				Cell::Cover50 => damage -= 50,
-				Cell::Cover75 => damage -= 75,
-				_ => {}
-			}
+		let mut sum: usize = 0;
+		for agent in self.foe.values() {
+			sum += self.compute_damage(agent, agent.pos, pos) as usize;
 		}
-		if x < self.w - 1 {
-			match self.grid[y][x + 1] {
-				Cell::Cover50 => damage -= 50,
-				Cell::Cover75 => damage -= 75,
-				_ => {}
-			}
-		}
-		if y > 0 {
-			match self.grid[y - 1][x] {
-				Cell::Cover50 => damage -= 50,
-				Cell::Cover75 => damage -= 75,
-				_ => {}
-			}
-		}
-		if y < self.h - 1 {
-			match self.grid[y + 1][x] {
-				Cell::Cover50 => damage -= 50,
-				Cell::Cover75 => damage -= 75,
-				_ => {}
-			}
-		}
-
-		return damage;
+		sum
 	}
 
 	fn compute_damage(&self, agent: &Agent, from: Coord, to: Coord) -> Wetness {
@@ -336,7 +312,7 @@ impl Cell {
 }
 
 enum Action {
-	Move(usize, usize),
+	Move(Coord),
 	Shoot(Id),
 	// Throw,
 	SelfCover25,
@@ -346,7 +322,7 @@ enum Action {
 impl Display for Action {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Action::Move(x, y) => write!(f, "MOVE {x} {y}"),
+			Action::Move((x, y)) => write!(f, "MOVE {x} {y}"),
 			Action::Shoot(id) => write!(f, "SHOOT {id}"),
 			// Action::Throw => write!(f, "THROW"),
 			Action::SelfCover25 => write!(f, "HUNKER_DOWN"),
@@ -401,12 +377,37 @@ fn main() {
 
 		e.compute_move_priority();
 
-		for agent in e.ally.values() {
-			println!(
-				"{id};{actions}",
-				id = agent.id,
-				actions = [Action::SelfCover25].map(|x| x.to_string()).join(";")
-			);
+		// TODO: check that 2+ agents don't overkill a single enemy and then waste a shoot
+		// TODO: check that 2+ agents don't move to the same cell
+
+		for ally in e.ally.values_mut() {
+			let mut actions = Vec::<Action>::new();
+
+			if let Some(target) = ally.actions.move_priority.first_entry() {
+				let pos = *target.get();
+				actions.push(Action::Move(pos));
+				ally.pos = pos;
+			}
+
+			let mut most_damage_id = None;
+			let mut most_damage_value = 0;
+			for foe in e.foe.values() {
+				let damage = e.compute_damage(ally, ally.pos, foe.pos);
+				if damage > most_damage_value {
+					most_damage_value = damage;
+					most_damage_id = Some(foe.id);
+				}
+			}
+			if let Some(id) = most_damage_id {
+				actions.push(Action::Shoot(id));
+			}
+
+			let actions = actions
+				.into_iter()
+				.map(|a| a.to_string())
+				.collect::<Vec<_>>();
+
+			println!("{id};{actions}", id = ally.id, actions = actions.join(";"));
 		}
 	}
 }
