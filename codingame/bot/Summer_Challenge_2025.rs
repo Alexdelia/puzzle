@@ -1,4 +1,4 @@
-use core::str::FromStr;
+use core::{fmt::Display, str::FromStr};
 use std::{collections::HashMap, io};
 
 macro_rules! parse_input {
@@ -177,6 +177,26 @@ impl FromStr for Cell {
 	}
 }
 
+enum Action {
+	Move(usize, usize),
+	Shoot(Id),
+	// Throw,
+	SelfCover25,
+	Message(String),
+}
+
+impl Display for Action {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Action::Move(x, y) => write!(f, "MOVE {x} {y}"),
+			Action::Shoot(id) => write!(f, "SHOOT {id}"),
+			// Action::Throw => write!(f, "THROW"),
+			Action::SelfCover25 => write!(f, "HUNKER_DOWN"),
+			Action::Message(msg) => write!(f, "MESSAGE {msg}"),
+		}
+	}
+}
+
 fn main() {
 	let mut e = Env::parse();
 
@@ -184,7 +204,11 @@ fn main() {
 		e.update();
 
 		for agent in e.ally.values() {
-			println!("{id}; HUNKER_DOWN", id = agent.id);
+			println!(
+				"{id};{actions}",
+				id = agent.id,
+				actions = [Action::SelfCover25].map(|x| x.to_string()).join(";")
+			);
 		}
 	}
 }
