@@ -153,6 +153,9 @@ impl Env {
 	fn update(&mut self) {
 		let total_alive_agent_count = parse_input!(read_line(), usize);
 
+		let mut remaining_ally_ids: HashSet<Id> = self.ally.keys().cloned().collect();
+		let mut remaining_foe_ids: HashSet<Id> = self.foe.keys().cloned().collect();
+
 		for _ in 0..total_alive_agent_count {
 			let input = read_line();
 			let inputs = input.split(" ").collect::<Vec<_>>();
@@ -164,10 +167,22 @@ impl Env {
 			};
 
 			agent.update(&inputs);
+			if agent.ally {
+				remaining_ally_ids.remove(&id);
+			} else {
+				remaining_foe_ids.remove(&id);
+			}
 		}
 		// TODO: remove dead agents
 
 		let _player_agent_count = read_line();
+
+		for id in remaining_ally_ids {
+			self.ally.remove(&id);
+		}
+		for id in remaining_foe_ids {
+			self.foe.remove(&id);
+		}
 	}
 
 	fn compute_move_priority(&mut self) {
