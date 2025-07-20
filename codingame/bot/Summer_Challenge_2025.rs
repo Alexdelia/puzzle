@@ -173,7 +173,6 @@ impl Env {
 				remaining_foe_ids.remove(&id);
 			}
 		}
-		// TODO: remove dead agents
 
 		let _player_agent_count = read_line();
 
@@ -358,13 +357,17 @@ fn compute_damage(grid: &Grid, agent: &Agent, from: Coord, to: Coord) -> Wetness
 
 	let vertical_cover = if dx > 0 {
 		grid[to.1][to.0 + 1]
-	} else {
+	} else if dx < 0 {
 		grid[to.1][to.0 - 1]
+	} else {
+		Cell::Empty
 	};
 	let horizontal_cover = if dy > 0 {
 		grid[to.1 + 1][to.0]
-	} else {
+	} else if dy < 0 {
 		grid[to.1 - 1][to.0]
+	} else {
+		Cell::Empty
 	};
 
 	let adx = dx.abs() as usize;
