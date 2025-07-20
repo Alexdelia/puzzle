@@ -46,7 +46,7 @@ struct Agent {
 	current_shoot_cooldown: ShootCooldown,
 	optimal_range: usize,
 	shoot_power: Wetness,
-	slash_bombs: u8,
+	splash_bombs: u8,
 
 	actions: AgentActions,
 }
@@ -217,7 +217,7 @@ impl Agent {
 			current_shoot_cooldown: 0,
 			optimal_range: parse_input!(inputs[3], usize),
 			shoot_power: parse_input!(inputs[4], Wetness),
-			slash_bombs: parse_input!(inputs[5], u8),
+			splash_bombs: parse_input!(inputs[5], u8),
 
 			actions: AgentActions {
 				r#move: None,
@@ -233,7 +233,7 @@ impl Agent {
 			parse_input!(inputs[2], usize),
 		);
 		self.current_shoot_cooldown = parse_input!(inputs[3], ShootCooldown);
-		self.slash_bombs = parse_input!(inputs[4], u8);
+		self.splash_bombs = parse_input!(inputs[4], u8);
 		self.wet = parse_input!(inputs[5], Wetness);
 	}
 }
