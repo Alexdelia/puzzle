@@ -1,13 +1,16 @@
 .vscode
+*~
+
+Cargo.lock
 
 obj
 libft.a
 a.out
 *.out
-*~
 target/
-Cargo.lock
+
 __pycache__/
+.cache/
 
 .direnv
 .devenv

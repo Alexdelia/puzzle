@@ -1,0 +1,25 @@
+cache-dir = ".cache/ruff"
+target-version = "py313"
+
+[format]
+indent-style = "tab"
+
+docstring-code-format = true
+
+[lint]
+explicit-preview-rules = true
+select = ["ALL"]
+ignore = [
+	## format
+	"COM812", # missing-trailing-comma
+	"W191", # tab-indentation
+	"D206", # docstring-tab-indentation
+
+	## conflict
+	"D203", # incorrect-blank-line-before-class
+	"D212", # multi-line-summary-first-line
+
+	## unnecessary for small puzzle scripts
+	"T201", # print
+	"D100", # undocumented-public-module
+]

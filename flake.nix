@@ -43,14 +43,19 @@
           modules = [
             {
               # https://devenv.sh/packages/
-              packages = with pkgs; [
-                git
+              packages =
+                (with pkgs; [
+                  git
 
-                cargo-flamegraph
-                hyperfine
+                  ruff
 
-                python312Packages.tqdm
-              ];
+                  cargo-flamegraph
+                  hyperfine
+                ])
+                ++ (with pkgs.python313Packages; [
+                  tqdm
+                  aocd
+                ]);
 
               # https://devenv.sh/languages/
               languages = {
