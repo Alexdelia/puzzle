@@ -6,8 +6,8 @@ from typing import Any, Callable
 
 from aocd import get_data
 
-DAY = int(re.sub(r'[^0-9]', "", dirname(__file__).split('/')[-1]))
-YEAR = int(re.sub(r'[^0-9]', "", dirname(__file__).split('/')[-2]))
+DAY = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-1]))
+YEAR = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-2]))
 DATA: str = get_data(day=DAY, year=YEAR)
 
 DATA_EXAMPLE = """\
@@ -28,25 +28,27 @@ DATA_EXAMPLE = """\
 
 
 def snafu_to_b10(snafu: str) -> int:
-    if snafu == '':
-        return 0
-    
-    return snafu_to_b10(snafu[:-1]) * 5 + "=-012".index(snafu[-1]) - 2
+	if snafu == "":
+		return 0
+
+	return snafu_to_b10(snafu[:-1]) * 5 + "=-012".index(snafu[-1]) - 2
 
 
 def b10_to_snafu(n: int) -> str:
-    if n == 0:
-        return ''
+	if n == 0:
+		return ""
 
-    return b10_to_snafu((n + 2) // 5) + "=-012"[(n + 2) % 5]
+	return b10_to_snafu((n + 2) // 5) + "=-012"[(n + 2) % 5]
 
 
 def check(f: Callable, a: Any, expected: Any):
-    assert f(a) == expected, f"\
+	assert f(a) == expected, (
+		f"\
 \033[35;1m{a}\033[0m -> \
 \033[31;1m{f(a)}\033[0m \
 \033[33;1m!=\033[0m \
 \033[32;1m{expected}\033[0m"
+	)
 
 
 check(snafu_to_b10, "1", 1)

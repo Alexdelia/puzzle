@@ -12,11 +12,11 @@ cur = 0
 v = []
 
 for l in lines:
-    if len(l) > 0:
-        cur += int(l)
-    else:
-        v.append(cur)
-        cur = 0
+	if len(l) > 0:
+		cur += int(l)
+	else:
+		v.append(cur)
+		cur = 0
 
 v.sort()
 print(v, end="\n\n")
@@ -26,7 +26,6 @@ t = 0
 print("part 1:", v[-1])
 
 for i in range(3):
-    t += v[-i - 1]
+	t += v[-i - 1]
 
 print("part 2:", t)
-

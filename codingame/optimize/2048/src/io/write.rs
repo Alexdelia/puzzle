@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 
 use crate::err;
-use crate::game::{next, Move, Score, Seed};
+use crate::game::{Move, Score, Seed, next};
 
 pub fn write(file: &str, seed: Seed, score: Score, moves: &[Move]) -> Option<()> {
 	let mut new_l = String::new();
