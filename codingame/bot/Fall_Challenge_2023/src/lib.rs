@@ -5,7 +5,7 @@ mod network;
 
 use std::ops::Range;
 
-pub use activation::{relu, sigmoid, Activation};
+pub use activation::{Activation, relu, sigmoid};
 pub use layer::Layer;
 pub use matrix::Matrix;
 pub use network::Network;

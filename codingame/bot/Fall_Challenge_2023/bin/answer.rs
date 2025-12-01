@@ -1,5 +1,5 @@
-use fall_challenge_2023::{referencial, referencial_bool, relu, Float, Layer, Matrix, Network};
-use rand::{rngs::ThreadRng, Rng};
+use fall_challenge_2023::{Float, Layer, Matrix, Network, referencial, referencial_bool, relu};
+use rand::{Rng, rngs::ThreadRng};
 use std::{collections::HashMap, io, ops::Range, str::FromStr};
 
 macro_rules! parse_input {

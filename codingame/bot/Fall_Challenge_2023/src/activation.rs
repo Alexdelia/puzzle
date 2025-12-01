@@ -10,11 +10,7 @@ pub fn sigmoid(x: Float) -> Float {
 }
 
 pub fn relu(x: Float) -> Float {
-	if x > 0.0 {
-		x
-	} else {
-		0.0
-	}
+	if x > 0.0 { x } else { 0.0 }
 }
 // ANSWER END
 

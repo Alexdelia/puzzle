@@ -4,13 +4,13 @@ use std::io::{BufRead, BufReader, Write};
 use std::process::ExitCode;
 
 use lib2048::err;
-use lib2048::game::{Board, Cell, Move, Score, Seed, SIZE};
+use lib2048::game::{Board, Cell, Move, SIZE, Score, Seed};
 use lib2048::io::{
+	FILE_RESULT, FILE_SEEDS,
 	read::{read, read_seeds},
 	write::write,
-	FILE_RESULT, FILE_SEEDS,
 };
-use lib2048::priority::{priority, Priority};
+use lib2048::priority::{Priority, priority};
 
 // const MIN_SIZE: usize = 100_000;
 const MAX_SIZE: usize = 100_000;
@@ -139,15 +139,15 @@ fn q_out(mut q: BinaryHeap<Game>, min_size: usize) -> BinaryHeap<Game> {
 
 fn ouput(seed: Seed, board: &Board, saved_score: Score, counter: usize, q_size: usize, over: bool) {
 	println!(
-        "\x1b[33;1m{}\x1b[0m\t\x1b[1m{}\t\x1b[32;1m{}\t\x1b[32;3m{}\x1b[0m\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[36;1m{}\x1b[0m",
-        seed,
-        over,
-        board.score,
-        saved_score,
-        board.moves.len(),
-        counter,
-        q_size,
-    );
+		"\x1b[33;1m{}\x1b[0m\t\x1b[1m{}\t\x1b[32;1m{}\t\x1b[32;3m{}\x1b[0m\t\x1b[35;1m{}\t\x1b[31;1m{}\x1b[0m\t\x1b[36;1m{}\x1b[0m",
+		seed,
+		over,
+		board.score,
+		saved_score,
+		board.moves.len(),
+		counter,
+		q_size,
+	);
 	dbg!(board);
 }
 

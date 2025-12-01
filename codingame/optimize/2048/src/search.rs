@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use lib2048::err;
 use lib2048::game::{Board, Move, Score, Seed};
-use lib2048::io::{read::read, write::write, FILE_RESULT};
+use lib2048::io::{FILE_RESULT, read::read, write::write};
 
 // linear congruential generator
 pub const R_A: u128 = 1664525;

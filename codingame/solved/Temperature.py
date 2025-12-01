@@ -19,11 +19,11 @@ import math
 n = int(input())  # the number of temperatures to analyse
 c = n * 9999
 for i in input().split():
-    # t: a temperature expressed as an integer ranging from -273 to 5526
-    t = int(i)
-    if abs(t) < abs(c):
-        c = t
-    if abs(t) == abs(c) and t > c:
-        c = t
+	# t: a temperature expressed as an integer ranging from -273 to 5526
+	t = int(i)
+	if abs(t) < abs(c):
+		c = t
+	if abs(t) == abs(c) and t > c:
+		c = t
 
 print(c)

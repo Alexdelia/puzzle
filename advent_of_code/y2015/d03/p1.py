@@ -16,21 +16,21 @@ y = SIZE // 2
 m[x][y] = 1
 
 for i in DATA:
-    if i == '^':
-        y -= 1
-    elif i == 'v':
-        y += 1
-    elif i == '<':
-        x -= 1
-    elif i == '>':
-        x += 1
-    m[x][y] += 1
+	if i == "^":
+		y -= 1
+	elif i == "v":
+		y += 1
+	elif i == "<":
+		x -= 1
+	elif i == ">":
+		x += 1
+	m[x][y] += 1
 
 t = 0
 
 for x in range(SIZE):
-    for y in range(SIZE):
-        if m[x][y] > 0:
-            t += 1
+	for y in range(SIZE):
+		if m[x][y] > 0:
+			t += 1
 
 print(f"{t}")

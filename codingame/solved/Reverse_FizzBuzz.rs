@@ -11,11 +11,7 @@ fn can(t: (u8, u8)) -> bool {
 }
 
 fn set(t: (u8, u8), i: u8) -> (u8, u8) {
-	if t.0 == 0 {
-		(i, t.1)
-	} else {
-		(t.0, i)
-	}
+	if t.0 == 0 { (i, t.1) } else { (t.0, i) }
 }
 
 fn get(t: (u8, u8), start: Option<u8>) -> u8 {
