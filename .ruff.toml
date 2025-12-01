@@ -1,6 +1,10 @@
 cache-dir = ".cache/ruff"
 target-version = "py313"
 
+exclude = [
+	"codingame/code_golf/**",
+]
+
 [format]
 indent-style = "tab"
 
