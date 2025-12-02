@@ -26,6 +26,7 @@ ignore = [
 	## unnecessary for small puzzle scripts
 	"T201", # print
 	"ERA001", # commented-out-code
+	"TID252", # relative-imports
 	"D100", # undocumented-public-module
 	"D101", # undocumented-public-class
 	"D103", # undocumented-public-function
@@ -34,4 +35,7 @@ ignore = [
 	"D415", # missing-terminal-punctuation
 	"INP001", # implicit-namespace-package
 	"PLR2004", # magic-value-comparison
+	"TRY003", # raise-vanilla-args
+	"EM101", # raw-string-in-exception
+	"EM102", # f-string-in-exception
 ]
