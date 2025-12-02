@@ -25,5 +25,13 @@ ignore = [
 
 	## unnecessary for small puzzle scripts
 	"T201", # print
+	"ERA001", # commented-out-code
 	"D100", # undocumented-public-module
+	"D101", # undocumented-public-class
+	"D103", # undocumented-public-function
+	"D105", # undocumented-magic-method
+	"D400", # missing-trailing-period
+	"D415", # missing-terminal-punctuation
+	"INP001", # implicit-namespace-package
+	"PLR2004", # magic-value-comparison
 ]
