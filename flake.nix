@@ -48,6 +48,7 @@
                   git
 
                   ruff
+                  ty
 
                   cargo-flamegraph
                   hyperfine
