@@ -12,18 +12,22 @@ ranges: list[str] = DATA.split(",")
 
 
 def solve(ranges: list[str]) -> tuple[int, int]:
-	regex = re.compile(r"^(\d+)\1$")
+	p1_regex = re.compile(r"^(\d+)\1$")
+	p2_regex = re.compile(r"^(\d+)\1+$")
 
-	match_sum = 0
+	p1_sum = 0
+	p2_sum = 0
 
 	for r in ranges:
 		start, end = map(int, r.split("-"))
 
 		for n in range(start, end + 1):
-			if regex.search(str(n)):
-				match_sum += n
+			if p1_regex.search(str(n)):
+				p1_sum += n
+			if p2_regex.search(str(n)):
+				p2_sum += n
 
-	return (match_sum, 0)
+	return (p1_sum, p2_sum)
 
 
 test_ranges = [
@@ -39,7 +43,7 @@ test_ranges = [
 	"824824821-824824827",
 	"2121212118-2121212124",
 ]
-expected = (1227775554, 0)
+expected = (1227775554, 4174379265)
 got = solve(test_ranges)
 assert expected[0] == got[0], (
 	f"part 1 test failed: expected {expected[0]}, got {got[0]}"
