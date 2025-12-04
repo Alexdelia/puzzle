@@ -54,7 +54,7 @@ def print_grid(grid: list[list[int]]) -> None:
 	padding = "  "
 
 	# buf = "\033c"
-	buf = f"\033[{h+2}F"
+	buf = f"\033[{h + 2}F"
 
 	buf += (
 		padding
@@ -122,7 +122,7 @@ def remove_paper_rolls(h: int, w: int, lines: list[str], grid: list[list[int]]) 
 	return count
 
 
-def solve(data: str, visualize = False) -> tuple[int, int]:
+def solve(data: str, visualize: bool = False) -> tuple[int, int]:
 	lines = data.splitlines()
 	h = len(lines)
 	w = len(lines[0])
@@ -172,6 +172,6 @@ assert expected[1] == got[1], (
 sys.path.append("../..")
 from get_data import get_data
 
-p1, p2 = solve(get_data(), visualize = True)
+p1, p2 = solve(get_data(), visualize=True)
 print(f"part 1:\t{p1}")
 print(f"part 2:\t{p2}")
