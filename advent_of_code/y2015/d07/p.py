@@ -3,33 +3,31 @@
 from __future__ import annotations
 
 import re
-from os.path import dirname
-from typing import Dict, Union
+from pathlib import Path
 
 import numpy as np
 from aocd import get_data
 
-DAY = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-1]))
-YEAR = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-2]))
+DAY = int(re.sub(r"[^0-9]", "", Path(__file__).parent.name))
+YEAR = int(re.sub(r"[^0-9]", "", Path(__file__).parent.parent.name))
 DATA: str = get_data(day=DAY, year=YEAR)
 
 lines = DATA.splitlines()
 
-circuit: Dict[str, Wire] = {}
+circuit: dict[str, Wire] = {}
 
 
 def to_value(x: str) -> np.uint16:
 	if x.isdigit():
 		return np.uint16(x)
-	else:
-		return circuit[x].eval()
+	return circuit[x].eval()
 
 
 class Wire:
-	def __init__(self, name: str, cmd: str):
+	def __init__(self, name: str, cmd: str) -> None:
 		self.name: str = name
 		self.cmd: str = cmd
-		self.value: Union[np.uint16, None] = None
+		self.value: np.uint16 | None = None
 
 	def eval(self) -> np.uint16:
 		if self.value is not None:
@@ -65,7 +63,7 @@ for l in lines:
 a = circuit["a"].eval()
 print(f"part 1:\t{a}")
 
-for k, v in circuit.items():
+for v in circuit.values():
 	v.value = None
 circuit["b"].value = a
 
