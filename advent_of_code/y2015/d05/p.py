@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 import re
-from os.path import dirname
+from pathlib import Path
 
 from aocd import get_data
 
-DAY = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-1]))
-YEAR = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-2]))
+DAY = int(re.sub(r"[^0-9]", "", Path(__file__).parent.name))
+YEAR = int(re.sub(r"[^0-9]", "", Path(__file__).parent.parent.name))
 DATA: str = get_data(day=DAY, year=YEAR)
 
 lines = DATA.splitlines()
