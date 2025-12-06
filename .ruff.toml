@@ -41,4 +41,5 @@ ignore = [
 	"EM102", # f-string-in-exception
 	"E402", # module-import-not-at-top-of-file
 	"FBT002", # boolean-default-value-positional-argument
+	"E741", # ambiguous-variable-name
 ]
