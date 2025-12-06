@@ -2,22 +2,22 @@
 
 import re
 from hashlib import md5
-from os.path import dirname
+from pathlib import Path
 
 from aocd import get_data
 
-DAY = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-1]))
-YEAR = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-2]))
+DAY = int(re.sub(r"[^0-9]", "", Path(__file__).parent.split("/")[-1]))
+YEAR = int(re.sub(r"[^0-9]", "", Path(__file__).parent.split("/")[-2]))
 DATA: str = get_data(day=DAY, year=YEAR)
 
 i = 1
 
-while not (md5(f"{DATA}{i}".encode()).hexdigest()[:5] == "00000"):
+while md5(f"{DATA}{i}".encode()).hexdigest()[:5] != "00000":  # noqa: S324
 	i += 1
 
 print(f"part 1:\t{i}")
 
-while not (md5(f"{DATA}{i}".encode()).hexdigest()[:6] == "000000"):
+while md5(f"{DATA}{i}".encode()).hexdigest()[:6] != "000000":  # noqa: S324
 	i += 1
 
 print(f"part 2:\t{i}")
