@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import math
 import sys
+import math
+from itertools import groupby
 
 
 def row_num(row: str) -> list[int]:
@@ -12,27 +13,44 @@ def solve(data: str) -> tuple[int, int]:
 	lines = list(reversed(data.splitlines()))
 
 	sign_row = lines[0].split()
-	numbers = lines[1:]
 
-	p1_row = row_num(numbers[0])
-	p2_col = []
+	number_lines = lines[1:]
 
-	for x, line in enumerate(numbers):
-		number_row = row_num(line)
+	p1_row = row_num(number_lines[0])
 
-		if x > 0:
-			for y, n in enumerate(number_row):
-				if sign_row[y] == "+":
-					p1_row[y] += n
-				elif sign_row[y] == "*":
-					p1_row[y] *= n
+	for line in number_lines[1:]:
+		for i, n in enumerate(row_num(line)):
+			if sign_row[i] == "+":
+				p1_row[i] += n
+			elif sign_row[i] == "*":
+				p1_row[i] *= n
 
-		if sign_row[x] == "+":
-			p2_col.append(sum(number_row))
-		elif sign_row[x] == "*":
-			p2_col.append(math.prod(number_row))
+	p1 = sum(p1_row)
 
-	return (sum(p1_row), sum(p2_col))
+	# === part 2 ===
+
+	number_lines = list(reversed(number_lines))
+
+	numbers = [0] * max(len(line) for line in number_lines)
+
+	for line in number_lines:
+		for i, c in enumerate(line):
+			if c == " ":
+				continue
+
+			numbers[i] = numbers[i] * 10 + int(c)
+
+	number_cols = [list(v) for k, v in groupby(numbers, key=lambda x: x != 0) if k != 0]
+
+	p2 = 0
+
+	for numbers, sign in zip(number_cols, sign_row, strict=True):
+		if sign == "+":
+			p2 += sum(numbers)
+		elif sign == "*":
+			p2 += math.prod(numbers)
+
+	return (p1, p2)
 
 
 test = """\
