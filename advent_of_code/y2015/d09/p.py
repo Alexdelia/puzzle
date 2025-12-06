@@ -1,25 +1,24 @@
 #!/usr/bin/env python3
 
 import re
-from os.path import dirname
-from typing import Dict, List, Set, Tuple
+from pathlib import Path
 
 from aocd import get_data
 
-DAY = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-1]))
-YEAR = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-2]))
+DAY = int(re.sub(r"[^0-9]", "", Path(__file__).parent.name))
+YEAR = int(re.sub(r"[^0-9]", "", Path(__file__).parent.parent.name))
 DATA: str = get_data(day=DAY, year=YEAR)
 
 lines = DATA.splitlines()
 
-d: Dict[Tuple[str, str], int] = {}
+d: dict[tuple[str, str], int] = {}
 
 for l in lines:
 	src, _, dst, _, dist = l.split()
 	d[tuple(sorted([src, dst]))] = int(dist)
 
-s: Set[str] = set()
-for k in d.keys():
+s: set[str] = set()
+for k in d:
 	s.add(k[0])
 	s.add(k[1])
 
@@ -27,21 +26,20 @@ n = len(s)
 
 
 # create all sequences of cities
-def seqs(s: Set[str], n: int) -> List[List[str]]:
+def seqs(s: set[str], n: int) -> list[list[str]]:
 	if n == 1:
 		return [[x] for x in s]
-	else:
-		res = []
-		for x in s:
-			s2 = s.copy()
-			s2.remove(x)
-			for y in seqs(s2, n - 1):
-				res.append([x] + y)
-		return res
+	res: list[list[str]] = []
+	for x in s:
+		s2 = s.copy()
+		s2.remove(x)
+		for y in seqs(s2, n - 1):
+			res.append([x, *y])  # noqa: PERF401
+	return res
 
 
 # calculate distance of a sequence
-def seq_dist(s: List[str]) -> int:
+def seq_dist(s: list[str]) -> int:
 	res = 0
 	for i in range(len(s) - 1):
 		res += d[tuple(sorted([s[i], s[i + 1]]))]
