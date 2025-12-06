@@ -30,8 +30,10 @@ ignore = [
 	"S101", # assert
 	"D100", # undocumented-public-module
 	"D101", # undocumented-public-class
+	"D102", # undocumented-public-method
 	"D103", # undocumented-public-function
 	"D105", # undocumented-magic-method
+	"D107", # undocumented-public-init
 	"D400", # missing-trailing-period
 	"D415", # missing-terminal-punctuation
 	"INP001", # implicit-namespace-package
