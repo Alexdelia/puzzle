@@ -53,9 +53,10 @@
                   cargo-flamegraph
                   hyperfine
                 ])
-                ++ (with pkgs.python313Packages; [
-                  tqdm
+                ++ (with pkgs.python3Packages; [
+                  numpy
                   aocd
+                  tqdm
                 ]);
 
               # https://devenv.sh/languages/
