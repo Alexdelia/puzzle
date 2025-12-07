@@ -1,6 +1,6 @@
 import math
 import sys
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 # Auto-generated code below aims at helping you parse
 # the standard input according to the problem statement.

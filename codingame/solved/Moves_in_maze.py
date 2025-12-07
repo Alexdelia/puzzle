@@ -1,5 +1,3 @@
-import math
-import sys
 from typing import List, Tuple
 
 w, h = [int(i) for i in input().split()]
