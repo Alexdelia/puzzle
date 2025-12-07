@@ -6,14 +6,14 @@
 #    By: adelille <adelille@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2022/06/13 21:34:15 by adelille          #+#    #+#              #
-#    Updated: 2022/06/13 21:34:23 by adelille         ###   ########.fr        #
+#    Updated: 2025/12/07 17:16:43 by adelille         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 import sys
 
 
-def exe_gate(t, x, y):
+def exe_gate(t: str, x: str, y: str) -> bool:
 	return {
 		"AND": lambda l, m: l == "-" and m == "-",
 		"OR": lambda l, m: l == "-" or m == "-",
@@ -24,7 +24,7 @@ def exe_gate(t, x, y):
 	}[t](x, y)
 
 
-def logic(t, x, y):
+def logic(t: str, x: str, y: str) -> str:
 	o = ""
 	i = 0
 	while i < len(x):
@@ -38,11 +38,11 @@ d = {}
 n = int(input())
 m = int(input())
 
-for i in range(n):
+for _ in range(n):
 	input_name, input_signal = input().split()
 	d[input_name] = input_signal
 
-for i in range(m):
+for _ in range(m):
 	output_name, _type, input_name_1, input_name_2 = input().split()
 
 	d[output_name] = logic(_type, d[input_name_1], d[input_name_2])
