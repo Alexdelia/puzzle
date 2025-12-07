@@ -4,15 +4,15 @@ m = []
 u = []
 
 
-def distance(x1, y1, x2, y2):
+def distance(x1: int, y1: int, x2: int, y2: int) -> float:
 	return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
 
-def closest(curr):
+def closest(curr: int) -> int:
 	low_d = 2000
 	low_i = 0
 	for i in range(len(m)):
-		if u[i] == False:
+		if not u[i]:
 			d = distance(m[curr][0], m[curr][1], m[i][0], m[i][1])
 			if d < low_d:
 				low_d = d
@@ -21,7 +21,7 @@ def closest(curr):
 
 
 n = int(input())  # This variables stores how many nodes are given
-for i in range(n):
+for _ in range(n):
 	# x: The x coordinate of the given node
 	# y: The y coordinate of the given node
 	x, y = [int(j) for j in input().split()]
