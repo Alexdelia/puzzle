@@ -1,7 +1,6 @@
 import os
 import re
 import sys
-from typing import Optional
 
 if __name__ == "__main__":
 	print(
@@ -10,14 +9,14 @@ if __name__ == "__main__":
 	sys.exit(1)
 
 
-def file(day: Optional[int] = None) -> str:
+def file(day: int | None = None) -> str:
 	f = open(_match_file(day))
 	content = f.read()
 	f.close()
 	return content
 
 
-def _match_file(n: Optional[int] = None) -> str:
+def _match_file(n: int | None = None) -> str:
 	if len(sys.argv) == 2:
 		return _find_file(sys.argv[1])
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from os.path import dirname
-from typing import Optional
 
 from aocd import get_data
 
@@ -17,7 +16,7 @@ DATA_EXAMPLE = "1\n2\n-3\n3\n-2\n0\n4"
 
 class Node:
 	def __init__(
-		self, n: int, prev: Optional[Node] = None, next: Optional[Node] = None
+		self, n: int, prev: Node | None = None, next: Node | None = None
 	):
 		self.n = n
 		self.prev = prev

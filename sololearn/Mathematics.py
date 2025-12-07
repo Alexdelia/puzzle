@@ -1,9 +1,8 @@
-from typing import Optional
 
 import re
 
 
-def expression_index(n: int, ex: list[str]) -> Optional[int]:
+def expression_index(n: int, ex: list[str]) -> int | None:
 	for i, e in enumerate(ex):
 		if n == eval(e):
 			return i
