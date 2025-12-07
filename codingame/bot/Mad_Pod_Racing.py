@@ -1,6 +1,6 @@
 import math
 import sys
-from typing import Any
+from typing import Any, ClassVar
 
 # Auto-generated code below aims at helping you parse
 # the standard input according to the problem statement.
@@ -27,9 +27,16 @@ def distance(x1: int, y1: int, x2: int, y2: int) -> float:
 
 
 class Pod:
-	def __init__(
-		self, x: int, y: int, vx: int, vy: int, angle: int, next_x: int, next_y: int
-	):
+	def __init__(  # noqa: PLR0913
+		self,
+		x: int,
+		y: int,
+		vx: int,
+		vy: int,
+		angle: int,
+		next_x: int,
+		next_y: int,
+	) -> None:
 		self.c: tuple[int, int] = (x, y)
 		self.s: tuple[int, int] = (vx, vy)
 		self.prev: tuple[int, int] = (x - vx, y - vy)
@@ -42,9 +49,16 @@ class Pod:
 		self.drift: float = -H_DRIFT * self.speed
 		self.n_check: int = 0
 
-	def update(
-		self, x: int, y: int, vx: int, vy: int, angle: int, next_x: int, next_y: int
-	):
+	def update(  # noqa: PLR0913
+		self,
+		x: int,
+		y: int,
+		vx: int,
+		vy: int,
+		angle: int,
+		next_x: int,
+		next_y: int,
+	) -> None:
 		self.prev = self.c
 		self.c = (x, y)
 		self.s = (vx, vy)
@@ -89,7 +103,8 @@ class Pod:
 		return False
 
 	def should_shield(self, opponent: list[Any]) -> bool:
-		# if Pod touch an opponent Pod next turn and the collision get the Pod further away from the next checkpoint, then shield
+		# if Pod touch an opponent Pod next turn and
+		# the collision get the Pod further away from the next checkpoint, then shield
 		for o in opponent:
 			x, y = self.calc_xy_next_turn()
 			ox, oy = o.calc_xy_next_turn()
@@ -173,19 +188,19 @@ class Pod:
 
 
 class Env:
-	bot: list[Pod] = []
-	opponent: list[Pod] = []
+	bot: ClassVar[list[Pod]] = []
+	opponent: ClassVar[list[Pod]] = []
 	n_laps: int
 	n_check: int
-	check: list[tuple[int, int]] = []
+	check: ClassVar[list[tuple[int, int]]] = []
 
-	def init_info(self):
+	def init_info(self) -> None:
 		self.n_laps = int(input())
 		self.n_check = int(input())
 		for _ in range(self.n_check):
 			self.check.append(tuple([int(i) for i in input().split()]))
 
-	def get_info(self, n_pod: int):
+	def get_info(self, n_pod: int) -> None:
 		for i in range(n_pod):
 			x, y, vx, vy, angle, i_check = [int(i) for i in input().split()]
 			if len(self.bot) < n_pod:
@@ -199,7 +214,7 @@ class Env:
 			else:
 				self.opponent[i].update(x, y, vx, vy, angle, *self.check[i_check])
 
-	def debug(self, e: bool = False, b: bool = True, o: bool = False):
+	def debug(self, e: bool = False, b: bool = True, o: bool = False) -> None:
 		if e:
 			print(f"n_laps: {self.n_laps}", file=sys.stderr)
 			print(f"n_check: {self.n_check}", file=sys.stderr)
@@ -220,7 +235,7 @@ while True:
 	e.get_info(2)
 	# e.debug(e=True, b=True, o=True)
 
-	for i, b in enumerate(e.bot):
+	for b in e.bot:
 		x, y = b.get_targeted_xy()
 		thrust = b.get_thrust(e.opponent)
 		print(f"{x} {y} {thrust} {thrust}")
