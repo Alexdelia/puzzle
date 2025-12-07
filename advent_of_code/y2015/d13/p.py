@@ -31,14 +31,27 @@ def calc_happiness(rule: Rule, persons: list[str]) -> int:
 	return h
 
 
+def max_happiness(rule: Rule) -> int:
+	persons = list(rule.keys())
+	return max(calc_happiness(rule, perm) for perm in permutations(persons))
+
+
 def solve(data: str) -> tuple[int, int]:
 	rule = build_rule(data)
 
+	p1 = max_happiness(rule)
+
+	# === part 2 ===
+
 	persons = list(rule.keys())
+	rule["me"] = {}
+	for p in persons:
+		rule[p]["me"] = 0
+		rule["me"][p] = 0
 
-	p1 = max(calc_happiness(rule, perm) for perm in permutations(persons))
+	p2 = max_happiness(rule)
 
-	return (p1, 0)
+	return (p1, p2)
 
 
 test = """\
@@ -66,7 +79,7 @@ assert expected_rule == got_rule, (
 	f"build_rule test failed: expected {expected_rule}, got {got_rule}"
 )
 
-expected = (330, 0)
+expected = (330, 286)
 got = solve(test)
 assert expected[0] == got[0], (
 	f"part 1 test failed: expected {expected[0]}, got {got[0]}"
