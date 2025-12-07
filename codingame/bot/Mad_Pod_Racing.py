@@ -174,17 +174,18 @@ class Pod:
 		# return int(x), int(y)
 
 	def __str__(self) -> str:
-		ret = f"C: {self.c}\n"
-		ret += f" P: {self.prev}\n"
-		ret += f" N: {self.next_check}\n"
-		ret += f" V: {self.s}\n"
-		ret += f" D: {self.dist}\n"
-		ret += f" A: {self.angle}\n"
-		ret += f" NA: {self.n_angle}\n"
-		ret += f" RA: {self.r_angle}\n"
-		ret += f" Spd: {self.speed}\n"
-		ret += f" Dft: {self.drift}"
-		return ret
+		return f"""\
+C: {self.c}
+ P: {self.prev}
+ N: {self.next_check}
+ V: {self.s}
+ D: {self.dist}
+ A: {self.angle}
+ NA: {self.n_angle}
+ RA: {self.r_angle}
+ Spd: {self.speed}
+ Dft: {self.drift}\
+"""
 
 
 class Env:
