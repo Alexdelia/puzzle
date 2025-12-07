@@ -6,7 +6,7 @@
 #    By: adelille <adelille@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2022/09/14 22:48:27 by adelille          #+#    #+#              #
-#    Updated: 2022/09/14 22:48:31 by adelille         ###   ########.fr        #
+#    Updated: 2025/12/07 17:17:20 by adelille         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -33,8 +33,8 @@ import sys
 	nb_additional_elevators,
 	nb_elevators,
 ) = [int(i) for i in input().split()]
-a = dict()
-for i in range(nb_elevators):
+a = {}
+for _ in range(nb_elevators):
 	# elevator_floor: floor on which this elevator is found
 	# elevator_pos: position of the elevator on its floor
 	f, p = [int(j) for j in input().split()]
