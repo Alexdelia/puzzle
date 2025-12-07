@@ -2,6 +2,6 @@
 
 RESULT = ".2048_results.out"
 
-f = open(RESULT, "r")
+f = open(RESULT)
 print(sum([int(l.split()[-2]) for l in f]))
 f.close()

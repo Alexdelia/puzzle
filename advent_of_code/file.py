@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
 
 def file(day: Optional[int] = None) -> str:
-	f = open(_match_file(day), "r")
+	f = open(_match_file(day))
 	content = f.read()
 	f.close()
 	return content
