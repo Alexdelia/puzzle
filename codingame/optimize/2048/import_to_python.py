@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from pathlib import Path
 
 from src.answer import DECODE, ENCODE, b10tob, btob10
 from tqdm import tqdm
@@ -11,10 +12,10 @@ RESULT = ".2048_results.out"
 ANSWER = "./src/answer.py"
 
 
-def _check_encoding(n: str, encode: str):
-	F_N = "n.log"
-	F_ENCODE = "encode.log"
-	F_DECODE = "decode.log"
+def _check_encoding(n: str, encode: str) -> None:
+	f_n = "n.log"
+	f_encode = "encode.log"
+	f_decode = "decode.log"
 
 	decode = b10tob(btob10(encode, ENCODE), DECODE)
 
@@ -26,14 +27,14 @@ def _check_encoding(n: str, encode: str):
 	print("len(encode) =", len(encode), flush=True)
 	print("len(decode) =", len(decode), flush=True)
 
-	with open(F_N, "w") as f:
+	with Path.open(f_n, "w") as f:
 		f.write(n)
-	with open(F_ENCODE, "w") as f:
+	with Path.open(f_encode, "w") as f:
 		f.write(encode)
-	with open(F_DECODE, "w") as f:
+	with Path.open(f_decode, "w") as f:
 		f.write(decode)
 
-	print("log files written to", [F_N, F_ENCODE, F_DECODE], flush=True)
+	print("log files written to", [f_n, f_encode, f_decode], flush=True)
 
 	raise Exception("encoding failed")
 
@@ -41,11 +42,11 @@ def _check_encoding(n: str, encode: str):
 def encode() -> dict[str, str]:
 	print("reading results from", RESULT, flush=True)
 
-	f = open(RESULT)
+	f = Path.open(RESULT)
 	t = sum([1 for _ in f])
 	f.close()
 
-	f = open(RESULT)
+	f = Path.open(RESULT)
 	out = {}
 
 	print(f"encoding results from b{len(DECODE)} to b{len(ENCODE)}", flush=True)
@@ -78,13 +79,13 @@ def encode() -> dict[str, str]:
 	return out
 
 
-def write(out: dict[str, str]):
+def write(out: dict[str, str]) -> None:
 	print("writing results to", ANSWER, flush=True)
 
 	start = r"    answer = "
 	line = start + str(out) + "\n"
 
-	f = open(ANSWER)
+	f = Path.open(ANSWER)
 	lines = f.readlines()
 	f.close()
 
@@ -93,7 +94,7 @@ def write(out: dict[str, str]):
 			lines[i] = line
 			break
 
-	f = open(ANSWER, "w")
+	f = Path.open(ANSWER, "w")
 	f.writelines(lines)
 	f.close()
 
