@@ -1,11 +1,8 @@
 import sys
 
-# Auto-generated code below aims at helping you parse
-# the standard input according to the problem statement.
-
 
 class Snail:
-	def __init__(self, speed: int):
+	def __init__(self, speed: int) -> None:
 		self.s: int = speed
 		self.w: int = 0
 
@@ -19,20 +16,17 @@ m: list[list[str]] = []
 t: list[tuple[int, int]] = []
 
 n_s = int(input())
-for i in range(n_s):
-	s.append(Snail(int(input())))
+s.extend(Snail(int(input())) for _ in range(n_s))
 
 h = int(input())
 w = int(input())
 for _ in range(h):
 	row = input()
-	m.append([c for c in row])
+	m.append(list(row))
 	print(row, file=sys.stderr)
 
 for x in range(h):
-	for y in range(w):
-		if m[x][y] == "#":
-			t.append((x, y))
+	t.extend((x, y) for y in range(w) if m[x][y] == "#")
 
 for x in range(h):
 	for y in range(w):
@@ -40,8 +34,7 @@ for x in range(h):
 			min_dist = 1000000
 			for i in t:
 				dist = manathan_distance((x, y), i)
-				if dist < min_dist:
-					min_dist = dist
+				min_dist = min(min_dist, dist)
 			s[int(m[x][y]) - 1].w += int(min_dist)
 
 
