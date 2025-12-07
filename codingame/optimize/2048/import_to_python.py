@@ -42,11 +42,11 @@ def _check_encoding(n: str, encode: str):
 def encode() -> dict[str, str]:
 	print("reading results from", RESULT, flush=True)
 
-	f = open(RESULT, "r")
+	f = open(RESULT)
 	t = sum([1 for _ in f])
 	f.close()
 
-	f = open(RESULT, "r")
+	f = open(RESULT)
 	out = {}
 
 	print(f"encoding results from b{len(DECODE)} to b{len(ENCODE)}", flush=True)
@@ -85,7 +85,7 @@ def write(out: dict[str, str]):
 	start = r"    answer = "
 	line = start + str(out) + "\n"
 
-	f = open(ANSWER, "r")
+	f = open(ANSWER)
 	lines = f.readlines()
 	f.close()
 

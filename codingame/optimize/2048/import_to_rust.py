@@ -3,7 +3,7 @@
 RESULT = ".2048_results.out"
 ANSWER = "./src/answer.rs"
 
-f = open(RESULT, "r")
+f = open(RESULT)
 out = []
 for line in f:
 	l = line.split()
@@ -13,7 +13,7 @@ f.close()
 start = r"    let d: HashMap<Seed, &str> = HashMap::from("
 line = start + str(out).replace("'", '"') + ");\n"
 
-f = open(ANSWER, "r")
+f = open(ANSWER)
 lines = f.readlines()
 f.close()
 
