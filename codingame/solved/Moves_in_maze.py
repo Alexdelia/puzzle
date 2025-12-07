@@ -29,10 +29,7 @@ def valid(x: int, y: int, v: int) -> bool:
 	#     return False
 	if m[x][y] == -1:
 		return False
-	elif m[x][y] == -42 or m[x][y] > v:
-		return True
-	else:
-		return False
+	return m[x][y] == -42 or m[x][y] > v
 
 
 def flood_fill(x: int, y: int, v: int) -> None:
