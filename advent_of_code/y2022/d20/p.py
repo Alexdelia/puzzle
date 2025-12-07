@@ -15,9 +15,7 @@ DATA_EXAMPLE = "1\n2\n-3\n3\n-2\n0\n4"
 
 
 class Node:
-	def __init__(
-		self, n: int, prev: Node | None = None, next: Node | None = None
-	):
+	def __init__(self, n: int, prev: Node | None = None, next: Node | None = None):
 		self.n = n
 		self.prev = prev
 		self.next = next
