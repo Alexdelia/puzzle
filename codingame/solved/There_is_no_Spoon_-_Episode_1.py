@@ -8,7 +8,7 @@ m: list[list[str]] = []
 
 for x in range(h):
 	m.append([])
-	for y, c in enumerate(input()):
+	for c in input():
 		m[x].append(c)
 
 for r in m:
