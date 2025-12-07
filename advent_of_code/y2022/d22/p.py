@@ -4,7 +4,6 @@ import re
 from collections import namedtuple
 from copy import deepcopy
 from os.path import dirname
-from typing import List, Tuple
 
 from aocd import get_data
 
@@ -12,8 +11,8 @@ DAY = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-1]))
 YEAR = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-2]))
 DATA: str = get_data(day=DAY, year=YEAR)
 
-Map = List[List[str]]
-Actions = List[Tuple[int, str]]
+Map = list[list[str]]
+Actions = list[tuple[int, str]]
 
 DATA_EXAMPLE = """        ...#
         .#..
@@ -31,7 +30,7 @@ DATA_EXAMPLE = """        ...#
 10R5L5R10L4R5L5"""
 
 Coord = namedtuple("Coord", "x y")
-dir: Tuple[Coord, Coord, Coord, Coord] = (
+dir: tuple[Coord, Coord, Coord, Coord] = (
 	Coord(0, 1),
 	Coord(1, 0),
 	Coord(0, -1),
@@ -39,7 +38,7 @@ dir: Tuple[Coord, Coord, Coord, Coord] = (
 )
 
 
-def parse(data: str) -> Tuple[Map, Actions]:
+def parse(data: str) -> tuple[Map, Actions]:
 	lines = data.splitlines()
 	m = [list(l) for l in lines[:-2]]
 	a = re.findall(r"([0-9]+)([RL])", lines[-1])
@@ -47,7 +46,7 @@ def parse(data: str) -> Tuple[Map, Actions]:
 	return m, a
 
 
-def solve(m: Map, a: Actions, draw: bool = False) -> Tuple[int, int, int]:
+def solve(m: Map, a: Actions, draw: bool = False) -> tuple[int, int, int]:
 	if draw:
 		md = deepcopy(m)
 		for l in md:

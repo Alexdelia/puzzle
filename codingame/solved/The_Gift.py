@@ -1,17 +1,16 @@
 import sys
-from typing import List
 
 # Auto-generated code below aims at helping you parse
 # the standard input according to the problem statement.
 
-b: List[int] = []
+b: list[int] = []
 
 n = int(input())
 c = int(input())
 for i in range(n):
 	b.append(int(input()))
 
-r: List[int] = [0 for _ in range(n)]
+r: list[int] = [0 for _ in range(n)]
 
 while sum(r) < sum(b):
 	for i in range(n - 1, -1, -1):

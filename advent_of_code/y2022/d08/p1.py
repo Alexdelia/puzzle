@@ -2,7 +2,6 @@
 
 import re
 from os.path import dirname
-from typing import List
 
 from aocd import get_data
 
@@ -12,8 +11,8 @@ DATA: str = get_data(day=DAY, year=YEAR)
 
 lines = DATA.splitlines()
 
-grid: List[List[int]] = [[int(tree) for tree in l] for l in lines]
-visible: List[List[bool]] = [[False for _ in l] for l in lines]
+grid: list[list[int]] = [[int(tree) for tree in l] for l in lines]
+visible: list[list[bool]] = [[False for _ in l] for l in lines]
 
 SIZE_X = len(grid)
 SIZE_Y = len(grid[0])

@@ -3,7 +3,6 @@
 import re
 from collections import namedtuple
 from os.path import dirname
-from typing import FrozenSet, List, Set
 
 from aocd import get_data
 
@@ -17,10 +16,10 @@ lines = DATA.splitlines()
 
 Cube = namedtuple("Cube", "x y z")
 
-cubes: FrozenSet[Cube] = frozenset([Cube(*map(int, l.split(","))) for l in lines])
+cubes: frozenset[Cube] = frozenset([Cube(*map(int, l.split(","))) for l in lines])
 
 
-def sides(c: Cube) -> FrozenSet[Cube]:
+def sides(c: Cube) -> frozenset[Cube]:
 	return frozenset(
 		[
 			Cube(c.x + 1, c.y, c.z),
@@ -33,14 +32,14 @@ def sides(c: Cube) -> FrozenSet[Cube]:
 	)
 
 
-def count_neighbors(cubes: FrozenSet[Cube], c: Cube) -> int:
+def count_neighbors(cubes: frozenset[Cube], c: Cube) -> int:
 	return sum(1 for n in sides(c) if n in cubes)
 
 
 print(f"part 1:\t{sum(6 - count_neighbors(cubes, c) for c in cubes)}")
 
-seen: Set[Cube] = set()
-q: List[Cube] = [Cube(-1, -1, -1)]
+seen: set[Cube] = set()
+q: list[Cube] = [Cube(-1, -1, -1)]
 
 while q:
 	cur = q.pop()

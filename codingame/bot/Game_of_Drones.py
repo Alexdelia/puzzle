@@ -1,6 +1,5 @@
 import math
 import sys
-from typing import List, Tuple
 
 # Auto-generated code below aims at helping you parse
 # the standard input according to the problem statement.
@@ -13,7 +12,7 @@ class Zone:
 		self.owner = owner
 		self.cost = 0
 		self.to_beat = 0
-		self.d: List[int] = []
+		self.d: list[int] = []
 
 	def __repr__(self):
 		return f"\t({self.x}, {self.y})\n\tO: {self.owner}\n\tC: {self.cost}\n\tto_beat:{self.to_beat}"
@@ -23,7 +22,7 @@ class Drone:
 	def __init__(self, x: int, y: int):
 		self.x = x
 		self.y = y
-		self.target: Tuple[int, int] = (x, y)
+		self.target: tuple[int, int] = (x, y)
 
 	def __repr__(self):
 		return f"\t({self.x}, {self.y})\n\tT: {self.target}"
@@ -39,9 +38,9 @@ class Env:
 		self._id: int
 		self.n_d: int
 		self.n_z: int
-		self.d: List[List[Drone]] = [[], [], [], []]
-		self.z: List[Zone] = []  # will be min heap
-		self.free_d: List[int] = []
+		self.d: list[list[Drone]] = [[], [], [], []]
+		self.z: list[Zone] = []  # will be min heap
+		self.free_d: list[int] = []
 
 	def init_info(self):
 		self.n_p, self._id, self.n_d, self.n_z = [int(i) for i in input().split()]
@@ -166,8 +165,8 @@ class Env:
 				self.d[self._id][did].target = (self.z[zid].x, self.z[zid].y)
 				self.free_d.remove(did)
 
-	def create_queue(self) -> List[List[int]]:
-		queue: List[List[int]] = [[] for _ in range(self.n_d + 1)]
+	def create_queue(self) -> list[list[int]]:
+		queue: list[list[int]] = [[] for _ in range(self.n_d + 1)]
 
 		for zid, z in enumerate(self.z):
 			if z.cost <= 0 or z.owner == self._id:

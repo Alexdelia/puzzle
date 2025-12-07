@@ -4,7 +4,7 @@ import re
 from ast import literal_eval
 from functools import cmp_to_key
 from os.path import dirname
-from typing import Any, List, Union
+from typing import Any, Union
 
 from aocd import get_data
 
@@ -15,7 +15,7 @@ DATA: str = get_data(day=DAY, year=YEAR)
 lines = DATA.splitlines()
 
 
-def comp(lhs: Union[List[int], int], rhs: Union[List[int], int]) -> int:
+def comp(lhs: Union[list[int], int], rhs: Union[list[int], int]) -> int:
 	if isinstance(lhs, int) and isinstance(rhs, int):
 		if lhs < rhs:
 			return -1
@@ -58,7 +58,7 @@ while i < len(lines):
 
 print(f"part 1:\t{t}")
 
-packets: List[List[Any]] = [[[2]], [[6]]]
+packets: list[list[Any]] = [[[2]], [[6]]]
 
 for l in lines:
 	if len(l) == 0:

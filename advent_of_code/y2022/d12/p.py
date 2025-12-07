@@ -2,7 +2,7 @@
 
 import re
 from os.path import dirname
-from typing import List, Optional, Set, Tuple
+from typing import Optional
 
 from aocd import get_data
 
@@ -18,8 +18,8 @@ for l in lines:
 	print()
 print()
 
-m: List[List[int]] = [[0 for _ in range(len(lines[0]))] for _ in range(len(lines))]
-ff: List[List[int]] = [[-1 for _ in range(len(lines[0]))] for _ in range(len(lines))]
+m: list[list[int]] = [[0 for _ in range(len(lines[0]))] for _ in range(len(lines))]
+ff: list[list[int]] = [[-1 for _ in range(len(lines[0]))] for _ in range(len(lines))]
 
 sx, sy = 0, 0
 ex, ey = 0, 0
@@ -39,7 +39,7 @@ for x, l in enumerate(lines):
 
 
 def print_heatmap_distance(
-	map: List[List[int]], s: Tuple[int, int], e: Tuple[int, int]
+	map: list[list[int]], s: tuple[int, int], e: tuple[int, int]
 ):
 	t = max([max(r) for r in map])
 	for x, r in enumerate(map):
@@ -60,10 +60,10 @@ def print_heatmap_distance(
 
 
 def print_heatmap_height(
-	map: List[List[int]],
-	s: Tuple[int, int],
-	e: Tuple[int, int],
-	soil: Optional[List[str]] = None,
+	map: list[list[int]],
+	s: tuple[int, int],
+	e: tuple[int, int],
+	soil: Optional[list[str]] = None,
 ):
 	for x, r in enumerate(map):
 		for y in range(len(r)):
@@ -89,8 +89,8 @@ print_heatmap_height(m, (sx, sy), (ex, ey), lines)
 print()
 
 
-def possible(x: int, y: int) -> List[Tuple[int, int]]:
-	ret: List[Tuple[int, int]] = []
+def possible(x: int, y: int) -> list[tuple[int, int]]:
+	ret: list[tuple[int, int]] = []
 
 	if x > 0 and m[x - 1][y] <= m[x][y] + 1:
 		ret.append((x - 1, y))
@@ -104,7 +104,7 @@ def possible(x: int, y: int) -> List[Tuple[int, int]]:
 	return ret
 
 
-def flood_fill(x: int, y: int, v: int) -> Set[Tuple[int, int, int]]:
+def flood_fill(x: int, y: int, v: int) -> set[tuple[int, int, int]]:
 	ret = set()
 	ff[x][y] = v
 	v += 1
@@ -117,7 +117,7 @@ def flood_fill(x: int, y: int, v: int) -> Set[Tuple[int, int, int]]:
 
 
 def flood(x: int, y: int):
-	fl: Set[Tuple[int, int, int]] = set([(x, y, 0)])
+	fl: set[tuple[int, int, int]] = set([(x, y, 0)])
 	# i = 0
 
 	while fl:
@@ -134,13 +134,13 @@ print_heatmap_distance(ff, (sx, sy), (ex, ey))
 print()
 p1 = ff[ex][ey]
 
-starts: Set[Tuple[int, int]] = set()
+starts: set[tuple[int, int]] = set()
 for x, l in enumerate(lines):
 	for y, c in enumerate(l):
 		if c == "a":
 			starts.add((x, y))
 
-min_a: Tuple[int, int, int] = (sx, sy, ff[ex][ey])
+min_a: tuple[int, int, int] = (sx, sy, ff[ex][ey])
 for i, s in enumerate(starts):
 	print(f"{i + 1} / {len(starts)}", end="\r")
 	ff = [[-1 for _ in range(len(lines[0]))] for _ in range(len(lines))]

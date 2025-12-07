@@ -1,9 +1,8 @@
-from typing import List, Tuple
 
 # Save the Planet.
 # Use less Fossil Fuel.
 
-land: List[Tuple[int, int]] = []
+land: list[tuple[int, int]] = []
 
 n = int(input())  # the number of points used to draw the surface of Mars.
 for i in range(n):
@@ -11,7 +10,7 @@ for i in range(n):
 	# land_y: Y coordinate of a surface point. By linking all the points together in a sequential fashion, you form the surface of Mars.
 	land.append(tuple(map(int, input().split())))
 
-flat_x: Tuple[int, int] = (0, 0)
+flat_x: tuple[int, int] = (0, 0)
 flat_y: int = 0
 # find coord to land
 for i in range(len(land) - 1):

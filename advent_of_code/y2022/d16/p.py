@@ -3,7 +3,6 @@
 import heapq
 import re
 from os.path import dirname
-from typing import Dict, List, Set, Tuple
 
 from aocd import get_data
 
@@ -13,8 +12,8 @@ DATA: str = get_data(day=DAY, year=YEAR)
 
 lines = DATA.splitlines()
 
-d: Dict[str, Tuple[int, List[str]]] = {}
-pressure: Set[str] = set()
+d: dict[str, tuple[int, list[str]]] = {}
+pressure: set[str] = set()
 
 for l in lines:
 	s = re.sub("[(rate=};,]", "", l).split()
@@ -24,7 +23,7 @@ for l in lines:
 
 
 class Node:
-	def __init__(self, valve: str, time: int, released: int, visited: Set[str]):
+	def __init__(self, valve: str, time: int, released: int, visited: set[str]):
 		self.valve = valve
 		self.time = time
 		self.released = released

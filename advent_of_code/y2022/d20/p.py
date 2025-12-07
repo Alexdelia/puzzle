@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from os.path import dirname
-from typing import List, Optional, Tuple
+from typing import Optional
 
 from aocd import get_data
 
@@ -24,9 +24,9 @@ class Node:
 		self.next = next
 
 
-def parse(data: str, key: int = 1) -> List[Node]:
+def parse(data: str, key: int = 1) -> list[Node]:
 	lines = data.splitlines()
-	sequence: List[Node] = [Node(int(l) * key) for l in lines]
+	sequence: list[Node] = [Node(int(l) * key) for l in lines]
 
 	for a, b in zip(sequence, sequence[1:]):
 		a.next = b
@@ -38,7 +38,7 @@ def parse(data: str, key: int = 1) -> List[Node]:
 	return sequence
 
 
-def solve(sequence: List[Node], iteration: int) -> Tuple[int, int, int]:
+def solve(sequence: list[Node], iteration: int) -> tuple[int, int, int]:
 	for _ in range(iteration):
 		for node in sequence:
 			node.prev.next = node.next
@@ -55,7 +55,7 @@ def solve(sequence: List[Node], iteration: int) -> Tuple[int, int, int]:
 			b.prev = node
 			node.next = b
 
-	ret: List[int] = []
+	ret: list[int] = []
 	for node in sequence:
 		if node.n == 0:
 			t = node

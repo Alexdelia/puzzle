@@ -2,7 +2,7 @@
 
 import re
 from os.path import dirname
-from typing import List, Set, Tuple, Union
+from typing import Union
 
 from aocd import get_data
 
@@ -12,7 +12,7 @@ DATA: str = get_data(day=DAY, year=YEAR)
 
 lines = DATA.splitlines()
 
-moves: List[str] = []
+moves: list[str] = []
 
 for l in lines:
 	dir, n = l.split()
@@ -23,7 +23,7 @@ print(f"len(moves): {len(moves)}")
 
 
 # check if t is at the same position as h or in the 8 surrounding squares
-def check_9(head: Tuple[int, int], tail: Tuple[int, int]) -> bool:
+def check_9(head: tuple[int, int], tail: tuple[int, int]) -> bool:
 	x, y = tail
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):
@@ -32,7 +32,7 @@ def check_9(head: Tuple[int, int], tail: Tuple[int, int]) -> bool:
 	return False
 
 
-def check_4(head: Tuple[int, int], tail: Tuple[int, int]) -> bool:
+def check_4(head: tuple[int, int], tail: tuple[int, int]) -> bool:
 	x, y = tail
 	for dx, dy in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
 		if head == (x + dx, y + dy):
@@ -42,8 +42,8 @@ def check_4(head: Tuple[int, int], tail: Tuple[int, int]) -> bool:
 
 # the tail is too far away from the head, move it in the 8 surrounding squares of the head
 def find_4(
-	head: Tuple[int, int], tail: Tuple[int, int]
-) -> Union[Tuple[int, int], None]:
+	head: tuple[int, int], tail: tuple[int, int]
+) -> Union[tuple[int, int], None]:
 	x, y = tail
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):
@@ -53,8 +53,8 @@ def find_4(
 
 
 def find_9(
-	head: Tuple[int, int], tail: Tuple[int, int]
-) -> Union[Tuple[int, int], None]:
+	head: tuple[int, int], tail: tuple[int, int]
+) -> Union[tuple[int, int], None]:
 	x, y = tail
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):
@@ -65,7 +65,7 @@ def find_9(
 
 hx, hy = 0, 0
 tx, ty = 0, 0
-visited: Set[Tuple[int, int]] = set([(0, 0)])
+visited: set[tuple[int, int]] = set([(0, 0)])
 
 for m in moves:
 	if m == "U":
@@ -91,8 +91,8 @@ for m in moves:
 print(f"part 1:\t{len(visited)}")
 
 hx, hy = 0, 0
-tails: List[Tuple[int, int]] = [(0, 0)] * 9
-visited: Set[Tuple[int, int]] = set([(0, 0)])
+tails: list[tuple[int, int]] = [(0, 0)] * 9
+visited: set[tuple[int, int]] = set([(0, 0)])
 
 for m in moves:
 	if m == "U":

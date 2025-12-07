@@ -1,6 +1,6 @@
 import math
 import sys
-from typing import Any, List, Tuple, Union
+from typing import Any, Union
 
 # Auto-generated code below aims at helping you parse
 # the standard input according to the problem statement.
@@ -30,10 +30,10 @@ class Pod:
 	def __init__(
 		self, x: int, y: int, vx: int, vy: int, angle: int, next_x: int, next_y: int
 	):
-		self.c: Tuple[int, int] = (x, y)
-		self.s: Tuple[int, int] = (vx, vy)
-		self.prev: Tuple[int, int] = (x - vx, y - vy)
-		self.next_check: Tuple[int, int] = (next_x, next_y)
+		self.c: tuple[int, int] = (x, y)
+		self.s: tuple[int, int] = (vx, vy)
+		self.prev: tuple[int, int] = (x - vx, y - vy)
+		self.next_check: tuple[int, int] = (next_x, next_y)
 		self.dist: float = distance(x, y, next_x, next_y)
 		self.angle: int = angle
 		self.n_angle: float = self.calc_n_angle(x, y, next_x, next_y)
@@ -78,17 +78,17 @@ class Pod:
 			return r_angle + 360
 		return r_angle
 
-	def calc_xy_next_turn(self) -> Tuple[int, int]:
+	def calc_xy_next_turn(self) -> tuple[int, int]:
 		return self.c[0] + self.s[0], self.c[1] + self.s[1]
 
-	def should_boost(self, opponent: List[Any]) -> bool:
+	def should_boost(self, opponent: list[Any]) -> bool:
 		if abs(self.r_angle) < 3 and self.dist > 8000:
 			for o in opponent:
 				if distance(self.c[0], self.c[1], o.c[0], o.c[1]) > 2121:
 					return True
 		return False
 
-	def should_shield(self, opponent: List[Any]) -> bool:
+	def should_shield(self, opponent: list[Any]) -> bool:
 		# if Pod touch an opponent Pod next turn and the collision get the Pod further away from the next checkpoint, then shield
 		for o in opponent:
 			x, y = self.calc_xy_next_turn()
@@ -131,7 +131,7 @@ class Pod:
 
 		return (s_angle + s_dist) / 2
 
-	def get_thrust(self, opponent: List[Any]) -> Union[int, str]:
+	def get_thrust(self, opponent: list[Any]) -> Union[int, str]:
 		if abs(self.r_angle) > 90:
 			return 0
 
@@ -144,7 +144,7 @@ class Pod:
 
 		return int(100 * self.calc_thrust_factor())
 
-	def get_targeted_xy(self) -> Tuple[int, int]:
+	def get_targeted_xy(self) -> tuple[int, int]:
 		# depending on drift, apply a correction offset to the target
 		d_x = self.c[0] - self.prev[0]
 		d_y = self.c[1] - self.prev[1]
@@ -173,11 +173,11 @@ class Pod:
 
 
 class Env:
-	bot: List[Pod] = []
-	opponent: List[Pod] = []
+	bot: list[Pod] = []
+	opponent: list[Pod] = []
 	n_laps: int
 	n_check: int
-	check: List[Tuple[int, int]] = []
+	check: list[tuple[int, int]] = []
 
 	def init_info(self):
 		self.n_laps = int(input())

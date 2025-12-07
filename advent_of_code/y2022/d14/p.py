@@ -4,7 +4,7 @@ import re
 from enum import Enum
 from os.path import dirname
 from time import sleep
-from typing import List, Tuple, Union
+from typing import Union
 
 from aocd import get_data
 
@@ -28,11 +28,11 @@ class Elem(Enum):
 	SAND = 2
 
 
-m: List[List[Elem]] = [[Elem.EMPTY for _ in range(SIZE)] for _ in range(SIZE)]
+m: list[list[Elem]] = [[Elem.EMPTY for _ in range(SIZE)] for _ in range(SIZE)]
 
 max_y = -1
 for l in lines:
-	s: List[Tuple[int, int]] = [
+	s: list[tuple[int, int]] = [
 		(int(c.split(",")[0]), int(c.split(",")[1]))
 		for c in re.sub(r"->", "", l).split()
 	]
@@ -48,7 +48,7 @@ for l in lines:
 		i += 1
 
 
-def print_map(m: List[List[Elem]]):
+def print_map(m: list[list[Elem]]):
 	s = ""
 
 	for y in range(SIZE_Y):
@@ -65,7 +65,7 @@ def print_map(m: List[List[Elem]]):
 	print(s, flush=True)
 
 
-def search(m: List[List[Elem]], x: int, y: int) -> Union[Tuple[int, int], bool]:
+def search(m: list[list[Elem]], x: int, y: int) -> Union[tuple[int, int], bool]:
 	if y + 1 >= SIZE:
 		return False
 
@@ -81,7 +81,7 @@ def search(m: List[List[Elem]], x: int, y: int) -> Union[Tuple[int, int], bool]:
 	return True
 
 
-def sand(m: List[List[Elem]], x: int, y: int) -> bool:
+def sand(m: list[list[Elem]], x: int, y: int) -> bool:
 	res = (x, y)
 
 	while isinstance(res, tuple):

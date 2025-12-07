@@ -1,7 +1,6 @@
 import sys
-from typing import List
 
-m: List[List[bool]] = []
+m: list[list[bool]] = []
 
 w = int(input())
 h = int(input())

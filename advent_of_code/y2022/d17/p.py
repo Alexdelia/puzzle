@@ -2,7 +2,7 @@
 
 import re
 from os.path import dirname
-from typing import FrozenSet, List, Tuple, Union
+from typing import Union
 from time import time
 
 from aocd import get_data
@@ -15,13 +15,13 @@ DATA_EXAMPLE = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>"
 
 START = time()
 
-Coord = Tuple[int, int]
+Coord = tuple[int, int]
 
 SIZE_W = 7
 SIZE_H = 10_000
 
 
-def print_grid(m: List[List[bool]], h: int):
+def print_grid(m: list[list[bool]], h: int):
 	s = ""
 	for y in range(h + 1, 0, -1):
 		s += "|"
@@ -33,13 +33,13 @@ def print_grid(m: List[List[bool]], h: int):
 
 
 class Rock:
-	def __init__(self, rock: FrozenSet[Coord]):
+	def __init__(self, rock: frozenset[Coord]):
 		self.rock = rock
 		self.w = max(x for x, _ in rock) + 1
 		self.h = max(y for _, y in rock) + 1
 
 	def __repr__(self):
-		lines: List[List[str]] = [["🟤" for _ in range(self.w)] for _ in range(self.h)]
+		lines: list[list[str]] = [["🟤" for _ in range(self.w)] for _ in range(self.h)]
 		for x, y in self.rock:
 			lines[y][x] = "🟩"
 
@@ -49,14 +49,14 @@ class Rock:
 
 		return s
 
-	def can_fall(self, grid: List[List[bool]], x: int, y: int) -> bool:
+	def can_fall(self, grid: list[list[bool]], x: int, y: int) -> bool:
 		for rx, ry in self.rock:
 			if grid[x + rx][y + ry - 1]:
 				return False
 		return True
 
 	def can_move(
-		self, grid: List[List[bool]], x: int, y: int, dir: str
+		self, grid: list[list[bool]], x: int, y: int, dir: str
 	) -> Union[Coord, None]:
 		assert dir in "<>" and len(dir) == 1
 
@@ -73,8 +73,8 @@ class Rock:
 		return None
 
 	def move(
-		self, grid: List[List[bool]], c: Coord, actions: str, mi: int
-	) -> Tuple[Coord, int]:
+		self, grid: list[list[bool]], c: Coord, actions: str, mi: int
+	) -> tuple[Coord, int]:
 		x, y = c
 		res = self.can_move(grid, x, y, actions[mi])
 		if res is not None:
@@ -83,12 +83,12 @@ class Rock:
 
 		return ((x, y), mi)
 
-	def place(self, m: List[List[bool]], x: int, y: int):
+	def place(self, m: list[list[bool]], x: int, y: int):
 		for rx, ry in self.rock:
 			m[x + rx][y + ry] = True
 
 
-rocks: List[Rock] = [
+rocks: list[Rock] = [
 	Rock(
 		frozenset(
 			[
@@ -148,7 +148,7 @@ rocks: List[Rock] = [
 #     print(f"Rock {i}:\n{r}")
 
 
-def debug(grid: List[List[bool]], h: int, ri: int, c: Coord):
+def debug(grid: list[list[bool]], h: int, ri: int, c: Coord):
 	copy = [[False for _ in range(SIZE_H)] for _ in range(SIZE_W)]
 	for x in range(SIZE_W):
 		for y in range(SIZE_H):
@@ -158,7 +158,7 @@ def debug(grid: List[List[bool]], h: int, ri: int, c: Coord):
 
 
 def solve(actions: str, turns: int) -> int:
-	grid: List[List[bool]] = [[False for _ in range(SIZE_H)] for _ in range(SIZE_W)]
+	grid: list[list[bool]] = [[False for _ in range(SIZE_H)] for _ in range(SIZE_W)]
 
 	for x in range(SIZE_W):
 		grid[x][0] = True

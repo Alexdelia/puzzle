@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from os.path import dirname
-from typing import List, Tuple
 
 from aocd import get_data
 
@@ -14,13 +13,13 @@ DATA: str = get_data(day=DAY, year=YEAR)
 
 lines = DATA.splitlines()
 
-ms: List[Monkey] = []
+ms: list[Monkey] = []
 
 mtrick = 1
 
 
 class Throw:
-	def __init__(self, test: Tuple[str, str, str]):
+	def __init__(self, test: tuple[str, str, str]):
 		self.divisor = int(test[0].split()[-1])
 		self.t_id = int(test[1].split()[-1])
 		self.f_id = int(test[2].split()[-1])
@@ -67,8 +66,8 @@ class Operate:
 
 
 class Monkey:
-	def __init__(self, items: str, operation: str, test: Tuple[str, str, str]):
-		self.items: List[int] = [
+	def __init__(self, items: str, operation: str, test: tuple[str, str, str]):
+		self.items: list[int] = [
 			int(x)
 			for x in re.sub(",", "", re.sub("  Starting items: ", "", items)).split()
 		]
@@ -105,7 +104,7 @@ for i in range(20):
 		m.run(True)
 
 
-inspected: List[int] = sorted([m.n_inspect for m in ms])
+inspected: list[int] = sorted([m.n_inspect for m in ms])
 print(inspected)
 print(f"part 1:\t{inspected[-1] * inspected[-2]}")
 
@@ -125,6 +124,6 @@ for i in range(10000):
 	for m in ms:
 		m.run(False)
 
-inspected: List[int] = sorted([m.n_inspect for m in ms])
+inspected: list[int] = sorted([m.n_inspect for m in ms])
 print(inspected)
 print(f"part 2:\t{inspected[-1] * inspected[-2]}")

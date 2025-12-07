@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from typing import Dict
 
 from tqdm import tqdm
 
@@ -40,7 +39,7 @@ def _check_encoding(n: str, encode: str):
 	raise Exception("encoding failed")
 
 
-def encode() -> Dict[str, str]:
+def encode() -> dict[str, str]:
 	print("reading results from", RESULT, flush=True)
 
 	f = open(RESULT, "r")
@@ -80,7 +79,7 @@ def encode() -> Dict[str, str]:
 	return out
 
 
-def write(out: Dict[str, str]):
+def write(out: dict[str, str]):
 	print("writing results to", ANSWER, flush=True)
 
 	start = r"    answer = "

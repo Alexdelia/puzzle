@@ -1,5 +1,4 @@
 import sys
-from typing import List, Tuple
 
 # Auto-generated code below aims at helping you parse
 # the standard input according to the problem statement.
@@ -11,13 +10,13 @@ class Snail:
 		self.w: int = 0
 
 
-def manathan_distance(p1: Tuple[int, int], p2: Tuple[int, int]) -> int:
+def manathan_distance(p1: tuple[int, int], p2: tuple[int, int]) -> int:
 	return abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
 
 
-s: List[Snail] = []
-m: List[List[str]] = []
-t: List[Tuple[int, int]] = []
+s: list[Snail] = []
+m: list[list[str]] = []
+t: list[tuple[int, int]] = []
 
 n_s = int(input())
 for i in range(n_s):
