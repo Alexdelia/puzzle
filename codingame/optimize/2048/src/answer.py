@@ -1,6 +1,6 @@
 SIZE = 4
 CHUNK = 9000
-ENCODE = r"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&'()*+-./:;<=>?@[]^_`{|}~"
+ENCODE = r"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&'()*+-./:;<=>?@[]^_`{|}~"  # noqa: E501
 DECODE = r"UDLR"
 
 
@@ -25,12 +25,10 @@ def b10tob(n: int, key: str) -> str:
 	return ret[::-1]
 
 
-def get_input():
+def get_input() -> tuple[int, int, list[list[str]]]:
 	seed = int(input())
 	score = int(input())
-	grid = []
-	for _ in range(SIZE):
-		grid.append(input().split())
+	grid = [input().split() for _ in range(SIZE)]
 	return seed, score, grid
 
 
