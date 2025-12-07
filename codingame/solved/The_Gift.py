@@ -7,8 +7,7 @@ b: list[int] = []
 
 n = int(input())
 c = int(input())
-for i in range(n):
-	b.append(int(input()))
+b.extend(int(input()) for _ in range(n))
 
 r: list[int] = [0 for _ in range(n)]
 
