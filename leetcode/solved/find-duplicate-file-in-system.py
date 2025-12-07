@@ -1,13 +1,13 @@
 class Solution:
-	def findDuplicate(self, paths: List[str]) -> List[List[str]]:
+	def findDuplicate(self, paths: list[str]) -> list[list[str]]:  # noqa: N802
 		d = {}
-		for path in paths:
-			path = path.split()
-			for file in path[1:]:
-				file = file.split("(")
-				file[1] = file[1][:-1]
-				if file[1] in d:
-					d[file[1]].append(path[0] + "/" + file[0])
+		for p in paths:
+			ps = p.split()
+			for f in ps[1:]:
+				fs = f.split("(")
+				fs[1] = fs[1][:-1]
+				if fs[1] in d:
+					d[fs[1]].append(ps[0] + "/" + fs[0])
 				else:
-					d[file[1]] = [path[0] + "/" + file[0]]
+					d[fs[1]] = [ps[0] + "/" + fs[0]]
 		return [v for v in d.values() if len(v) > 1]
