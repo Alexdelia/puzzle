@@ -104,7 +104,7 @@ def simulate(deer_list: list[Deer], simulation_second: int) -> None:
 	for _ in range(simulation_second):
 		lead_dist = 0
 
-		for i, deer in enumerate(deer_list):
+		for deer in deer_list:
 			deer.simulate_second()
 
 			lead_dist = max(lead_dist, deer.traveled)
