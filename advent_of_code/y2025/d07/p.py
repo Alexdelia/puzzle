@@ -41,8 +41,8 @@ def solve(data: str, visualize: bool = False) -> tuple[int, int]:
 		print(f"\033[{len(lines[0]) + 1}F", end="")
 		sleep(3)
 
-	cur_beam: list[bool] = [c == "S" for c in lines[0]]
-	next_beam: list[bool]
+	cur_beam: list[int] = [[0, 1][c == "S"] for c in lines[0]]
+	next_beam: list[int]
 
 	if visualize:
 		print("".join((STAR_CHAR if c == "S" else EMPTY_CHAR) for c in lines[0]))
@@ -50,23 +50,25 @@ def solve(data: str, visualize: bool = False) -> tuple[int, int]:
 	p1 = 0
 
 	for line in lines[1:]:
-		next_beam = [False] * len(line)
+		next_beam = [0] * len(line)
 
 		for i, c in enumerate(line):
 			if cur_beam[i]:
 				if c == "^":
-					next_beam[i - 1] = True
-					next_beam[i + 1] = True
+					next_beam[i - 1] += cur_beam[i]
+					next_beam[i + 1] += cur_beam[i]
 					p1 += 1
 				else:
-					next_beam[i] = True
+					next_beam[i] += cur_beam[i]
 
 		if visualize:
 			print_line(line, cur_beam)
 
 		cur_beam = next_beam
 
-	return (p1, 0)
+	p2 = sum(cur_beam)
+
+	return (p1, p2)
 
 
 test = """\
@@ -87,7 +89,7 @@ test = """\
 .^.^.^.^.^...^.
 ...............
 """
-expected = (21, 0)
+expected = (21, 40)
 got = solve(test)
 assert expected[0] == got[0], (
 	f"part 1 test failed: expected {expected[0]}, got {got[0]}"
