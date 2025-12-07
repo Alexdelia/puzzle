@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 from enum import Enum
 
@@ -7,6 +8,29 @@ SECOND_DIVIDER = 100
 
 TEST_SIMULATION_SECOND = 1000
 PART_1_SIMULATION_SECOND = 2503
+
+COLOR_SELECTION = [
+	"\033[38;2;255;64;64m",
+	"\033[38;2;64;255;64m",
+	"\033[38;2;64;64;255m",
+	"\033[38;2;255;255;64m",
+	"\033[38;2;64;255;255m",
+	"\033[38;2;255;64;255m",
+	"\033[38;2;255;128;64m",
+	"\033[38;2;64;255;128m",
+	"\033[38;2;128;64;255m",
+]
+
+DEER_SYMBOL = " "
+LEADING_SYMBOL = "󰔸 "
+
+REST_SYMBOL = "󰒲 "
+
+FLY_COLOR = "\033[1m"
+REST_COLOR = "\033[2m"
+LEADING_COLOR = "\033[0;1;38;2;255;215;0m"
+
+WALL_COLOR = "\033[0;2m"
 
 
 class State(Enum):
@@ -27,6 +51,8 @@ class Deer:
 
 	score: int
 
+	leading: bool
+
 	def __init__(  # noqa: PLR0913
 		self,
 		name: str,
@@ -38,6 +64,7 @@ class Deer:
 		resting_for: int = 0,
 		traveled: int = 0,
 		score: int = 0,
+		leading: bool = False,
 	) -> None:
 		self.name = name
 		self.speed = speed
@@ -48,6 +75,7 @@ class Deer:
 		self.resting_for = resting_for
 		self.traveled = traveled
 		self.score = score
+		self.leading = leading
 
 	def __eq__(self, other: object) -> bool:
 		if not isinstance(other, Deer):
@@ -100,8 +128,127 @@ def parse(data: str) -> list[Deer]:
 	return rule
 
 
-def simulate(deer_list: list[Deer], simulation_second: int) -> None:
-	for _ in range(simulation_second):
+def visualize_second(
+	second: int,
+	max_second: int,
+	deer_list: list[Deer],
+	max_distance: int,
+) -> None:
+	deer_len = len(deer_list)
+	w = os.get_terminal_size().columns
+	print(w)
+
+	buf = ""
+
+	if second == 0:
+		buf += "\033c"
+	else:
+		# buf += f"\033[{deer_len}F"
+		buf += "===\n"
+
+	buf += WALL_COLOR + "╭" + "─" * (w - 2) + "╮\n"
+
+	# second counter
+	percent = second / max_second * 100
+	counter = f"\033[0;1m{second}\033[0m/{max_second} \033[1m{percent:.2f}\033[0m%"
+	counter_len = len(f"{second}/{max_second} {percent:.2f}%")
+	left_pad = (w - counter_len) // 2
+	right_pad = w - counter_len - left_pad
+	buf += (
+		WALL_COLOR
+		+ "│"
+		+ " " * (left_pad - 1)
+		+ counter
+		+ " " * (right_pad - 1)
+		+ WALL_COLOR
+		+ "│\n"
+	)
+
+	def get_deer_color(deer: Deer, index: int) -> str:
+		color: str = COLOR_SELECTION[index % len(COLOR_SELECTION)]
+		if deer.state == State.FLYING:
+			color += FLY_COLOR
+		else:
+			color += REST_COLOR
+		return color
+
+	# deer scoreboard
+	score_board_w = (w - 2) // len(deer_list)
+	g_pad = (w - 2 - score_board_w * len(deer_list)) // 2
+	l_pad = g_pad + 1
+	r_pad = g_pad
+	buf += (
+		WALL_COLOR
+		+ "│"
+		+ " " * l_pad
+		+ (("╭" + "─" * (score_board_w - 3) + "╮ ") * len(deer_list))
+		+ " " * r_pad
+		+ "│\n"
+	)
+
+	## deer name and state
+	buf += WALL_COLOR + "│" + " " * l_pad
+	for i, deer in enumerate(deer_list):
+		color = get_deer_color(deer, i)
+
+		symbol = DEER_SYMBOL if deer.state == State.FLYING else REST_SYMBOL
+
+		buf += (
+			WALL_COLOR
+			+ "│   "
+			+ color
+			+ f"{deer.name:^{score_board_w - 8}}"
+			+ symbol
+			+ WALL_COLOR
+			+ "│ "
+		)
+	buf += " " * r_pad + "│\n"
+
+	## deer distance
+	buf += WALL_COLOR + "│" + " " * l_pad
+	for deer in deer_list:
+		leading = LEADING_COLOR + LEADING_SYMBOL if deer.leading else "  "
+		buf += (
+			WALL_COLOR
+			+ f"│{leading}\033[0;2mkm: \033[0;1m{deer.traveled:>{score_board_w - 11}}  "
+			+ WALL_COLOR
+			+ "│ "
+		)
+	buf += " " * r_pad + "│\n"
+
+	## deer score
+	buf += WALL_COLOR + "│" + " " * l_pad
+	top_score = max(deer.score for deer in deer_list)
+	for deer in deer_list:
+		leading_dist = LEADING_COLOR + "+1" if deer.leading else "  "
+		leading_score = (
+			LEADING_COLOR + LEADING_SYMBOL if deer.score == top_score else "  "
+		)
+
+		buf += (
+			WALL_COLOR
+			+ "│"
+			+ str(leading_score)
+			+ f"\033[0;2mpoints: \033[0;1m{deer.score:>{score_board_w - 15}}"
+			+ str(leading_dist)
+			+ WALL_COLOR
+			+ "│ "
+		)
+	buf += " " * r_pad + "│\n"
+
+	print(buf, end="")
+
+
+def simulate(
+	deer_list: list[Deer],
+	simulation_second: int,
+	visualize: bool = False,
+	max_distance: int = 0,
+) -> None:
+	if visualize:
+		visualize_second(0, simulation_second, deer_list, max_distance)
+
+	for second in range(simulation_second):
 		lead_dist = 0
 
 		for deer in deer_list:
@@ -112,6 +259,12 @@ def simulate(deer_list: list[Deer], simulation_second: int) -> None:
 		for deer in deer_list:
 			if deer.traveled == lead_dist:
 				deer.score += 1
+				deer.leading = True
+			else:
+				deer.leading = False
+
+		if visualize:
+			visualize_second(second + 1, simulation_second, deer_list, max_distance)
 
 
 def solve(
@@ -121,7 +274,11 @@ def solve(
 ) -> tuple[int, int]:
 	deer_list = parse(data)
 
-	simulate(deer_list, simulation_second)
+	max_distance = 0
+	if visualize:
+		max_distance, _ = solve(data, simulation_second, visualize=False)
+
+	simulate(deer_list, simulation_second, visualize, max_distance)
 
 	p1 = max(deer.traveled for deer in deer_list)
 	p2 = max(deer.score for deer in deer_list)
