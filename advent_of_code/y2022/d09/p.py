@@ -2,7 +2,6 @@
 
 import re
 from os.path import dirname
-from typing import Union
 
 from aocd import get_data
 
@@ -43,7 +42,7 @@ def check_4(head: tuple[int, int], tail: tuple[int, int]) -> bool:
 # the tail is too far away from the head, move it in the 8 surrounding squares of the head
 def find_4(
 	head: tuple[int, int], tail: tuple[int, int]
-) -> Union[tuple[int, int], None]:
+) -> tuple[int, int] | None:
 	x, y = tail
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):
@@ -54,7 +53,7 @@ def find_4(
 
 def find_9(
 	head: tuple[int, int], tail: tuple[int, int]
-) -> Union[tuple[int, int], None]:
+) -> tuple[int, int] | None:
 	x, y = tail
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):

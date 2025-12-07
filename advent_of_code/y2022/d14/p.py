@@ -4,7 +4,6 @@ import re
 from enum import Enum
 from os.path import dirname
 from time import sleep
-from typing import Union
 
 from aocd import get_data
 
@@ -65,7 +64,7 @@ def print_map(m: list[list[Elem]]):
 	print(s, flush=True)
 
 
-def search(m: list[list[Elem]], x: int, y: int) -> Union[tuple[int, int], bool]:
+def search(m: list[list[Elem]], x: int, y: int) -> tuple[int, int] | bool:
 	if y + 1 >= SIZE:
 		return False
 

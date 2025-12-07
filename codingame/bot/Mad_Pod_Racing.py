@@ -1,6 +1,6 @@
 import math
 import sys
-from typing import Any, Union
+from typing import Any
 
 # Auto-generated code below aims at helping you parse
 # the standard input according to the problem statement.
@@ -131,7 +131,7 @@ class Pod:
 
 		return (s_angle + s_dist) / 2
 
-	def get_thrust(self, opponent: list[Any]) -> Union[int, str]:
+	def get_thrust(self, opponent: list[Any]) -> int | str:
 		if abs(self.r_angle) > 90:
 			return 0
 

@@ -3,7 +3,6 @@
 import re
 from copy import deepcopy
 from os.path import dirname
-from typing import Union
 
 from aocd import get_data
 
@@ -29,8 +28,8 @@ hmdt: 32
 """
 
 
-def parse(data: str) -> dict[str, Union[int, str]]:
-	d: dict[str, Union[int, str]] = {}
+def parse(data: str) -> dict[str, int | str]:
+	d: dict[str, int | str] = {}
 
 	for l in data.splitlines():
 		name, value = l.split(": ")
@@ -39,7 +38,7 @@ def parse(data: str) -> dict[str, Union[int, str]]:
 	return d
 
 
-def get_value(d: dict[str, Union[int, str]], name: str) -> int:
+def get_value(d: dict[str, int | str], name: str) -> int:
 	try:
 		value = d[name]
 	except KeyError:
@@ -55,7 +54,7 @@ def get_value(d: dict[str, Union[int, str]], name: str) -> int:
 	return n
 
 
-def use_name(d: dict[str, Union[int, str]], root: str, name: str) -> bool:
+def use_name(d: dict[str, int | str], root: str, name: str) -> bool:
 	value = d[root]
 
 	if isinstance(value, int):
@@ -68,7 +67,7 @@ def use_name(d: dict[str, Union[int, str]], root: str, name: str) -> bool:
 	return use_name(d, n1, name) or use_name(d, n2, name)
 
 
-def find_branch(d: dict[str, Union[int, str]], root: str, name: str) -> tuple[str, str]:
+def find_branch(d: dict[str, int | str], root: str, name: str) -> tuple[str, str]:
 	r = d[root]
 	assert isinstance(r, str)
 
@@ -95,7 +94,7 @@ def find_branch(d: dict[str, Union[int, str]], root: str, name: str) -> tuple[st
 	return (ret[0], nret[0])
 
 
-def equation(d: dict[str, Union[int, str]], root: str, name: str) -> str:
+def equation(d: dict[str, int | str], root: str, name: str) -> str:
 	if root == name:
 		return f"({name})"
 
