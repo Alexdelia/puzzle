@@ -25,6 +25,8 @@ class Deer:
 	resting_for: int
 	traveled: int
 
+	score: int
+
 	def __init__(  # noqa: PLR0913
 		self,
 		name: str,
@@ -35,6 +37,7 @@ class Deer:
 		flying_for: int = 0,
 		resting_for: int = 0,
 		traveled: int = 0,
+		score: int = 0,
 	) -> None:
 		self.name = name
 		self.speed = speed
@@ -44,6 +47,7 @@ class Deer:
 		self.flying_for = flying_for
 		self.resting_for = resting_for
 		self.traveled = traveled
+		self.score = score
 
 	def __eq__(self, other: object) -> bool:
 		if not isinstance(other, Deer):
@@ -98,8 +102,16 @@ def parse(data: str) -> list[Deer]:
 
 def simulate(deer_list: list[Deer], simulation_second: int) -> None:
 	for _ in range(simulation_second):
-		for deer in deer_list:
+		lead_dist = 0
+
+		for i, deer in enumerate(deer_list):
 			deer.simulate_second()
+
+			lead_dist = max(lead_dist, deer.traveled)
+
+		for deer in deer_list:
+			if deer.traveled == lead_dist:
+				deer.score += 1
 
 
 def solve(
@@ -112,8 +124,9 @@ def solve(
 	simulate(deer_list, simulation_second)
 
 	p1 = max(deer.traveled for deer in deer_list)
+	p2 = max(deer.score for deer in deer_list)
 
-	return (p1, 0)
+	return (p1, p2)
 
 
 test = """\
@@ -143,7 +156,7 @@ for i, deer in enumerate(deer_list):
 	)
 
 
-expected = (1120, 0)
+expected = (1120, 689)
 got = solve(test, TEST_SIMULATION_SECOND)
 assert expected[0] == got[0], (
 	f"part 1 test failed: expected {expected[0]}, got {got[0]}"
