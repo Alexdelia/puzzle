@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
 
-from tqdm import tqdm
-
 from src.answer import DECODE, ENCODE, b10tob, btob10
+from tqdm import tqdm
 
 assert len(ENCODE) == len(set(ENCODE)), "ENCODE must be unique"
 assert len(DECODE) == len(set(DECODE)), "DECODE must be unique"
