@@ -4,7 +4,7 @@ n = d = 1
 np = dp = 10
 
 t = 0
-for k in range(N):
+for _ in range(N):
 	n, d = n + 2 * d, n + d
 
 	if n >= np:
