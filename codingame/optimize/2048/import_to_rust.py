@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+from pathlib import Path
+
 RESULT = ".2048_results.out"
 ANSWER = "./src/answer.rs"
 
-f = open(RESULT)
+f = Path.open(RESULT)
 out = []
 for line in f:
 	l = line.split()
@@ -13,7 +15,7 @@ f.close()
 start = r"    let d: HashMap<Seed, &str> = HashMap::from("
 line = start + str(out).replace("'", '"') + ");\n"
 
-f = open(ANSWER)
+f = Path.open(ANSWER)
 lines = f.readlines()
 f.close()
 
@@ -22,6 +24,6 @@ for i, l in enumerate(lines):
 		lines[i] = line
 		break
 
-f = open(ANSWER, "w")
+f = Path.open(ANSWER, "w")
 f.writelines(lines)
 f.close()
