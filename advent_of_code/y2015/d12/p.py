@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
+import json
 import re
 import sys
-import json
 
 
 def parse_obj(obj: dict[str, any] | list[any] | int | str) -> int:

@@ -2,8 +2,8 @@
 
 import sys
 from collections.abc import Iterator
-from typing import NamedTuple
 from time import sleep
+from typing import NamedTuple
 
 NEIGHBORS_THRESHOLD = 4
 
