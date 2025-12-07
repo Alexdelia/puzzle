@@ -4,7 +4,7 @@ import re
 from ast import literal_eval
 from functools import cmp_to_key
 from os.path import dirname
-from typing import Any, Union
+from typing import Any
 
 from aocd import get_data
 
@@ -15,7 +15,7 @@ DATA: str = get_data(day=DAY, year=YEAR)
 lines = DATA.splitlines()
 
 
-def comp(lhs: Union[list[int], int], rhs: Union[list[int], int]) -> int:
+def comp(lhs: list[int] | int, rhs: list[int] | int) -> int:
 	if isinstance(lhs, int) and isinstance(rhs, int):
 		if lhs < rhs:
 			return -1

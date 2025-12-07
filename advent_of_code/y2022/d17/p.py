@@ -2,7 +2,6 @@
 
 import re
 from os.path import dirname
-from typing import Union
 from time import time
 
 from aocd import get_data
@@ -57,7 +56,7 @@ class Rock:
 
 	def can_move(
 		self, grid: list[list[bool]], x: int, y: int, dir: str
-	) -> Union[Coord, None]:
+	) -> Coord | None:
 		assert dir in "<>" and len(dir) == 1
 
 		if dir == "<" and x > 0:
