@@ -38,6 +38,7 @@ ignore = [
 	"D415", # missing-terminal-punctuation
 	"INP001", # implicit-namespace-package
 	"PLR2004", # magic-value-comparison
+	"TRY002", # raise-vanilla-class
 	"TRY003", # raise-vanilla-args
 	"EM101", # raw-string-in-exception
 	"EM102", # f-string-in-exception
