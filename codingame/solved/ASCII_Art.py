@@ -5,7 +5,7 @@ d: dict[str, list[str]] = {"?": []}
 w = int(input())
 h = int(input())
 t = input()
-for i in range(h):
+for _ in range(h):
 	row = input()
 	for a in range(26):
 		if string.ascii_uppercase[a] not in d:
