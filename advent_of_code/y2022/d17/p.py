@@ -3,7 +3,7 @@
 import re
 from os.path import dirname
 from typing import FrozenSet, List, Tuple, Union
-from time import sleep, time
+from time import time
 
 from aocd import get_data
 

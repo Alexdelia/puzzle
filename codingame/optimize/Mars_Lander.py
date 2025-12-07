@@ -1,5 +1,3 @@
-import math
-import sys
 from typing import List, Tuple
 
 # Save the Planet.

@@ -1,6 +1,4 @@
-import math
 import string
-import sys
 from typing import Dict, List
 
 d: Dict[str, List[str]] = {"?": []}

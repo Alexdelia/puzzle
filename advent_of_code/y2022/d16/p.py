@@ -3,7 +3,7 @@
 import heapq
 import re
 from os.path import dirname
-from typing import Dict, List, Set, Tuple, Union
+from typing import Dict, List, Set, Tuple
 
 from aocd import get_data
 
