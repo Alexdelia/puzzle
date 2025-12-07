@@ -3,11 +3,12 @@
 import os
 import sys
 from enum import Enum
-
-SECOND_DIVIDER = 100
+from time import sleep
 
 TEST_SIMULATION_SECOND = 1000
 PART_1_SIMULATION_SECOND = 2503
+
+FLY_DELAY = 0.05
 
 COLOR_SELECTION = [
 	"\033[38;2;255;64;64m",
@@ -128,23 +129,21 @@ def parse(data: str) -> list[Deer]:
 	return rule
 
 
-def visualize_second(
+def visualize_second(  # noqa: PLR0915
 	second: int,
 	max_second: int,
 	deer_list: list[Deer],
 	max_distance: int,
 ) -> None:
-	deer_len = len(deer_list)
 	w = os.get_terminal_size().columns
-	print(w)
 
 	buf = ""
 
 	if second == 0:
 		buf += "\033c"
 	else:
-		# buf += f"\033[{deer_len}F"
-		buf += "===\n"
+		h = 7 + 6 + len(deer_list) * 5 + 2
+		buf += f"\033[{h}F"
 
 	buf += WALL_COLOR + "╭" + "─" * (w - 2) + "╮\n"
 
@@ -236,7 +235,48 @@ def visualize_second(
 		)
 	buf += " " * r_pad + "│\n"
 
-	print(buf, end="")
+	# close scoreboard
+	buf += (
+		WALL_COLOR
+		+ "│"
+		+ " " * l_pad
+		+ (("╰" + "─" * (score_board_w - 3) + "╯ ") * len(deer_list))
+		+ " " * r_pad
+		+ "│\n"
+	)
+
+	# spacing
+	buf += WALL_COLOR + "│" + " " * (w - 2) + "│\n"
+
+	len_deer_symbol = len(DEER_SYMBOL)
+	# distance visualization
+	for i, deer in enumerate(deer_list):
+		ratio = deer.traveled / max_distance
+		pos = int(ratio * (w - 2))
+
+		l_pad = min(pos, (w - 2) - len_deer_symbol)
+		r_pad = (w - 2) - pos - len_deer_symbol
+
+		color = get_deer_color(deer, i)
+		symbol = DEER_SYMBOL if deer.state == State.FLYING else REST_SYMBOL
+
+		buf += (
+			WALL_COLOR
+			+ "│"
+			+ "." * l_pad
+			+ color
+			+ symbol
+			+ " " * r_pad
+			+ WALL_COLOR
+			+ "│\n"
+		)
+
+	buf += WALL_COLOR + "╰" + "─" * (w - 2) + "╯\n"
+
+	print(buf, end="\033[0m")
+
+	if any(deer.state == State.FLYING for deer in deer_list):
+		sleep(FLY_DELAY)
 
 
 def simulate(
