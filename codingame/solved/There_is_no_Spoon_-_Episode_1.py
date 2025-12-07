@@ -1,11 +1,10 @@
 import sys
-from typing import List
 
 w = int(input())  # the number of cells on the X axis
 h = int(input())  # the number of cells on the Y axis
 print(w, h, file=sys.stderr)
 
-m: List[List[str]] = []
+m: list[list[str]] = []
 
 for x in range(h):
 	m.append([])

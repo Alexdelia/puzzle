@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from os.path import dirname
-from typing import Dict, List
 
 from aocd import get_data
 
@@ -35,8 +34,8 @@ class Dir:
 	def __init__(self, name: str, parent: Dir):
 		self.name: str = name
 		self.parent: Dir = parent
-		self.dir: Dict[str, Dir] = {}
-		self.file: List[File] = []
+		self.dir: dict[str, Dir] = {}
+		self.file: list[File] = []
 		self.size: int = 0
 
 	def __repr__(self):
@@ -87,7 +86,7 @@ assert s == root.size
 
 
 # find all dir with size < SIZE
-def find_small_dir(root: Dir) -> List[Dir]:
+def find_small_dir(root: Dir) -> list[Dir]:
 	dirs = []
 	if root.size < P1_SIZE:
 		dirs.append(root)

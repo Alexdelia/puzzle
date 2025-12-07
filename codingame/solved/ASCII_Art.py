@@ -1,7 +1,6 @@
 import string
-from typing import Dict, List
 
-d: Dict[str, List[str]] = {"?": []}
+d: dict[str, list[str]] = {"?": []}
 
 w = int(input())
 h = int(input())

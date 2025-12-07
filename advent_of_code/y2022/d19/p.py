@@ -4,7 +4,7 @@ import re
 from enum import Enum
 from itertools import combinations_with_replacement
 from os.path import dirname
-from typing import List, NamedTuple, Tuple
+from typing import NamedTuple
 
 from aocd import get_data
 
@@ -34,17 +34,17 @@ TOres = NamedTuple(
 	],
 )
 
-LOres = List[int]
+LOres = list[int]
 
-Blueprint = Tuple[TOres, TOres, TOres, TOres]
+Blueprint = tuple[TOres, TOres, TOres, TOres]
 
-bs: List[Blueprint] = []
+bs: list[Blueprint] = []
 
 for l in lines:
-	b: List[TOres] = []
+	b: list[TOres] = []
 	for r in re.finditer(r"Each (\w+) robot costs (\d+ \w+).*?(\d+ \w+)?\.", l):
 		robot, *ores = r.groups()
-		sorted_ore: List[int] = [0, 0, 0, 0]
+		sorted_ore: list[int] = [0, 0, 0, 0]
 		for o in ores:
 			if o:
 				n, name = o.split()
@@ -54,12 +54,12 @@ for l in lines:
 
 
 class Game:
-	def __init__(self, time: int, b: Blueprint, actions: Tuple[int, ...]):
+	def __init__(self, time: int, b: Blueprint, actions: tuple[int, ...]):
 		self.time: int = time
 		self.b: Blueprint = b
 		self.r: LOres = [1, 0, 0, 0]
 		self.o: LOres = [0, 0, 0, 0]
-		self.actions: Tuple[int, ...] = actions
+		self.actions: tuple[int, ...] = actions
 
 	def solve(self) -> int:
 		while self.time > 0:

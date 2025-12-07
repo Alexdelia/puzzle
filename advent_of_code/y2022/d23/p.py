@@ -2,7 +2,6 @@
 
 import re
 from os.path import dirname
-from typing import List, Tuple
 
 from aocd import get_data
 
@@ -26,7 +25,7 @@ DATA_EXAMPLE = """\
 """
 
 SIZE = 1000
-GRID = List[List[bool]]
+GRID = list[list[bool]]
 
 
 def parse(data: str) -> GRID:
@@ -44,7 +43,7 @@ def parse(data: str) -> GRID:
 	return grid
 
 
-def decide(grid: GRID, x: int, y: int) -> Tuple[int, int]:
+def decide(grid: GRID, x: int, y: int) -> tuple[int, int]:
 	if not grid[x - 1][y - 1] and not grid[x - 1][y] and not grid[x - 1][y + 1]:
 		return (x - 1, y)
 	elif not grid[x + 1][y - 1] and not grid[x + 1][y] and not grid[x + 1][y + 1]:

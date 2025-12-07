@@ -2,11 +2,10 @@
 
 import re
 from os.path import dirname
-from typing import List, Set, Tuple
 
 from aocd import get_data
 
-Coord = Tuple[int, int]
+Coord = tuple[int, int]
 
 DAY = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-1]))
 YEAR = int(re.sub(r"[^0-9]", "", dirname(__file__).split("/")[-2]))
@@ -14,7 +13,7 @@ DATA: str = get_data(day=DAY, year=YEAR)
 
 lines = DATA.splitlines()
 
-sensors: Set[Tuple[Coord, Coord]] = set()
+sensors: set[tuple[Coord, Coord]] = set()
 
 for l in lines:
 	l = re.sub(r"[^0-9,:-]", "", l)
@@ -31,7 +30,7 @@ def dist(a: Coord, b: Coord) -> int:
 	return abs(b[0] - a[0]) + abs(b[1] - a[1])
 
 
-def merge_range(r: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+def merge_range(r: list[tuple[int, int]]) -> list[tuple[int, int]]:
 	r.sort(key=lambda x: x[0])
 	ret = []
 
@@ -48,8 +47,8 @@ def merge_range(r: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
 	return ret
 
 
-def process_row(row: int) -> List[Tuple[int, int]]:
-	r: List[Tuple[int, int]] = []
+def process_row(row: int) -> list[tuple[int, int]]:
+	r: list[tuple[int, int]] = []
 
 	for s in sensors:
 		n = dist(s[0], s[1]) - abs(row - s[0][1])

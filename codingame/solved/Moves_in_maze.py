@@ -1,7 +1,6 @@
-from typing import List, Tuple
 
 w, h = [int(i) for i in input().split()]
-m: List[List[int]] = [[-42 for _ in range(w)] for _ in range(h)]
+m: list[list[int]] = [[-42 for _ in range(w)] for _ in range(h)]
 sx: int = 0
 sy: int = 0
 
@@ -13,7 +12,7 @@ for x in range(h):
 			sx, sy = x, y
 
 
-def periodic(x: int, y: int) -> Tuple[int, int]:
+def periodic(x: int, y: int) -> tuple[int, int]:
 	if x < 0:
 		x = h - 1
 	elif x >= h:
@@ -38,7 +37,7 @@ def valid(x: int, y: int, v: int) -> bool:
 
 
 def flood_fill(x: int, y: int, v: int) -> None:
-	q: List[Tuple[int, int, int]] = [(x, y, v)]
+	q: list[tuple[int, int, int]] = [(x, y, v)]
 
 	while q:
 		x, y, v = q.pop()

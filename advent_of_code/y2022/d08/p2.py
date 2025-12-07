@@ -2,7 +2,6 @@
 
 import re
 from os.path import dirname
-from typing import List
 
 from aocd import get_data
 
@@ -12,7 +11,7 @@ DATA: str = get_data(day=DAY, year=YEAR)
 
 lines = DATA.splitlines()
 
-grid: List[List[int]] = [[int(tree) for tree in l] for l in lines]
+grid: list[list[int]] = [[int(tree) for tree in l] for l in lines]
 scenic = -1
 
 SIZE_X = len(grid)
