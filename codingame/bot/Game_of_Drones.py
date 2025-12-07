@@ -6,7 +6,7 @@ import sys
 
 
 class Zone:
-	def __init__(self, x: int, y: int, owner: int):
+	def __init__(self, x: int, y: int, owner: int) -> None:
 		self.x = x
 		self.y = y
 		self.owner = owner
@@ -14,22 +14,25 @@ class Zone:
 		self.to_beat = 0
 		self.d: list[int] = []
 
-	def __repr__(self):
-		return f"\t({self.x}, {self.y})\n\tO: {self.owner}\n\tC: {self.cost}\n\tto_beat:{self.to_beat}"
+	def __repr__(self) -> str:
+		return (
+			f"\t({self.x}, {self.y})\n\tO: {self.owner}\n\t"
+			f"C: {self.cost}\n\tto_beat:{self.to_beat}"
+		)
 
 
 class Drone:
-	def __init__(self, x: int, y: int):
+	def __init__(self, x: int, y: int) -> None:
 		self.x = x
 		self.y = y
 		self.target: tuple[int, int] = (x, y)
 
-	def __repr__(self):
+	def __repr__(self) -> str:
 		return f"\t({self.x}, {self.y})\n\tT: {self.target}"
 
 
 class Env:
-	def __init__(self):
+	def __init__(self) -> None:
 		# n_p: number of players in the game (2 to 4 players)
 		# _id: ID of your player (0, 1, 2, or 3)
 		# n_d: number of drones in each team (3 to 11)
@@ -42,16 +45,18 @@ class Env:
 		self.z: list[Zone] = []  # will be min heap
 		self.free_d: list[int] = []
 
-	def init_info(self):
+	def init_info(self) -> None:
 		self.n_p, self._id, self.n_d, self.n_z = [int(i) for i in input().split()]
 		for _ in range(self.n_z):
-			# x: corresponds to the position of the center of a zone. A zone is a circle with a radius of 100 units.
+			# x: corresponds to the position of the center of a zone.
+			# A zone is a circle with a radius of 100 units.
 			x, y = [int(j) for j in input().split()]
 			self.z.append(Zone(x, y, -1))
 
-	def get_info(self):
+	def get_info(self) -> None:
 		for i in range(self.n_z):
-			# ID of the team controlling the zone (0, 1, 2, or 3) or -1 if it is not controlled.
+			# ID of the team controlling the zone (0, 1, 2, or 3)
+			# or -1 if it is not controlled.
 			tid = int(input())
 			self.z[i].owner = tid
 
@@ -67,7 +72,7 @@ class Env:
 					self.d[pid][did].x = x
 					self.d[pid][did].y = y
 
-	def debug(self):
+	def debug(self) -> None:
 		print("Zones:", file=sys.stderr)
 		for zid, z in enumerate(self.z):
 			print(f"{zid}: {z}")
@@ -102,10 +107,7 @@ class Env:
 	def get_nearest_did(self, x: int, y: int, free: bool = False) -> int:
 		min_dist = sys.maxsize
 		min_id = -1
-		if free:
-			d = self.free_d
-		else:
-			d = list(range(self.n_d))
+		d = self.free_d if free else list(range(self.n_d))
 		for did in d:
 			dist = self.get_distance(
 				x, y, self.d[self._id][did].x, self.d[self._id][did].y
@@ -115,7 +117,7 @@ class Env:
 				min_id = did
 		return min_id
 
-	def update_to_beat(self):
+	def update_to_beat(self) -> None:
 		for z in self.z:
 			z.to_beat = 0
 		for pid in range(self.n_p):
@@ -127,7 +129,7 @@ class Env:
 						z.to_beat += 1
 						break
 
-	def update_d_in_z(self):
+	def update_d_in_z(self) -> None:
 		for z in self.z:
 			z.d = []
 		for did, d in enumerate(self.d[self._id]):
@@ -136,7 +138,7 @@ class Env:
 					z.d.append(did)
 					break
 
-	def update_free_d(self):
+	def update_free_d(self) -> None:
 		self.free_d = []
 		for did, d in enumerate(self.d[self._id]):
 			if d.target[0] == d.x and d.target[1] == d.y:
@@ -150,16 +152,17 @@ class Env:
 					self.free_d.remove(did)
 					z.d.remove(did)
 
-	def update_cost(self):
+	def update_cost(self) -> None:
 		for z in self.z:
 			z.cost = z.to_beat - len(z.d) + 1
 
-	def update_target(self):
+	def update_target(self) -> None:
 		queue = self.create_queue()
 		for l in queue:
 			for zid in l:
-				# doesnt' involve finding best match between free_d and all zid from queue[cost]
-				did = self.get_nearest_did(self.z[zid].x, self.z[zid].y, True)
+				# does not involve finding best match between
+				# free_d and all zid from queue[cost]
+				did = self.get_nearest_did(self.z[zid].x, self.z[zid].y, free=True)
 				if did == -1:
 					return
 				self.d[self._id][did].target = (self.z[zid].x, self.z[zid].y)
@@ -193,4 +196,4 @@ while True:
 	# e.debug()
 
 	for did in range(e.n_d):
-		print(f"{e.d[e._id][did].target[0]} {e.d[e._id][did].target[1]}")
+		print(f"{e.d[e._id][did].target[0]} {e.d[e._id][did].target[1]}")  # noqa: SLF001
