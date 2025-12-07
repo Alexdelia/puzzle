@@ -1,4 +1,3 @@
-
 w, h = [int(i) for i in input().split()]
 m: list[list[int]] = [[-42 for _ in range(w)] for _ in range(h)]
 sx: int = 0

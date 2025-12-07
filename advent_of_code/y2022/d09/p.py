@@ -40,9 +40,7 @@ def check_4(head: tuple[int, int], tail: tuple[int, int]) -> bool:
 
 
 # the tail is too far away from the head, move it in the 8 surrounding squares of the head
-def find_4(
-	head: tuple[int, int], tail: tuple[int, int]
-) -> tuple[int, int] | None:
+def find_4(head: tuple[int, int], tail: tuple[int, int]) -> tuple[int, int] | None:
 	x, y = tail
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):
@@ -51,9 +49,7 @@ def find_4(
 	return None
 
 
-def find_9(
-	head: tuple[int, int], tail: tuple[int, int]
-) -> tuple[int, int] | None:
+def find_9(head: tuple[int, int], tail: tuple[int, int]) -> tuple[int, int] | None:
 	x, y = tail
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):
