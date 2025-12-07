@@ -2,7 +2,6 @@
 
 import re
 from os.path import dirname
-from typing import Optional
 
 from aocd import get_data
 
@@ -63,7 +62,7 @@ def print_heatmap_height(
 	map: list[list[int]],
 	s: tuple[int, int],
 	e: tuple[int, int],
-	soil: Optional[list[str]] = None,
+	soil: list[str] | None = None,
 ):
 	for x, r in enumerate(map):
 		for y in range(len(r)):
