@@ -1,11 +1,22 @@
 mod connection;
 mod point;
 
+use std::collections::BinaryHeap;
+
 use aocd::*;
 
-#[aocd(2025, 8)]
-fn main() {
-	let lines: Vec<String> = input!().lines().map(|s| s.to_string()).collect();
+use crate::{connection::Connection, point::Point};
 
-	dbg!(lines.len());
+#[aocd(2025, 8)]
+fn parse() -> Result<Vec<Point>, String> {
+	let input = input!();
+	input.lines().map(|line| line.parse::<Point>()).collect()
+}
+
+fn main() -> Result<(), String> {
+	let point_list = parse()?;
+
+	dbg!(point_list.len());
+
+	Ok(())
 }
