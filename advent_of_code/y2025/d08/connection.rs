@@ -1,6 +1,6 @@
 use crate::point::{Point, PointUnit};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Connection {
 	pub point: (Point, Point),
 	pub distance: PointUnit,

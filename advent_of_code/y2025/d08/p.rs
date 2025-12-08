@@ -14,17 +14,17 @@ fn parse(data: &str) -> Result<Vec<Point>, String> {
 		.collect()
 }
 
-fn build_heap(points: &[Point]) -> BinaryHeap<Connection> {
+fn build_heap(point_list: &[Point]) -> BinaryHeap<Connection> {
 	let mut heap = BinaryHeap::new();
-	for (i, a) in points.iter().enumerate() {
-		for b in points.iter().skip(i + 1) {
+	for (i, a) in point_list.iter().enumerate() {
+		for b in point_list.iter().skip(i + 1) {
 			heap.push(Connection::new(*a, *b));
 		}
 	}
 	heap
 }
 
-fn insert_into_circuit(circuit_list: &mut Vec<HashSet<Point>>, connection: &Connection) {
+fn insert_into_circuit(circuit_list: &mut Vec<HashSet<Point>>, connection: &Connection) -> bool {
 	let mut a_circuit_index: Option<usize> = None;
 	let mut b_circuit_index: Option<usize> = None;
 
@@ -56,7 +56,7 @@ fn insert_into_circuit(circuit_list: &mut Vec<HashSet<Point>>, connection: &Conn
 		}
 		(Some(a_index), Some(b_index)) => {
 			if a_index == b_index {
-				return;
+				return false;
 			}
 
 			let b_circuit = circuit_list[b_index].drain().collect::<HashSet<Point>>();
@@ -64,9 +64,14 @@ fn insert_into_circuit(circuit_list: &mut Vec<HashSet<Point>>, connection: &Conn
 			circuit_list.remove(b_index);
 		}
 	}
+
+	true
 }
 
-fn build_circuit(mut heap: BinaryHeap<Connection>, iteration_count: usize) -> Vec<HashSet<Point>> {
+fn build_circuit(
+	mut heap: BinaryHeap<Connection>,
+	iteration_count: usize,
+) -> (Vec<HashSet<Point>>, Connection) {
 	let mut circuit_list: Vec<HashSet<Point>> = Vec::new();
 
 	for _ in 0..iteration_count {
@@ -76,16 +81,24 @@ fn build_circuit(mut heap: BinaryHeap<Connection>, iteration_count: usize) -> Ve
 
 		insert_into_circuit(&mut circuit_list, &connection);
 	}
+	let p1_circuit_list = circuit_list.clone();
 
-	circuit_list
+	let mut last_connection = heap.peek().expect("heap exhausted").to_owned();
+	while let Some(connection) = heap.pop() {
+		if insert_into_circuit(&mut circuit_list, &connection) {
+			last_connection = connection;
+		}
+	}
+
+	(p1_circuit_list, last_connection)
 }
 
-fn solve(data: &str, iteration_count: usize) -> Result<(usize, i32), String> {
+fn solve(data: &str, iteration_count: usize) -> Result<(usize, usize), String> {
 	let point_list = parse(data)?;
 
 	let heap = build_heap(&point_list);
 
-	let circuit_list = build_circuit(heap, iteration_count);
+	let (circuit_list, last_connection) = build_circuit(heap, iteration_count);
 
 	let mut sorted_circuit_len = circuit_list.iter().map(|c| c.len()).collect::<Vec<usize>>();
 	sorted_circuit_len.sort();
@@ -93,7 +106,9 @@ fn solve(data: &str, iteration_count: usize) -> Result<(usize, i32), String> {
 		.iter()
 		.product();
 
-	Ok((p1, 0))
+	let p2 = last_connection.point.0.x as usize * last_connection.point.1.x as usize;
+
+	Ok((p1, p2))
 }
 
 const ITERATION_COUNT: usize = 1000;
@@ -135,7 +150,7 @@ mod tests {
 
 	#[test]
 	fn test_example() {
-		let expected = (40, 0);
+		let expected = (40, 25272);
 		let got = solve(TEST_DATA, TEST_ITERATION_COUNT).unwrap();
 		assert_eq!(
 			expected.0, got.0,
