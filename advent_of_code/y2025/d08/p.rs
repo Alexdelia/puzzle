@@ -17,7 +17,20 @@ fn parse(data: String) -> Result<Vec<Point>, String> {
 fn solve(data: String) -> Result<(i32, i32), String> {
 	let point_list = parse(data)?;
 
-	dbg!(point_list.len());
+	let mut heap = {
+		let mut h = BinaryHeap::new();
+		for (i, a) in point_list.iter().enumerate() {
+			for b in point_list.iter().skip(i + 1) {
+				h.push(Connection::new(*a, *b));
+			}
+		}
+		h
+	};
+
+	dbg!(&heap.len());
+	dbg!(heap.pop());
+	dbg!(heap.pop());
+	dbg!(heap.pop());
 
 	Ok((0, 0))
 }

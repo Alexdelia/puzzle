@@ -1,8 +1,9 @@
 use crate::point::{Point, PointUnit};
 
+#[derive(Debug)]
 pub struct Connection {
-	point: (Point, Point),
-	distance: PointUnit,
+	pub point: (Point, Point),
+	pub distance: PointUnit,
 }
 
 impl Eq for Connection {}
@@ -15,13 +16,13 @@ impl PartialEq for Connection {
 
 impl Ord for Connection {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		self.distance.cmp(&other.distance)
+		other.distance.cmp(&self.distance)
 	}
 }
 
 impl PartialOrd for Connection {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some(self.cmp(other))
+		Some(other.distance.cmp(&self.distance))
 	}
 }
 
@@ -34,10 +35,12 @@ impl Connection {
 		}
 	}
 
+	/// euclidean distance
 	fn calc_distance(a: &Point, b: &Point) -> PointUnit {
-		(a.x as i32 - b.x as i32).abs() as PointUnit
-			+ (a.y as i32 - b.y as i32).abs() as PointUnit
-			+ (a.z as i32 - b.z as i32).abs() as PointUnit
+		(((a.x as i64 - b.x as i64).pow(2)
+			+ (a.y as i64 - b.y as i64).pow(2)
+			+ (a.z as i64 - b.z as i64).pow(2)) as f64)
+			.sqrt() as PointUnit
 	}
 }
 
