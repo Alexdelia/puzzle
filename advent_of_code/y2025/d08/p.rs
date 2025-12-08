@@ -135,12 +135,12 @@ mod tests {
 		let expected = (40, 0);
 		let got = solve(TEST_DATA, TEST_ITERATION_COUNT).unwrap();
 		assert_eq!(
-			got.0, expected.0,
+			expected.0, got.0,
 			"part 1\nexpected {}\ngot {}",
 			expected.0, got.0
 		);
 		assert_eq!(
-			got.1, expected.1,
+			expected.1, got.1,
 			"part 2\nexpected {}\ngot\n{}",
 			expected.1, got.1
 		);
