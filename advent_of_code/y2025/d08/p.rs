@@ -7,25 +7,27 @@ use aocd::*;
 
 use crate::{connection::Connection, point::Point};
 
-fn parse(data: String) -> Result<Vec<Point>, String> {
+fn parse(data: &str) -> Result<Vec<Point>, String> {
 	data.trim()
 		.lines()
 		.map(|line| line.parse::<Point>())
 		.collect()
 }
 
-fn solve(data: String) -> Result<(i32, i32), String> {
+fn build_heap(points: &[Point]) -> BinaryHeap<Connection> {
+	let mut heap = BinaryHeap::new();
+	for (i, a) in points.iter().enumerate() {
+		for b in points.iter().skip(i + 1) {
+			heap.push(Connection::new(*a, *b));
+		}
+	}
+	heap
+}
+
+fn solve(data: &str) -> Result<(i32, i32), String> {
 	let point_list = parse(data)?;
 
-	let mut heap = {
-		let mut h = BinaryHeap::new();
-		for (i, a) in point_list.iter().enumerate() {
-			for b in point_list.iter().skip(i + 1) {
-				h.push(Connection::new(*a, *b));
-			}
-		}
-		h
-	};
+	let mut heap = build_heap(&point_list);
 
 	dbg!(&heap.len());
 	dbg!(heap.pop());
@@ -37,7 +39,7 @@ fn solve(data: String) -> Result<(i32, i32), String> {
 
 #[aocd(2025, 8)]
 fn main() -> Result<(), String> {
-	let (p1, p2) = solve(input!())?;
+	let (p1, p2) = solve(&input!())?;
 	println!("part 1:\t{p1}\npart 2:\t{p2}");
 	Ok(())
 }
@@ -46,9 +48,7 @@ fn main() -> Result<(), String> {
 mod tests {
 	use super::*;
 
-	#[test]
-	fn test_example() {
-		let data = r#"
+	const TEST_DATA: &str = r#"
 162,817,812
 57,618,57
 906,360,560
@@ -70,8 +70,11 @@ mod tests {
 984,92,344
 425,690,689
 "#;
+
+	#[test]
+	fn test_example() {
 		let expected = (40, 0);
-		let got = solve(data.to_string()).unwrap();
+		let got = solve(TEST_DATA).unwrap();
 		assert_eq!(
 			got.0, expected.0,
 			"part 1\nexpected {}\ngot {}",
