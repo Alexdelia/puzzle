@@ -87,9 +87,11 @@ fn solve(data: &str, iteration_count: usize) -> Result<(usize, i32), String> {
 
 	let circuit_list = build_circuit(heap, iteration_count);
 
-	dbg!(&circuit_list);
-
-	let p1 = circuit_list.iter().map(|c| c.len()).product();
+	let mut sorted_circuit_len = circuit_list.iter().map(|c| c.len()).collect::<Vec<usize>>();
+	sorted_circuit_len.sort();
+	let p1 = sorted_circuit_len[sorted_circuit_len.len() - 3..sorted_circuit_len.len()]
+		.iter()
+		.product();
 
 	Ok((p1, 0))
 }
