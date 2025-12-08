@@ -59,8 +59,9 @@ fn insert_into_circuit(circuit_list: &mut Vec<HashSet<Point>>, connection: &Conn
 				return;
 			}
 
-			let b_circuit = circuit_list.remove(b_index);
+			let b_circuit = circuit_list[b_index].drain().collect::<HashSet<Point>>();
 			circuit_list[a_index].extend(b_circuit);
+			circuit_list.remove(b_index);
 		}
 	}
 }
