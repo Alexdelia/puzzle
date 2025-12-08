@@ -1,7 +1,7 @@
 mod connection;
 mod point;
 
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashSet};
 
 use aocd::*;
 
@@ -24,22 +24,80 @@ fn build_heap(points: &[Point]) -> BinaryHeap<Connection> {
 	heap
 }
 
-fn solve(data: &str) -> Result<(i32, i32), String> {
+fn insert_into_circuit(circuit_list: &mut Vec<HashSet<Point>>, connection: &Connection) {
+	let mut a_circuit_index: Option<usize> = None;
+	let mut b_circuit_index: Option<usize> = None;
+
+	for (index, circuit) in circuit_list.iter().enumerate() {
+		if circuit.contains(&connection.point.0) {
+			a_circuit_index = Some(index);
+			if b_circuit_index.is_some() {
+				break;
+			}
+		}
+
+		if circuit.contains(&connection.point.1) {
+			b_circuit_index = Some(index);
+			if a_circuit_index.is_some() {
+				break;
+			}
+		}
+	}
+
+	match (a_circuit_index, b_circuit_index) {
+		(None, None) => {
+			circuit_list.push(HashSet::from([connection.point.0, connection.point.1]));
+		}
+		(Some(a_index), None) => {
+			circuit_list[a_index].insert(connection.point.1);
+		}
+		(None, Some(b_index)) => {
+			circuit_list[b_index].insert(connection.point.0);
+		}
+		(Some(a_index), Some(b_index)) => {
+			if a_index == b_index {
+				return;
+			}
+
+			let b_circuit = circuit_list.remove(b_index);
+			circuit_list[a_index].extend(b_circuit);
+		}
+	}
+}
+
+fn build_circuit(mut heap: BinaryHeap<Connection>, iteration_count: usize) -> Vec<HashSet<Point>> {
+	let mut circuit_list: Vec<HashSet<Point>> = Vec::new();
+
+	for _ in 0..iteration_count {
+		let Some(connection) = heap.pop() else {
+			panic!("Heap exhausted before reaching iteration count");
+		};
+
+		insert_into_circuit(&mut circuit_list, &connection);
+	}
+
+	circuit_list
+}
+
+fn solve(data: &str, iteration_count: usize) -> Result<(usize, i32), String> {
 	let point_list = parse(data)?;
 
-	let mut heap = build_heap(&point_list);
+	let heap = build_heap(&point_list);
 
-	dbg!(&heap.len());
-	dbg!(heap.pop());
-	dbg!(heap.pop());
-	dbg!(heap.pop());
+	let circuit_list = build_circuit(heap, iteration_count);
 
-	Ok((0, 0))
+	dbg!(&circuit_list);
+
+	let p1 = circuit_list.iter().map(|c| c.len()).product();
+
+	Ok((p1, 0))
 }
+
+const ITERATION_COUNT: usize = 1000;
 
 #[aocd(2025, 8)]
 fn main() -> Result<(), String> {
-	let (p1, p2) = solve(&input!())?;
+	let (p1, p2) = solve(&input!(), ITERATION_COUNT)?;
 	println!("part 1:\t{p1}\npart 2:\t{p2}");
 	Ok(())
 }
@@ -70,11 +128,12 @@ mod tests {
 984,92,344
 425,690,689
 "#;
+	const TEST_ITERATION_COUNT: usize = 10;
 
 	#[test]
 	fn test_example() {
 		let expected = (40, 0);
-		let got = solve(TEST_DATA).unwrap();
+		let got = solve(TEST_DATA, TEST_ITERATION_COUNT).unwrap();
 		assert_eq!(
 			got.0, expected.0,
 			"part 1\nexpected {}\ngot {}",
