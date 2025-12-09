@@ -3,6 +3,8 @@
 import sys
 from typing import NamedTuple
 
+from tqdm import tqdm
+
 
 class Coord(NamedTuple):
 	x: int
@@ -21,25 +23,19 @@ def area(a: Coord, b: Coord) -> int:
 def vertical_segment_cross_rectangle(
 	ra: Coord, rb: Coord, sx: int, sy1: int, sy2: int
 ) -> bool:
-	if sx in (ra.x, rb.x):
+	if sx <= min(ra.x, rb.x) or sx >= max(ra.x, rb.x):
 		return False
 
-	if sx < min(ra.x, rb.x) or sx > max(ra.x, rb.x):
-		return False
-
-	return not (max(sy1, sy2) < min(ra.y, rb.y) or min(sy1, sy2) > max(ra.y, rb.y))
+	return not (max(sy1, sy2) <= min(ra.y, rb.y) or min(sy1, sy2) >= max(ra.y, rb.y))
 
 
 def horizontal_segment_cross_rectangle(
 	ra: Coord, rb: Coord, sy: int, sx1: int, sx2: int
 ) -> bool:
-	if sy in (ra.y, rb.y):
+	if sy <= min(ra.y, rb.y) or sy >= max(ra.y, rb.y):
 		return False
 
-	if sy < min(ra.y, rb.y) or sy > max(ra.y, rb.y):
-		return False
-
-	return not (max(sx1, sx2) < min(ra.x, rb.x) or min(sx1, sx2) > max(ra.x, rb.x))
+	return not (max(sx1, sx2) <= min(ra.x, rb.x) or min(sx1, sx2) >= max(ra.x, rb.x))
 
 
 def segment_cross_rectangle(ra: Coord, rb: Coord, sa: Coord, sb: Coord) -> bool:
@@ -68,7 +64,7 @@ def solve(data: str) -> tuple[int, int]:
 	p1 = 0
 	p2 = 0
 
-	for x in range(len(coord_list)):
+	for x in tqdm(range(len(coord_list))):
 		for y in range(x + 1, len(coord_list)):
 			a = area(coord_list[x], coord_list[y])
 
