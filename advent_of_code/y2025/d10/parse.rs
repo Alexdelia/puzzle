@@ -59,7 +59,7 @@ fn parse_button(s: &str) -> (StateButton, JoltageButton) {
 		let index: usize = part
 			.trim()
 			.parse()
-			.expect(&format!("invalid index '{part}' in `Button` string '{s}'"));
+			.unwrap_or_else(|_| panic!("invalid index '{part}' in `Button` string '{s}'"));
 
 		assert!(
 			index <= 16,
@@ -83,9 +83,7 @@ fn parse_joltage_list(s: &str) -> Vec<Joltage> {
 
 	s.split(',')
 		.map(|part| {
-			part.trim().parse().expect(&format!(
-				"invalid joltage '{part}' in `ButtonJoltageList` string '{s}'"
-			))
+			part.trim().parse().unwrap_or_else(|_| panic!("invalid joltage '{part}' in `ButtonJoltageList` string '{s}'"))
 		})
 		.collect::<Vec<Joltage>>()
 }
