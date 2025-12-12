@@ -3,7 +3,7 @@ mod parse;
 mod state;
 
 use std::{
-	collections::{BinaryHeap, HashSet},
+	collections::{BinaryHeap, HashMap, HashSet},
 	time::SystemTime,
 };
 
@@ -12,7 +12,7 @@ use aocd::*;
 pub use node::Node;
 pub use state::State;
 
-use crate::state::click_button;
+use crate::{node::Priority, state::click_button};
 
 type StateButton = State;
 type Joltage = u8;
@@ -58,7 +58,7 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 }
 
 fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usize {
-	let mut cache = HashSet::<Vec<Joltage>>::new();
+	let mut cache = HashMap::<Vec<Joltage>, Distance>::new();
 	let mut q = BinaryHeap::<Node<Vec<Joltage>>>::from([Node {
 		t: vec![0; joltage_goal.len()],
 		dist: 0,
@@ -103,8 +103,14 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 				next_priority += 1;
 			}
 
-			if !cache.insert(next.clone()) {
-				continue;
+			if let Some(cached_distance) = cache.get_mut(&next) {
+				if *cached_distance <= dist {
+					continue 'button;
+				} else {
+					*cached_distance = dist;
+				}
+			} else {
+				cache.insert(next.clone(), dist);
 			}
 
 			q.push(Node {
