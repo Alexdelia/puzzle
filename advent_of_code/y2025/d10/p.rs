@@ -1,6 +1,16 @@
+mod parse;
 mod state;
 
 use aocd::*;
+
+pub use state::State;
+
+type Button = State;
+type ButtonJoltageList = Vec<usize>;
+
+fn solve_line(line: &str) -> Result<(usize, usize), String> {
+	Ok((0, 0))
+}
 
 fn solve(data: &str) -> Result<(usize, usize), String> {
 	Ok((0, 0))
@@ -37,5 +47,27 @@ mod tests {
 			"part 2\nexpected {}\ngot\n{}",
 			expected.1, got.1
 		);
+	}
+
+	#[test]
+	fn test_solve_line() {
+		for (index, expected) in [
+			(0, (2, 0)), //
+			(1, (3, 0)),
+			(2, (2, 0)),
+		] {
+			let line = TEST_DATA.trim().lines().nth(index).unwrap();
+			let got = solve_line(line).unwrap();
+			assert_eq!(
+				expected.0, got.0,
+				"part 1: line[{index}]='{line}'\nexpected {}\ngot {}",
+				expected.0, got.0
+			);
+			assert_eq!(
+				expected.1, got.1,
+				"part 2: line[{index}]='{line}'\nexpected {}\ngot\n{}",
+				expected.1, got.1
+			);
+		}
 	}
 }
