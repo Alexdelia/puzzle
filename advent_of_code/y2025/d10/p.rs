@@ -46,7 +46,10 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 
 fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usize {
 	let mut cache = HashSet::<Vec<Joltage>>::new();
-	let mut q = BinaryHeap::<Node<Vec<Joltage>>>::from([Node { t: vec![], dist: 0 }]);
+	let mut q = BinaryHeap::<Node<Vec<Joltage>>>::from([Node {
+		t: vec![0; joltage_goal.len()],
+		dist: 0,
+	}]);
 
 	while let Some(Node {
 		t: joltage_list,
@@ -59,11 +62,10 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 
 		let dist = dist + 1;
 		'button: for button in button_list {
-			dbg!(&joltage_list, &button);
 			let mut next = joltage_list.clone();
 
 			for &index in button {
-				if next[index] >= 255 || next[index] >= joltage_goal[index] {
+				if next[index] >= joltage_goal[index] || next[index] >= 255 {
 					continue 'button;
 				}
 
@@ -92,14 +94,10 @@ fn solve_line(line: &str) -> (usize, usize) {
 }
 
 fn solve(data: &str) -> (usize, usize) {
-	let mut p1 = 0;
-
-	for line in data.trim().lines() {
-		let (p1_line, _) = solve_line(line);
-		p1 += p1_line;
-	}
-
-	(p1, 0)
+	data.trim()
+		.lines()
+		.map(solve_line)
+		.fold((0, 0), |(acc1, acc2), (p1, p2)| (acc1 + p1, acc2 + p2))
 }
 
 #[aocd(2025, 10)]
