@@ -65,8 +65,8 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 		priority: 0,
 	}]);
 
-	let max_dist = joltage_goal.iter().map(|&j| j as usize).sum::<usize>();
-	let mut max_reached_dist = 0;
+	let priority_goal = joltage_goal.iter().map(|&j| j as usize).sum::<usize>();
+	let mut max_priority = 0;
 
 	let start = SystemTime::now();
 
@@ -76,16 +76,17 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 		priority,
 	}) = q.pop()
 	{
-		if dist > max_reached_dist {
+		if priority > max_priority {
 			let elapsed = start
 				.elapsed()
 				.expect("failed to get elapsed time")
 				.as_secs_f32();
-			println!("{dist} / {max_dist}\t{elapsed}s");
-			max_reached_dist = dist;
+			print!("\r{priority} / {priority_goal} depth: {dist} {elapsed}s");
+			max_priority = priority;
 		}
 
 		if joltage_list == joltage_goal {
+			println!("\n{joltage_list:?} reached goal in {dist} step");
 			return dist;
 		}
 
@@ -135,10 +136,29 @@ fn solve_line(line: &str) -> (usize, usize) {
 }
 
 fn solve(data: &str) -> (usize, usize) {
-	data.trim()
-		.lines()
-		.map(solve_line)
-		.fold((0, 0), |(acc1, acc2), (p1, p2)| (acc1 + p1, acc2 + p2))
+	let mut p1 = 0;
+	let mut p2 = 0;
+
+	let start = SystemTime::now();
+	let len = data.trim().lines().count();
+
+	for (i, line) in data.trim().lines().enumerate() {
+		let (line_p1, line_p2) = solve_line(line);
+		p1 += line_p1;
+		p2 += line_p2;
+
+		let elapsed = start
+			.elapsed()
+			.expect("failed to get elapsed time")
+			.as_secs_f32();
+		let eta = elapsed / (i as f32 + 1.0) * (len as f32 - i as f32 - 1.0);
+		println!(
+			"{i}/{len} {percent}%\tETA: {eta:.2}s",
+			percent = (i as f32 + 1.0) / (len as f32) * 100.0
+		);
+	}
+
+	(p1, p2)
 }
 
 #[aocd(2025, 10)]
