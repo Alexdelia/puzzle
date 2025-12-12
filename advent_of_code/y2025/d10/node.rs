@@ -1,6 +1,6 @@
 use crate::Distance;
 
-type Priority = u16;
+pub type Priority = u16;
 
 pub struct Node<T> {
 	pub t: T,
