@@ -2,7 +2,10 @@ mod node;
 mod parse;
 mod state;
 
-use std::collections::{BinaryHeap, HashSet};
+use std::{
+	collections::{BinaryHeap, HashSet},
+	time::SystemTime,
+};
 
 use aocd::*;
 
@@ -51,11 +54,25 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 		dist: 0,
 	}]);
 
+	let max_dist = joltage_goal.iter().map(|&j| j as usize).sum::<usize>();
+	let mut max_reached_dist = 0;
+
+	let start = SystemTime::now();
+
 	while let Some(Node {
 		t: joltage_list,
 		dist,
 	}) = q.pop()
 	{
+		if dist > max_reached_dist {
+			let elapsed = start
+				.elapsed()
+				.expect("failed to get elapsed time")
+				.as_secs_f32();
+			println!("{dist} / {max_dist}\t{elapsed}s");
+			max_reached_dist = dist;
+		}
+
 		if joltage_list == joltage_goal {
 			return dist;
 		}
