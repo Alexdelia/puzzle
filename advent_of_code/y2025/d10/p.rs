@@ -25,9 +25,15 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 	let mut q = BinaryHeap::<Node<State>>::from([Node {
 		t: State::default(),
 		dist: 0,
+		priority: 0,
 	}]);
 
-	while let Some(Node { t: state, dist }) = q.pop() {
+	while let Some(Node {
+		t: state,
+		dist,
+		priority: _,
+	}) = q.pop()
+	{
 		if state == state_goal {
 			return dist;
 		}
@@ -40,7 +46,11 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 				continue;
 			}
 
-			q.push(Node { t: next, dist });
+			q.push(Node {
+				t: next,
+				dist,
+				priority: 0,
+			});
 		}
 	}
 
@@ -52,6 +62,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 	let mut q = BinaryHeap::<Node<Vec<Joltage>>>::from([Node {
 		t: vec![0; joltage_goal.len()],
 		dist: 0,
+		priority: 0,
 	}]);
 
 	let max_dist = joltage_goal.iter().map(|&j| j as usize).sum::<usize>();
@@ -62,6 +73,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 	while let Some(Node {
 		t: joltage_list,
 		dist,
+		priority,
 	}) = q.pop()
 	{
 		if dist > max_reached_dist {
@@ -80,6 +92,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 		let dist = dist + 1;
 		'button: for button in button_list {
 			let mut next = joltage_list.clone();
+			let mut next_priority = priority;
 
 			for &index in button {
 				if next[index] >= joltage_goal[index] || next[index] >= 255 {
@@ -87,13 +100,18 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 				}
 
 				next[index] += 1;
+				next_priority += 1;
 			}
 
 			if !cache.insert(next.clone()) {
 				continue;
 			}
 
-			q.push(Node { t: next, dist });
+			q.push(Node {
+				t: next,
+				dist,
+				priority: next_priority,
+			});
 		}
 	}
 
