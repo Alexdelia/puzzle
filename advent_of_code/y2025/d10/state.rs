@@ -1,9 +1,9 @@
-use crate::Button;
+use crate::StateButton;
 
 pub type State = u16;
 
 #[inline]
-pub fn click_button(state: State, button: Button) -> State {
+pub fn click_button(state: State, button: StateButton) -> State {
 	state ^ button
 }
 

@@ -1,19 +1,23 @@
-use crate::{Button, ButtonJoltageList, State};
+use crate::{Joltage, JoltageButton, State, StateButton};
 
-pub fn parse_line(line: &str) -> (State, Vec<Button>, ButtonJoltageList) {
+pub fn parse_line(line: &str) -> (State, Vec<StateButton>, Vec<Joltage>, Vec<JoltageButton>) {
 	let split: Vec<&str> = line.split_whitespace().collect();
 	assert!(split.len() >= 3, "line '{line}' does not have enough parts");
 
 	let state = parse_state(split[0]);
 
-	let button_list = split[1..split.len() - 1]
-		.iter()
-		.map(|part| parse_button(part))
-		.collect::<Vec<Button>>();
+	let button_str_list = &split[1..split.len() - 1];
+	let mut state_button_list: Vec<StateButton> = Vec::with_capacity(button_str_list.len());
+	let mut joltage_button_list: Vec<JoltageButton> = Vec::with_capacity(button_str_list.len());
+	for button_str in button_str_list {
+		let (state_button, joltage_button) = parse_button(button_str);
+		state_button_list.push(state_button);
+		joltage_button_list.push(joltage_button);
+	}
 
 	let joltage_list = parse_joltage_list(split[split.len() - 1]);
 
-	(state, button_list, joltage_list)
+	(state, state_button_list, joltage_list, joltage_button_list)
 }
 
 fn parse_state(s: &str) -> State {
@@ -39,17 +43,19 @@ fn parse_state(s: &str) -> State {
 	state
 }
 
-fn parse_button(s: &str) -> Button {
+fn parse_button(s: &str) -> (StateButton, JoltageButton) {
 	assert!(
 		s.starts_with('(') && s.ends_with(')'),
 		"`Button` string '{s}' is not enclosed with '(' and ')'"
 	);
 
 	let s = &s[1..s.len() - 1];
+	let list = s.split(',').collect::<Vec<&str>>();
 
-	let mut button: Button = 0;
+	let mut state_button: StateButton = 0;
+	let mut joltage_button: JoltageButton = Vec::with_capacity(list.len());
 
-	for part in s.split(',') {
+	for part in list {
 		let index: usize = part
 			.trim()
 			.parse()
@@ -60,13 +66,14 @@ fn parse_button(s: &str) -> Button {
 			"index {index} in `Button` string '{s}' is out of range"
 		);
 
-		button |= 1 << index;
+		state_button |= 1 << index;
+		joltage_button.push(index);
 	}
 
-	button
+	(state_button, joltage_button)
 }
 
-fn parse_joltage_list(s: &str) -> ButtonJoltageList {
+fn parse_joltage_list(s: &str) -> Vec<Joltage> {
 	assert!(
 		s.starts_with('{') && s.ends_with('}'),
 		"`ButtonJoltageList` string '{s}' is not enclosed with '{{' and '}}'"
@@ -80,7 +87,7 @@ fn parse_joltage_list(s: &str) -> ButtonJoltageList {
 				"invalid joltage '{part}' in `ButtonJoltageList` string '{s}'"
 			))
 		})
-		.collect::<ButtonJoltageList>()
+		.collect::<Vec<Joltage>>()
 }
 
 #[cfg(test)]
@@ -96,6 +103,14 @@ mod tests {
 					0b0110,
 					vec![0b1000, 0b1010, 0b0100, 0b1100, 0b0101, 0b0011],
 					vec![3, 5, 4, 7],
+					vec![
+						vec![3],
+						vec![1, 3],
+						vec![2],
+						vec![2, 3],
+						vec![0, 2],
+						vec![0, 1],
+					],
 				),
 			),
 			(
@@ -104,6 +119,13 @@ mod tests {
 					0b01000,
 					vec![0b11101, 0b01100, 0b10001, 0b00111, 0b11110],
 					vec![7, 5, 12, 7, 2],
+					vec![
+						vec![0, 2, 3, 4],
+						vec![2, 3],
+						vec![0, 4],
+						vec![0, 1, 2],
+						vec![1, 2, 3, 4],
+					],
 				),
 			),
 			(
@@ -112,6 +134,12 @@ mod tests {
 					0b101110,
 					vec![0b011111, 0b011001, 0b110111, 0b000110],
 					vec![10, 11, 11, 5, 10, 5],
+					vec![
+						vec![0, 1, 2, 3, 4],
+						vec![0, 3, 4],
+						vec![0, 1, 2, 4, 5],
+						vec![1, 2],
+					],
 				),
 			),
 		] {
