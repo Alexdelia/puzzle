@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Alexandre Delille <adelille@student.42.fr>"]
 
+[dependencies]
+aocd = "0.4.0"
+
 [[bin]]
 name = "y2022d16"
 path = "y2022/d16/p.rs"
@@ -12,5 +15,6 @@ path = "y2022/d16/p.rs"
 name = "y2025d08"
 path = "y2025/d08/p.rs"
 
-[dependencies]
-aocd = "0.4.0"
+[[bin]]
+name = "y2025d10"
+path = "y2025/d10/p.rs"
