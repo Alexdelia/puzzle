@@ -12,7 +12,7 @@ use aocd::*;
 pub use node::Node;
 pub use state::State;
 
-use crate::{node::Priority, state::click_button};
+use crate::state::click_button;
 
 type StateButton = State;
 type Joltage = u8;
@@ -95,7 +95,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 			let mut next_priority = priority;
 
 			for &index in button {
-				if next[index] >= joltage_goal[index] || next[index] >= 255 {
+				if next[index] >= joltage_goal[index] || next[index] == Joltage::MAX {
 					continue 'button;
 				}
 
