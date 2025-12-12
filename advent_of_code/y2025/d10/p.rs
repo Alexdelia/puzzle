@@ -1,26 +1,65 @@
+mod node;
 mod parse;
 mod state;
 
+use std::collections::{BinaryHeap, HashSet};
+
 use aocd::*;
 
+pub use node::Node;
 pub use state::State;
+
+use crate::state::click_button;
 
 type Button = State;
 type ButtonJoltageList = Vec<usize>;
 
-fn solve_line(line: &str) -> Result<(usize, usize), String> {
-	Ok((0, 0))
+type Distance = usize;
+
+fn solve_line(line: &str) -> (usize, usize) {
+	let (state_goal, button_list, _) = parse::parse_line(line);
+
+	let mut cache = HashSet::new();
+	let mut q = BinaryHeap::<Node>::from([Node {
+		state: State::default(),
+		dist: 0,
+	}]);
+
+	while let Some(Node { state, dist }) = q.pop() {
+		if state == state_goal {
+			return (dist, 0);
+		}
+
+		let dist = dist + 1;
+		for button in &button_list {
+			let next = click_button(state, *button);
+
+			if !cache.insert(next) {
+				continue;
+			}
+
+			q.push(Node { state: next, dist });
+		}
+	}
+
+	unreachable!("did not find a solution for line '{line}'");
 }
 
-fn solve(data: &str) -> Result<(usize, usize), String> {
-	Ok((0, 0))
+fn solve(data: &str) -> (usize, usize) {
+	let mut p1 = 0;
+
+	for line in data.trim().lines() {
+		let (p1_line, _) = solve_line(line);
+		p1 += p1_line;
+	}
+
+	(p1, 0)
 }
 
 #[aocd(2025, 10)]
-fn main() -> Result<(), String> {
-	let (p1, p2) = solve(&input!())?;
+fn main() {
+	let (p1, p2) = solve(&input!());
 	println!("part 1:\t{p1}\npart 2:\t{p2}");
-	Ok(())
 }
 
 #[cfg(test)]
@@ -36,7 +75,7 @@ mod tests {
 	#[test]
 	fn test_example() {
 		let expected = (7, 0);
-		let got = solve(TEST_DATA).unwrap();
+		let got = solve(TEST_DATA);
 		assert_eq!(
 			expected.0, got.0,
 			"part 1\nexpected {}\ngot {}",
@@ -57,7 +96,7 @@ mod tests {
 			(2, (2, 0)),
 		] {
 			let line = TEST_DATA.trim().lines().nth(index).unwrap();
-			let got = solve_line(line).unwrap();
+			let got = solve_line(line);
 			assert_eq!(
 				expected.0, got.0,
 				"part 1: line[{index}]='{line}'\nexpected {}\ngot {}",
