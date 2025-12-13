@@ -311,7 +311,7 @@ mod tests {
 			(2, (2, 11)),
 		] {
 			let line = TEST_DATA.trim().lines().nth(index).unwrap();
-			let got = solve_line(line);
+			let got = solve_line(line, &mut CombinationCache::new());
 			assert_eq!(
 				expected.0, got.0,
 				"part 1: line[{index}]='{line}'\nexpected {}\ngot {}",

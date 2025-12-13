@@ -236,7 +236,9 @@ mod tests {
 				],
 			),
 		] {
-			let result = get_joltage_button_press_combination(joltage_unit, button_count);
+			let mut cache = &mut CombinationCache::new();
+			let result =
+				get_joltage_button_press_combination(&mut cache, joltage_unit, button_count);
 			assert_eq!(result, expected_combination);
 		}
 	}
