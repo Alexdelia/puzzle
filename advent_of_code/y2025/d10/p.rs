@@ -3,13 +3,13 @@ mod parse;
 mod state;
 
 use std::{
-	collections::{BinaryHeap, HashMap, HashSet},
+	collections::{BinaryHeap, HashSet},
 	time::SystemTime,
 };
 
 use aocd::*;
 
-pub use node::Node;
+pub use node::LightNode;
 pub use state::State;
 
 use crate::state::click_button;
@@ -22,18 +22,12 @@ type Distance = usize;
 
 fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 	let mut cache = HashSet::<State>::new();
-	let mut q = BinaryHeap::<Node<State>>::from([Node {
-		t: State::default(),
+	let mut q = BinaryHeap::<LightNode>::from([LightNode {
+		state: State::default(),
 		dist: 0,
-		priority: 0,
 	}]);
 
-	while let Some(Node {
-		t: state,
-		dist,
-		priority: _,
-	}) = q.pop()
-	{
+	while let Some(LightNode { state, dist }) = q.pop() {
 		if state == state_goal {
 			return dist;
 		}
@@ -46,11 +40,7 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 				continue;
 			}
 
-			q.push(Node {
-				t: next,
-				dist,
-				priority: 0,
-			});
+			q.push(LightNode { state: next, dist });
 		}
 	}
 
@@ -58,7 +48,7 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 }
 
 // for all joltage/button combinations
-//   ex joltage x = 4 with 2 buttons
+//   ex joltage x = 4 with 2 buttons that affect joltage x
 //     [0,4]
 //     [1,3]
 //     [2,2]
@@ -69,68 +59,32 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 
 // increase step by joltage x
 
-fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usize {
-	let mut cache = HashMap::<Vec<Joltage>, Distance>::new();
-	let mut q = BinaryHeap::<Node<Vec<Joltage>>>::from([Node {
-		t: vec![0; joltage_goal.len()],
-		dist: 0,
-		priority: 0,
-	}]);
+// need:
+// - Vec<(Joltage, Vec<usize>)>  -- list of (joltage, button indices that affect that joltage)
+// - Vec<Vec<usize>> -- list of button with each joltage index affected by that button
 
-	let priority_goal = joltage_goal.iter().map(|&j| j as usize).sum::<usize>();
-	let mut max_priority = 0;
+// when joltage reaches goal, remove all affectable buttons for all other joltage
 
-	let start = SystemTime::now();
-
-	while let Some(Node {
-		t: joltage_list,
-		dist,
-		priority,
-	}) = q.pop()
-	{
-		if priority > max_priority {
-			let elapsed = start
-				.elapsed()
-				.expect("failed to get elapsed time")
-				.as_secs_f32();
-			print!("\r{priority} / {priority_goal} depth: {dist} {elapsed}s");
-			max_priority = priority;
-		}
-
-		if joltage_list == joltage_goal {
-			println!("\n{joltage_list:?} reached goal in {dist} step");
-			return dist;
-		}
-
-		let dist = dist + 1;
-		'button: for button in button_list {
-			let mut next = joltage_list.clone();
-			let mut next_priority = priority;
-
-			for &index in button {
-				if next[index] >= joltage_goal[index] || next[index] == Joltage::MAX {
-					continue 'button;
-				}
-
-				next[index] += 1;
-				next_priority += 1;
-			}
-
-			if let Some(cached_distance) = cache.get_mut(&next) {
-				if *cached_distance <= dist {
-					continue 'button;
-				} else {
-					*cached_distance = dist;
-				}
+fn is_end(joltage: &[(Joltage, Vec<usize>)]) -> Result<bool, ()> {
+	for (j, button_indices) in joltage {
+		if *j != 0 {
+			return if button_indices.is_empty() {
+				Err(())
 			} else {
-				cache.insert(next.clone(), dist);
-			}
+				Ok(false)
+			};
+		}
+	}
 
-			q.push(Node {
-				t: next,
-				dist,
-				priority: next_priority,
-			});
+	Ok(true)
+}
+
+fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usize {
+	let mut remaining_joltage: Vec<(Joltage, Vec<usize>)> =
+		joltage_goal.iter().map(|&j| (j, Vec::new())).collect();
+	for (button_index, button) in button_list.iter().enumerate() {
+		for &joltage_index in button {
+			remaining_joltage[joltage_index].1.push(button_index);
 		}
 	}
 
