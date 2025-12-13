@@ -53,7 +53,7 @@ fn parse(data: &str) -> (Vec<Vec<usize>>, FlagPoint) {
 	(graph, flag_point)
 }
 
-fn solve_p1(graph: &Vec<Vec<usize>>, f: &FlagPoint) -> usize {
+fn solve_p1(graph: &[Vec<usize>], f: &FlagPoint) -> usize {
 	let mut count = 0;
 
 	let mut q = VecDeque::from([f.you]);
@@ -70,27 +70,41 @@ fn solve_p1(graph: &Vec<Vec<usize>>, f: &FlagPoint) -> usize {
 	count
 }
 
-fn solve_p2(graph: &Vec<Vec<usize>>, f: &FlagPoint) -> usize {
-	let mut count = 0;
+type Cache = HashMap<usize, usize>;
 
-	let mut q = VecDeque::from([(f.svr, false, false)]);
-	while let Some((node, seen_dac, seen_fft)) = q.pop_front() {
-		for &neighbor in &graph[node] {
-			if neighbor == f.out {
-				if seen_dac && seen_fft {
-					count += 1;
-				}
-			} else {
-				q.push_back((
-					neighbor,
-					seen_dac || neighbor == f.dac,
-					seen_fft || neighbor == f.fft,
-				));
-			}
-		}
+fn recursive_search(
+	cache: &mut Cache,
+	graph: &[Vec<usize>],
+	f: &FlagPoint,
+	current: usize,
+	seen_dac: bool,
+	seen_fft: bool,
+) -> usize {
+	if seen_dac && seen_fft && current == f.out {
+		return 1;
 	}
 
-	count
+	if let Some(&cached) = cache.get(&current) {
+		return cached;
+	}
+
+	return graph[current]
+		.iter()
+		.map(|&neighbor| {
+			recursive_search(
+				cache,
+				graph,
+				f,
+				neighbor,
+				seen_dac || (neighbor == f.dac),
+				seen_fft || (neighbor == f.fft),
+			)
+		})
+		.sum::<usize>();
+}
+
+fn solve_p2(graph: &[Vec<usize>], f: &FlagPoint) -> usize {
+	return recursive_search(&mut Cache::new(), graph, f, f.svr, false, false);
 }
 
 fn solve(data: &str) -> (usize, usize) {
