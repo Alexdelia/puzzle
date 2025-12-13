@@ -1,3 +1,4 @@
+mod next_joltage_button_press_combination;
 mod node;
 mod parse;
 mod state;
@@ -9,10 +10,11 @@ use std::{
 
 use aocd::*;
 
+pub use next_joltage_button_press_combination::next_joltage_button_press_combination;
 pub use node::LightNode;
 pub use state::State;
 
-use crate::state::click_button;
+use crate::{node::JoltageNode, state::click_button};
 
 type StateButton = State;
 type Joltage = u8;
@@ -48,12 +50,22 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 }
 
 // for all joltage/button combinations
-//   ex joltage x = 4 with 2 buttons that affect joltage x
-//     [0,4]
-//     [1,3]
-//     [2,2]
-//     [3,1]
-//     [4,0]
+//   ex joltage x = 4 with 3 buttons that affect joltage x
+//     [4,0,0]
+//     [3,1,0]
+//     [2,2,0]
+//     [1,3,0]
+//     [0,4,0]
+//     [3,0,1]
+//     [2,1,1]
+//     [1,2,1]
+//     [0,3,1]
+//     [2,0,2]
+//     [1,1,2]
+//     [0,2,2]
+//     [1,0,3]
+//     [0,1,3]
+//     [0,0,4]
 
 // press each combination of buttons that do not exceed the goal joltage
 
@@ -87,6 +99,13 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 			remaining_joltage[joltage_index].1.push(button_index);
 		}
 	}
+
+	let mut q = BinaryHeap::<JoltageNode>::from([JoltageNode {
+		state: remaining_joltage,
+		dist: 0,
+	}]);
+
+	while let Some(JoltageNode { state, dist }) = q.pop() {}
 
 	unreachable!("did not find a solution for part 2 goal='{joltage_goal:?}'");
 }
