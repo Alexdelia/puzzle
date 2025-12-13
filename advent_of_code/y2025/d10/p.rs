@@ -69,9 +69,14 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 		dist: 0,
 	}]);
 
+	let mut min = usize::MAX;
+
 	while let Some(JoltageNode { state, dist }) = q.pop() {
 		for i in state.keys() {
 			let dist = dist + state[i].0 as usize;
+			if dist > min {
+				continue;
+			}
 
 			let mut combination = first_joltage_button_press_combination(&state[i]);
 			loop {
@@ -137,7 +142,10 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 
 				if possible {
 					if next_state.is_empty() {
-						return dist;
+						if dist < min {
+							print!("\x1b[2K\r{dist}");
+						}
+						min = min.min(dist);
 					}
 
 					q.push(JoltageNode {
@@ -153,7 +161,9 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 		}
 	}
 
-	unreachable!("did not find a solution for part 2 goal='{joltage_goal:?}'");
+	println!();
+
+	min
 }
 
 fn solve_line(line: &str) -> (usize, usize) {
@@ -174,6 +184,8 @@ fn solve(data: &str) -> (usize, usize) {
 	let len = data.trim().lines().count();
 
 	for (i, line) in data.trim().lines().enumerate() {
+		println!("===\n{line}");
+
 		let (line_p1, line_p2) = solve_line(line);
 		p1 += line_p1;
 		p2 += line_p2;
@@ -184,7 +196,8 @@ fn solve(data: &str) -> (usize, usize) {
 			.as_secs_f32();
 		let eta = elapsed / (i as f32 + 1.0) * (len as f32 - i as f32 - 1.0);
 		println!(
-			"{i}/{len} {percent}%\tETA: {eta:.2}s",
+			"{i}/{len} {percent:.2}%\tETA: {eta:.2}s",
+			i = i + 1,
 			percent = (i as f32 + 1.0) / (len as f32) * 100.0
 		);
 	}
