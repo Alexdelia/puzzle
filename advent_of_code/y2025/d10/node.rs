@@ -1,60 +1,79 @@
-use crate::Distance;
+use crate::{Distance, Joltage, State};
 
-pub type Priority = u16;
-
-pub struct Node<T> {
-	pub t: T,
+pub struct LightNode {
+	pub state: State,
 	pub dist: Distance,
-	pub priority: Priority,
 }
 
-impl<T> PartialEq for Node<T> {
+impl PartialEq for LightNode {
 	fn eq(&self, other: &Self) -> bool {
-		self.dist == other.dist && self.priority == other.priority
+		self.dist == other.dist
 	}
 }
 
-impl<T> Eq for Node<T> {}
+impl Eq for LightNode {}
 
-impl<T> PartialOrd for Node<T> {
+impl PartialOrd for LightNode {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
 		Some(self.cmp(other))
 	}
 }
 
-impl<T> Ord for Node<T> {
+impl Ord for LightNode {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		self.priority
-			.cmp(&other.priority)
+		other.dist.cmp(&self.dist)
+	}
+}
+
+pub struct JoltageNode {
+	pub state: Vec<(Joltage, Vec<usize>)>,
+	pub dist: Distance,
+}
+
+impl PartialEq for JoltageNode {
+	fn eq(&self, other: &Self) -> bool {
+		self.dist == other.dist && self.state.len() == other.state.len()
+	}
+}
+
+impl Eq for JoltageNode {}
+
+impl PartialOrd for JoltageNode {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for JoltageNode {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		other
+			.state
+			.len()
+			.cmp(&self.state.len())
 			.then_with(|| other.dist.cmp(&self.dist))
 	}
 }
 
 #[cfg(test)]
 mod tests {
-	use crate::State;
-
 	use super::*;
 
 	use std::collections::BinaryHeap;
 
 	#[test]
-	fn test_node_ordering() {
-		let mut heap = BinaryHeap::<Node<State>>::from([
-			Node {
-				t: 0b0000,
+	fn test_light_node_ordering() {
+		let mut heap = BinaryHeap::<LightNode>::from([
+			LightNode {
+				state: 0b0000,
 				dist: 5,
-				priority: 0,
 			},
-			Node {
-				t: 0b0000,
+			LightNode {
+				state: 0b0000,
 				dist: 10,
-				priority: 0,
 			},
-			Node {
-				t: 0b0000,
+			LightNode {
+				state: 0b0000,
 				dist: 3,
-				priority: 0,
 			},
 		]);
 
@@ -64,33 +83,29 @@ mod tests {
 	}
 
 	#[test]
-	fn test_node_ordering_with_priority() {
-		let mut heap = BinaryHeap::<Node<State>>::from([
-			Node {
-				t: 0b0000,
+	fn test_joltage_node_ordering() {
+		let mut heap = BinaryHeap::<JoltageNode>::from([
+			JoltageNode {
+				state: vec![(0, vec![0]), (1, vec![1])],
 				dist: 5,
-				priority: 2,
 			},
-			Node {
-				t: 0b0000,
-				dist: 5,
-				priority: 1,
+			JoltageNode {
+				state: vec![(0, vec![0])],
+				dist: 10,
 			},
-			Node {
-				t: 0b0000,
+			JoltageNode {
+				state: vec![(0, vec![0]), (1, vec![1]), (2, vec![2])],
 				dist: 3,
-				priority: 0,
+			},
+			JoltageNode {
+				state: vec![(0, vec![0])],
+				dist: 2,
 			},
 		]);
 
-		let first = heap.pop().unwrap();
-		assert_eq!(first.dist, 5);
-		assert_eq!(first.priority, 2);
-		let second = heap.pop().unwrap();
-		assert_eq!(second.dist, 5);
-		assert_eq!(second.priority, 1);
-		let third = heap.pop().unwrap();
-		assert_eq!(third.dist, 3);
-		assert_eq!(third.priority, 0);
+		assert_eq!(heap.pop().unwrap().dist, 2);
+		assert_eq!(heap.pop().unwrap().dist, 10);
+		assert_eq!(heap.pop().unwrap().dist, 5);
+		assert_eq!(heap.pop().unwrap().dist, 3);
 	}
 }
