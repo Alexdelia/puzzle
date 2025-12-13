@@ -4,7 +4,7 @@ mod parse;
 mod state;
 
 use std::{
-	collections::{BinaryHeap, HashMap, HashSet},
+	collections::{BinaryHeap, HashMap, HashSet, VecDeque},
 	time::SystemTime,
 };
 
@@ -100,82 +100,88 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 		cleanse_joltage_state(remaining_joltage).expect("initial joltage state invalid");
 
 	// let mut cache = HashMap::<Vec<(usize, (Joltage, Vec<usize>))>, Distance>::new();
-	let mut q = BinaryHeap::<JoltageNode>::from([JoltageNode {
+	// let mut q = BinaryHeap::<JoltageNode>::from([JoltageNode {
+	// state: remaining_joltage,
+	// dist: 0,
+	// }]);
+	let mut q = VecDeque::<JoltageNode>::from([JoltageNode {
 		state: remaining_joltage,
 		dist: 0,
 	}]);
 
 	let mut min = usize::MAX;
 
-	while let Some(JoltageNode { state, dist }) = q.pop() {
-		for i in state.keys() {
-			let dist = dist + state[i].0 as usize;
-			if dist > min {
-				continue;
-			}
+	while let Some(JoltageNode { state, dist }) = q.pop_back() {
+		let Some(current_state) = state.values().next() else {
+			continue;
+		};
 
-			let mut combination = first_joltage_button_press_combination(&state[i]);
-			loop {
-				let mut next_state = state.clone();
-				let mut possible = true;
-				'button: for (button_index, &press_count) in combination.iter().enumerate() {
-					if press_count == 0 {
-						continue;
-					}
+		let dist = dist + current_state.0 as usize;
+		if dist > min {
+			continue;
+		}
 
-					let button = &button_list[state[i].1[button_index]];
-					for &joltage_index in button {
-						let joltage_at_index = next_state
-							.get_mut(&joltage_index)
-							.expect("joltage index missing");
-						if joltage_at_index.0 < press_count as Joltage {
-							possible = false;
-							break 'button;
-						}
-						joltage_at_index.0 -= press_count as Joltage;
-					}
-				}
-
-				if !possible {
-					if !next_joltage_button_press_combination(&mut combination) {
-						break;
-					}
+		let mut combination = first_joltage_button_press_combination(&current_state);
+		loop {
+			let mut next_state = state.clone();
+			let mut possible = true;
+			'button: for (button_index, &press_count) in combination.iter().enumerate() {
+				if press_count == 0 {
 					continue;
 				}
 
-				if let Some(next_state) = cleanse_joltage_state(next_state) {
-					if next_state.is_empty() {
-						if dist < min {
-							print!("\x1b[2K\r{dist}");
-						}
-						min = min.min(dist);
+				let button = &button_list[current_state.1[button_index]];
+				for &joltage_index in button {
+					let joltage_at_index = next_state
+						.get_mut(&joltage_index)
+						.expect("joltage index missing");
+					if joltage_at_index.0 < press_count as Joltage {
+						possible = false;
+						break 'button;
 					}
-
-					/*
-					let mut cache_key =
-						Vec::from_iter(next_state.iter().map(|(k, v)| (*k, v.clone())));
-					cache_key.sort_by(|a, b| a.0.cmp(&b.0));
-					if let Some(&cached_dist) = cache.get(&cache_key) {
-						if dist > cached_dist {
-							if !next_joltage_button_press_combination(&mut combination) {
-								break;
-							}
-							continue;
-						}
-					} else {
-						cache.insert(cache_key, dist);
-					}
-					*/
-
-					q.push(JoltageNode {
-						state: next_state,
-						dist,
-					});
+					joltage_at_index.0 -= press_count as Joltage;
 				}
+			}
 
+			if !possible {
 				if !next_joltage_button_press_combination(&mut combination) {
 					break;
 				}
+				continue;
+			}
+
+			if let Some(next_state) = cleanse_joltage_state(next_state) {
+				if next_state.is_empty() {
+					if dist < min {
+						print!("\x1b[2K\r{dist}");
+					}
+					min = min.min(dist);
+				}
+
+				/*
+				let mut cache_key =
+					Vec::from_iter(next_state.iter().map(|(k, v)| (*k, v.clone())));
+				cache_key.sort_by(|a, b| a.0.cmp(&b.0));
+				if let Some(&cached_dist) = cache.get(&cache_key) {
+					if dist > cached_dist {
+						if !next_joltage_button_press_combination(&mut combination) {
+							break;
+						}
+						continue;
+					}
+				} else {
+					cache.insert(cache_key, dist);
+				}
+				*/
+
+				q.push_front(JoltageNode {
+					state: next_state,
+					dist,
+				});
+			}
+
+			if !next_joltage_button_press_combination(&mut combination) {
+				break;
 			}
 		}
 	}
