@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use crate::{Distance, Joltage, State};
+use crate::{Distance, JoltageButton, JoltageList, State};
 
 pub struct LightNode {
 	pub state: State,
@@ -27,55 +25,12 @@ impl Ord for LightNode {
 	}
 }
 
+pub type ButtonMask = u16;
 pub struct JoltageNode {
-	pub state: HashMap<usize, (Joltage, Vec<usize>)>,
+	pub active_joltage: Vec<usize>,
+	pub joltage_list: JoltageList,
+	pub joltage_button_list: [JoltageButton; 16],
 	pub dist: Distance,
-}
-
-impl PartialEq for JoltageNode {
-	fn eq(&self, other: &Self) -> bool {
-		self.dist == other.dist && self.state.len() == other.state.len()
-	}
-}
-
-impl Eq for JoltageNode {}
-
-impl PartialOrd for JoltageNode {
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some(self.cmp(other))
-	}
-}
-
-impl Ord for JoltageNode {
-	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		other
-			.state
-			.iter()
-			.map(|(_, (_, button_list))| button_list.len())
-			.sum::<usize>()
-			.cmp(
-				&self
-					.state
-					.iter()
-					.map(|(_, (_, button_list))| button_list.len())
-					.sum::<usize>(),
-			)
-			.then_with(|| {
-				other
-					.state
-					.iter()
-					.map(|(_, (joltage, _))| *joltage as usize)
-					.sum::<usize>()
-					.cmp(
-						&self
-							.state
-							.iter()
-							.map(|(_, (joltage, _))| *joltage as usize)
-							.sum::<usize>(),
-					)
-			})
-			.then_with(|| other.dist.cmp(&self.dist))
-	}
 }
 
 #[cfg(test)]
@@ -104,32 +59,5 @@ mod tests {
 		assert_eq!(heap.pop().unwrap().dist, 3);
 		assert_eq!(heap.pop().unwrap().dist, 5);
 		assert_eq!(heap.pop().unwrap().dist, 10);
-	}
-
-	#[test]
-	fn test_joltage_node_ordering() {
-		let mut heap = BinaryHeap::<JoltageNode>::from([
-			JoltageNode {
-				state: HashMap::from([(0, (0, vec![0])), (1, (1, vec![1]))]),
-				dist: 5,
-			},
-			JoltageNode {
-				state: HashMap::from([(0, (0, vec![0]))]),
-				dist: 10,
-			},
-			JoltageNode {
-				state: HashMap::from([(0, (0, vec![0])), (1, (1, vec![1])), (2, (2, vec![2]))]),
-				dist: 3,
-			},
-			JoltageNode {
-				state: HashMap::from([(0, (0, vec![0]))]),
-				dist: 2,
-			},
-		]);
-
-		assert_eq!(heap.pop().unwrap().dist, 2);
-		assert_eq!(heap.pop().unwrap().dist, 10);
-		assert_eq!(heap.pop().unwrap().dist, 5);
-		assert_eq!(heap.pop().unwrap().dist, 3);
 	}
 }

@@ -81,11 +81,21 @@ fn parse_joltage_list(s: &str) -> Vec<Joltage> {
 
 	let s = &s[1..s.len() - 1];
 
-	s.split(',')
+	let list = s
+		.split(',')
 		.map(|part| {
-			part.trim().parse().unwrap_or_else(|_| panic!("invalid joltage '{part}' in `ButtonJoltageList` string '{s}'"))
+			part.trim().parse().unwrap_or_else(|_| {
+				panic!("invalid joltage '{part}' in `ButtonJoltageList` string '{s}'")
+			})
 		})
-		.collect::<Vec<Joltage>>()
+		.collect::<Vec<Joltage>>();
+
+	assert!(
+		list.len() <= 16,
+		"`ButtonJoltageList` string '{s}' has too many entries"
+	);
+
+	list
 }
 
 #[cfg(test)]
