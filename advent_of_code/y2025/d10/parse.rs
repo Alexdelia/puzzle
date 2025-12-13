@@ -1,4 +1,4 @@
-use crate::{JoltageButton, JoltageList, JoltageUnit, State, StateButton};
+use crate::{JoltageButton, JoltageList, JoltageUnit, State, StateButton, set_joltage_unit};
 
 pub fn parse_line(line: &str) -> (State, Vec<StateButton>, JoltageList, Vec<JoltageButton>) {
 	let split: Vec<&str> = line.split_whitespace().collect();
@@ -82,11 +82,11 @@ fn parse_joltage_list(s: &str) -> JoltageList {
 	let s = &s[1..s.len() - 1];
 
 	let mut joltage_list: JoltageList = 0;
-	for s in s.split(',') {
+	for (i, s) in s.split(',').enumerate() {
 		let part = s.parse::<JoltageUnit>().unwrap_or_else(|_| {
 			panic!("invalid joltage '{s}' in `ButtonJoltageList` string '{s}'")
 		});
-		joltage_list = (joltage_list << 8) | (part as JoltageList);
+		set_joltage_unit(&mut joltage_list, i, part);
 	}
 
 	joltage_list
@@ -104,7 +104,7 @@ mod tests {
 				(
 					0b0110,
 					vec![0b1000, 0b1010, 0b0100, 0b1100, 0b0101, 0b0011],
-					(3 << 24) | (5 << 16) | (4 << 8) | 7,
+					3 | (5 << 8) | (4 << 16) | (7 << 24),
 					vec![
 						vec![3],
 						vec![1, 3],
@@ -120,7 +120,7 @@ mod tests {
 				(
 					0b01000,
 					vec![0b11101, 0b01100, 0b10001, 0b00111, 0b11110],
-					(7 << 32) | (5 << 24) | (12 << 16) | (7 << 8) | 2,
+					7 | (5 << 8) | (12 << 16) | (7 << 24) | (2 << 32),
 					vec![
 						vec![0, 2, 3, 4],
 						vec![2, 3],
@@ -135,7 +135,7 @@ mod tests {
 				(
 					0b101110,
 					vec![0b011111, 0b011001, 0b110111, 0b000110],
-					(10 << 40) | (11 << 32) | (11 << 24) | (5 << 16) | (10 << 8) | 5,
+					10 | (11 << 8) | (11 << 16) | (5 << 24) | (10 << 32) | (5 << 40),
 					vec![
 						vec![0, 1, 2, 3, 4],
 						vec![0, 3, 4],
