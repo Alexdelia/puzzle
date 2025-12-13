@@ -111,7 +111,10 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 	let mut min = usize::MAX;
 
 	while let Some(JoltageNode { state, dist }) = q.pop_back() {
-		let current_state = state.values().next().expect("empty joltage state");
+		let current_state = state
+			.values()
+			.min_by_key(|(j, b)| (b.len(), -(*j as isize)))
+			.expect("state empty");
 
 		let dist = dist + current_state.0 as usize;
 		if dist > min {
