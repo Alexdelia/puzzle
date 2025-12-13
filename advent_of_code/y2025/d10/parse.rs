@@ -1,6 +1,6 @@
-use crate::{Joltage, JoltageButton, State, StateButton};
+use crate::{JoltageButton, JoltageList, JoltageUnit, State, StateButton};
 
-pub fn parse_line(line: &str) -> (State, Vec<StateButton>, Vec<Joltage>, Vec<JoltageButton>) {
+pub fn parse_line(line: &str) -> (State, Vec<StateButton>, JoltageList, Vec<JoltageButton>) {
 	let split: Vec<&str> = line.split_whitespace().collect();
 	assert!(split.len() >= 3, "line '{line}' does not have enough parts");
 
@@ -73,7 +73,7 @@ fn parse_button(s: &str) -> (StateButton, JoltageButton) {
 	(state_button, joltage_button)
 }
 
-fn parse_joltage_list(s: &str) -> Vec<Joltage> {
+fn parse_joltage_list(s: &str) -> JoltageList {
 	assert!(
 		s.starts_with('{') && s.ends_with('}'),
 		"`ButtonJoltageList` string '{s}' is not enclosed with '{{' and '}}'"
@@ -81,21 +81,15 @@ fn parse_joltage_list(s: &str) -> Vec<Joltage> {
 
 	let s = &s[1..s.len() - 1];
 
-	let list = s
-		.split(',')
-		.map(|part| {
-			part.trim().parse().unwrap_or_else(|_| {
-				panic!("invalid joltage '{part}' in `ButtonJoltageList` string '{s}'")
-			})
-		})
-		.collect::<Vec<Joltage>>();
+	let mut joltage_list: JoltageList = 0;
+	for s in s.split(',') {
+		let part = s.parse::<JoltageUnit>().unwrap_or_else(|_| {
+			panic!("invalid joltage '{s}' in `ButtonJoltageList` string '{s}'")
+		});
+		joltage_list = (joltage_list << 8) | (part as JoltageList);
+	}
 
-	assert!(
-		list.len() <= 16,
-		"`ButtonJoltageList` string '{s}' has too many entries"
-	);
-
-	list
+	joltage_list
 }
 
 #[cfg(test)]
@@ -110,7 +104,7 @@ mod tests {
 				(
 					0b0110,
 					vec![0b1000, 0b1010, 0b0100, 0b1100, 0b0101, 0b0011],
-					vec![3, 5, 4, 7],
+					(3 << 24) | (5 << 16) | (4 << 8) | 7,
 					vec![
 						vec![3],
 						vec![1, 3],
@@ -126,7 +120,7 @@ mod tests {
 				(
 					0b01000,
 					vec![0b11101, 0b01100, 0b10001, 0b00111, 0b11110],
-					vec![7, 5, 12, 7, 2],
+					(7 << 32) | (5 << 24) | (12 << 16) | (7 << 8) | 2,
 					vec![
 						vec![0, 2, 3, 4],
 						vec![2, 3],
@@ -141,7 +135,7 @@ mod tests {
 				(
 					0b101110,
 					vec![0b011111, 0b011001, 0b110111, 0b000110],
-					vec![10, 11, 11, 5, 10, 5],
+					(10 << 40) | (11 << 32) | (11 << 24) | (5 << 16) | (10 << 8) | 5,
 					vec![
 						vec![0, 1, 2, 3, 4],
 						vec![0, 3, 4],

@@ -10,14 +10,10 @@ use std::{
 
 use aocd::*;
 
-pub use node::LightNode;
+pub use node::{JoltageNode, LightNode};
 pub use state::State;
 
-use crate::{
-	combination::{first_joltage_button_press_combination, next_joltage_button_press_combination},
-	node::JoltageNode,
-	state::click_button,
-};
+use crate::{combination::get_joltage_button_press_combination, state::click_button};
 
 type StateButton = State;
 type JoltageList = u128;
@@ -26,7 +22,7 @@ type JoltageButton = Vec<usize>;
 
 type Distance = u16;
 
-fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
+fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> Distance {
 	let mut cache = HashSet::<State>::new();
 	let mut q = BinaryHeap::<LightNode>::from([LightNode {
 		state: State::default(),
@@ -65,43 +61,68 @@ fn set_joltage_unit(joltage_list: &mut JoltageList, index: usize, value: Joltage
 }
 
 fn cleanse_joltage_state(
-	state: HashMap<usize, (Joltage, Vec<usize>)>,
-) -> Option<HashMap<usize, (Joltage, Vec<usize>)>> {
+	active_joltage: &[usize],
+	joltage_list: JoltageList,
+	joltage_button_list: &[JoltageButton; 16],
+) -> Option<(Vec<usize>, [JoltageButton; 16])> {
 	let mut unavailable_button_indices = HashSet::new();
-	for (_, (joltage, button_indices)) in state.iter() {
-		if *joltage == 0 {
+	let mut delete_count = 0;
+	for joltage_index in active_joltage.iter().copied() {
+		let joltage = get_joltage_unit(joltage_list, joltage_index);
+
+		if joltage == 0 {
+			delete_count += 1;
+
+			let button_indices = &joltage_button_list[joltage_index];
 			for &button_index in button_indices {
 				unavailable_button_indices.insert(button_index);
 			}
 		}
 	}
 
-	let mut next_state = HashMap::with_capacity(state.len());
-	for (joltage_index, (joltage, button_indices)) in state.into_iter() {
+	let mut next_active_joltage = Vec::with_capacity(active_joltage.len() - delete_count);
+	let mut next_joltage_button_list = joltage_button_list.clone();
+
+	for joltage_index in active_joltage.iter().copied() {
+		let joltage = get_joltage_unit(joltage_list, joltage_index);
 		if joltage == 0 {
 			continue;
 		}
 
-		let filtered_button_indices: Vec<usize> = button_indices
-			.into_iter()
+		next_joltage_button_list[joltage_index] = joltage_button_list[joltage_index]
+			.iter()
+			.copied()
 			.filter(|button_index| !unavailable_button_indices.contains(button_index))
 			.collect();
 
-		if filtered_button_indices.is_empty() {
+		if next_joltage_button_list[joltage_index].is_empty() {
 			return None;
 		}
 
-		next_state.insert(joltage_index, (joltage, filtered_button_indices));
+		next_active_joltage.push(joltage_index);
 	}
 
-	Some(next_state)
+	Some((next_active_joltage, next_joltage_button_list))
 }
 
 fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> Distance {
+	let mut initial_active_joltage = Vec::new();
+	for (joltage_index, _) in button_list.iter().enumerate() {
+		let joltage_unit = get_joltage_unit(joltage_goal, joltage_index);
+		if joltage_unit > 0 {
+			initial_active_joltage.push(joltage_index);
+		}
+	}
+
+	let mut initial_joltage_button_list: [JoltageButton; 16] = Default::default();
+	for (button_index, button) in button_list.iter().enumerate() {
+		initial_joltage_button_list[button_index] = button.clone();
+	}
+
 	let mut q = VecDeque::<JoltageNode>::from([JoltageNode {
-		active_joltage: Vec::new(),
+		active_joltage: initial_active_joltage,
 		joltage_list: joltage_goal,
-		joltage_button_list: button_list.try_into().expect("invalid button list"),
+		joltage_button_list: initial_joltage_button_list,
 		dist: 0,
 	}]);
 
@@ -132,51 +153,50 @@ fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> 
 			continue;
 		}
 
-		let mut combination = first_joltage_button_press_combination(&current_state);
-		loop {
-			let mut next_state = state.clone();
-			let mut possible = true;
-			'button: for (button_index, &press_count) in combination.iter().enumerate() {
+		let current_joltage_button_list = &joltage_button_list[current_joltage_index];
+
+		let combination_list =
+			get_joltage_button_press_combination(joltage_unit, current_joltage_button_list.len());
+
+		'combination: for combination in combination_list {
+			let mut next_joltage_list = joltage_list;
+			for (button_index, &press_count) in combination.iter().enumerate() {
 				if press_count == 0 {
 					continue;
 				}
 
-				let button = &button_list[current_state.1[button_index]];
+				let button = &button_list[current_joltage_button_list[button_index]];
 				for &joltage_index in button {
-					let joltage_at_index = next_state
-						.get_mut(&joltage_index)
-						.expect("joltage index missing");
-					if joltage_at_index.0 < press_count as Joltage {
-						possible = false;
-						break 'button;
+					let joltage_at_index = get_joltage_unit(next_joltage_list, joltage_index);
+
+					if joltage_at_index < press_count {
+						continue 'combination;
 					}
-					joltage_at_index.0 -= press_count as Joltage;
+
+					set_joltage_unit(
+						&mut next_joltage_list,
+						joltage_index,
+						joltage_at_index - press_count,
+					);
 				}
 			}
 
-			if !possible {
-				if !next_joltage_button_press_combination(&mut combination) {
-					break;
-				}
-				continue;
-			}
-
-			if let Some(next_state) = cleanse_joltage_state(next_state) {
-				if next_state.is_empty() {
+			if let Some((active_joltage, joltage_button_list)) =
+				cleanse_joltage_state(&active_joltage, next_joltage_list, &joltage_button_list)
+			{
+				if joltage_list == 0 {
 					if dist < min {
 						print!("\x1b[2K\r{dist}");
+						min = dist;
 					}
-					min = min.min(dist);
 				} else {
 					q.push_front(JoltageNode {
-						state: next_state,
+						active_joltage,
+						joltage_list,
+						joltage_button_list,
 						dist,
 					});
 				}
-			}
-
-			if !next_joltage_button_press_combination(&mut combination) {
-				break;
 			}
 		}
 	}
@@ -190,7 +210,7 @@ fn solve_line(line: &str) -> (usize, usize) {
 	let (state_goal, state_button_list, joltage_goal, joltage_button_list) =
 		parse::parse_line(line);
 
-	let p1 = solve_line_p1(state_goal, &state_button_list);
+	let p1 = solve_line_p1(state_goal, &state_button_list) as usize;
 	let p2 = solve_line_p2(joltage_goal, joltage_button_list) as usize;
 
 	(p1, p2)
