@@ -107,10 +107,9 @@ fn cleanse_joltage_state(
 
 fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> Distance {
 	let mut initial_active_joltage = Vec::new();
-	for (joltage_index, _) in button_list.iter().enumerate() {
-		let joltage_unit = get_joltage_unit(joltage_goal, joltage_index);
-		if joltage_unit > 0 {
-			initial_active_joltage.push(joltage_index);
+	for i in 0..16 {
+		if get_joltage_unit(joltage_goal, i) > 0 {
+			initial_active_joltage.push(i);
 		}
 	}
 
@@ -137,7 +136,6 @@ fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> 
 		dist,
 	}) = q.pop_front()
 	{
-		dbg!(&active_joltage, joltage_list, dist, &joltage_button_list);
 		let current_joltage_index = *active_joltage
 			.iter()
 			.min_by_key(|joltage_index| {
@@ -148,7 +146,6 @@ fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> 
 				)
 			})
 			.expect("active_joltage empty");
-		dbg!(current_joltage_index);
 
 		let joltage_unit = get_joltage_unit(joltage_list, current_joltage_index);
 
@@ -204,6 +201,11 @@ fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> 
 			}
 		}
 	}
+
+	assert!(
+		min != Distance::MAX,
+		"did not find a solution for part 2 joltage_goal='{joltage_goal:b}'"
+	);
 
 	println!();
 
