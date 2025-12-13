@@ -110,7 +110,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 
 	let mut min = usize::MAX;
 
-	while let Some(JoltageNode { state, dist }) = q.pop_back() {
+	while let Some(JoltageNode { state, dist }) = q.pop_front() {
 		let current_state = state
 			.values()
 			.min_by_key(|(j, b)| (b.len(), -(*j as isize)))
