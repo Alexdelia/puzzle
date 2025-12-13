@@ -16,7 +16,7 @@ pub fn next_joltage_button_press_combination(
 	let i = current_combination
 		.iter()
 		.position(|&x| x != 0)
-		.expect("at least one non-zero");
+		.unwrap_or_else(|| panic!("current_combination={current_combination:?} has no non-zero"));
 
 	if i == current_combination.len() - 1 {
 		return false;

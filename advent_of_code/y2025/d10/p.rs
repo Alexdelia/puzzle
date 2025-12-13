@@ -52,6 +52,43 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 	unreachable!("did not find a solution for part 1 goal='{state_goal:016b}'");
 }
 
+fn cleanse_joltage_state(
+	state: HashMap<usize, (Joltage, Vec<usize>)>,
+) -> (HashMap<usize, (Joltage, Vec<usize>)>, bool) {
+	let mut unavailable_button_indices = HashSet::new();
+	for (_, (joltage, button_indices)) in state.iter() {
+		if *joltage == 0 {
+			for &button_index in button_indices {
+				unavailable_button_indices.insert(button_index);
+			}
+		}
+	}
+
+	let mut possible = true;
+	let next_state = state
+		.into_iter()
+		.filter_map(|(joltage_index, (joltage, button_indices))| {
+			if joltage == 0 {
+				None
+			} else {
+				let filtered_button_indices: Vec<usize> = button_indices
+					.into_iter()
+					.filter(|button_index| !unavailable_button_indices.contains(button_index))
+					.collect();
+
+				if filtered_button_indices.is_empty() {
+					possible = false;
+					return None;
+				}
+
+				Some((joltage_index, (joltage, filtered_button_indices)))
+			}
+		})
+		.collect::<HashMap<usize, (Joltage, Vec<usize>)>>();
+
+	(next_state, possible)
+}
+
 fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usize {
 	let mut remaining_joltage: Vec<(Joltage, Vec<usize>)> =
 		joltage_goal.iter().map(|&j| (j, Vec::new())).collect();
@@ -63,6 +100,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 	let remaining_joltage = HashMap::<usize, (Joltage, Vec<usize>)>::from_iter(
 		remaining_joltage.into_iter().enumerate(),
 	);
+	let (remaining_joltage, _) = cleanse_joltage_state(remaining_joltage);
 
 	let mut q = BinaryHeap::<JoltageNode>::from([JoltageNode {
 		state: remaining_joltage,
@@ -107,38 +145,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 					continue;
 				}
 
-				let mut unavailable_button_indices = HashSet::new();
-				for (_, (joltage, button_indices)) in next_state.iter() {
-					if *joltage == 0 {
-						for &button_index in button_indices {
-							unavailable_button_indices.insert(button_index);
-						}
-					}
-				}
-
-				possible = true;
-				let next_state = next_state
-					.into_iter()
-					.filter_map(|(joltage_index, (joltage, button_indices))| {
-						if joltage == 0 {
-							None
-						} else {
-							let filtered_button_indices: Vec<usize> = button_indices
-								.into_iter()
-								.filter(|button_index| {
-									!unavailable_button_indices.contains(button_index)
-								})
-								.collect();
-
-							if filtered_button_indices.is_empty() {
-								possible = false;
-								return None;
-							}
-
-							Some((joltage_index, (joltage, filtered_button_indices)))
-						}
-					})
-					.collect::<HashMap<usize, (Joltage, Vec<usize>)>>();
+				let (next_state, possible) = cleanse_joltage_state(next_state);
 
 				if possible {
 					if next_state.is_empty() {
