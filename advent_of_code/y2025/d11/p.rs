@@ -2,7 +2,15 @@ use std::collections::{HashMap, VecDeque};
 
 use aocd::*;
 
-fn parse(data: &str) -> (Vec<Vec<usize>>, usize, usize) {
+struct FlagPoint {
+	you: usize,
+	out: usize,
+	svr: usize,
+	dac: usize,
+	fft: usize,
+}
+
+fn parse(data: &str) -> (Vec<Vec<usize>>, FlagPoint) {
 	let mut h = HashMap::<String, usize>::new();
 
 	fn ensure_index(h: &mut HashMap<String, usize>, key: &str) -> usize {
@@ -34,29 +42,61 @@ fn parse(data: &str) -> (Vec<Vec<usize>>, usize, usize) {
 		}
 	}
 
-	let start_index = h.get("you").copied().expect("no 'you' node found");
-	let end_index = h.get("out").copied().expect("no 'out' node found");
+	let flag_point = FlagPoint {
+		you: *h.get("you").expect("no 'you' node found"),
+		out: *h.get("out").expect("no 'out' node found"),
+		svr: *h.get("svr").expect("no 'svr' node found"),
+		dac: *h.get("dac").expect("no 'dac' node found"),
+		fft: *h.get("fft").expect("no 'fft' node found"),
+	};
 
-	(graph, start_index, end_index)
+	(graph, flag_point)
 }
 
-fn solve(data: &str) -> (usize, usize) {
-	let (graph, start, end) = parse(data);
+fn solve_p1(graph: &Vec<Vec<usize>>, f: &FlagPoint) -> usize {
+	let mut count = 0;
 
-	let mut p1 = 0;
-
-	let mut q = VecDeque::from([start]);
+	let mut q = VecDeque::from([f.you]);
 	while let Some(node) = q.pop_front() {
 		for &neighbor in &graph[node] {
-			if neighbor == end {
-				p1 += 1;
+			if neighbor == f.out {
+				count += 1;
 			} else {
 				q.push_back(neighbor);
 			}
 		}
 	}
 
-	(p1, 0)
+	count
+}
+
+fn solve_p2(graph: &Vec<Vec<usize>>, f: &FlagPoint) -> usize {
+	let mut count = 0;
+
+	let mut q = VecDeque::from([(f.svr, false, false)]);
+	while let Some((node, seen_dac, seen_fft)) = q.pop_front() {
+		for &neighbor in &graph[node] {
+			if neighbor == f.out {
+				if seen_dac && seen_fft {
+					count += 1;
+				}
+			} else {
+				q.push_back((
+					neighbor,
+					seen_dac || neighbor == f.dac,
+					seen_fft || neighbor == f.fft,
+				));
+			}
+		}
+	}
+
+	count
+}
+
+fn solve(data: &str) -> (usize, usize) {
+	let (graph, f) = parse(data);
+
+	(solve_p1(&graph, &f), solve_p2(&graph, &f))
 }
 
 #[aocd(2025, 11)]
@@ -69,7 +109,7 @@ fn main() {
 mod tests {
 	use super::*;
 
-	const TEST_DATA: &str = r#"
+	const TEST_DATA_PART_1: &str = r#"
 aaa: you hhh
 you: bbb ccc
 bbb: ddd eee
@@ -80,12 +120,38 @@ fff: out
 ggg: out
 hhh: ccc fff iii
 iii: out
+svr: aaa
+dac: aaa
+fft: aaa
+"#;
+
+	const TEST_DATA_PART_2: &str = r#"
+svr: aaa bbb
+aaa: fft
+fft: ccc
+bbb: tty
+tty: ccc
+ccc: ddd eee
+ddd: hub
+hub: fff
+eee: dac
+dac: fff
+fff: ggg hhh
+ggg: out
+hhh: out
+you: aaa
 "#;
 
 	#[test]
 	fn test_example() {
-		let expected = (5, 0);
-		let got = solve(TEST_DATA);
+		let p1_data = parse(TEST_DATA_PART_1);
+		let p2_data = parse(TEST_DATA_PART_2);
+
+		let expected = (5, 2);
+		let got = (
+			solve_p1(&p1_data.0, &p1_data.1),
+			solve_p2(&p2_data.0, &p2_data.1),
+		);
 		assert_eq!(
 			expected.0, got.0,
 			"part 1\nexpected {}\ngot {}",
