@@ -181,10 +181,14 @@ fn solve(data: &str) -> (usize, usize) {
 	let mut p2 = 0;
 
 	let start = SystemTime::now();
-	let len = data.trim().lines().count();
+	let mut lines = data.trim().lines().collect::<Vec<&str>>();
+	lines.sort_by(|a, b| a.len().cmp(&b.len()));
+	let len = lines.len();
 
-	for (i, line) in data.trim().lines().enumerate() {
+	for (i, line) in lines.iter().enumerate() {
 		println!("===\n{line}");
+
+		let start_line = SystemTime::now();
 
 		let (line_p1, line_p2) = solve_line(line);
 		p1 += line_p1;
@@ -195,8 +199,12 @@ fn solve(data: &str) -> (usize, usize) {
 			.expect("failed to get elapsed time")
 			.as_secs_f32();
 		let eta = elapsed / (i as f32 + 1.0) * (len as f32 - i as f32 - 1.0);
+		let elapsed_line = start_line
+			.elapsed()
+			.expect("failed to get elapsed time for line")
+			.as_secs_f32();
 		println!(
-			"{i}/{len} {percent:.2}%\tETA: {eta:.2}s",
+			"{i}/{len} {percent:.2}%\t{elapsed_line:.2}s\tETA: {eta:.2}s",
 			i = i + 1,
 			percent = (i as f32 + 1.0) / (len as f32) * 100.0
 		);
