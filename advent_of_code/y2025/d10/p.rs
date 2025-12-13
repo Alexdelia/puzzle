@@ -57,6 +57,18 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 	unreachable!("did not find a solution for part 1 goal='{state_goal:016b}'");
 }
 
+// for all joltage/button combinations
+//   ex joltage x = 4 with 2 buttons
+//     [0,4]
+//     [1,3]
+//     [2,2]
+//     [3,1]
+//     [4,0]
+
+// press each combination of buttons that do not exceed the goal joltage
+
+// increase step by joltage x
+
 fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usize {
 	let mut cache = HashMap::<Vec<Joltage>, Distance>::new();
 	let mut q = BinaryHeap::<Node<Vec<Joltage>>>::from([Node {
