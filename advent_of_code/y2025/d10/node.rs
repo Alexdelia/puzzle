@@ -25,7 +25,6 @@ impl Ord for LightNode {
 	}
 }
 
-pub type ButtonMask = u16;
 pub struct JoltageNode {
 	pub active_joltage: Vec<usize>,
 	pub joltage_list: JoltageList,
