@@ -1,4 +1,18 @@
-pub fn next_joltage_button_press_combination(current_combination: &mut [usize]) -> bool {
+use crate::Joltage;
+
+pub type JoltageButtonPressCombination = Vec<Joltage>;
+
+pub fn first_joltage_button_press_combination(
+	remaining_joltage: &(Joltage, Vec<usize>),
+) -> JoltageButtonPressCombination {
+	let mut combination = vec![0; remaining_joltage.1.len()];
+	combination[0] = remaining_joltage.0;
+	combination
+}
+
+pub fn next_joltage_button_press_combination(
+	current_combination: &mut JoltageButtonPressCombination,
+) -> bool {
 	let i = current_combination
 		.iter()
 		.position(|&x| x != 0)
@@ -19,6 +33,13 @@ pub fn next_joltage_button_press_combination(current_combination: &mut [usize]) 
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn test_first_joltage_button_press_combination() {
+		let remaining_joltage = (4, vec![0, 1, 2]);
+		let combination = first_joltage_button_press_combination(&remaining_joltage);
+		assert_eq!(combination, vec![4, 0, 0]);
+	}
 
 	#[test]
 	fn test_next_joltage_button_press_combination() {
@@ -42,8 +63,8 @@ mod tests {
 			&[0, 0, 4],
 		];
 
-		let mut current_combination = vec![0; button_count];
-		current_combination[0] = joltage_x;
+		let mut current_combination =
+			first_joltage_button_press_combination(&(joltage_x, vec![0; button_count]));
 		let mut index = 0;
 		loop {
 			assert_eq!(

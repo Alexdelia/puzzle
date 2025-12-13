@@ -1,4 +1,4 @@
-mod next_joltage_button_press_combination;
+mod combination;
 mod node;
 mod parse;
 mod state;
@@ -10,11 +10,14 @@ use std::{
 
 use aocd::*;
 
-pub use next_joltage_button_press_combination::next_joltage_button_press_combination;
 pub use node::LightNode;
 pub use state::State;
 
-use crate::{node::JoltageNode, state::click_button};
+use crate::{
+	combination::{first_joltage_button_press_combination, next_joltage_button_press_combination},
+	node::JoltageNode,
+	state::click_button,
+};
 
 type StateButton = State;
 type Joltage = u8;
@@ -49,48 +52,6 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 	unreachable!("did not find a solution for part 1 goal='{state_goal:016b}'");
 }
 
-// for all joltage/button combinations
-//   ex joltage x = 4 with 3 buttons that affect joltage x
-//     [4,0,0]
-//     [3,1,0]
-//     [2,2,0]
-//     [1,3,0]
-//     [0,4,0]
-//     [3,0,1]
-//     [2,1,1]
-//     [1,2,1]
-//     [0,3,1]
-//     [2,0,2]
-//     [1,1,2]
-//     [0,2,2]
-//     [1,0,3]
-//     [0,1,3]
-//     [0,0,4]
-
-// press each combination of buttons that do not exceed the goal joltage
-
-// increase step by joltage x
-
-// need:
-// - Vec<(Joltage, Vec<usize>)>  -- list of (joltage, button indices that affect that joltage)
-// - Vec<Vec<usize>> -- list of button with each joltage index affected by that button
-
-// when joltage reaches goal, remove all affectable buttons for all other joltage
-
-fn is_end(joltage: &[(Joltage, Vec<usize>)]) -> Result<bool, ()> {
-	for (j, button_indices) in joltage {
-		if *j != 0 {
-			return if button_indices.is_empty() {
-				Err(())
-			} else {
-				Ok(false)
-			};
-		}
-	}
-
-	Ok(true)
-}
-
 fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usize {
 	let mut remaining_joltage: Vec<(Joltage, Vec<usize>)> =
 		joltage_goal.iter().map(|&j| (j, Vec::new())).collect();
@@ -105,7 +66,83 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 		dist: 0,
 	}]);
 
-	while let Some(JoltageNode { state, dist }) = q.pop() {}
+	while let Some(JoltageNode { state, dist }) = q.pop() {
+		for i in 0..state.len() {
+			let dist = dist + state[i].0 as usize;
+
+			let mut combination = first_joltage_button_press_combination(&state[i]);
+			loop {
+				let mut next_state = state.clone();
+				let mut possible = true;
+				for (button_index, &press_count) in combination.iter().enumerate() {
+					if press_count == 0 {
+						continue;
+					}
+
+					let button = &button_list[button_index];
+					for &joltage_index in button {
+						if next_state[joltage_index].0 < press_count as Joltage {
+							possible = false;
+							break;
+						}
+						next_state[joltage_index].0 -= press_count as Joltage;
+					}
+				}
+
+				if !possible {
+					if !next_joltage_button_press_combination(&mut combination) {
+						break;
+					}
+					continue;
+				}
+
+				let mut unavailable_button_indices = HashSet::new();
+				for (joltage, button_indices) in next_state.iter() {
+					if *joltage == 0 {
+						for &button_index in button_indices {
+							unavailable_button_indices.insert(button_index);
+						}
+					}
+				}
+
+				let mut impossible = false;
+				let next_state = next_state
+					.into_iter()
+					.filter_map(|(joltage, button_indices)| {
+						if joltage == 0 {
+							None
+						} else {
+							let filtered_button_indices: Vec<usize> = button_indices
+								.into_iter()
+								.filter(|button_index| {
+									!unavailable_button_indices.contains(button_index)
+								})
+								.collect();
+							if filtered_button_indices.is_empty() {
+								impossible = true;
+							}
+							Some((joltage, filtered_button_indices))
+						}
+					})
+					.collect::<Vec<(Joltage, Vec<usize>)>>();
+
+				if !impossible {
+					if next_state.is_empty() {
+						return dist;
+					}
+
+					q.push(JoltageNode {
+						state: next_state,
+						dist,
+					});
+				}
+
+				if !next_joltage_button_press_combination(&mut combination) {
+					break;
+				}
+			}
+		}
+	}
 
 	unreachable!("did not find a solution for part 2 goal='{joltage_goal:?}'");
 }
