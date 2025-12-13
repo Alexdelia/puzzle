@@ -65,7 +65,7 @@ fn cleanse_joltage_state(
 	joltage_list: JoltageList,
 	joltage_button_list: &[JoltageButton; 16],
 ) -> Option<(Vec<usize>, [JoltageButton; 16])> {
-	let mut unavailable_button_indices = HashSet::new();
+	let mut unavailable_joltage_indices = [false; 16];
 	let mut delete_count = 0;
 	for joltage_index in active_joltage.iter().copied() {
 		let joltage = get_joltage_unit(joltage_list, joltage_index);
@@ -75,7 +75,7 @@ fn cleanse_joltage_state(
 
 			let button_indices = &joltage_button_list[joltage_index];
 			for &button_index in button_indices {
-				unavailable_button_indices.insert(button_index);
+				unavailable_joltage_indices[button_index] = true;
 			}
 		}
 	}
@@ -92,7 +92,7 @@ fn cleanse_joltage_state(
 		next_joltage_button_list[joltage_index] = joltage_button_list[joltage_index]
 			.iter()
 			.copied()
-			.filter(|button_index| !unavailable_button_indices.contains(button_index))
+			.filter(|button_index| unavailable_joltage_indices[*button_index] == false)
 			.collect();
 
 		if next_joltage_button_list[joltage_index].is_empty() {
