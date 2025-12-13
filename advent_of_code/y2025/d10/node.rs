@@ -51,15 +51,29 @@ impl Ord for JoltageNode {
 		other
 			.state
 			.iter()
-			.map(|(_, (joltage, _))| *joltage as usize)
+			.map(|(_, (_, button_list))| button_list.len())
 			.sum::<usize>()
 			.cmp(
 				&self
 					.state
 					.iter()
-					.map(|(_, (joltage, _))| *joltage as usize)
+					.map(|(_, (_, button_list))| button_list.len())
 					.sum::<usize>(),
 			)
+			.then_with(|| {
+				other
+					.state
+					.iter()
+					.map(|(_, (joltage, _))| *joltage as usize)
+					.sum::<usize>()
+					.cmp(
+						&self
+							.state
+							.iter()
+							.map(|(_, (joltage, _))| *joltage as usize)
+							.sum::<usize>(),
+					)
+			})
 			.then_with(|| other.dist.cmp(&self.dist))
 	}
 }
