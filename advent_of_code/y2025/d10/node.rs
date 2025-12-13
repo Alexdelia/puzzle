@@ -50,8 +50,16 @@ impl Ord for JoltageNode {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		other
 			.state
-			.len()
-			.cmp(&self.state.len())
+			.iter()
+			.map(|(_, (joltage, _))| *joltage as usize)
+			.sum::<usize>()
+			.cmp(
+				&self
+					.state
+					.iter()
+					.map(|(_, (joltage, _))| *joltage as usize)
+					.sum::<usize>(),
+			)
 			.then_with(|| other.dist.cmp(&self.dist))
 	}
 }
