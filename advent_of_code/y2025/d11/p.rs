@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use aocd::*;
 
@@ -53,24 +53,33 @@ fn parse(data: &str) -> (Vec<Vec<usize>>, FlagPoint) {
 	(graph, flag_point)
 }
 
-fn count_path(graph: &[Vec<usize>], start: usize, end: usize) -> usize {
-	let mut count = 0;
+type Cache = HashMap<usize, usize>;
 
-	let mut q = VecDeque::from([start]);
-	while let Some(node) = q.pop_front() {
-		for &neighbor in &graph[node] {
-			if neighbor == end {
-				count += 1;
-				if count % 1_000 == 0 {
-					dbg!(count);
-				}
-			} else {
-				q.push_back(neighbor);
-			}
+fn recursive_count_path(
+	cache: &mut Cache,
+	graph: &[Vec<usize>],
+	current: usize,
+	end: usize,
+) -> usize {
+	if let Some(&count) = cache.get(&current) {
+		return count;
+	}
+
+	let mut count = 0;
+	for &neighbor in &graph[current] {
+		if neighbor == end {
+			count += 1;
+		} else {
+			count += recursive_count_path(cache, graph, neighbor, end);
 		}
 	}
 
+	cache.insert(current, count);
 	count
+}
+
+fn count_path(graph: &[Vec<usize>], start: usize, end: usize) -> usize {
+	recursive_count_path(&mut Cache::new(), graph, start, end)
 }
 
 fn solve_p1(graph: &[Vec<usize>], f: &FlagPoint) -> usize {
