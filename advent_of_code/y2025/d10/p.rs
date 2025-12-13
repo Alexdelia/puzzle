@@ -99,6 +99,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 	let remaining_joltage =
 		cleanse_joltage_state(remaining_joltage).expect("initial joltage state invalid");
 
+	let mut cache = HashMap::<Vec<(usize, (Joltage, Vec<usize>))>, Distance>::new();
 	let mut q = BinaryHeap::<JoltageNode>::from([JoltageNode {
 		state: remaining_joltage,
 		dist: 0,
@@ -117,7 +118,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 			loop {
 				let mut next_state = state.clone();
 				let mut possible = true;
-				for (button_index, &press_count) in combination.iter().enumerate() {
+				'button: for (button_index, &press_count) in combination.iter().enumerate() {
 					if press_count == 0 {
 						continue;
 					}
@@ -129,7 +130,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 							.expect("joltage index missing");
 						if joltage_at_index.0 < press_count as Joltage {
 							possible = false;
-							break;
+							break 'button;
 						}
 						joltage_at_index.0 -= press_count as Joltage;
 					}
@@ -148,6 +149,20 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 							print!("\x1b[2K\r{dist}");
 						}
 						min = min.min(dist);
+					}
+
+					let mut cache_key =
+						Vec::from_iter(next_state.iter().map(|(k, v)| (*k, v.clone())));
+					cache_key.sort_by(|a, b| a.0.cmp(&b.0));
+					if let Some(&cached_dist) = cache.get(&cache_key) {
+						if dist > cached_dist {
+							if !next_joltage_button_press_combination(&mut combination) {
+								break;
+							}
+							continue;
+						}
+					} else {
+						cache.insert(cache_key, dist);
 					}
 
 					q.push(JoltageNode {
@@ -206,7 +221,7 @@ fn solve(data: &str) -> (usize, usize) {
 			.expect("failed to get elapsed time for line")
 			.as_secs_f32();
 		println!(
-			"{i}/{len} {percent:.2}%\t{elapsed_line:.2}s\tETA: {eta:.2}s",
+			"{i}/{len} {percent:.2}%\t{elapsed_line:.2}s\t{elapsed:.2}s\tETA: {eta:.2}s",
 			i = i + 1,
 			percent = (i as f32 + 1.0) / (len as f32) * 100.0
 		);
