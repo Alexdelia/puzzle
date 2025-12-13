@@ -18,3 +18,7 @@ path = "y2025/d08/p.rs"
 [[bin]]
 name = "y2025d10"
 path = "y2025/d10/p.rs"
+
+[[bin]]
+name = "y2025d11"
+path = "y2025/d11/p.rs"
