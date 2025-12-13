@@ -99,7 +99,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 	let remaining_joltage =
 		cleanse_joltage_state(remaining_joltage).expect("initial joltage state invalid");
 
-	let mut cache = HashMap::<Vec<(usize, (Joltage, Vec<usize>))>, Distance>::new();
+	// let mut cache = HashMap::<Vec<(usize, (Joltage, Vec<usize>))>, Distance>::new();
 	let mut q = BinaryHeap::<JoltageNode>::from([JoltageNode {
 		state: remaining_joltage,
 		dist: 0,
@@ -151,6 +151,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 						min = min.min(dist);
 					}
 
+					/*
 					let mut cache_key =
 						Vec::from_iter(next_state.iter().map(|(k, v)| (*k, v.clone())));
 					cache_key.sort_by(|a, b| a.0.cmp(&b.0));
@@ -164,6 +165,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 					} else {
 						cache.insert(cache_key, dist);
 					}
+					*/
 
 					q.push(JoltageNode {
 						state: next_state,
