@@ -13,7 +13,10 @@ use aocd::*;
 pub use node::{JoltageNode, LightNode};
 pub use state::State;
 
-use crate::{combination::get_joltage_button_press_combination, state::click_button};
+use crate::{
+	combination::{CombinationCache, get_joltage_button_press_combination},
+	state::click_button,
+};
 
 type StateButton = State;
 type JoltageList = u128;
@@ -105,7 +108,11 @@ fn cleanse_joltage_state(
 	Some((next_active_joltage, next_joltage_button_list))
 }
 
-fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> Distance {
+fn solve_line_p2(
+	combination_cache: &mut CombinationCache,
+	joltage_goal: JoltageList,
+	button_list: Vec<JoltageButton>,
+) -> Distance {
 	let mut initial_active_joltage = Vec::new();
 	for i in 0..16 {
 		if get_joltage_unit(joltage_goal, i) > 0 {
@@ -156,8 +163,11 @@ fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> 
 
 		let current_joltage_button_list = &joltage_button_list[current_joltage_index];
 
-		let combination_list =
-			get_joltage_button_press_combination(joltage_unit, current_joltage_button_list.len());
+		let combination_list = get_joltage_button_press_combination(
+			combination_cache,
+			joltage_unit,
+			current_joltage_button_list.len(),
+		);
 
 		'combination: for combination in combination_list {
 			let mut next_joltage_list = joltage_list;
@@ -212,17 +222,19 @@ fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> 
 	min
 }
 
-fn solve_line(line: &str) -> (usize, usize) {
+fn solve_line(line: &str, combination_cache: &mut CombinationCache) -> (usize, usize) {
 	let (state_goal, state_button_list, joltage_goal, joltage_button_list) =
 		parse::parse_line(line);
 
 	let p1 = solve_line_p1(state_goal, &state_button_list) as usize;
-	let p2 = solve_line_p2(joltage_goal, joltage_button_list) as usize;
+	let p2 = solve_line_p2(combination_cache, joltage_goal, joltage_button_list) as usize;
 
 	(p1, p2)
 }
 
 fn solve(data: &str) -> (usize, usize) {
+	let mut combination_cache = CombinationCache::new();
+
 	let mut p1 = 0;
 	let mut p2 = 0;
 
@@ -236,7 +248,7 @@ fn solve(data: &str) -> (usize, usize) {
 
 		let start_line = SystemTime::now();
 
-		let (line_p1, line_p2) = solve_line(line);
+		let (line_p1, line_p2) = solve_line(line, &mut combination_cache);
 		p1 += line_p1;
 		p2 += line_p2;
 

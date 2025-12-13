@@ -1,22 +1,33 @@
+use std::collections::{HashMap, hash_map::Entry};
+
 use crate::JoltageUnit;
 
 pub type JoltageButtonPressCombination = Vec<JoltageUnit>;
 
-pub fn get_joltage_button_press_combination(
+pub type CombinationCache = HashMap<(JoltageUnit, usize), Vec<JoltageButtonPressCombination>>;
+
+pub fn get_joltage_button_press_combination<'c>(
+	cache: &'c mut CombinationCache,
 	joltage_unit: JoltageUnit,
 	button_count: usize,
-) -> Vec<JoltageButtonPressCombination> {
-	let mut current_combination =
-		first_joltage_button_press_combination(joltage_unit, button_count);
+) -> &'c [JoltageButtonPressCombination] {
+	let entry = cache.entry((joltage_unit, button_count));
+	match entry {
+		Entry::Occupied(occupied) => occupied.into_mut(),
+		Entry::Vacant(vacant) => {
+			let mut current_combination =
+				first_joltage_button_press_combination(joltage_unit, button_count);
 
-	let mut res = Vec::new();
-	res.push(current_combination.clone());
+			let mut res = Vec::new();
+			res.push(current_combination.clone());
 
-	while next_joltage_button_press_combination(&mut current_combination) {
-		res.push(current_combination.clone());
+			while next_joltage_button_press_combination(&mut current_combination) {
+				res.push(current_combination.clone());
+			}
+
+			vacant.insert(res)
+		}
 	}
-
-	res
 }
 
 fn first_joltage_button_press_combination(
