@@ -54,7 +54,7 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 
 fn cleanse_joltage_state(
 	state: HashMap<usize, (Joltage, Vec<usize>)>,
-) -> (HashMap<usize, (Joltage, Vec<usize>)>, bool) {
+) -> Option<HashMap<usize, (Joltage, Vec<usize>)>> {
 	let mut unavailable_button_indices = HashSet::new();
 	for (_, (joltage, button_indices)) in state.iter() {
 		if *joltage == 0 {
@@ -64,29 +64,25 @@ fn cleanse_joltage_state(
 		}
 	}
 
-	let mut possible = true;
-	let next_state = state
-		.into_iter()
-		.filter_map(|(joltage_index, (joltage, button_indices))| {
-			if joltage == 0 {
-				None
-			} else {
-				let filtered_button_indices: Vec<usize> = button_indices
-					.into_iter()
-					.filter(|button_index| !unavailable_button_indices.contains(button_index))
-					.collect();
+	let mut next_state = HashMap::with_capacity(state.len());
+	for (joltage_index, (joltage, button_indices)) in state.into_iter() {
+		if joltage == 0 {
+			continue;
+		}
 
-				if filtered_button_indices.is_empty() {
-					possible = false;
-					return None;
-				}
+		let filtered_button_indices: Vec<usize> = button_indices
+			.into_iter()
+			.filter(|button_index| !unavailable_button_indices.contains(button_index))
+			.collect();
 
-				Some((joltage_index, (joltage, filtered_button_indices)))
-			}
-		})
-		.collect::<HashMap<usize, (Joltage, Vec<usize>)>>();
+		if filtered_button_indices.is_empty() {
+			return None;
+		}
 
-	(next_state, possible)
+		next_state.insert(joltage_index, (joltage, filtered_button_indices));
+	}
+
+	Some(next_state)
 }
 
 fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usize {
@@ -100,7 +96,8 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 	let remaining_joltage = HashMap::<usize, (Joltage, Vec<usize>)>::from_iter(
 		remaining_joltage.into_iter().enumerate(),
 	);
-	let (remaining_joltage, _) = cleanse_joltage_state(remaining_joltage);
+	let remaining_joltage =
+		cleanse_joltage_state(remaining_joltage).expect("initial joltage state invalid");
 
 	let mut q = BinaryHeap::<JoltageNode>::from([JoltageNode {
 		state: remaining_joltage,
@@ -145,9 +142,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 					continue;
 				}
 
-				let (next_state, possible) = cleanse_joltage_state(next_state);
-
-				if possible {
+				if let Some(next_state) = cleanse_joltage_state(next_state) {
 					if next_state.is_empty() {
 						if dist < min {
 							print!("\x1b[2K\r{dist}");
