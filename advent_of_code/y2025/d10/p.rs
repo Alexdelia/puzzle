@@ -99,7 +99,6 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 	let remaining_joltage =
 		cleanse_joltage_state(remaining_joltage).expect("initial joltage state invalid");
 
-	// let mut cache = HashMap::<Vec<(usize, (Joltage, Vec<usize>))>, Distance>::new();
 	// let mut q = BinaryHeap::<JoltageNode>::from([JoltageNode {
 	// state: remaining_joltage,
 	// dist: 0,
@@ -112,9 +111,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 	let mut min = usize::MAX;
 
 	while let Some(JoltageNode { state, dist }) = q.pop_back() {
-		let Some(current_state) = state.values().next() else {
-			continue;
-		};
+		let current_state = state.values().next().expect("empty joltage state");
 
 		let dist = dist + current_state.0 as usize;
 		if dist > min {
@@ -156,28 +153,12 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 						print!("\x1b[2K\r{dist}");
 					}
 					min = min.min(dist);
-				}
-
-				/*
-				let mut cache_key =
-					Vec::from_iter(next_state.iter().map(|(k, v)| (*k, v.clone())));
-				cache_key.sort_by(|a, b| a.0.cmp(&b.0));
-				if let Some(&cached_dist) = cache.get(&cache_key) {
-					if dist > cached_dist {
-						if !next_joltage_button_press_combination(&mut combination) {
-							break;
-						}
-						continue;
-					}
 				} else {
-					cache.insert(cache_key, dist);
+					q.push_front(JoltageNode {
+						state: next_state,
+						dist,
+					});
 				}
-				*/
-
-				q.push_front(JoltageNode {
-					state: next_state,
-					dist,
-				});
 			}
 
 			if !next_joltage_button_press_combination(&mut combination) {
