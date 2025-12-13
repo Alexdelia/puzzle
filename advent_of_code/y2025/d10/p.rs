@@ -4,7 +4,7 @@ mod parse;
 mod state;
 
 use std::{
-	collections::{BinaryHeap, HashSet},
+	collections::{BinaryHeap, HashMap, HashSet},
 	time::SystemTime,
 };
 
@@ -60,6 +60,9 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 			remaining_joltage[joltage_index].1.push(button_index);
 		}
 	}
+	let remaining_joltage = HashMap::<usize, (Joltage, Vec<usize>)>::from_iter(
+		remaining_joltage.into_iter().enumerate(),
+	);
 
 	let mut q = BinaryHeap::<JoltageNode>::from([JoltageNode {
 		state: remaining_joltage,
@@ -67,7 +70,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 	}]);
 
 	while let Some(JoltageNode { state, dist }) = q.pop() {
-		for i in 0..state.len() {
+		for i in state.keys() {
 			let dist = dist + state[i].0 as usize;
 
 			let mut combination = first_joltage_button_press_combination(&state[i]);
@@ -81,11 +84,15 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 
 					let button = &button_list[button_index];
 					for &joltage_index in button {
-						if next_state[joltage_index].0 < press_count as Joltage {
+						let Some(joltage_at_index) = next_state.get_mut(&joltage_index) else {
+							possible = false;
+							break;
+						};
+						if joltage_at_index.0 < press_count as Joltage {
 							possible = false;
 							break;
 						}
-						next_state[joltage_index].0 -= press_count as Joltage;
+						joltage_at_index.0 -= press_count as Joltage;
 					}
 				}
 
@@ -97,7 +104,7 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 				}
 
 				let mut unavailable_button_indices = HashSet::new();
-				for (joltage, button_indices) in next_state.iter() {
+				for (_, (joltage, button_indices)) in next_state.iter() {
 					if *joltage == 0 {
 						for &button_index in button_indices {
 							unavailable_button_indices.insert(button_index);
@@ -105,10 +112,10 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 					}
 				}
 
-				let mut impossible = false;
+				possible = true;
 				let next_state = next_state
 					.into_iter()
-					.filter_map(|(joltage, button_indices)| {
+					.filter_map(|(joltage_index, (joltage, button_indices))| {
 						if joltage == 0 {
 							None
 						} else {
@@ -118,15 +125,18 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 									!unavailable_button_indices.contains(button_index)
 								})
 								.collect();
+
 							if filtered_button_indices.is_empty() {
-								impossible = true;
+								possible = false;
+								return None;
 							}
-							Some((joltage, filtered_button_indices))
+
+							Some((joltage_index, (joltage, filtered_button_indices)))
 						}
 					})
-					.collect::<Vec<(Joltage, Vec<usize>)>>();
+					.collect::<HashMap<usize, (Joltage, Vec<usize>)>>();
 
-				if !impossible {
+				if possible {
 					if next_state.is_empty() {
 						return dist;
 					}

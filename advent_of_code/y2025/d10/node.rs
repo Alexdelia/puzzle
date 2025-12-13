@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{Distance, Joltage, State};
 
 pub struct LightNode {
@@ -26,7 +28,7 @@ impl Ord for LightNode {
 }
 
 pub struct JoltageNode {
-	pub state: Vec<(Joltage, Vec<usize>)>,
+	pub state: HashMap<usize, (Joltage, Vec<usize>)>,
 	pub dist: Distance,
 }
 
@@ -86,19 +88,19 @@ mod tests {
 	fn test_joltage_node_ordering() {
 		let mut heap = BinaryHeap::<JoltageNode>::from([
 			JoltageNode {
-				state: vec![(0, vec![0]), (1, vec![1])],
+				state: HashMap::from([(0, (0, vec![0])), (1, (1, vec![1]))]),
 				dist: 5,
 			},
 			JoltageNode {
-				state: vec![(0, vec![0])],
+				state: HashMap::from([(0, (0, vec![0]))]),
 				dist: 10,
 			},
 			JoltageNode {
-				state: vec![(0, vec![0]), (1, vec![1]), (2, vec![2])],
+				state: HashMap::from([(0, (0, vec![0])), (1, (1, vec![1])), (2, (2, vec![2]))]),
 				dist: 3,
 			},
 			JoltageNode {
-				state: vec![(0, vec![0])],
+				state: HashMap::from([(0, (0, vec![0]))]),
 				dist: 2,
 			},
 		]);
