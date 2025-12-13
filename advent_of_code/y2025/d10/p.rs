@@ -82,12 +82,11 @@ fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usi
 						continue;
 					}
 
-					let button = &button_list[button_index];
+					let button = &button_list[state[i].1[button_index]];
 					for &joltage_index in button {
-						let Some(joltage_at_index) = next_state.get_mut(&joltage_index) else {
-							possible = false;
-							break;
-						};
+						let joltage_at_index = next_state
+							.get_mut(&joltage_index)
+							.expect("joltage index missing");
 						if joltage_at_index.0 < press_count as Joltage {
 							possible = false;
 							break;
