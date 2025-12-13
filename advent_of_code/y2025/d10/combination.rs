@@ -6,11 +6,11 @@ pub type JoltageButtonPressCombination = Vec<JoltageUnit>;
 
 pub type CombinationCache = HashMap<(JoltageUnit, usize), Vec<JoltageButtonPressCombination>>;
 
-pub fn get_joltage_button_press_combination<'c>(
-	cache: &'c mut CombinationCache,
+pub fn get_joltage_button_press_combination(
+	cache: &mut CombinationCache,
 	joltage_unit: JoltageUnit,
 	button_count: usize,
-) -> &'c [JoltageButtonPressCombination] {
+) -> &[JoltageButtonPressCombination] {
 	let entry = cache.entry((joltage_unit, button_count));
 	match entry {
 		Entry::Occupied(occupied) => occupied.into_mut(),

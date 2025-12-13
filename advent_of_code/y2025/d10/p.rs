@@ -95,7 +95,7 @@ fn cleanse_joltage_state(
 		next_joltage_button_list[joltage_index] = joltage_button_list[joltage_index]
 			.iter()
 			.copied()
-			.filter(|button_index| unavailable_joltage_indices[*button_index] == false)
+			.filter(|button_index| !unavailable_joltage_indices[*button_index])
 			.collect();
 
 		if next_joltage_button_list[joltage_index].is_empty() {
@@ -240,7 +240,7 @@ fn solve(data: &str) -> (usize, usize) {
 
 	let start = SystemTime::now();
 	let mut lines = data.trim().lines().collect::<Vec<&str>>();
-	lines.sort_by(|a, b| a.len().cmp(&b.len()));
+	lines.sort_by_key(|a| a.len());
 	let len = lines.len();
 
 	for (i, line) in lines.iter().enumerate() {
