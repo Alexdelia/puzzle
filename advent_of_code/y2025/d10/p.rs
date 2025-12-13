@@ -4,7 +4,7 @@ mod parse;
 mod state;
 
 use std::{
-	collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+	collections::{BinaryHeap, HashSet, VecDeque},
 	time::SystemTime,
 };
 
@@ -20,10 +20,11 @@ use crate::{
 };
 
 type StateButton = State;
-type Joltage = u8;
+type JoltageList = u128;
+type JoltageUnit = u8;
 type JoltageButton = Vec<usize>;
 
-type Distance = usize;
+type Distance = u16;
 
 fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 	let mut cache = HashSet::<State>::new();
@@ -50,6 +51,17 @@ fn solve_line_p1(state_goal: State, button_list: &[StateButton]) -> usize {
 	}
 
 	unreachable!("did not find a solution for part 1 goal='{state_goal:016b}'");
+}
+
+#[inline]
+fn get_joltage_unit(joltage_list: JoltageList, index: usize) -> JoltageUnit {
+	((joltage_list >> (index * 8)) & 0xFF) as JoltageUnit
+}
+
+#[inline]
+fn set_joltage_unit(joltage_list: &mut JoltageList, index: usize, value: JoltageUnit) {
+	*joltage_list &= !(0xFF << (index * 8));
+	*joltage_list |= (value as JoltageList) << (index * 8);
 }
 
 fn cleanse_joltage_state(
@@ -85,38 +97,37 @@ fn cleanse_joltage_state(
 	Some(next_state)
 }
 
-fn solve_line_p2(joltage_goal: &[Joltage], button_list: &[JoltageButton]) -> usize {
-	let mut remaining_joltage: Vec<(Joltage, Vec<usize>)> =
-		joltage_goal.iter().map(|&j| (j, Vec::new())).collect();
-	for (button_index, button) in button_list.iter().enumerate() {
-		for &joltage_index in button {
-			remaining_joltage[joltage_index].1.push(button_index);
-		}
-	}
-	let remaining_joltage = HashMap::<usize, (Joltage, Vec<usize>)>::from_iter(
-		remaining_joltage.into_iter().enumerate(),
-	);
-	let remaining_joltage =
-		cleanse_joltage_state(remaining_joltage).expect("initial joltage state invalid");
-
-	// let mut q = BinaryHeap::<JoltageNode>::from([JoltageNode {
-	// state: remaining_joltage,
-	// dist: 0,
-	// }]);
+fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> Distance {
 	let mut q = VecDeque::<JoltageNode>::from([JoltageNode {
-		state: remaining_joltage,
+		active_joltage: Vec::new(),
+		joltage_list: joltage_goal,
+		joltage_button_list: button_list.try_into().expect("invalid button list"),
 		dist: 0,
 	}]);
 
-	let mut min = usize::MAX;
+	let mut min = Distance::MAX;
 
-	while let Some(JoltageNode { state, dist }) = q.pop_front() {
-		let current_state = state
-			.values()
-			.min_by_key(|(j, b)| (b.len(), -(*j as isize)))
-			.expect("state empty");
+	while let Some(JoltageNode {
+		active_joltage,
+		joltage_list,
+		joltage_button_list,
+		dist,
+	}) = q.pop_front()
+	{
+		let current_joltage_index = *active_joltage
+			.iter()
+			.min_by_key(|joltage_index| {
+				let joltage_index = **joltage_index;
+				(
+					joltage_button_list[joltage_index].len(),
+					-(get_joltage_unit(joltage_list, joltage_index) as i16),
+				)
+			})
+			.expect("active_joltage empty");
 
-		let dist = dist + current_state.0 as usize;
+		let joltage_unit = get_joltage_unit(joltage_list, current_joltage_index);
+
+		let dist = dist + joltage_unit as Distance;
 		if dist > min {
 			continue;
 		}
@@ -180,7 +191,7 @@ fn solve_line(line: &str) -> (usize, usize) {
 		parse::parse_line(line);
 
 	let p1 = solve_line_p1(state_goal, &state_button_list);
-	let p2 = solve_line_p2(&joltage_goal, &joltage_button_list);
+	let p2 = solve_line_p2(joltage_goal, joltage_button_list) as usize;
 
 	(p1, p2)
 }
