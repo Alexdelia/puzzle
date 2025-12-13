@@ -116,7 +116,9 @@ fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> 
 
 	let mut initial_joltage_button_list: [JoltageButton; 16] = Default::default();
 	for (button_index, button) in button_list.iter().enumerate() {
-		initial_joltage_button_list[button_index] = button.clone();
+		for &joltage_index in button {
+			initial_joltage_button_list[joltage_index].push(button_index);
+		}
 	}
 
 	let mut q = VecDeque::<JoltageNode>::from([JoltageNode {
@@ -135,6 +137,7 @@ fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> 
 		dist,
 	}) = q.pop_front()
 	{
+		dbg!(&active_joltage, joltage_list, dist, &joltage_button_list);
 		let current_joltage_index = *active_joltage
 			.iter()
 			.min_by_key(|joltage_index| {
@@ -145,6 +148,7 @@ fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> 
 				)
 			})
 			.expect("active_joltage empty");
+		dbg!(current_joltage_index);
 
 		let joltage_unit = get_joltage_unit(joltage_list, current_joltage_index);
 
@@ -184,7 +188,7 @@ fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> 
 			if let Some((active_joltage, joltage_button_list)) =
 				cleanse_joltage_state(&active_joltage, next_joltage_list, &joltage_button_list)
 			{
-				if joltage_list == 0 {
+				if next_joltage_list == 0 {
 					if dist < min {
 						print!("\x1b[2K\r{dist}");
 						min = dist;
@@ -192,7 +196,7 @@ fn solve_line_p2(joltage_goal: JoltageList, button_list: Vec<JoltageButton>) -> 
 				} else {
 					q.push_front(JoltageNode {
 						active_joltage,
-						joltage_list,
+						joltage_list: next_joltage_list,
 						joltage_button_list,
 						dist,
 					});
