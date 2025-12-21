@@ -38,5 +38,11 @@ fn main() {
 			.map(|(i, c)| (names[i].as_str(), c)),
 	));
 
-	println!("{s}", s = c.solve(10).join(" "));
+	let mut solution = c.solve(10);
+
+	let index_0 = solution.iter().position(|s| *s == "0").unwrap();
+	solution.rotate_left(index_0);
+	solution.push("0");
+
+	println!("{s}", s = solution.join(" "));
 }
