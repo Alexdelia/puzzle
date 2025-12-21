@@ -1,0 +1,16 @@
+[package]
+name = "travelling_salesman"
+version = "0.1.0"
+edition = "2024"
+authors = ["Alexandre Delille <adelille@student.42.fr>"]
+
+[dependencies]
+elkai-rs = "0.1"
+
+[[bin]]
+name = "solver"
+path = "solver.rs"
+
+[[bin]]
+name = "submission"
+path = "submission.rs"
