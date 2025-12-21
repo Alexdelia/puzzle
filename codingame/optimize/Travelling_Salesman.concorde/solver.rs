@@ -1,5 +1,9 @@
 use std::io;
 
+type AxisUnit = usize;
+
+const AXIS_SCALE_FACTOR: AxisUnit = 1_000;
+
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
 		$x.trim().parse::<$t>().unwrap()
@@ -17,8 +21,8 @@ fn main() {
 		let mut input_line = String::new();
 		io::stdin().read_line(&mut input_line).unwrap();
 		let inputs = input_line.split(" ").collect::<Vec<_>>();
-		let x = parse_input!(inputs[0], i32);
-		let y = parse_input!(inputs[1], i32);
+		let x = parse_input!(inputs[0], AxisUnit);
+		let y = parse_input!(inputs[1], AxisUnit);
 
 		input.push((x, y));
 	}
@@ -31,11 +35,12 @@ fn main() {
 		.collect::<Vec<_>>();
 
 	let c = elkai_rs::Coordinates2D::new(std::collections::HashMap::from_iter(
-		input
-			.iter()
-			.cloned()
-			.enumerate()
-			.map(|(i, c)| (names[i].as_str(), c)),
+		input.iter().cloned().enumerate().map(|(i, (x, y))| {
+			(
+				names[i].as_str(),
+				(x * AXIS_SCALE_FACTOR, y * AXIS_SCALE_FACTOR),
+			)
+		}),
 	));
 
 	let mut solution = c.solve(10);
