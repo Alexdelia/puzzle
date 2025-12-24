@@ -1,5 +1,9 @@
 pub type Axis = f64;
-pub type Coord = (Axis, Axis);
+
+pub struct Coord {
+	pub x: Axis,
+	pub y: Axis,
+}
 
 pub type Speed = f64;
 

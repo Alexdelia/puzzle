@@ -1,7 +1,6 @@
 mod output_repr;
-use output_repr::*;
-
 mod referee;
+mod segment;
 
 fn main() {
 	println!("Hello, world!");
