@@ -8,4 +8,5 @@ default = ["visualize"]
 visualize = ["dep:svg"]
 
 [dependencies]
+rand = "0.9"
 svg = { version = "0.18", optional = true }
