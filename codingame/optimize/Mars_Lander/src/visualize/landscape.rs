@@ -1,29 +1,13 @@
 use svg::Document;
 
-use crate::{referee::env::Axis, segment::Segment};
+use super::*;
+use crate::segment::Segment;
 
 const BACKGROUND_COLOR: &str = "black";
 
 const LANDSCAPE_BORDER_COLOR: &str = "lightgray";
 const LANDSCAPE_FILL_COLOR: &str = "gray";
 const LANDING_SEGMENT_COLOR: &str = "green";
-
-const MAX_WIDTH: Axis = 7000.0;
-const MAX_HEIGHT: Axis = 3000.0;
-
-const SVG_WIDTH: i32 = 1000;
-const SVG_HEIGHT: i32 = (SVG_WIDTH as f64 * MAX_HEIGHT / MAX_WIDTH) as i32;
-
-const CONVERSION_WIDTH: f64 = SVG_WIDTH as f64 / MAX_WIDTH;
-const CONVERSION_HEIGHT: f64 = SVG_HEIGHT as f64 / MAX_HEIGHT;
-
-pub fn get_validator_name(path: &str) -> String {
-	std::path::Path::new(path)
-		.file_stem()
-		.expect("invalid path")
-		.to_string_lossy()
-		.to_string()
-}
 
 pub fn landscape(segment_list: &[Segment]) -> Document {
 	let mut document = Document::new()
@@ -45,12 +29,12 @@ pub fn landscape(segment_list: &[Segment]) -> Document {
 	for segment in segment_list {
 		point_list.push((
 			segment.a.x * CONVERSION_WIDTH,
-			SVG_HEIGHT as f64 - segment.a.y * CONVERSION_HEIGHT,
+			SVG_HEIGHT as Axis - segment.a.y * CONVERSION_HEIGHT,
 		));
 	}
 	point_list.push((
 		segment_list.last().unwrap().b.x * CONVERSION_WIDTH,
-		SVG_HEIGHT as f64 - segment_list.last().unwrap().b.y * CONVERSION_HEIGHT,
+		SVG_HEIGHT as Axis - segment_list.last().unwrap().b.y * CONVERSION_HEIGHT,
 	));
 	point_list.push((MAX_WIDTH * CONVERSION_WIDTH, MAX_HEIGHT * CONVERSION_HEIGHT));
 
@@ -72,9 +56,9 @@ pub fn landscape(segment_list: &[Segment]) -> Document {
 
 		let line = svg::node::element::Line::new()
 			.set("x1", segment.a.x * CONVERSION_WIDTH)
-			.set("y1", SVG_HEIGHT as f64 - segment.a.y * CONVERSION_HEIGHT)
+			.set("y1", SVG_HEIGHT as Axis - segment.a.y * CONVERSION_HEIGHT)
 			.set("x2", segment.b.x * CONVERSION_WIDTH)
-			.set("y2", SVG_HEIGHT as f64 - segment.b.y * CONVERSION_HEIGHT)
+			.set("y2", SVG_HEIGHT as Axis - segment.b.y * CONVERSION_HEIGHT)
 			.set(
 				"stroke",
 				if is_landing {

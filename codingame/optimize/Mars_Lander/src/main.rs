@@ -17,9 +17,56 @@ fn main() -> Result<(), String> {
 
 	#[cfg(feature = "visualize")]
 	{
-		let filename = format!("{}_landscape.svg", validator_name);
-		svg::save(&filename, &base_doc).map_err(|e| e.to_string())?;
-		println!("Landscape SVG saved to {}", filename);
+		visualize::write_doc(&validator_name, &base_doc, 0);
+
+		let mut doc = base_doc;
+
+		use rand::Rng;
+		let mut rng = rand::rng();
+
+		// generate random solutions for visualization
+		for i in 1..=10 {
+			let mut solution = Vec::with_capacity(50);
+			for _ in 0..50 {
+				solution.push(crate::output_repr::Step {
+					tilt: rng.random_range(-15..=15),
+					thrust: match rng.random_range(0..3) {
+						0 => output_repr::ThrustChange::Decrease,
+						1 => output_repr::ThrustChange::Keep,
+						_ => output_repr::ThrustChange::Increase,
+					},
+				});
+			}
+
+			let mut lander = referee::lander::Lander {
+				x: 2500.0,
+				y: 2500.0,
+				sx: 0.0,
+				sy: 0.0,
+				fuel: 500,
+				rotate: 0.0,
+				power: 0,
+			};
+			let mut lander_path = Vec::new();
+			lander_path.push(referee::env::Coord {
+				x: lander.x,
+				y: lander.y,
+			});
+
+			for step in &solution {
+				referee::process_step::process_step(&mut lander, step);
+				lander_path.push(referee::env::Coord {
+					x: lander.x,
+					y: lander.y,
+				});
+			}
+
+			doc = doc.add(visualize::solution(
+				&lander_path,
+				rng.random_bool(1.0 / 2.0),
+			));
+			visualize::write_doc(&validator_name, &doc, i);
+		}
 	}
 
 	Ok(())
