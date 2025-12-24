@@ -1,5 +1,6 @@
 pub type Axis = f64;
 
+#[derive(Clone, Copy)]
 pub struct Coord {
 	pub x: Axis,
 	pub y: Axis,

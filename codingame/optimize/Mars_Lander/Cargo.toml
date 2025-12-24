@@ -3,5 +3,9 @@ name = "Mars_Lander"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["visualize"]
+visualize = ["dep:svg"]
+
 [dependencies]
-svg = "0.18"
+svg = { version = "0.18", optional = true }
