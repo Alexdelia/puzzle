@@ -3,8 +3,8 @@ use crate::referee::env::{Angle, Axis, Speed};
 pub struct Lander {
 	pub x: Axis,
 	pub y: Axis,
-	pub h_speed: Speed,
-	pub v_speed: Speed,
+	pub sx: Speed,
+	pub sy: Speed,
 	pub fuel: Fuel,
 	pub rotate: Angle,
 	pub power: Power,
