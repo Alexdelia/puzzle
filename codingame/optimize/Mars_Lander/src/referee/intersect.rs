@@ -21,3 +21,36 @@ pub fn intersect(a: &Segment, b: &Segment) -> bool {
 fn direction(a: &Coord, b: &Coord, c: &Coord) -> Axis {
 	(b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_intersect() {
+		assert!(intersect(
+			&Segment {
+				a: Coord { x: 0.0, y: 0.0 },
+				b: Coord { x: 4.0, y: 4.0 },
+			},
+			&Segment {
+				a: Coord { x: 0.0, y: 4.0 },
+				b: Coord { x: 4.0, y: 0.0 },
+			}
+		));
+	}
+
+	#[test]
+	fn test_no_intersect() {
+		assert!(!intersect(
+			&Segment {
+				a: Coord { x: 0.0, y: 0.0 },
+				b: Coord { x: 2.0, y: 2.0 },
+			},
+			&Segment {
+				a: Coord { x: 3.0, y: 3.0 },
+				b: Coord { x: 4.0, y: 4.0 },
+			}
+		));
+	}
+}
