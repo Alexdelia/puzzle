@@ -3,7 +3,7 @@ use crate::output_repr::{Solution, Step};
 
 const KEEP_RATE: f32 = 0.1;
 
-const MUTATION_RATE: f32 = 0.1;
+const MUTATION_RATE: f64 = 0.1;
 
 pub fn breed_generation(
 	solution_list: [Solution; SOLUTION_PER_GENERATION],
@@ -104,10 +104,10 @@ fn breed(
 }
 
 fn mutate(rng: &mut impl rand::Rng, step: &mut Step) {
-	if rng.random_bool(MUTATION_RATE as f64) {
+	if rng.random_bool(MUTATION_RATE) {
 		step.thrust = Step::random_thrust(rng);
 	}
-	if rng.random_bool(MUTATION_RATE as f64) {
+	if rng.random_bool(MUTATION_RATE) {
 		step.tilt = Step::random_titl(rng);
 	}
 }

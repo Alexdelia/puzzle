@@ -10,14 +10,15 @@ use std::sync::mpsc;
 
 use rayon::ThreadPoolBuilder;
 
+#[cfg(feature = "visualize")]
+use crate::visualize;
 use crate::{
 	output_repr::Solution,
 	referee::{env::Coord, lander::Lander},
 	segment::Segment,
-	visualize,
 };
 
-pub const SOLUTION_PER_GENERATION: usize = 128;
+pub const SOLUTION_PER_GENERATION: usize = 2048;
 
 pub const VALID_LANDING_INDEX: usize = 0;
 
@@ -63,7 +64,8 @@ pub fn solve(
 
 	let mut best = (Score::MAX, BestSolution::default());
 
-	for generation in 0..(crate::parse::get_iteration()?) {
+	let mut generation: usize = 0;
+	while !best.1.is_valid_landing || best.1.lander.fuel < 300 {
 		eprint!("\r{generation}");
 
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
@@ -109,6 +111,8 @@ pub fn solve(
 		}
 
 		solution_list = breed_generation(solution_list, score_list);
+
+		generation += 1;
 	}
 
 	Ok(best.1.solution)
