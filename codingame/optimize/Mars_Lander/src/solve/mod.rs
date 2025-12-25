@@ -18,7 +18,7 @@ use crate::{
 	segment::Segment,
 };
 
-pub const SOLUTION_PER_GENERATION: usize = 128;
+pub const SOLUTION_PER_GENERATION: usize = 512;
 
 pub const VALID_LANDING_INDEX: usize = 0;
 

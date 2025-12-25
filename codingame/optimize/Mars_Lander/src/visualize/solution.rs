@@ -33,6 +33,13 @@ pub fn solution(lander_path: &[Coord], is_valid_landing: bool, best: bool) -> Pa
 				DEAD_LANDER_PATH_COLOR
 			},
 		)
-		.set("stroke-opacity", if best { 0.9 } else { 1.0 / 3.0 })
+		.set(
+			"stroke-opacity",
+			if best {
+				0.9
+			} else {
+				if is_valid_landing { 0.3 } else { 0.05 }
+			},
+		)
 		.set("stroke-width", 2)
 }
