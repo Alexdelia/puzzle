@@ -3,7 +3,7 @@ use crate::output_repr::{Solution, Step};
 
 const KEEP_RATE: f32 = 0.1;
 
-const MUTATION_RATE: f64 = 0.1;
+const MUTATION_RATE: f64 = 0.01;
 
 pub fn breed_generation(
 	solution_list: [Solution; SOLUTION_PER_GENERATION],
