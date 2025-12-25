@@ -26,12 +26,16 @@ fn main() -> Result<(), String> {
 		landscape.swap(VALID_LANDING_INDEX, flat_segment_index);
 	}
 
-	solve::solve(
+	let solution = solve::solve(
 		&landscape,
-		lander_init_state,
+		&lander_init_state,
 		#[cfg(feature = "visualize")]
 		base_doc,
 		#[cfg(feature = "visualize")]
 		&validator_name,
-	)
+	)?;
+
+	dbg!(solution);
+
+	Ok(())
 }
