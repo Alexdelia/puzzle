@@ -100,7 +100,7 @@ fn breed(
 	child
 }
 
-fn mutate(rng: &mut impl rand::Rng, step: &mut Step) {
+pub fn mutate(rng: &mut impl rand::Rng, step: &mut Step) {
 	if rng.random_bool(MUTATION_RATE) {
 		step.thrust = Step::random_thrust(rng);
 	}

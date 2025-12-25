@@ -30,12 +30,11 @@ fn main() -> Result<(), String> {
 	}
 
 	let solution = solve::solve(
+		&validator_name,
 		&landscape,
 		&lander_init_state,
 		#[cfg(feature = "visualize")]
 		base_doc,
-		#[cfg(feature = "visualize")]
-		&validator_name,
 	)?;
 
 	output_solution(&solution, &lander_init_state, &validator_name)
