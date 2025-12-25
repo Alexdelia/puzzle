@@ -24,6 +24,7 @@ pub type Score = i16;
 
 struct ProcessOutput {
 	index: usize,
+	lander: Lander,
 	is_valid_landing: bool,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
@@ -48,7 +49,6 @@ pub fn solve(
 		.build()
 		.map_err(|e| format!("failed to build thread pool: {e}"))?;
 
-	let lander_list = [lander_init_state; SOLUTION_PER_GENERATION];
 	let mut solution_list = first_generation::init_first_generation();
 	let mut score_list = [Score::default(); SOLUTION_PER_GENERATION];
 	#[cfg(feature = "visualize")]
@@ -71,7 +71,7 @@ pub fn solve(
 		let mut doc = base_doc.clone();
 
 		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
-			let score = get_score(landing_segment, &lander_list[r.index], r.is_valid_landing);
+			let score = get_score(landing_segment, &r.lander, r.is_valid_landing);
 			score_list[r.index] = score;
 
 			if score < best.0 {
@@ -102,8 +102,7 @@ pub fn solve(
 			visualize::write_doc(validator_name, &doc, generation);
 		}
 
-		// breed next generation
-		breed_generation(&mut solution_list, &score_list);
+		solution_list = breed_generation(solution_list, score_list);
 	}
 
 	Ok(())

@@ -1,7 +1,5 @@
-use rand::Rng;
-
 use crate::{
-	output_repr::{Solution, Step, ThrustChange},
+	output_repr::{Solution, Step},
 	solve::SOLUTION_PER_GENERATION,
 };
 
@@ -15,14 +13,7 @@ pub fn init_first_generation() -> [Solution; SOLUTION_PER_GENERATION] {
 	for _ in 0..SOLUTION_PER_GENERATION {
 		let mut solution = Vec::with_capacity(INITIAL_SOLUTION_STEP_SIZE);
 		for _ in 0..INITIAL_SOLUTION_STEP_SIZE {
-			solution.push(Step {
-				tilt: rng.random_range(-15..=15),
-				thrust: match rng.random_range(0..3) {
-					0 => ThrustChange::Decrease,
-					1 => ThrustChange::Keep,
-					_ => ThrustChange::Increase,
-				},
-			});
+			solution.push(Step::random(&mut rng));
 		}
 		generation.push(solution);
 	}

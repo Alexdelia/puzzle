@@ -8,7 +8,7 @@ pub struct Coord {
 
 pub type Speed = f64;
 
-pub type Angle = f64;
+pub type Angle = i8;
 
 pub const MAX_WIDTH: Axis = 7000.0;
 pub const MAX_HEIGHT: Axis = 3000.0;

@@ -13,7 +13,9 @@ pub struct Lander {
 
 impl Lander {
 	pub fn valid_landing_condition(&self) -> bool {
-		self.sx.abs() <= VALID_X_SPEED_THRESHOLD && self.sy.abs() <= VALID_Y_SPEED_THRESHOLD
+		self.rotate == 0
+			&& self.sx.abs() <= VALID_X_SPEED_THRESHOLD
+			&& self.sy.abs() <= VALID_Y_SPEED_THRESHOLD
 	}
 }
 
