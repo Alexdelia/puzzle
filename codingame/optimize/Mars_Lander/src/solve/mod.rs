@@ -90,7 +90,7 @@ pub fn solve(
 						path: r.path.clone(),
 					},
 				);
-				dbg!(&best.0, &best.1.is_valid_landing, &best.1.lander);
+				// dbg!(&best.0, &best.1.is_valid_landing, &best.1.lander);
 			}
 
 			#[cfg(feature = "visualize")]
@@ -113,9 +113,11 @@ pub fn solve(
 		solution_list = breed_generation(solution_list, score_list);
 
 		generation += 1;
+
+		eprint!(" {best_score}", best_score = best.0);
 	}
 
-	dbg!(generation);
+	eprintln!("");
 
 	Ok(best.1.solution)
 }

@@ -35,12 +35,9 @@ fn main() -> Result<(), String> {
 		&validator_name,
 	)?;
 
-	// dbg!(&solution);
-
 	let solution_output = solution_into_real_output(&solution, &lander_init_state);
 
-	dbg!(&solution_output);
-	eprintln!("{solution_output}");
+	println!("{solution_output}");
 
 	Ok(())
 }
