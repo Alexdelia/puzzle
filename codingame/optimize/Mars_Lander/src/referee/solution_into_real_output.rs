@@ -18,9 +18,7 @@ pub fn solution_into_real_output(solution: &Solution, lander_init_state: &Lander
 			}
 			ThrustChange::Keep => {}
 			ThrustChange::Decrease => {
-				if power > 0 {
-					power -= 1;
-				}
+				power = power.saturating_sub(1);
 			}
 		}
 

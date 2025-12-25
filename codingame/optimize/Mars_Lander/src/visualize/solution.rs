@@ -37,9 +37,7 @@ pub fn solution(lander_path: &[Coord], is_valid_landing: bool, best: bool) -> Pa
 			"stroke-opacity",
 			if best {
 				0.9
-			} else {
-				if is_valid_landing { 0.3 } else { 0.05 }
-			},
+			} else if is_valid_landing { 0.3 } else { 0.05 },
 		)
 		.set("stroke-width", 2)
 }
