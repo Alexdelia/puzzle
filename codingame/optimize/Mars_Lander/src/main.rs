@@ -2,6 +2,7 @@ mod output_repr;
 mod parse;
 mod referee;
 mod segment;
+mod solve;
 #[cfg(feature = "visualize")]
 mod visualize;
 
@@ -67,6 +68,11 @@ fn main() -> Result<(), String> {
 			));
 			visualize::write_doc(&validator_name, &doc, i);
 		}
+	}
+
+	let solution_list = solve::init_first_generation();
+	for i in 0..parse::get_iteration()? {
+		dbg!(i);
 	}
 
 	Ok(())

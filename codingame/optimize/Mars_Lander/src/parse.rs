@@ -11,6 +11,10 @@ pub fn get_path() -> Result<String, String> {
 	Ok(args[1].clone())
 }
 
+pub fn get_iteration() -> Result<usize, String> {
+	option_env!("ITERATION").map_or(Ok(1000), |s| s.parse::<usize>().map_err(|e| e.to_string()))
+}
+
 pub fn parse(path: &str) -> Result<Vec<Segment>, String> {
 	let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
 
