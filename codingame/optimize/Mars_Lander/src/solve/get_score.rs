@@ -22,7 +22,7 @@ pub fn get_score(landing_segment: &Segment, lander: &Lander, is_valid_landing: b
 		return (lander.x - max_b_x) as Score * 2;
 	}
 
-	let diff_y = (lander.y - landing_segment.a.y).max(0.0);
+	let diff_y = (landing_segment.a.y - lander.y).max(0.0);
 	let speed_penalty =
 		lander.sx.abs() - VALID_X_SPEED_THRESHOLD + lander.sy.abs() - VALID_Y_SPEED_THRESHOLD;
 
