@@ -19,7 +19,8 @@ pub fn breed_generation(
 		.max()
 		.expect("no solutions to breed");
 
-	let target_solution_size = (max_solution_size as f32 * 2.0).ceil() as usize;
+	// let target_solution_size = (max_solution_size as f32 * 2.0).ceil() as usize;
+	let target_solution_size = max_solution_size;
 
 	let mut rng = rand::rng();
 
