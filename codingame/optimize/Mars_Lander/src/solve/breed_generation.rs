@@ -3,7 +3,7 @@ use crate::output_repr::{Solution, Step};
 
 const KEEP_RATE: f32 = 0.1;
 
-const MUTATION_RATE: f32 = 0.01;
+const MUTATION_RATE: f32 = 0.1;
 
 pub fn breed_generation(
 	solution_list: [Solution; SOLUTION_PER_GENERATION],
@@ -26,7 +26,7 @@ pub fn breed_generation(
 
 	let mut parent_a_index = 0;
 	let mut parent_b_index = 1;
-	for i in (keep_count * 2)..SOLUTION_PER_GENERATION {
+	for i in keep_count..SOLUTION_PER_GENERATION {
 		let parent_a = &ordered_solution_list[parent_a_index];
 		let parent_b = &ordered_solution_list[parent_b_index];
 		ordered_solution_list[i] = breed(&mut rng, parent_a, parent_b, target_solution_size);

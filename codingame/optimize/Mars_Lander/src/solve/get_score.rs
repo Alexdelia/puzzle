@@ -22,9 +22,9 @@ pub fn get_score(landing_segment: &Segment, lander: &Lander, is_valid_landing: b
 		return (lander.x - max_b_x) as Score * 2 + 1000;
 	}
 
-	let speed_penalty = (lander.sx.abs() - VALID_X_SPEED_THRESHOLD).max(0.0)
-		+ (lander.sy.abs() - VALID_Y_SPEED_THRESHOLD).max(0.0);
-	let rotate_penalty = lander.rotate.abs();
+	let speed_penalty = (lander.sx.abs() - (VALID_X_SPEED_THRESHOLD - 1.0)).max(0.0)
+		+ (lander.sy.abs() - (VALID_Y_SPEED_THRESHOLD - 1.0)).max(0.0);
+	let rotate_penalty = (lander.rotate.abs() as Score) * 2;
 
 	return speed_penalty as Score + rotate_penalty as Score;
 }
