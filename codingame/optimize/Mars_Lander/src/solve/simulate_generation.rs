@@ -48,6 +48,7 @@ pub fn simulate_generation(
 					{
 						tx.send(ProcessOutput {
 							index: i,
+							lander,
 							is_valid_landing: false,
 							#[cfg(feature = "visualize")]
 							path,
@@ -70,6 +71,7 @@ pub fn simulate_generation(
 						if intersect(&traveled, segment) {
 							tx.send(ProcessOutput {
 								index: i,
+								lander,
 								is_valid_landing: segment_index == VALID_LANDING_INDEX
 									&& lander.valid_landing_condition(),
 								#[cfg(feature = "visualize")]
@@ -83,6 +85,7 @@ pub fn simulate_generation(
 
 				tx.send(ProcessOutput {
 					index: i,
+					lander,
 					is_valid_landing: false,
 					#[cfg(feature = "visualize")]
 					path,

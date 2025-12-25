@@ -16,15 +16,17 @@ pub fn get_score(landing_segment: &Segment, lander: &Lander, is_valid_landing: b
 	let max_b_x = landing_segment.a.x.max(landing_segment.b.x);
 
 	if lander.x < min_a_x {
-		return (min_a_x - lander.x) as Score * 2;
+		return (min_a_x - lander.x) as Score * 2 + 1000;
 	}
 	if lander.x > max_b_x {
-		return (lander.x - max_b_x) as Score * 2;
+		return (lander.x - max_b_x) as Score * 2 + 1000;
 	}
 
-	let diff_y = (landing_segment.a.y - lander.y).max(0.0);
-	let speed_penalty =
-		lander.sx.abs() - VALID_X_SPEED_THRESHOLD + lander.sy.abs() - VALID_Y_SPEED_THRESHOLD;
+	let speed_penalty = (lander.sx.abs() - VALID_X_SPEED_THRESHOLD).max(0.0)
+		+ (lander.sy.abs() - VALID_Y_SPEED_THRESHOLD).max(0.0);
+	let rotate_penalty = lander.rotate.abs();
 
-	return diff_y as Score + speed_penalty as Score;
+	dbg!(lander, speed_penalty, rotate_penalty);
+
+	return speed_penalty as Score + rotate_penalty as Score;
 }
