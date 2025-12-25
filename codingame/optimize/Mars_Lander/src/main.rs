@@ -70,10 +70,10 @@ fn main() -> Result<(), String> {
 		}
 	}
 
-	let solution_list = solve::init_first_generation();
-	for i in 0..parse::get_iteration()? {
-		dbg!(i);
-	}
-
-	Ok(())
+	solve::solve(
+		&landscape,
+		lander_init_state,
+		#[cfg(feature = "visualize")]
+		base_doc,
+	)
 }

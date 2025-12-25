@@ -3,12 +3,9 @@ pub use landscape::landscape;
 mod solution;
 pub use solution::solution;
 
-use crate::referee::env::Axis;
+use crate::referee::env::{Axis, MAX_HEIGHT, MAX_WIDTH};
 
 const OUTPUT_DIR: &str = "output";
-
-const MAX_WIDTH: Axis = 7000.0;
-const MAX_HEIGHT: Axis = 3000.0;
 
 const SVG_WIDTH: i32 = 1000;
 const SVG_HEIGHT: i32 = (SVG_WIDTH as f64 * MAX_HEIGHT / MAX_WIDTH) as i32;
