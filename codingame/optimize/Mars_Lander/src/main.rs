@@ -6,12 +6,15 @@ mod solve;
 #[cfg(feature = "visualize")]
 mod visualize;
 
-use crate::{referee::solution_into_real_output, solve::VALID_LANDING_INDEX};
+use crate::{
+	output_repr::Solution,
+	referee::{lander::Lander, solution_into_real_output},
+	solve::VALID_LANDING_INDEX,
+};
 
 fn main() -> Result<(), String> {
 	let path = parse::get_path()?;
-	#[cfg(feature = "visualize")]
-	let validator_name = visualize::get_validator_name(&path);
+	let validator_name = get_validator_name(&path);
 
 	let (lander_init_state, mut landscape) = parse::parse(&path)?;
 
@@ -35,9 +38,52 @@ fn main() -> Result<(), String> {
 		&validator_name,
 	)?;
 
-	let solution_output = solution_into_real_output(&solution, &lander_init_state);
+	output_solution(&solution, &lander_init_state, &validator_name)
+}
 
-	println!("{solution_output}");
+const OUTPUT_DIR: &str = "output";
+const OUTPUT_SOLUTION_REPR_FILE: &str = "solution_repr.ron";
+const OUTPUT_SOLUTION_REAL_FILE: &str = "solution.txt";
+
+fn get_validator_name(path: &str) -> String {
+	std::path::Path::new(path)
+		.file_stem()
+		.expect("invalid path")
+		.to_string_lossy()
+		.to_string()
+}
+
+fn output_solution(
+	solution_repr: &Solution,
+	lander_init_state: &Lander,
+	validator_name: &str,
+) -> Result<(), String> {
+	let output_dir = std::path::Path::new(OUTPUT_DIR).join(validator_name);
+	if !output_dir.exists() {
+		std::fs::create_dir_all(&output_dir).unwrap_or_else(|e| {
+			panic!("failed to create output directory {output_dir:?}: {e}");
+		});
+	}
+
+	{
+		let output_repr_path = output_dir.join(OUTPUT_SOLUTION_REPR_FILE);
+		std::fs::write(
+			&output_repr_path,
+			ron::to_string(solution_repr)
+				.map_err(|e| format!("failed to serialize solution representation to RON: {e}"))?,
+		)
+		.map_err(|e| {
+			format!("failed to write solution representation to file {output_repr_path:?}: {e}")
+		})?;
+	}
+
+	{
+		let solution_output = solution_into_real_output(solution_repr, lander_init_state);
+		let output_solution_path = output_dir.join(OUTPUT_SOLUTION_REAL_FILE);
+		std::fs::write(&output_solution_path, solution_output).map_err(|e| {
+			format!("failed to write solution to file {output_solution_path:?}: {e}")
+		})?;
+	}
 
 	Ok(())
 }
