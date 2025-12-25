@@ -18,7 +18,7 @@ pub fn get_path() -> Result<String, String> {
 }
 
 pub fn get_iteration() -> Result<usize, String> {
-	option_env!("ITERATION").map_or(Ok(1000), |s| s.parse::<usize>().map_err(|e| e.to_string()))
+	option_env!("ITERATION").map_or(Ok(64), |s| s.parse::<usize>().map_err(|e| e.to_string()))
 }
 
 pub fn parse(path: &str) -> Result<(Lander, Vec<Segment>), String> {
