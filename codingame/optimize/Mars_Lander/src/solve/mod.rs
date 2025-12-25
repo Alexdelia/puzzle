@@ -11,6 +11,7 @@ use std::sync::mpsc;
 use rayon::ThreadPoolBuilder;
 
 use crate::{
+	output_repr::Solution,
 	referee::{env::Coord, lander::Lander},
 	segment::Segment,
 	visualize,
@@ -34,16 +35,17 @@ struct ProcessOutput {
 struct BestSolution {
 	is_valid_landing: bool,
 	lander: Lander,
+	solution: Solution,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
 }
 
 pub fn solve(
 	landscape: &[Segment],
-	lander_init_state: Lander,
+	lander_init_state: &Lander,
 	#[cfg(feature = "visualize")] base_doc: svg::Document,
 	#[cfg(feature = "visualize")] validator_name: &str,
-) -> Result<(), String> {
+) -> Result<Solution, String> {
 	let landing_segment = &landscape[VALID_LANDING_INDEX];
 
 	let pool = ThreadPoolBuilder::new()
@@ -66,7 +68,7 @@ pub fn solve(
 
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
 
-		simulate_generation(&pool, tx, landscape, lander_init_state, &solution_list);
+		simulate_generation(&pool, tx, landscape, lander_init_state, &mut solution_list);
 
 		#[cfg(feature = "visualize")]
 		let mut doc = base_doc.clone();
@@ -81,6 +83,7 @@ pub fn solve(
 					BestSolution {
 						is_valid_landing: r.is_valid_landing,
 						lander: r.lander,
+						solution: solution_list[r.index].clone(),
 						#[cfg(feature = "visualize")]
 						path: r.path.clone(),
 					},
@@ -108,5 +111,5 @@ pub fn solve(
 		solution_list = breed_generation(solution_list, score_list);
 	}
 
-	Ok(())
+	Ok(best.1.solution)
 }

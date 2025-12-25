@@ -17,13 +17,13 @@ pub fn simulate_generation(
 	pool: &rayon::ThreadPool,
 	tx: mpsc::Sender<ProcessOutput>,
 	landscape: &[Segment],
-	lander_init_state: Lander,
-	solution_list: &[Solution],
+	lander_init_state: &Lander,
+	solution_list: &mut [Solution],
 ) {
 	pool.scope(|s| {
-		for (i, solution) in solution_list.iter().enumerate() {
+		for (i, solution) in solution_list.iter_mut().enumerate() {
 			let tx = tx.clone();
-			let mut lander = lander_init_state;
+			let mut lander = *lander_init_state;
 
 			s.spawn(move |_| {
 				#[cfg(feature = "visualize")]
@@ -34,7 +34,9 @@ pub fn simulate_generation(
 					y: lander.y,
 				});
 
-				for step in solution {
+				for i in 0..solution.len() {
+					let step = &solution[i];
+
 					let from = Coord {
 						x: lander.x,
 						y: lander.y,
@@ -46,6 +48,7 @@ pub fn simulate_generation(
 						|| lander.x > MAX_WIDTH
 						|| lander.y < 0.0 || lander.y > MAX_HEIGHT
 					{
+						solution.truncate(i + 1);
 						tx.send(ProcessOutput {
 							index: i,
 							lander,
@@ -69,6 +72,7 @@ pub fn simulate_generation(
 
 					for (segment_index, segment) in landscape.iter().enumerate() {
 						if intersect(&traveled, segment) {
+							solution.truncate(i + 1);
 							tx.send(ProcessOutput {
 								index: i,
 								lander,
