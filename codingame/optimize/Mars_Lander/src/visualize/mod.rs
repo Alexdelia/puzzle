@@ -29,7 +29,7 @@ pub fn write_doc(validator_name: &str, doc: &svg::Document, iteration: usize) {
 		});
 	}
 
-	let output_path = output_dir.join(format!("{iteration:06}_landscape.svg"));
+	let output_path = output_dir.join(format!("{iteration:04}_landscape.svg"));
 
 	svg::save(&output_path, doc).unwrap_or_else(|e| {
 		panic!("failed to save SVG to {output_path:?}: {e}");
