@@ -34,9 +34,7 @@ pub fn simulate_generation(
 					y: lander.y,
 				});
 
-				for i in 0..solution.len() {
-					let step = &solution[i];
-
+				for step in solution {
 					let from = Coord {
 						x: lander.x,
 						y: lander.y,

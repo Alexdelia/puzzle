@@ -19,9 +19,6 @@ pub fn breed_generation(
 		.max()
 		.expect("no solutions to breed");
 
-	// let target_solution_size = (max_solution_size as f32 * 2.0).ceil() as usize;
-	let target_solution_size = max_solution_size;
-
 	let mut rng = rand::rng();
 
 	let mut parent_a_index = 0;
@@ -29,7 +26,7 @@ pub fn breed_generation(
 	for i in keep_count..SOLUTION_PER_GENERATION {
 		let parent_a = &ordered_solution_list[parent_a_index];
 		let parent_b = &ordered_solution_list[parent_b_index];
-		ordered_solution_list[i] = breed(&mut rng, parent_a, parent_b, target_solution_size);
+		ordered_solution_list[i] = breed(&mut rng, parent_a, parent_b, max_solution_size);
 
 		parent_b_index += 1;
 		if parent_b_index >= keep_count {
