@@ -18,7 +18,7 @@ use crate::{
 	segment::Segment,
 };
 
-pub const SOLUTION_PER_GENERATION: usize = 2048;
+pub const SOLUTION_PER_GENERATION: usize = 128;
 
 pub const VALID_LANDING_INDEX: usize = 0;
 
@@ -70,7 +70,7 @@ pub fn solve(
 
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
 
-		simulate_generation(&pool, tx, landscape, lander_init_state, &mut solution_list);
+		simulate_generation(&pool, tx, landscape, lander_init_state, &solution_list);
 
 		#[cfg(feature = "visualize")]
 		let mut doc = base_doc.clone();
