@@ -6,6 +6,7 @@ use crate::{
 		lander::{Fuel, Lander, Power},
 	},
 	segment::Segment,
+	solve::VALID_LANDING_INDEX,
 };
 
 pub fn get_path() -> Result<String, String> {
@@ -69,13 +70,21 @@ fn parse_landsacpe(lines: &[&str]) -> Result<Vec<Segment>, String> {
 		})
 		.collect::<Result<Vec<Coord>, String>>()?;
 
-	let segment_list: Vec<Segment> = point_list
+	let mut segment_list: Vec<Segment> = point_list
 		.windows(2)
 		.map(|segment_point| Segment {
 			a: segment_point[0],
 			b: segment_point[1],
 		})
 		.collect();
+
+	let flat_segment_index = segment_list
+		.iter()
+		.position(|s| s.a.y == s.b.y)
+		.ok_or("no flat segment found in landscape")?;
+	if flat_segment_index != VALID_LANDING_INDEX {
+		segment_list.swap(VALID_LANDING_INDEX, flat_segment_index);
+	}
 
 	Ok(segment_list)
 }

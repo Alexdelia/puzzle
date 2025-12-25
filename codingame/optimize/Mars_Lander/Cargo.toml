@@ -9,4 +9,5 @@ visualize = ["dep:svg"]
 
 [dependencies]
 rand = "0.9"
+rayon = "1"
 svg = { version = "0.18", optional = true }
