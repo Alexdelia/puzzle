@@ -1,5 +1,6 @@
 use crate::referee::env::{Angle, Axis, Speed};
 
+#[derive(Debug)]
 pub struct Lander {
 	pub x: Axis,
 	pub y: Axis,
