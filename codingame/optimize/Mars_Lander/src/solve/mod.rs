@@ -35,6 +35,8 @@ pub fn solve(
 	#[cfg(feature = "visualize")] base_doc: svg::Document,
 	#[cfg(feature = "visualize")] validator_name: &str,
 ) -> Result<(), String> {
+	let landing_segment = &landscape[VALID_LANDING_INDEX];
+
 	let pool = ThreadPoolBuilder::new()
 		.build()
 		.map_err(|e| format!("failed to build thread pool: {e}"))?;
@@ -67,11 +69,11 @@ pub fn solve(
 		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
 			#[cfg(feature = "visualize")]
 			{
-				doc = doc.add(visualize::solution(&r.path, !r.is_valid_landing, false));
+				doc = doc.add(visualize::solution(&r.path, r.is_valid_landing, false));
+				path_list[r.index] = r.path;
 			}
 
-			// FIXME: compute correct score
-			let score = if r.is_valid_landing { 0 } else { 1 };
+			let score = get_score(landing_segment, &lander_list[r.index], r.is_valid_landing);
 
 			if score < best.0 {
 				best = (score, r.index);
@@ -80,7 +82,7 @@ pub fn solve(
 
 		#[cfg(feature = "visualize")]
 		{
-			doc = doc.add(visualize::solution(&path_list[best.1], false, true));
+			doc = doc.add(visualize::solution(&path_list[best.1], true, true));
 			visualize::write_doc(validator_name, &doc, generation);
 		}
 	}
@@ -144,9 +146,11 @@ fn process_generation(
 
 					for (segment_index, segment) in landscape.iter().enumerate() {
 						if intersect(&traveled, segment) {
+							dbg!(&traveled, segment);
 							tx.send(ProcessOutput {
 								index: i,
-								is_valid_landing: segment_index == VALID_LANDING_INDEX,
+								is_valid_landing: segment_index == VALID_LANDING_INDEX
+									&& lander.valid_landing_condition(),
 								#[cfg(feature = "visualize")]
 								path,
 							})
@@ -166,4 +170,22 @@ fn process_generation(
 			});
 		}
 	});
+}
+
+fn get_score(landing_segment: &Segment, lander: &Lander, is_valid_landing: bool) -> Score {
+	if is_valid_landing {
+		return -(lander.fuel as Score);
+	}
+
+	let y_diff = lander.y - landing_segment.a.y;
+
+	let x_diff = if lander.x < landing_segment.a.x {
+		landing_segment.a.x - lander.x
+	} else if lander.x > landing_segment.b.x {
+		lander.x - landing_segment.b.x
+	} else {
+		0.0
+	};
+
+	(x_diff as Score) + (y_diff as Score)
 }
