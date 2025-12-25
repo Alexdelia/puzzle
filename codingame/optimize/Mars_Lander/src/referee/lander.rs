@@ -1,4 +1,4 @@
-use crate::referee::env::{Angle, Axis, Speed};
+use crate::referee::env::{Angle, Axis, Speed, VALID_X_SPEED_THRESHOLD, VALID_Y_SPEED_THRESHOLD};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Lander {
@@ -13,7 +13,7 @@ pub struct Lander {
 
 impl Lander {
 	pub fn valid_landing_condition(&self) -> bool {
-		self.sx.abs() <= 20.0 && self.sy.abs() <= 40.0
+		self.sx.abs() <= VALID_X_SPEED_THRESHOLD && self.sy.abs() <= VALID_Y_SPEED_THRESHOLD
 	}
 }
 

@@ -1,17 +1,17 @@
 mod first_generation;
+mod simulate_generation;
+use simulate_generation::simulate_generation;
+mod get_score;
+use get_score::get_score;
+mod breed_generation;
+use breed_generation::breed_generation;
 
 use std::sync::mpsc;
 
 use rayon::ThreadPoolBuilder;
 
 use crate::{
-	output_repr::Solution,
-	referee::{
-		env::{Coord, MAX_HEIGHT, MAX_WIDTH},
-		intersect,
-		lander::Lander,
-		process_step::process_step,
-	},
+	referee::{env::Coord, lander::Lander},
 	segment::Segment,
 	visualize,
 };
@@ -49,7 +49,8 @@ pub fn solve(
 		.map_err(|e| format!("failed to build thread pool: {e}"))?;
 
 	let lander_list = [lander_init_state; SOLUTION_PER_GENERATION];
-	let solution_list = first_generation::init_first_generation();
+	let mut solution_list = first_generation::init_first_generation();
+	let mut score_list = [Score::default(); SOLUTION_PER_GENERATION];
 	#[cfg(feature = "visualize")]
 	let mut path_list: [Vec<Coord>; SOLUTION_PER_GENERATION] = (0..SOLUTION_PER_GENERATION)
 		.map(|_| Vec::new())
@@ -64,13 +65,14 @@ pub fn solve(
 
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
 
-		process_generation(&pool, tx, landscape, lander_init_state, &solution_list);
+		simulate_generation(&pool, tx, landscape, lander_init_state, &solution_list);
 
 		#[cfg(feature = "visualize")]
 		let mut doc = base_doc.clone();
 
 		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
 			let score = get_score(landing_segment, &lander_list[r.index], r.is_valid_landing);
+			score_list[r.index] = score;
 
 			if score < best.0 {
 				best = (
@@ -99,105 +101,10 @@ pub fn solve(
 			));
 			visualize::write_doc(validator_name, &doc, generation);
 		}
+
+		// breed next generation
+		breed_generation(&mut solution_list, &score_list);
 	}
 
 	Ok(())
-}
-
-fn process_generation(
-	pool: &rayon::ThreadPool,
-	tx: mpsc::Sender<ProcessOutput>,
-	landscape: &[Segment],
-	lander_init_state: Lander,
-	solution_list: &[Solution],
-) {
-	pool.scope(|s| {
-		for (i, solution) in solution_list.iter().enumerate() {
-			let tx = tx.clone();
-			let mut lander = lander_init_state;
-
-			s.spawn(move |_| {
-				#[cfg(feature = "visualize")]
-				let mut path = Vec::with_capacity(solution.len() + 1);
-				#[cfg(feature = "visualize")]
-				path.push(Coord {
-					x: lander.x,
-					y: lander.y,
-				});
-
-				for step in solution {
-					let from = Coord {
-						x: lander.x,
-						y: lander.y,
-					};
-
-					process_step(&mut lander, step);
-
-					if lander.x < 0.0
-						|| lander.x > MAX_WIDTH
-						|| lander.y < 0.0 || lander.y > MAX_HEIGHT
-					{
-						tx.send(ProcessOutput {
-							index: i,
-							is_valid_landing: false,
-							#[cfg(feature = "visualize")]
-							path,
-						})
-						.expect("failed to send result");
-						return;
-					}
-
-					let traveled = Segment {
-						a: from,
-						b: Coord {
-							x: lander.x,
-							y: lander.y,
-						},
-					};
-					#[cfg(feature = "visualize")]
-					path.push(traveled.b);
-
-					for (segment_index, segment) in landscape.iter().enumerate() {
-						if intersect(&traveled, segment) {
-							tx.send(ProcessOutput {
-								index: i,
-								is_valid_landing: segment_index == VALID_LANDING_INDEX
-									&& lander.valid_landing_condition(),
-								#[cfg(feature = "visualize")]
-								path,
-							})
-							.expect("failed to send result");
-							return;
-						}
-					}
-				}
-
-				tx.send(ProcessOutput {
-					index: i,
-					is_valid_landing: false,
-					#[cfg(feature = "visualize")]
-					path,
-				})
-				.expect("failed to send result");
-			});
-		}
-	});
-}
-
-fn get_score(landing_segment: &Segment, lander: &Lander, is_valid_landing: bool) -> Score {
-	if is_valid_landing {
-		return -(lander.fuel as Score);
-	}
-
-	let y_diff = lander.y - landing_segment.a.y;
-
-	let x_diff = if lander.x < landing_segment.a.x {
-		landing_segment.a.x - lander.x
-	} else if lander.x > landing_segment.b.x {
-		lander.x - landing_segment.b.x
-	} else {
-		0.0
-	};
-
-	(x_diff as Score) + (y_diff as Score)
 }
