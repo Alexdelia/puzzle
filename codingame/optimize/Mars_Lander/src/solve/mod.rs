@@ -42,10 +42,10 @@ struct BestSolution {
 }
 
 pub fn solve(
+	validator_name: &str,
 	landscape: &[Segment],
 	lander_init_state: &Lander,
 	#[cfg(feature = "visualize")] base_doc: svg::Document,
-	#[cfg(feature = "visualize")] validator_name: &str,
 ) -> Result<Solution, String> {
 	let landing_segment = &landscape[VALID_LANDING_INDEX];
 
@@ -53,7 +53,7 @@ pub fn solve(
 		.build()
 		.map_err(|e| format!("failed to build thread pool: {e}"))?;
 
-	let mut solution_list = first_generation::init_first_generation();
+	let mut solution_list = first_generation::init_first_generation(validator_name)?;
 	let mut score_list = [Score::default(); SOLUTION_PER_GENERATION];
 	#[cfg(feature = "visualize")]
 	let mut path_list: [Vec<Coord>; SOLUTION_PER_GENERATION] = (0..SOLUTION_PER_GENERATION)
@@ -90,7 +90,6 @@ pub fn solve(
 						path: r.path.clone(),
 					},
 				);
-				// dbg!(&best.0, &best.1.is_valid_landing, &best.1.lander);
 			}
 
 			#[cfg(feature = "visualize")]
