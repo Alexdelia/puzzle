@@ -18,10 +18,10 @@ pub fn simulate_generation(
 	tx: mpsc::Sender<ProcessOutput>,
 	landscape: &[Segment],
 	lander_init_state: &Lander,
-	solution_list: &mut [Solution],
+	solution_list: &[Solution],
 ) {
 	pool.scope(|s| {
-		for (i, solution) in solution_list.iter_mut().enumerate() {
+		for (i, solution) in solution_list.iter().enumerate() {
 			let tx = tx.clone();
 			let mut lander = *lander_init_state;
 
@@ -48,7 +48,6 @@ pub fn simulate_generation(
 						|| lander.x > MAX_WIDTH
 						|| lander.y < 0.0 || lander.y > MAX_HEIGHT
 					{
-						// solution.truncate(i * 2);
 						tx.send(ProcessOutput {
 							index: i,
 							lander,
@@ -72,7 +71,6 @@ pub fn simulate_generation(
 
 					for (segment_index, segment) in landscape.iter().enumerate() {
 						if intersect(&traveled, segment) {
-							// solution.truncate(i * 2);
 							tx.send(ProcessOutput {
 								index: i,
 								lander,

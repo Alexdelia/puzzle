@@ -64,7 +64,7 @@ pub fn solve(
 	let mut best = (Score::MAX, BestSolution::default());
 
 	for generation in 0..(crate::parse::get_iteration()?) {
-		dbg!(generation);
+		eprint!("\r{generation}");
 
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
 
