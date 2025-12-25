@@ -11,7 +11,7 @@ fn main() -> Result<(), String> {
 	#[cfg(feature = "visualize")]
 	let validator_name = visualize::get_validator_name(&path);
 
-	let landscape = parse::parse(&path)?;
+	let (lander_init_state, landscape) = parse::parse(&path)?;
 
 	#[cfg(feature = "visualize")]
 	let base_doc = visualize::landscape(&landscape);
