@@ -26,5 +26,5 @@ pub fn get_score(landing_segment: &Segment, lander: &Lander, is_valid_landing: b
 		+ (lander.sy.abs() - (VALID_Y_SPEED_THRESHOLD - 1.0)).max(0.0);
 	let rotate_penalty = (lander.rotate.abs() as Score) * 2;
 
-	return speed_penalty as Score + rotate_penalty as Score;
+	speed_penalty as Score + rotate_penalty as Score
 }

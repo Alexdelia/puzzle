@@ -117,7 +117,7 @@ pub fn solve(
 		eprint!(" {best_score}", best_score = best.0);
 	}
 
-	eprintln!("");
+	eprintln!();
 
 	Ok(best.1.solution)
 }
