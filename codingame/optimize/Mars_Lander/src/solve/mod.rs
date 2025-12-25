@@ -14,6 +14,7 @@ use rayon::ThreadPoolBuilder;
 use crate::visualize;
 use crate::{
 	output_repr::Solution,
+	parse::get_iteration,
 	referee::{env::Coord, lander::Lander},
 	segment::Segment,
 };
@@ -35,7 +36,6 @@ struct ProcessOutput {
 #[derive(Default)]
 struct BestSolution {
 	is_valid_landing: bool,
-	lander: Lander,
 	solution: Solution,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
@@ -65,7 +65,8 @@ pub fn solve(
 	let mut best = (Score::MAX, BestSolution::default());
 
 	let mut generation: usize = 0;
-	while !best.1.is_valid_landing || best.1.lander.fuel < 310 {
+	let max_iteration = get_iteration()?;
+	while !best.1.is_valid_landing || generation < max_iteration {
 		eprint!("\r{generation}");
 
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
@@ -84,7 +85,6 @@ pub fn solve(
 					score,
 					BestSolution {
 						is_valid_landing: r.is_valid_landing,
-						lander: r.lander,
 						solution: solution_list[r.index].clone(),
 						#[cfg(feature = "visualize")]
 						path: r.path.clone(),
