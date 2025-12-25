@@ -34,7 +34,7 @@ pub fn simulate_generation(
 					y: lander.y,
 				});
 
-				for step in solution {
+				for (step_index, step) in solution.iter().enumerate() {
 					let from = Coord {
 						x: lander.x,
 						y: lander.y,
@@ -50,6 +50,7 @@ pub fn simulate_generation(
 							index: i,
 							lander,
 							is_valid_landing: false,
+							step_count: step_index + 1,
 							#[cfg(feature = "visualize")]
 							path,
 						})
@@ -74,6 +75,7 @@ pub fn simulate_generation(
 								lander,
 								is_valid_landing: segment_index == VALID_LANDING_INDEX
 									&& lander.valid_landing_condition(),
+								step_count: step_index + 1,
 								#[cfg(feature = "visualize")]
 								path,
 							})
@@ -87,6 +89,7 @@ pub fn simulate_generation(
 					index: i,
 					lander,
 					is_valid_landing: false,
+					step_count: solution.len(),
 					#[cfg(feature = "visualize")]
 					path,
 				})

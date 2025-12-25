@@ -29,6 +29,7 @@ struct ProcessOutput {
 	index: usize,
 	lander: Lander,
 	is_valid_landing: bool,
+	step_count: usize,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
 }
@@ -37,6 +38,7 @@ struct ProcessOutput {
 struct BestSolution {
 	is_valid_landing: bool,
 	solution: Solution,
+	step_count: usize,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
 }
@@ -86,6 +88,7 @@ pub fn solve(
 					BestSolution {
 						is_valid_landing: r.is_valid_landing,
 						solution: solution_list[r.index].clone(),
+						step_count: r.step_count,
 						#[cfg(feature = "visualize")]
 						path: r.path.clone(),
 					},
@@ -118,5 +121,7 @@ pub fn solve(
 
 	eprintln!();
 
-	Ok(best.1.solution)
+	let mut solution = best.1.solution;
+	solution.truncate(best.1.step_count);
+	Ok(solution)
 }
