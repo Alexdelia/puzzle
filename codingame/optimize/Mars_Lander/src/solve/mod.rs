@@ -33,6 +33,7 @@ struct ProcessOutput {
 #[derive(Default)]
 struct BestSolution {
 	is_valid_landing: bool,
+	lander: Lander,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
 }
@@ -79,10 +80,12 @@ pub fn solve(
 					score,
 					BestSolution {
 						is_valid_landing: r.is_valid_landing,
+						lander: r.lander,
 						#[cfg(feature = "visualize")]
 						path: r.path.clone(),
 					},
-				)
+				);
+				dbg!(&best.0, &best.1.is_valid_landing, &best.1.lander);
 			}
 
 			#[cfg(feature = "visualize")]
