@@ -62,10 +62,6 @@ pub fn solve(
 	for generation in 0..(crate::parse::get_iteration()?) {
 		dbg!(generation);
 
-		// run all solution in parallel
-		// keep the solution with the best score
-		// produce the next generation
-
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
 
 		process_generation(&pool, tx, landscape, lander_init_state, &solution_list);
@@ -116,9 +112,8 @@ fn process_generation(
 	solution_list: &[Solution],
 ) {
 	pool.scope(|s| {
-		for i in 0..SOLUTION_PER_GENERATION {
+		for (i, solution) in solution_list.iter().enumerate() {
 			let tx = tx.clone();
-			let solution = &solution_list[i];
 			let mut lander = lander_init_state;
 
 			s.spawn(move |_| {
