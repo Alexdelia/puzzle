@@ -35,8 +35,8 @@ pub fn breed_generation(
 		}
 	}
 
-	for i in 1..keep_count {
-		for step in ordered_solution_list[i].iter_mut() {
+	for solution in ordered_solution_list.iter_mut().take(keep_count).skip(1) {
+		for step in solution.iter_mut() {
 			mutate(&mut rng, step);
 		}
 	}
