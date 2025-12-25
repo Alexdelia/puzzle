@@ -48,7 +48,7 @@ pub fn simulate_generation(
 						|| lander.x > MAX_WIDTH
 						|| lander.y < 0.0 || lander.y > MAX_HEIGHT
 					{
-						solution.truncate(i + 1);
+						// solution.truncate(i * 2);
 						tx.send(ProcessOutput {
 							index: i,
 							lander,
@@ -72,7 +72,7 @@ pub fn simulate_generation(
 
 					for (segment_index, segment) in landscape.iter().enumerate() {
 						if intersect(&traveled, segment) {
-							solution.truncate(i + 1);
+							// solution.truncate(i * 2);
 							tx.send(ProcessOutput {
 								index: i,
 								lander,

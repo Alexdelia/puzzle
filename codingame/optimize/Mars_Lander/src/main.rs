@@ -6,7 +6,7 @@ mod solve;
 #[cfg(feature = "visualize")]
 mod visualize;
 
-use crate::solve::VALID_LANDING_INDEX;
+use crate::{referee::solution_into_real_output, solve::VALID_LANDING_INDEX};
 
 fn main() -> Result<(), String> {
 	let path = parse::get_path()?;
@@ -35,7 +35,12 @@ fn main() -> Result<(), String> {
 		&validator_name,
 	)?;
 
-	dbg!(solution);
+	// dbg!(&solution);
+
+	let solution_output = solution_into_real_output(&solution, &lander_init_state);
+
+	dbg!(&solution_output);
+	eprintln!("{solution_output}");
 
 	Ok(())
 }
