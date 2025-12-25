@@ -29,6 +29,13 @@ struct ProcessOutput {
 	path: Vec<Coord>,
 }
 
+#[derive(Default)]
+struct BestSolution {
+	is_valid_landing: bool,
+	#[cfg(feature = "visualize")]
+	path: Vec<Coord>,
+}
+
 pub fn solve(
 	landscape: &[Segment],
 	lander_init_state: Lander,
@@ -50,7 +57,7 @@ pub fn solve(
 		.try_into()
 		.expect("path list size mismatch");
 
-	let mut best: (Score, usize) = (Score::MAX, 0);
+	let mut best = (Score::MAX, BestSolution::default());
 
 	for generation in 0..(crate::parse::get_iteration()?) {
 		dbg!(generation);
@@ -67,22 +74,33 @@ pub fn solve(
 		let mut doc = base_doc.clone();
 
 		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
+			let score = get_score(landing_segment, &lander_list[r.index], r.is_valid_landing);
+
+			if score < best.0 {
+				best = (
+					score,
+					BestSolution {
+						is_valid_landing: r.is_valid_landing,
+						#[cfg(feature = "visualize")]
+						path: r.path.clone(),
+					},
+				)
+			}
+
 			#[cfg(feature = "visualize")]
 			{
 				doc = doc.add(visualize::solution(&r.path, r.is_valid_landing, false));
 				path_list[r.index] = r.path;
 			}
-
-			let score = get_score(landing_segment, &lander_list[r.index], r.is_valid_landing);
-
-			if score < best.0 {
-				best = (score, r.index);
-			}
 		}
 
 		#[cfg(feature = "visualize")]
 		{
-			doc = doc.add(visualize::solution(&path_list[best.1], true, true));
+			doc = doc.add(visualize::solution(
+				&best.1.path,
+				best.1.is_valid_landing,
+				true,
+			));
 			visualize::write_doc(validator_name, &doc, generation);
 		}
 	}
@@ -146,7 +164,6 @@ fn process_generation(
 
 					for (segment_index, segment) in landscape.iter().enumerate() {
 						if intersect(&traveled, segment) {
-							dbg!(&traveled, segment);
 							tx.send(ProcessOutput {
 								index: i,
 								is_valid_landing: segment_index == VALID_LANDING_INDEX
