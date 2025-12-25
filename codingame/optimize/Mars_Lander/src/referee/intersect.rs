@@ -1,30 +1,23 @@
-use crate::{
-	referee::env::{Axis, Coord},
-	segment::Segment,
-};
+use crate::segment::Segment;
 
 pub fn intersect(a: &Segment, b: &Segment) -> bool {
-	let d1 = direction(&a.a, &a.b, &b.a);
-	let d2 = direction(&a.a, &a.b, &b.b);
+	let sa_x = a.b.x - a.a.x;
+	let sa_y = a.b.y - a.a.y;
+	let sb_x = b.b.x - b.a.x;
+	let sb_y = b.b.y - b.a.y;
 
-	if (d1 > 0.0 && d2 < 0.0) || (d1 < 0.0 && d2 > 0.0) {
-		return true;
-	}
+	let k = 1.0 / (-sb_x * sa_y + sa_x * sb_y);
 
-	let d3 = direction(&b.a, &b.b, &a.a);
-	let d4 = direction(&b.a, &b.b, &a.b);
+	let s = (-sa_y * (a.a.x - b.a.x) + sa_x * (a.a.y - b.a.y)) * k;
+	let t = (sb_x * (a.a.y - b.a.y) - sb_y * (a.a.x - b.a.x)) * k;
 
-	(d3 > 0.0 && d4 < 0.0) || (d3 < 0.0 && d4 > 0.0)
-}
-
-#[inline]
-fn direction(a: &Coord, b: &Coord, c: &Coord) -> Axis {
-	(b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+	s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::referee::env::Coord;
 
 	#[test]
 	fn test_intersect() {
