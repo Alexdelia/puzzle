@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::referee::env::Angle;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Step {
 	pub tilt: TiltChange,
 	pub thrust: ThrustChange,
@@ -9,7 +11,7 @@ pub struct Step {
 /// titl change in degrees (-15 to 15)
 type TiltChange = Angle;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ThrustChange {
 	Decrease,
 	Keep,
