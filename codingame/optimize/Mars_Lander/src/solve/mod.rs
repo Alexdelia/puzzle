@@ -65,7 +65,7 @@ pub fn solve(
 	let mut best = (Score::MAX, BestSolution::default());
 
 	let mut generation: usize = 0;
-	while !best.1.is_valid_landing || best.1.lander.fuel < 300 {
+	while !best.1.is_valid_landing || best.1.lander.fuel < 310 {
 		eprint!("\r{generation}");
 
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
@@ -114,6 +114,8 @@ pub fn solve(
 
 		generation += 1;
 	}
+
+	dbg!(generation);
 
 	Ok(best.1.solution)
 }
