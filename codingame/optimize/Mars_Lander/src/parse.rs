@@ -6,7 +6,6 @@ use crate::{
 		lander::{Fuel, Lander, Power},
 	},
 	segment::Segment,
-	solve::VALID_LANDING_INDEX,
 };
 
 pub fn get_path() -> Result<String, String> {

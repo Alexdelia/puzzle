@@ -25,8 +25,6 @@ pub fn landscape(segment_list: &[Segment]) -> Document {
 	);
 
 	let mut point_list = Vec::with_capacity(segment_list.len() + 2);
-	let mut left_most = (MAX_WIDTH, 0.0);
-	let mut right_most = (0.0, 0.0);
 	point_list.push((0.0, MAX_HEIGHT * CONVERSION_HEIGHT));
 	for segment in segment_list {
 		point_list.push((

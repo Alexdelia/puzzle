@@ -11,7 +11,7 @@ pub fn intersect(a: &Segment, b: &Segment) -> bool {
 	let s = (-sa_y * (a.a.x - b.a.x) + sa_x * (a.a.y - b.a.y)) * k;
 	let t = (sb_x * (a.a.y - b.a.y) - sb_y * (a.a.x - b.a.x)) * k;
 
-	s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0
+	(0.0..=1.0).contains(&s) && (0.0..=1.0).contains(&t)
 }
 
 #[cfg(test)]

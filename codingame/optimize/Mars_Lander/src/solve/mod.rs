@@ -48,8 +48,8 @@ pub fn solve(
 		.build()
 		.map_err(|e| format!("failed to build thread pool: {e}"))?;
 
-	let mut lander_list = [lander_init_state; SOLUTION_PER_GENERATION];
-	let mut solution_list = first_generation::init_first_generation();
+	let lander_list = [lander_init_state; SOLUTION_PER_GENERATION];
+	let solution_list = first_generation::init_first_generation();
 	#[cfg(feature = "visualize")]
 	let mut path_list: [Vec<Coord>; SOLUTION_PER_GENERATION] = (0..SOLUTION_PER_GENERATION)
 		.map(|_| Vec::new())
@@ -119,7 +119,7 @@ fn process_generation(
 		for i in 0..SOLUTION_PER_GENERATION {
 			let tx = tx.clone();
 			let solution = &solution_list[i];
-			let mut lander = lander_init_state.clone();
+			let mut lander = lander_init_state;
 
 			s.spawn(move |_| {
 				#[cfg(feature = "visualize")]
