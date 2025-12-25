@@ -11,6 +11,12 @@ pub struct Lander {
 	pub power: Power,
 }
 
+impl Lander {
+	pub fn valid_landing_condition(&self) -> bool {
+		self.sx.abs() <= 20.0 && self.sy.abs() <= 40.0
+	}
+}
+
 /// from 0 to 2000
 pub type Fuel = u16;
 

@@ -7,7 +7,7 @@ const GOOD_LANDER_PATH_COLOR: &str = "green";
 const DEAD_LANDER_PATH_COLOR: &str = "red";
 const BEST_LANDER_PATH_COLOR: &str = "gold";
 
-pub fn solution(lander_path: &[Coord], dead: bool, best: bool) -> Path {
+pub fn solution(lander_path: &[Coord], is_valid_landing: bool, best: bool) -> Path {
 	let mut d = Data::new().move_to((
 		lander_path[0].x * CONVERSION_WIDTH,
 		SVG_HEIGHT as Axis - lander_path[0].y * CONVERSION_HEIGHT,
@@ -27,12 +27,12 @@ pub fn solution(lander_path: &[Coord], dead: bool, best: bool) -> Path {
 			"stroke",
 			if best {
 				BEST_LANDER_PATH_COLOR
-			} else if dead {
-				DEAD_LANDER_PATH_COLOR
-			} else {
+			} else if is_valid_landing {
 				GOOD_LANDER_PATH_COLOR
+			} else {
+				DEAD_LANDER_PATH_COLOR
 			},
 		)
-		.set("stroke-opacity", 1.0 / 3.0)
+		.set("stroke-opacity", if best { 0.9 } else { 1.0 / 3.0 })
 		.set("stroke-width", 2)
 }
