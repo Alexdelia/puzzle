@@ -11,12 +11,11 @@ use std::sync::mpsc;
 use rayon::ThreadPoolBuilder;
 
 #[cfg(feature = "visualize")]
+use crate::referee::env::Coord;
+#[cfg(feature = "visualize")]
 use crate::visualize;
 use crate::{
-	output_repr::Solution,
-	parse::get_iteration,
-	referee::{env::Coord, lander::Lander},
-	segment::Segment,
+	output_repr::Solution, parse::get_iteration, referee::lander::Lander, segment::Segment,
 };
 
 pub const SOLUTION_PER_GENERATION: usize = 512;
