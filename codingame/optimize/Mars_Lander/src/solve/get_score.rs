@@ -1,7 +1,7 @@
 use super::Score;
 use crate::{
 	referee::{
-		env::{MAX_HEIGHT, VALID_X_SPEED_THRESHOLD, VALID_Y_SPEED_THRESHOLD},
+		env::{VALID_X_SPEED_THRESHOLD, VALID_Y_SPEED_THRESHOLD},
 		lander::Lander,
 	},
 	segment::Segment,
@@ -22,10 +22,12 @@ pub fn get_score(landing_segment: &Segment, lander: &Lander, is_valid_landing: b
 		return (lander.x - max_b_x) as Score * 2 + 10000;
 	}
 
+	/*
 	if lander.y > MAX_HEIGHT / 2.0 {
 		return (lander.y - landing_segment.a.y) as Score
 			+ ((min_a_x - lander.x).max(lander.x - max_b_x)) as Score;
 	}
+	*/
 
 	let speed_penalty = (lander.sx.abs() - (VALID_X_SPEED_THRESHOLD - 1.0)).max(0.0)
 		+ (lander.sy.abs() - (VALID_Y_SPEED_THRESHOLD - 1.0)).max(0.0);
