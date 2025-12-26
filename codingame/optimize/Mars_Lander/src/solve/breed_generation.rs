@@ -48,8 +48,8 @@ pub fn breed_generation(
 		.take(SOLUTION_PER_GENERATION)
 		.skip(SOLUTION_PER_GENERATION - random_count)
 	{
-		for i in 0..max_solution_size {
-			solution[i] = Step::random(&mut rng);
+		for step in solution.iter_mut().take(max_solution_size) {
+			*step = Step::random(&mut rng);
 		}
 	}
 
