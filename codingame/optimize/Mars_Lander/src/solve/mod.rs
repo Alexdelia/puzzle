@@ -77,6 +77,10 @@ pub fn solve(
 
 		#[cfg(feature = "visualize")]
 		let mut doc = base_doc.clone();
+		#[cfg(feature = "visualize")]
+		{
+			doc = doc.add(visualize::generation_number(generation));
+		}
 
 		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
 			let score = get_score(landing_segment, &r.lander, r.is_valid_landing);
