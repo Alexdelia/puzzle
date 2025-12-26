@@ -54,6 +54,7 @@
                   hyperfine
 
                   imagemagick
+                  bc
                 ])
                 ++ (with pkgs.python3Packages; [
                   numpy
