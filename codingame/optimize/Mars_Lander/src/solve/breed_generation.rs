@@ -43,12 +43,14 @@ pub fn breed_generation(
 		}
 	}
 
-	for i in (SOLUTION_PER_GENERATION - random_count)..SOLUTION_PER_GENERATION {
-		let mut random_solution = Vec::with_capacity(max_solution_size);
-		for _ in 0..max_solution_size {
-			random_solution.push(Step::random(&mut rng));
+	for solution in ordered_solution_list
+		.iter_mut()
+		.take(SOLUTION_PER_GENERATION)
+		.skip(SOLUTION_PER_GENERATION - random_count)
+	{
+		for i in 0..max_solution_size {
+			solution[i] = Step::random(&mut rng);
 		}
-		ordered_solution_list[i] = random_solution;
 	}
 
 	ordered_solution_list
