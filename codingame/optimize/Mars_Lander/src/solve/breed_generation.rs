@@ -2,6 +2,7 @@ use super::{SOLUTION_PER_GENERATION, Score};
 use crate::output_repr::{Solution, Step};
 
 const KEEP_RATE: f32 = 0.1;
+const RANDOM_RATE: f32 = 0.1;
 
 const MUTATION_RATE: f64 = 0.01;
 
@@ -12,6 +13,7 @@ pub fn breed_generation(
 	let mut ordered_solution_list = sort(solution_list, score_list);
 
 	let keep_count = (SOLUTION_PER_GENERATION as f32 * KEEP_RATE).ceil() as usize;
+	let random_count = (SOLUTION_PER_GENERATION as f32 * RANDOM_RATE).ceil() as usize;
 
 	let max_solution_size = ordered_solution_list[0..keep_count]
 		.iter()
@@ -23,7 +25,7 @@ pub fn breed_generation(
 
 	let mut parent_a_index = 0;
 	let mut parent_b_index = 1;
-	for i in keep_count..SOLUTION_PER_GENERATION {
+	for i in keep_count..(SOLUTION_PER_GENERATION - random_count) {
 		let parent_a = &ordered_solution_list[parent_a_index];
 		let parent_b = &ordered_solution_list[parent_b_index];
 		ordered_solution_list[i] = breed(&mut rng, parent_a, parent_b, max_solution_size);
@@ -39,6 +41,14 @@ pub fn breed_generation(
 		for step in solution.iter_mut() {
 			mutate(&mut rng, step);
 		}
+	}
+
+	for i in (SOLUTION_PER_GENERATION - random_count)..SOLUTION_PER_GENERATION {
+		let mut random_solution = Vec::with_capacity(max_solution_size);
+		for _ in 0..max_solution_size {
+			random_solution.push(Step::random(&mut rng));
+		}
+		ordered_solution_list[i] = random_solution;
 	}
 
 	ordered_solution_list
