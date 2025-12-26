@@ -52,6 +52,8 @@
 
                   cargo-flamegraph
                   hyperfine
+
+                  imagemagick
                 ])
                 ++ (with pkgs.python3Packages; [
                   numpy

@@ -19,6 +19,8 @@ fn main() -> Result<(), String> {
 	let (lander_init_state, mut landscape) = parse::parse(&path)?;
 
 	#[cfg(feature = "visualize")]
+	visualize::clear_output(&validator_name);
+	#[cfg(feature = "visualize")]
 	let base_doc = visualize::landscape(&landscape);
 
 	let flat_segment_index = landscape

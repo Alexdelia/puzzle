@@ -8,6 +8,8 @@ use crate::{
 	segment::Segment,
 };
 
+const DEFAULT_ITERATION: usize = 128;
+
 pub fn get_path() -> Result<String, String> {
 	let args = std::env::args().collect::<Vec<String>>();
 	if args.len() < 2 {
@@ -17,7 +19,9 @@ pub fn get_path() -> Result<String, String> {
 }
 
 pub fn get_iteration() -> Result<usize, String> {
-	option_env!("ITERATION").map_or(Ok(64), |s| s.parse::<usize>().map_err(|e| e.to_string()))
+	option_env!("ITERATION").map_or(Ok(DEFAULT_ITERATION), |s| {
+		s.parse::<usize>().map_err(|e| e.to_string())
+	})
 }
 
 pub fn parse(path: &str) -> Result<(Lander, Vec<Segment>), String> {
