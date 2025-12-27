@@ -89,18 +89,13 @@ fn breed(
 	for i in 0..solution_size {
 		if let (Some(step_a), Some(step_b)) = (parent_a.get(i), parent_b.get(i)) {
 			let mut step = Step {
-				tilt: (step_a.tilt + step_b.tilt) / 2,
+				tilt: ((((step_a.tilt + step_b.tilt) + 15) / 2) - 15).clamp(-15, 15),
 				thrust: if rng.random_bool(0.5) {
 					step_a.thrust
 				} else {
 					step_b.thrust
 				},
 			};
-			assert!(
-				step.tilt >= -15 && step.tilt <= 15,
-				"Tilt out of bounds after breeding: {tilt}",
-				tilt = step.tilt
-			);
 
 			mutate(rng, &mut step);
 			child.push(step);
