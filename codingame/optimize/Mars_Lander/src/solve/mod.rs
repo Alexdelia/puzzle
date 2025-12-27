@@ -82,6 +82,7 @@ pub fn solve(
 		}
 
 		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
+			// TODO: compute score inside thread
 			let score = get_score(landing_segment, &r.lander, r.is_valid_landing);
 			score_list[r.index] = score;
 

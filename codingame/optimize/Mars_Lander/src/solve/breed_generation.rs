@@ -4,7 +4,7 @@ use crate::output_repr::{Solution, Step};
 const KEEP_RATE: f32 = 0.1;
 const RANDOM_RATE: f32 = 0.1;
 
-const MUTATION_RATE: f64 = 0.01;
+const MUTATION_RATE: f64 = 0.1;
 
 pub fn breed_generation(
 	solution_list: [Solution; SOLUTION_PER_GENERATION],
@@ -89,7 +89,8 @@ fn breed(
 	for i in 0..solution_size {
 		if let (Some(step_a), Some(step_b)) = (parent_a.get(i), parent_b.get(i)) {
 			let mut step = Step {
-				tilt: ((((step_a.tilt + step_b.tilt) + 15) / 2) - 15).clamp(-15, 15),
+				// tilt: ((((step_a.tilt + step_b.tilt) + 15) / 2) - 15).clamp(-15, 15),
+				tilt: (step_a.tilt + step_b.tilt) / 2,
 				thrust: if rng.random_bool(0.5) {
 					step_a.thrust
 				} else {
