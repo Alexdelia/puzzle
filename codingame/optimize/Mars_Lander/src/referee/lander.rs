@@ -14,8 +14,8 @@ pub struct Lander {
 impl Lander {
 	pub fn valid_landing_condition(&self) -> bool {
 		self.rotate == 0
-			&& self.sx.abs() <= VALID_X_SPEED_THRESHOLD
-			&& self.sy.abs() <= VALID_Y_SPEED_THRESHOLD
+			&& self.sx.abs() < (VALID_X_SPEED_THRESHOLD + 0.5) // codingame is rounding the f64 to int
+			&& self.sy.abs() < (VALID_Y_SPEED_THRESHOLD + 0.5)
 	}
 }
 
