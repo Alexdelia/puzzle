@@ -4,7 +4,22 @@ use crate::output_repr::{Solution, Step};
 const KEEP_RATE: f32 = 0.1;
 const RANDOM_RATE: f32 = 0.1;
 
-const MUTATION_RATE: f64 = 0.1;
+type MutationRate = f64;
+
+const MUTATION_RATE_FACTOR: MutationRate = 0.1;
+
+const fn gen_mutation_rate() -> [MutationRate; SOLUTION_PER_GENERATION] {
+	let mut list = [0.0; SOLUTION_PER_GENERATION];
+	let mut i = 0;
+	while i < SOLUTION_PER_GENERATION {
+		list[i] =
+			i as MutationRate / SOLUTION_PER_GENERATION as MutationRate * MUTATION_RATE_FACTOR;
+		i += 1;
+	}
+	list
+}
+
+const MUTATION_RATE: [MutationRate; SOLUTION_PER_GENERATION] = gen_mutation_rate();
 
 pub fn breed_generation(
 	solution_list: [Solution; SOLUTION_PER_GENERATION],
@@ -28,7 +43,13 @@ pub fn breed_generation(
 	for i in keep_count..(SOLUTION_PER_GENERATION - random_count) {
 		let parent_a = &ordered_solution_list[parent_a_index];
 		let parent_b = &ordered_solution_list[parent_b_index];
-		ordered_solution_list[i] = breed(&mut rng, parent_a, parent_b, max_solution_size);
+		ordered_solution_list[i] = breed(
+			&mut rng,
+			MUTATION_RATE[i],
+			parent_a,
+			parent_b,
+			max_solution_size,
+		);
 
 		parent_b_index += 1;
 		if parent_b_index >= keep_count {
@@ -37,9 +58,14 @@ pub fn breed_generation(
 		}
 	}
 
-	for solution in ordered_solution_list.iter_mut().take(keep_count).skip(1) {
+	for (i, solution) in ordered_solution_list
+		.iter_mut()
+		.take(keep_count)
+		.skip(1)
+		.enumerate()
+	{
 		for step in solution.iter_mut() {
-			mutate(&mut rng, step);
+			mutate(&mut rng, MUTATION_RATE[i], step);
 		}
 	}
 
@@ -80,6 +106,7 @@ fn sort(
 
 fn breed(
 	rng: &mut impl rand::Rng,
+	mutation_rate: f64,
 	parent_a: &Solution,
 	parent_b: &Solution,
 	solution_size: usize,
@@ -98,7 +125,7 @@ fn breed(
 				},
 			};
 
-			mutate(rng, &mut step);
+			mutate(rng, mutation_rate, &mut step);
 			child.push(step);
 		} else {
 			child.push(Step::random(rng));
@@ -108,11 +135,11 @@ fn breed(
 	child
 }
 
-pub fn mutate(rng: &mut impl rand::Rng, step: &mut Step) {
-	if rng.random_bool(MUTATION_RATE) {
+pub fn mutate(rng: &mut impl rand::Rng, mutation_rate: f64, step: &mut Step) {
+	if rng.random_bool(mutation_rate) {
 		step.thrust = Step::random_thrust(rng);
 	}
-	if rng.random_bool(MUTATION_RATE) {
+	if rng.random_bool(mutation_rate) {
 		step.tilt = Step::random_titl(rng);
 	}
 }
