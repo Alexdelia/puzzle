@@ -9,6 +9,7 @@ use crate::{
 		process_step::process_step,
 	},
 	segment::Segment,
+	solve::get_score::get_score,
 };
 
 use super::{ProcessOutput, VALID_LANDING_INDEX};
@@ -20,6 +21,8 @@ pub fn simulate_generation(
 	lander_init_state: &Lander,
 	solution_list: &[Solution],
 ) {
+	let landing_segment = &landscape[VALID_LANDING_INDEX];
+
 	pool.scope(|s| {
 		for (i, solution) in solution_list.iter().enumerate() {
 			let tx = tx.clone();
@@ -48,8 +51,8 @@ pub fn simulate_generation(
 					{
 						tx.send(ProcessOutput {
 							index: i,
-							lander,
 							is_valid_landing: false,
+							score: get_score(landing_segment, &lander, false),
 							step_count: step_index + 1,
 							#[cfg(feature = "visualize")]
 							path,
@@ -70,11 +73,12 @@ pub fn simulate_generation(
 
 					for (segment_index, segment) in landscape.iter().enumerate() {
 						if intersect(&traveled, segment) {
+							let is_valid_landing = segment_index == VALID_LANDING_INDEX
+								&& lander.valid_landing_condition();
 							tx.send(ProcessOutput {
 								index: i,
-								lander,
-								is_valid_landing: segment_index == VALID_LANDING_INDEX
-									&& lander.valid_landing_condition(),
+								is_valid_landing,
+								score: get_score(landing_segment, &lander, is_valid_landing),
 								step_count: step_index + 1,
 								#[cfg(feature = "visualize")]
 								path,
@@ -87,9 +91,9 @@ pub fn simulate_generation(
 
 				tx.send(ProcessOutput {
 					index: i,
-					lander,
 					is_valid_landing: false,
 					step_count: solution.len(),
+					score: get_score(landing_segment, &lander, false),
 					#[cfg(feature = "visualize")]
 					path,
 				})

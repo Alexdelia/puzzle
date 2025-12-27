@@ -1,9 +1,8 @@
 mod first_generation;
 mod simulate_generation;
 use simulate_generation::simulate_generation;
-mod get_score;
-use get_score::get_score;
 mod breed_generation;
+mod get_score;
 use breed_generation::breed_generation;
 
 use std::sync::mpsc;
@@ -26,8 +25,8 @@ pub type Score = i16;
 
 struct ProcessOutput {
 	index: usize,
-	lander: Lander,
 	is_valid_landing: bool,
+	score: Score,
 	step_count: usize,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
@@ -48,8 +47,6 @@ pub fn solve(
 	lander_init_state: &Lander,
 	#[cfg(feature = "visualize")] base_doc: svg::Document,
 ) -> Result<Solution, String> {
-	let landing_segment = &landscape[VALID_LANDING_INDEX];
-
 	let pool = ThreadPoolBuilder::new()
 		.build()
 		.map_err(|e| format!("failed to build thread pool: {e}"))?;
@@ -68,8 +65,6 @@ pub fn solve(
 	let mut generation: usize = 0;
 	let max_iteration = get_iteration()?;
 	while !best.1.is_valid_landing || generation < max_iteration {
-		eprint!("\r{generation}");
-
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
 
 		simulate_generation(&pool, tx, landscape, lander_init_state, &solution_list);
@@ -82,13 +77,11 @@ pub fn solve(
 		}
 
 		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
-			// TODO: compute score inside thread
-			let score = get_score(landing_segment, &r.lander, r.is_valid_landing);
-			score_list[r.index] = score;
+			score_list[r.index] = r.score;
 
-			if score < best.0 {
+			if r.score < best.0 {
 				best = (
-					score,
+					r.score,
 					BestSolution {
 						is_valid_landing: r.is_valid_landing,
 						solution: solution_list[r.index].clone(),
@@ -118,12 +111,14 @@ pub fn solve(
 
 		solution_list = breed_generation(solution_list, score_list);
 
-		generation += 1;
+		if generation % 128 == 0 {
+			eprint!("\r{generation} {best_score}", best_score = best.0);
+		}
 
-		eprint!(" {best_score}", best_score = best.0);
+		generation += 1;
 	}
 
-	eprintln!();
+	eprintln!("\r{generation} {best_score}", best_score = best.0);
 
 	let mut solution = best.1.solution;
 	solution.truncate(best.1.step_count);
