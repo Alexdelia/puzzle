@@ -6,10 +6,8 @@ fn dist(from: char, to: char) -> i8 {
 	let from = if from == ' ' { EMPTY_RUNE } else { from };
 	let to = if to == ' ' { EMPTY_RUNE } else { to };
 
-	dbg!(from, to);
 	let from = from as i8;
 	let to = to as i8;
-	dbg!(from, to);
 
 	(to - from + 27 + 13) % 27 - 13
 }
@@ -40,6 +38,7 @@ fn main() {
 		rune = c;
 	}
 
+	eprintln!("{len}", len = buf.len());
 	println!("{buf}");
 }
 
