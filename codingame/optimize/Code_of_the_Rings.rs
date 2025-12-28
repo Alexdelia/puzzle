@@ -59,7 +59,7 @@ fn find_best_dist(s: &Strip, index: usize, to: char) -> (usize, MoveDist, RollDi
 	for (i, &rune) in s.iter().enumerate() {
 		let d_move = move_dist(index, i);
 		let d_roll = roll_dist(rune, to);
-		if non_empty_count < 4 && (d_move == 0 || rune == EMPTY_RUNE) {
+		if non_empty_count > 0 && non_empty_count < 3 && (d_move == 0 || rune != EMPTY_RUNE) {
 			continue;
 		}
 
