@@ -28,7 +28,7 @@ fn main() {
 	let mut q: VecDeque<(usize, usize)> = VecDeque::new();
 	let mut seen: Vec<Vec<bool>> = vec![vec![false; n]; n];
 
-	let center = (n / 2) as usize;
+	let center = n / 2;
 	q.push_back((center, center));
 	seen[center][center] = true;
 
