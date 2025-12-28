@@ -231,12 +231,18 @@ class Env:
 e = Env()
 e.init_info()
 
+first_turn = True
 # game loop
 while True:
 	e.get_info(2)
 	# e.debug(e=True, b=True, o=True)
 
-	for b in e.bot:
+	for i, b in enumerate(e.bot):
 		x, y = b.get_targeted_xy()
 		thrust = b.get_thrust(e.opponent)
+
+		if first_turn and i == 0:
+			first_turn = False
+			thrust = "BOOST"
+
 		print(f"{x} {y} {thrust} {thrust}")
