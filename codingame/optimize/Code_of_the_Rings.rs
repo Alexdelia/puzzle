@@ -10,8 +10,11 @@ type RollDist = i8;
 type MoveDist = i8;
 
 fn roll_dist(from: char, to: char) -> RollDist {
-	let from = if from == ' ' { EMPTY_RUNE } else { from };
-	let to = if to == ' ' { EMPTY_RUNE } else { to };
+	assert!(
+		from != ' ',
+		"char should be '{EMPTY_RUNE}' instead of '{from}'"
+	);
+	assert!(to != ' ', "char should be '{EMPTY_RUNE}' instead of '{to}'");
 
 	let from = from as RollDist;
 	let to = to as RollDist;
@@ -30,15 +33,35 @@ fn move_dist(from: usize, to: usize) -> MoveDist {
 	}
 }
 
+fn count_empty_rune(s: &Strip) -> u8 {
+	s.iter().filter(|&&rune| rune == EMPTY_RUNE).count() as u8
+}
+
 fn find_best_dist(s: &Strip, index: usize, to: char) -> (usize, MoveDist, RollDist) {
+	if let Some(found_index) = s
+		.iter()
+		.enumerate()
+		.filter(|&(_, &rune)| rune == to)
+		.map(|(i, _)| i)
+		.min_by_key(|&found_index| move_dist(index, found_index).abs())
+	{
+		return (found_index, move_dist(index, found_index), 0);
+	}
+
 	let mut best = (
 		u8::MAX,
 		(usize::default(), MoveDist::default(), RollDist::default()),
 	);
 
+	let empty_count = count_empty_rune(s);
+	let non_empty_count = STRIP_SIZE as u8 - empty_count;
+
 	for (i, &rune) in s.iter().enumerate() {
 		let d_move = move_dist(index, i);
 		let d_roll = roll_dist(rune, to);
+		if non_empty_count < 4 && (d_move == 0 || rune == EMPTY_RUNE) {
+			continue;
+		}
 
 		let abs_d_move = d_move.abs() as u8;
 		let abs_d_roll = d_roll.abs() as u8;
@@ -94,6 +117,8 @@ fn main() {
 	io::stdin().read_line(&mut input_line).unwrap();
 	let magic_phrase = input_line.trim_matches('\n').to_string();
 
+	let magic_phrase = magic_phrase.replace(" ", EMPTY_RUNE.to_string().as_str());
+
 	let mut buf = String::new();
 
 	let mut s: Strip = [EMPTY_RUNE; STRIP_SIZE];
@@ -123,14 +148,10 @@ mod tests {
 	fn test_roll_dist() {
 		assert_eq!(roll_dist('A', 'C'), 2);
 		assert_eq!(roll_dist('C', 'A'), -2);
-		assert_eq!(roll_dist(' ', 'A'), 1);
-		assert_eq!(roll_dist('A', ' '), -1);
 		assert_eq!(roll_dist(EMPTY_RUNE, 'A'), 1);
 		assert_eq!(roll_dist('Z', 'A'), 2);
 		assert_eq!(roll_dist('A', 'Z'), -2);
-		assert_eq!(roll_dist(' ', ' '), 0);
 		assert_eq!(roll_dist(EMPTY_RUNE, EMPTY_RUNE), 0);
-		assert_eq!(roll_dist(EMPTY_RUNE, ' '), 0);
 		assert_eq!(roll_dist('Z', 'C'), 4);
 	}
 
