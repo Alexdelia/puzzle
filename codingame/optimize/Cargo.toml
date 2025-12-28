@@ -15,3 +15,7 @@ path = "Spring_Challenge_2025.rs"
 [[bin]]
 name = "number_shifting"
 path = "Number_Shifting.rs"
+
+[[bin]]
+name = "code_of_the_rings"
+path = "Code_of_the_Rings.rs"
