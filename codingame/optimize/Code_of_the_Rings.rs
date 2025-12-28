@@ -33,35 +33,15 @@ fn move_dist(from: usize, to: usize) -> MoveDist {
 	}
 }
 
-fn count_empty_rune(s: &Strip) -> u8 {
-	s.iter().filter(|&&rune| rune == EMPTY_RUNE).count() as u8
-}
-
 fn find_best_dist(s: &Strip, index: usize, to: char) -> (usize, MoveDist, RollDist) {
-	if let Some(found_index) = s
-		.iter()
-		.enumerate()
-		.filter(|&(_, &rune)| rune == to)
-		.map(|(i, _)| i)
-		.min_by_key(|&found_index| move_dist(index, found_index).abs())
-	{
-		return (found_index, move_dist(index, found_index), 0);
-	}
-
 	let mut best = (
 		u8::MAX,
 		(usize::default(), MoveDist::default(), RollDist::default()),
 	);
 
-	let empty_count = count_empty_rune(s);
-	let non_empty_count = STRIP_SIZE as u8 - empty_count;
-
 	for (i, &rune) in s.iter().enumerate() {
 		let d_move = move_dist(index, i);
 		let d_roll = roll_dist(rune, to);
-		if non_empty_count > 0 && non_empty_count < 3 && (d_move == 0 || rune != EMPTY_RUNE) {
-			continue;
-		}
 
 		let abs_d_move = d_move.abs() as u8;
 		let abs_d_roll = d_roll.abs() as u8;
