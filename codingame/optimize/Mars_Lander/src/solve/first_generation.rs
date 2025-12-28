@@ -6,7 +6,7 @@ use crate::{
 	solve::SOLUTION_PER_GENERATION,
 };
 
-const INITIAL_SOLUTION_STEP_SIZE: usize = 128;
+const INITIAL_SOLUTION_STEP_SIZE: usize = 84;
 
 pub fn init_first_generation(
 	validator_name: &str,
