@@ -4,7 +4,7 @@ const STRIP_SIZE: usize = 30;
 
 type Strip = [char; STRIP_SIZE];
 
-const EMPTY_RUNE: char = ('A' as u8 - 1) as char;
+const EMPTY_RUNE: char = (b'A' - 1) as char;
 
 type RollDist = i8;
 type MoveDist = i8;
@@ -43,14 +43,14 @@ fn find_best_dist(s: &Strip, index: usize, to: char) -> (usize, MoveDist, RollDi
 		let d_move = move_dist(index, i);
 		let d_roll = roll_dist(rune, to);
 
-		let abs_d_move = d_move.abs() as u8;
-		let abs_d_roll = d_roll.abs() as u8;
+		let abs_d_move = d_move.unsigned_abs();
+		let abs_d_roll = d_roll.unsigned_abs();
 		let dist = abs_d_move + abs_d_roll;
 
 		if dist < best.0 {
 			best = (dist, (i, d_move, d_roll));
 		} else if dist == best.0 {
-			let best_abs_d_roll = best.1.1.abs() as u8;
+			let best_abs_d_roll = best.1.1.unsigned_abs();
 			if abs_d_roll < best_abs_d_roll {
 				best = (dist, (i, d_move, d_roll));
 			}
