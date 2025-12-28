@@ -1,7 +1,7 @@
 [package]
 name = "codingame"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [[bin]]
 name = "Messed_up_mosaics"
@@ -34,3 +34,7 @@ path = "solved/Annihilation.rs"
 [[bin]]
 name = "Island_Escape"
 path = "solved/Island_Escape.rs"
+
+[[bin]]
+name = "Recurring_Decimals"
+path = "solved/Recurring_Decimals.rs"
