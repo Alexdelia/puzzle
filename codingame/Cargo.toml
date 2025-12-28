@@ -38,3 +38,7 @@ path = "solved/Island_Escape.rs"
 [[bin]]
 name = "Recurring_Decimals"
 path = "solved/Recurring_Decimals.rs"
+
+[[bin]]
+name = "Number_of_Digits"
+path = "solved/Number_of_Digits.rs"
