@@ -90,7 +90,7 @@ fn main() {
 
 	let mut arrows = Vec::new();
 
-	for y in 0..h as usize {
+	for y in 0..h {
 		let mut input_line = String::new();
 		io::stdin().read_line(&mut input_line).unwrap();
 		let line = input_line.trim_matches('\n').to_string();
