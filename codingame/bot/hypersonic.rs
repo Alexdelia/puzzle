@@ -40,7 +40,7 @@ impl Cell {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Box {
-	item: ItemType,
+	item: Option<ItemType>,
 	explode_at: Option<TurnIndex>,
 }
 
@@ -94,9 +94,9 @@ enum ItemType {
 impl From<char> for ItemType {
 	fn from(c: char) -> Self {
 		match c {
-			'0' => Self::IncreaseBombCount,
 			'1' => Self::IncreaseBombRange,
-			_ => unreachable!(),
+			'2' => Self::IncreaseBombCount,
+			_ => panic!("invalid item type: '{c}'"),
 		}
 	}
 }
@@ -130,7 +130,11 @@ impl Env {
 						Cell::Box(_) => {}
 						_ => {
 							self.board[y][x] = Cell::Box(Box {
-								item: ItemType::from(c),
+								item: if c == '0' {
+									None
+								} else {
+									Some(ItemType::from(c))
+								},
 								explode_at: None,
 							})
 						}
