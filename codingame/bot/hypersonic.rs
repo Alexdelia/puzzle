@@ -97,9 +97,7 @@ fn main() {
 
 	let mut turn: TurnIndex = 0;
 	loop {
-		for _ in 0..BOARD_HEIGHT as usize {
-			read_board(&mut board);
-		}
+		read_board(&mut board);
 
 		let mut input_line = String::new();
 		io::stdin().read_line(&mut input_line).unwrap();
@@ -125,6 +123,7 @@ fn main() {
 		let best_cell = find_cell_with_most_destructible(&board);
 		if let Some((x, y)) = best_cell {
 			println!("BOMB {x} {y} {turn}");
+			board[y][x] = Cell::Box(Some(turn + 8));
 		} else {
 			println!("MOVE {my_x} {my_y} WAIT");
 		}
