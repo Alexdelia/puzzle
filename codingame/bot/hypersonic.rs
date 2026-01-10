@@ -18,8 +18,16 @@ type Board = [[Cell; BOARD_WIDTH]; BOARD_HEIGHT];
 enum Cell {
 	Empty,
 	/// explod at turn index
-	Box(Option<TurnIndex>),
+	Box(Box),
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Box {
+	item: ItemId,
+	explode_at: Option<TurnIndex>,
+}
+
+type ItemId = u8;
 
 fn read_board(board: &mut Board) {
 	for y in 0..BOARD_HEIGHT {
@@ -29,11 +37,15 @@ fn read_board(board: &mut Board) {
 		for (x, c) in input_line.trim().chars().enumerate() {
 			match c {
 				'.' => board[y][x] = Cell::Empty,
-				'0' => match board[y][x] {
+				_ => match board[y][x] {
 					Cell::Box(_) => {}
-					_ => board[y][x] = Cell::Box(None),
+					_ => {
+						board[y][x] = Cell::Box(Box {
+							item: c.to_digit(10).expect("Invalid box character") as ItemId,
+							explode_at: None,
+						})
+					}
 				},
-				_ => panic!("unknown cell character: '{c}'"),
 			};
 		}
 	}
@@ -62,11 +74,12 @@ fn find_cell_with_most_destructible(board: &Board) -> Option<(usize, usize)> {
 						break;
 					}
 					match board[ny as usize][nx as usize] {
-						Cell::Box(None) => {
-							count += 1;
-						}
-						Cell::Box(Some(_)) => {
-							break;
+						Cell::Box(b) => {
+							if b.explode_at.is_none() {
+								count += 1;
+							} else {
+								break;
+							}
 						}
 						Cell::Empty => {}
 					}
@@ -105,7 +118,10 @@ fn main() {
 		for i in 0..entities {
 			let mut input_line = String::new();
 			io::stdin().read_line(&mut input_line).unwrap();
-			eprintln!("entity[{i}] = '{input_line}'");
+			eprintln!(
+				"entity[{i}] = '{input_line}'",
+				input_line = input_line.trim()
+			);
 			let inputs = input_line.split(" ").collect::<Vec<_>>();
 			let _entity_type = parse_input!(inputs[0], i32);
 			let owner_id: Id = parse_input!(inputs[1], Id);
@@ -123,7 +139,10 @@ fn main() {
 		let best_cell = find_cell_with_most_destructible(&board);
 		if let Some((x, y)) = best_cell {
 			println!("BOMB {x} {y} {turn}");
-			board[y][x] = Cell::Box(Some(turn + 8));
+			board[y][x] = Cell::Box(Box {
+				item: 0,
+				explode_at: Some(turn + 8),
+			});
 		} else {
 			println!("MOVE {my_x} {my_y} WAIT");
 		}
