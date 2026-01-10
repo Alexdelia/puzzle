@@ -42,3 +42,7 @@ path = "solved/Recurring_Decimals.rs"
 [[bin]]
 name = "Number_of_Digits"
 path = "solved/Number_of_Digits.rs"
+
+[[bin]]
+name = "set-probabilities-card-game"
+path = "solved/set-probabilities-card-game.rs"
