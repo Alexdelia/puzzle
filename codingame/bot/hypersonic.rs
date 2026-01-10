@@ -1,9 +1,4 @@
-use std::{
-	collections::{HashSet, VecDeque},
-	io,
-	str::FromStr,
-	time::Instant,
-};
+use std::{collections::VecDeque, io, str::FromStr, time::Instant};
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
@@ -84,47 +79,24 @@ struct Bomb {
 	explode_at: TurnIndex,
 }
 
-impl Bomb {
-	#[inline]
-	fn min_x_range(&self) -> Axis {
-		self.x.saturating_sub(self.range)
-	}
-
-	#[inline]
-	fn max_x_range(&self) -> Axis {
-		(self.x + self.range).min(BOARD_WIDTH - 1)
-	}
-
-	#[inline]
-	fn min_y_range(&self) -> Axis {
-		self.y.saturating_sub(self.range)
-	}
-
-	#[inline]
-	fn max_y_range(&self) -> Axis {
-		(self.y + self.range).min(BOARD_HEIGHT - 1)
-	}
-}
-
 struct Item {
 	r#type: ItemType,
 	x: Axis,
 	y: Axis,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ItemType {
 	IncreaseBombCount,
 	IncreaseBombRange,
 }
 
-impl FromStr for ItemType {
-	type Err = ();
-
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		match s {
-			"0" => Ok(ItemType::IncreaseBombCount),
-			"1" => Ok(ItemType::IncreaseBombRange),
-			_ => Err(()),
+impl From<char> for ItemType {
+	fn from(c: char) -> Self {
+		match c {
+			'0' => Self::IncreaseBombCount,
+			'1' => Self::IncreaseBombRange,
+			_ => unreachable!(),
 		}
 	}
 }
@@ -138,6 +110,7 @@ struct Env {
 	turn_start_time: Instant,
 }
 
+#[derive(Clone, Copy)]
 struct Action {
 	bomb: bool,
 	direction: Option<Direction>,
@@ -157,7 +130,7 @@ impl Env {
 						Cell::Box(_) => {}
 						_ => {
 							self.board[y][x] = Cell::Box(Box {
-								item: c.to_digit(10).expect("Invalid box character") as ItemId,
+								item: ItemType::from(c),
 								explode_at: None,
 							})
 						}
@@ -213,8 +186,10 @@ impl Env {
 					self.item_list.push(Item {
 						r#type: inputs[4]
 							.trim()
-							.parse::<ItemType>()
-							.expect("invalid item type"),
+							.chars()
+							.next()
+							.expect("invalid item type")
+							.into(),
 						x,
 						y,
 					});
@@ -224,13 +199,88 @@ impl Env {
 	}
 }
 
-fn available_direction(
+#[inline]
+fn get_detonating_bomb_list(bomb_list: &[Bomb], turn: TurnIndex) -> Vec<&Bomb> {
+	bomb_list.iter().filter(|b| b.explode_at == turn).collect()
+}
+
+fn bomb_min_x_range(board: &Board, bomb: &Bomb) -> Axis {
+	for x in 0..=bomb.range {
+		if bomb.x < x {
+			break;
+		}
+		let nx = bomb.x - x;
+		match board[bomb.y][nx] {
+			Cell::Wall => return nx + 1,
+			_ => {}
+		}
+	}
+	bomb.x.saturating_sub(bomb.range)
+}
+
+fn bomb_max_x_range(board: &Board, bomb: &Bomb) -> Axis {
+	for x in 1..=bomb.range {
+		let nx = bomb.x + x;
+		if nx >= BOARD_WIDTH {
+			break;
+		}
+		match board[bomb.y][nx] {
+			Cell::Wall => return nx - 1,
+			_ => {}
+		}
+	}
+	(bomb.x + bomb.range).min(BOARD_WIDTH - 1)
+}
+
+fn bomb_min_y_range(board: &Board, bomb: &Bomb) -> Axis {
+	for y in 0..=bomb.range {
+		if bomb.y < y {
+			break;
+		}
+		let ny = bomb.y - y;
+		match board[ny][bomb.x] {
+			Cell::Wall => return ny + 1,
+			_ => {}
+		}
+	}
+	bomb.y.saturating_sub(bomb.range)
+}
+
+fn bomb_max_y_range(board: &Board, bomb: &Bomb) -> Axis {
+	for y in 1..=bomb.range {
+		let ny = bomb.y + y;
+		if ny >= BOARD_HEIGHT {
+			break;
+		}
+		match board[ny][bomb.x] {
+			Cell::Wall => return ny - 1,
+			_ => {}
+		}
+	}
+	(bomb.y + bomb.range).min(BOARD_HEIGHT - 1)
+}
+
+fn is_in_range_of_detonating_bomb(
 	board: &Board,
+	detonating_bomb_list: &[&Bomb],
 	x: Axis,
 	y: Axis,
-	turn: TurnIndex,
-	bomb_list: &[Bomb],
-) -> Vec<(Option<Direction>, (Axis, Axis))> {
+) -> bool {
+	for bomb in detonating_bomb_list {
+		if x == bomb.x && (y >= bomb_min_y_range(board, bomb) && y <= bomb_max_y_range(board, bomb))
+		{
+			return true;
+		}
+		if y == bomb.y && (x >= bomb_min_x_range(board, bomb) && x <= bomb_max_x_range(board, bomb))
+		{
+			return true;
+		}
+	}
+
+	false
+}
+
+fn available_direction(board: &Board, x: Axis, y: Axis) -> Vec<(Option<Direction>, (Axis, Axis))> {
 	let mut dir = Vec::<(Option<Direction>, (Axis, Axis))>::with_capacity(5);
 
 	dir.push((None, (x, y)));
@@ -260,97 +310,41 @@ fn available_direction(
 		}
 	}
 
-	let detonating_bomb_list: Vec<&Bomb> =
-		bomb_list.iter().filter(|b| b.explode_at == turn).collect();
-	for bomb in detonating_bomb_list {
-		let bx = bomb.x;
-		let by = bomb.y;
-		let min_x = bomb.min_x_range();
-		let max_x = bomb.max_x_range();
-		let min_y = bomb.min_y_range();
-		let max_y = bomb.max_y_range();
-		dir.retain(|&(_, (x, y))| {
-			if x == bx && (y >= min_y && y <= max_y) {
-				return false;
-			}
-			if y == by && (x >= min_x && x <= max_x) {
-				return false;
-			}
-			true
-		});
-	}
-
 	dir
 }
 
-fn flood_fill(e: &Env) -> HashSet<(Axis, Axis)> {
-	let mut queue = VecDeque::<(Axis, Axis)>::new();
-	let mut visited = HashSet::<(Axis, Axis)>::new();
+type ActionEventIndex = usize;
 
-	queue.push_back((e.me.x, e.me.y));
-	visited.insert((e.me.x, e.me.y));
-	while let Some((x, y)) = queue.pop_front() {
-		if x > 0 {
-			let nx = x - 1;
-			let ny = y;
-			if e.board[ny][nx].is_walkable() && !visited.contains(&(nx, ny)) {
-				visited.insert((nx, ny));
-				queue.push_back((nx, ny));
-			}
-		}
-		if x + 1 < BOARD_WIDTH {
-			let nx = x + 1;
-			let ny = y;
-			if e.board[ny][nx].is_walkable() && !visited.contains(&(nx, ny)) {
-				visited.insert((nx, ny));
-				queue.push_back((nx, ny));
-			}
-		}
-		if y > 0 {
-			let nx = x;
-			let ny = y - 1;
-			if e.board[ny][nx].is_walkable() && !visited.contains(&(nx, ny)) {
-				visited.insert((nx, ny));
-				queue.push_back((nx, ny));
-			}
-		}
-		if y + 1 < BOARD_HEIGHT {
-			let nx = x;
-			let ny = y + 1;
-			if e.board[ny][nx].is_walkable() && !visited.contains(&(nx, ny)) {
-				visited.insert((nx, ny));
-				queue.push_back((nx, ny));
-			}
-		}
-	}
-
-	visited
-}
-
-struct QueueItem {
-	action_index: u8,
-	x: Axis,
-	y: Axis,
-}
-
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 struct ActionEvent {
 	death: usize,
 	boxes_destroyed: usize,
-	item_rannge_count: usize,
+	item_range_count: usize,
 	item_bomb_count: usize,
 }
 
 macro_rules! update_event_action {
-	($list:expr, $index:expr, $board:expr, $x:expr, $y:expr, $is_bombing:expr, $bomb_range:expr) => {{
-		let event = &mut $list[$index];
+	($list:expr, $index:expr, $board:expr, $item_list:expr, $x:expr, $y:expr, $is_bombing:expr, $bomb_range:expr) => {{
+		for item in $item_list.iter() {
+			if item.x == $x && item.y == $y {
+				match item.r#type {
+					ItemType::IncreaseBombCount => {
+						$list[$index].item_bomb_count += 1;
+					}
+					ItemType::IncreaseBombRange => {
+						$list[$index].item_range_count += 1;
+					}
+				}
+			}
+		}
+
 		if $is_bombing {
 			let mut destroyed = 0;
 			for dy in 1..=$bomb_range {
 				if dy > $y {
 					break;
 				}
-				match $board[y - dy][$x] {
+				match $board[$y - dy][$x] {
 					Cell::Wall => break,
 					Cell::Box(_) => {
 						destroyed += 1;
@@ -377,7 +371,7 @@ macro_rules! update_event_action {
 				if dx > $x {
 					break;
 				}
-				match $board[$y][x - dx] {
+				match $board[$y][$x - dx] {
 					Cell::Wall => break,
 					Cell::Box(_) => {
 						destroyed += 1;
@@ -400,17 +394,20 @@ macro_rules! update_event_action {
 					Cell::Empty => {}
 				}
 			}
-			event.boxes_destroyed += destroyed;
+			$list[$index].boxes_destroyed += destroyed;
 		}
 	}};
 }
 
-fn best_action(e: &Env) -> Action {
-	let mut queue = VecDeque::<QueueItem>::new();
-	let mut current_queue = VecDeque::<QueueItem>::new();
+fn init_starting_action(e: &Env, queue: &mut Queue) -> (Vec<Action>, Vec<ActionEvent>) {
+	let detonating_bomb_list = get_detonating_bomb_list(&e.bomb_list, e.turn);
 
 	let start_with_bomb = e.me.bomb_count > 0;
-	let available_dir_list = available_direction(&e.board, e.me.x, e.me.y, e.turn, &e.bomb_list);
+	let mut available_dir_list = available_direction(&e.board, e.me.x, e.me.y);
+
+	available_dir_list.retain(|&(_, (nx, ny))| {
+		!is_in_range_of_detonating_bomb(&e.board, &detonating_bomb_list, nx, ny)
+	});
 
 	let mut starting_action_list = Vec::<Action>::with_capacity(if start_with_bomb {
 		available_dir_list.len() * 2
@@ -420,33 +417,134 @@ fn best_action(e: &Env) -> Action {
 	let mut starting_action_event_list =
 		Vec::<ActionEvent>::with_capacity(starting_action_list.len());
 
-	for (i, (dir, (nx, ny))) in available_direction(&e.board, e.me.x, e.me.y, e.turn, &e.bomb_list)
-		.into_iter()
-		.enumerate()
-	{
+	for (dir, (nx, ny)) in available_dir_list.into_iter() {
 		starting_action_list.push(Action {
 			bomb: false,
-			direction: Some(dir),
+			direction: dir,
 		});
+		let index = starting_action_event_list.len();
+		starting_action_event_list.push(ActionEvent::default());
+		update_event_action!(
+			starting_action_event_list,
+			index,
+			e.board,
+			e.item_list,
+			nx,
+			ny,
+			false,
+			e.me.bomb_range
+		);
 		queue.push_back(QueueItem {
-			action_index: i as u8,
+			action_index: index,
 			x: nx,
 			y: ny,
 		});
+
+		if start_with_bomb {
+			starting_action_list.push(Action {
+				bomb: true,
+				direction: dir,
+			});
+			let index = starting_action_event_list.len();
+			starting_action_event_list.push(ActionEvent::default());
+			update_event_action!(
+				starting_action_event_list,
+				index,
+				e.board,
+				e.item_list,
+				nx,
+				ny,
+				true,
+				e.me.bomb_range
+			);
+			queue.push_back(QueueItem {
+				action_index: index,
+				x: nx,
+				y: ny,
+			});
+		}
 	}
+
+	(starting_action_list, starting_action_event_list)
+}
+
+type Queue = VecDeque<QueueItem>;
+
+struct QueueItem {
+	action_index: ActionEventIndex,
+	x: Axis,
+	y: Axis,
+}
+
+fn best_action(e: &Env) -> Action {
+	let mut queue = Queue::new();
+	let mut current_queue = Queue::new();
+
+	let (starting_action_list, mut starting_action_event_list) =
+		init_starting_action(e, &mut queue);
 
 	let mut turn = e.turn;
 	while turn < e.turn + 8 {
 		turn += 1;
+		dbg!(turn, e.turn_start_time.elapsed().as_millis());
 		std::mem::swap(&mut queue, &mut current_queue);
 
-		while let Some(item) = current_queue.pop_front() {}
+		let detonating_bomb_list = get_detonating_bomb_list(&e.bomb_list, turn);
+
+		while let Some(item) = current_queue.pop_front() {
+			for (_, (nx, ny)) in available_direction(&e.board, item.x, item.y).into_iter() {
+				if is_in_range_of_detonating_bomb(&e.board, &detonating_bomb_list, nx, ny) {
+					starting_action_event_list[item.action_index].death += 1;
+					continue;
+				}
+
+				update_event_action!(
+					starting_action_event_list,
+					item.action_index,
+					e.board,
+					e.item_list,
+					nx,
+					ny,
+					true, // TODO: real simulation with bomb count & keep bombed cells
+					e.me.bomb_range
+				);
+
+				queue.push_back(QueueItem {
+					action_index: item.action_index,
+					x: nx,
+					y: ny,
+				});
+			}
+		}
 	}
 
-	Action {
-		bomb: true,
-		direction: None,
+	let mut action_remaining_count_list = vec![0usize; starting_action_list.len()];
+	for item in queue.iter() {
+		action_remaining_count_list[item.action_index] += 1;
 	}
+
+	let mut best = (0, (usize::MAX, 0));
+	for (i, event) in starting_action_event_list.iter().enumerate() {
+		let death_ratio = event.death as f32 / (action_remaining_count_list[i].max(1) as f32);
+		let death_score = (death_ratio * 10.0).round() as usize;
+		if death_score > best.1.0 {
+			continue;
+		}
+
+		if death_score < best.1.0 {
+			best = (i, (death_score, 0));
+			continue;
+		}
+
+		// TODO: scale to remaining turn
+		let score = event.item_bomb_count * 3 + event.item_range_count * 2 + event.boxes_destroyed;
+
+		if score > best.1.1 {
+			best = (i, (death_score, score));
+		}
+	}
+
+	starting_action_list[best.0]
 }
 
 fn main() {
