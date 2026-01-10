@@ -289,34 +289,43 @@ fn is_in_range_of_detonating_bomb(
 	false
 }
 
-fn available_direction(board: &Board, x: Axis, y: Axis) -> Vec<(Option<Direction>, (Axis, Axis))> {
+fn available_direction(
+	board: &Board,
+	x: Axis,
+	y: Axis,
+	bomb_list: &[Bomb],
+) -> Vec<(Option<Direction>, (Axis, Axis))> {
 	let mut dir = Vec::<(Option<Direction>, (Axis, Axis))>::with_capacity(5);
 
-	dir.push((None, (x, y)));
+	// dir.push((None, (x, y)));
 
 	if y > 0 {
 		let ny = y - 1;
-		if board[ny][x].is_walkable() {
+		if board[ny][x].is_walkable() && !bomb_list.iter().any(|b| b.x == x && b.y == ny) {
 			dir.push((Some(Direction::Up), (x, ny)));
 		}
 	}
 	let ny = y + 1;
 	if ny < BOARD_HEIGHT {
-		if board[ny][x].is_walkable() {
+		if board[ny][x].is_walkable() && !bomb_list.iter().any(|b| b.x == x && b.y == ny) {
 			dir.push((Some(Direction::Down), (x, ny)));
 		}
 	}
 	if x > 0 {
 		let nx = x - 1;
-		if board[y][nx].is_walkable() {
+		if board[y][nx].is_walkable() && !bomb_list.iter().any(|b| b.x == nx && b.y == y) {
 			dir.push((Some(Direction::Left), (nx, y)));
 		}
 	}
 	let nx = x + 1;
 	if nx < BOARD_WIDTH {
-		if board[y][nx].is_walkable() {
+		if board[y][nx].is_walkable() && !bomb_list.iter().any(|b| b.x == nx && b.y == y) {
 			dir.push((Some(Direction::Right), (nx, y)));
 		}
+	}
+
+	if dir.is_empty() {
+		dir.push((None, (x, y)));
 	}
 
 	dir
@@ -412,7 +421,7 @@ fn init_starting_action(e: &Env, queue: &mut Queue) -> (Vec<Action>, Vec<ActionE
 	let detonating_bomb_list = get_detonating_bomb_list(&e.bomb_list, e.turn);
 
 	let start_with_bomb = e.me.bomb_count > 0;
-	let mut available_dir_list = available_direction(&e.board, e.me.x, e.me.y);
+	let mut available_dir_list = available_direction(&e.board, e.me.x, e.me.y, &e.bomb_list);
 
 	available_dir_list.retain(|&(_, (nx, ny))| {
 		!is_in_range_of_detonating_bomb(&e.board, &detonating_bomb_list, nx, ny)
@@ -470,8 +479,8 @@ fn init_starting_action(e: &Env, queue: &mut Queue) -> (Vec<Action>, Vec<ActionE
 			);
 			let mut new_bomb_list = e.bomb_list.clone();
 			new_bomb_list.push(Bomb {
-				x: nx,
-				y: ny,
+				x: e.me.x,
+				y: e.me.y,
 				range: e.me.bomb_range,
 				explode_at: e.turn + Bomb::TIMER,
 			});
@@ -506,15 +515,18 @@ fn best_action(e: &Env) -> Action {
 		init_starting_action(e, &mut queue);
 
 	let mut turn = e.turn;
-	while turn < e.turn + Bomb::TIMER {
+	while turn < e.turn + Bomb::TIMER + 1 {
 		turn += 1;
 		dbg!(turn, e.turn_start_time.elapsed().as_millis());
+		dbg!(queue.len());
 		std::mem::swap(&mut queue, &mut current_queue);
 
 		while let Some(item) = current_queue.pop_front() {
 			let detonating_bomb_list = get_detonating_bomb_list(&item.bomb_list, turn);
 
-			for (_, (nx, ny)) in available_direction(&e.board, item.x, item.y).into_iter() {
+			for (_, (nx, ny)) in
+				available_direction(&e.board, item.x, item.y, &item.bomb_list).into_iter()
+			{
 				if is_in_range_of_detonating_bomb(&e.board, &detonating_bomb_list, nx, ny) {
 					starting_action_event_list[item.action_index].death += 1;
 					continue;
@@ -536,8 +548,8 @@ fn best_action(e: &Env) -> Action {
 				if has_bomb {
 					let mut new_bomb_list = item.bomb_list.clone();
 					new_bomb_list.push(Bomb {
-						x: nx,
-						y: ny,
+						x: item.x,
+						y: item.y,
 						range: e.me.bomb_range,
 						explode_at: turn + Bomb::TIMER,
 					});
@@ -574,24 +586,31 @@ fn best_action(e: &Env) -> Action {
 
 	let mut best = (0, (usize::MAX, 0));
 	for (i, event) in starting_action_event_list.iter().enumerate() {
-		let death_ratio = event.death as f32 / (action_remaining_count_list[i].max(1) as f32);
+		// TODO: scale to remaining turn
+		let score = event.item_bomb_count * 3 + event.item_range_count * 2 + event.boxes_destroyed;
+		if score == 0 {
+			continue;
+		}
+
+		let death_ratio =
+			(event.death.pow(2) as f32) / (action_remaining_count_list[i].max(1) as f32);
 		let death_score = (death_ratio * 10.0).round() as usize;
 		if death_score > best.1.0 {
 			continue;
 		}
 
 		if death_score < best.1.0 {
-			best = (i, (death_score, 0));
+			best = (i, (death_score, score));
 			continue;
 		}
-
-		// TODO: scale to remaining turn
-		let score = event.item_bomb_count * 3 + event.item_range_count * 2 + event.boxes_destroyed;
 
 		if score > best.1.1 {
 			best = (i, (death_score, score));
 		}
 	}
+
+	dbg!(&best);
+	dbg!(&starting_action_list[best.0]);
 
 	starting_action_list[best.0]
 }
