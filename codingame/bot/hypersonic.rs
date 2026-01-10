@@ -1,9 +1,16 @@
-use std::io;
+use std::{collections::VecDeque, io, str::FromStr, time::Instant};
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
 		$x.trim().parse::<$t>().unwrap()
 	};
+}
+
+enum Direction {
+	Up,
+	Down,
+	Left,
+	Right,
 }
 
 type TurnIndex = u8;
@@ -29,126 +36,184 @@ struct Box {
 
 type ItemId = u8;
 
-fn read_board(board: &mut Board) {
-	for y in 0..BOARD_HEIGHT {
-		let mut input_line = String::new();
-		io::stdin().read_line(&mut input_line).unwrap();
+enum EntityType {
+	Player = 0,
+	Bomb = 1,
+	Item = 2,
+}
 
-		for (x, c) in input_line.trim().chars().enumerate() {
-			match c {
-				'.' => board[y][x] = Cell::Empty,
-				'X' => board[y][x] = Cell::Wall,
-				_ => match board[y][x] {
-					Cell::Box(_) => {}
-					_ => {
-						board[y][x] = Cell::Box(Box {
-							item: c.to_digit(10).expect("Invalid box character") as ItemId,
-							explode_at: None,
-						})
-					}
-				},
-			};
+impl FromStr for EntityType {
+	type Err = ();
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"0" => Ok(EntityType::Player),
+			"1" => Ok(EntityType::Bomb),
+			"2" => Ok(EntityType::Item),
+			_ => Err(()),
 		}
 	}
 }
 
-const BOMB_RANGE: usize = 3;
-fn find_cell_with_most_destructible(board: &Board) -> Option<(usize, usize)> {
-	let mut best = (0, None);
+#[derive(Default)]
+struct Player {
+	id: Id,
+	x: usize,
+	y: usize,
+	bomb_count: usize,
+	bomb_range: usize,
+}
 
-	for y in 0..BOARD_HEIGHT {
-		for x in 0..BOARD_WIDTH {
-			let cell = board[y][x];
-			if cell != Cell::Empty {
-				continue;
-			}
+struct Bomb {
+	x: usize,
+	y: usize,
+	range: usize,
+	explode_at: TurnIndex,
+}
 
-			let mut count = 0;
+struct Item {
+	// r#type: u8,
+	x: usize,
+	y: usize,
+}
 
-			for dir in &[(1, 0), (0, 1), (-1, 0), (0, -1)] {
-				let (dx, dy) = *dir;
-				for dist in 1..=BOMB_RANGE {
-					let nx = x as isize + dx * dist as isize;
-					let ny = y as isize + dy * dist as isize;
-					if nx < 0 || nx >= BOARD_WIDTH as isize || ny < 0 || ny >= BOARD_HEIGHT as isize
-					{
-						break;
-					}
-					match board[ny as usize][nx as usize] {
-						Cell::Empty => {}
-						Cell::Wall => break,
-						Cell::Box(b) => {
-							if b.explode_at.is_none() {
-								count += 1;
-							} else {
-								break;
-							}
+struct Env {
+	turn: TurnIndex,
+	board: Board,
+	me: Player,
+	bomb_list: Vec<Bomb>,
+	item_list: Vec<Item>,
+	turn_start_time: Instant,
+}
+
+struct Action {
+	bomb: bool,
+	direction: Option<Direction>,
+}
+
+impl Env {
+	fn read_board(&mut self) {
+		for y in 0..BOARD_HEIGHT {
+			let mut input_line = String::new();
+			io::stdin().read_line(&mut input_line).unwrap();
+
+			for (x, c) in input_line.trim().chars().enumerate() {
+				match c {
+					'.' => self.board[y][x] = Cell::Empty,
+					'X' => self.board[y][x] = Cell::Wall,
+					_ => match self.board[y][x] {
+						Cell::Box(_) => {}
+						_ => {
+							self.board[y][x] = Cell::Box(Box {
+								item: c.to_digit(10).expect("Invalid box character") as ItemId,
+								explode_at: None,
+							})
 						}
-					}
-				}
-			}
-
-			if count > best.0 {
-				best = (count, Some((x, y)));
+					},
+				};
 			}
 		}
 	}
 
-	best.1
+	fn read_entities(&mut self) {
+		self.bomb_list.clear();
+		self.item_list.clear();
+
+		let mut input_line = String::new();
+		io::stdin().read_line(&mut input_line).unwrap();
+		let entity_count = parse_input!(input_line, usize);
+
+		for _ in 0..entity_count {
+			let mut input_line = String::new();
+			io::stdin().read_line(&mut input_line).unwrap();
+			let inputs = input_line.split(" ").collect::<Vec<_>>();
+
+			let entity_type = inputs[0]
+				.trim()
+				.parse::<EntityType>()
+				.expect("invalid entity type");
+			let x = parse_input!(inputs[2], usize);
+			let y = parse_input!(inputs[3], usize);
+
+			match entity_type {
+				EntityType::Player => {
+					let owner_id = parse_input!(inputs[1], Id);
+					let bomb_count = parse_input!(inputs[4], usize);
+					let bomb_range = parse_input!(inputs[5], usize);
+					if owner_id == self.me.id {
+						self.me.x = x;
+						self.me.y = y;
+						self.me.bomb_count = bomb_count;
+						self.me.bomb_range = bomb_range;
+					}
+				}
+				EntityType::Bomb => {
+					let explode_at = self.turn + parse_input!(inputs[4], TurnIndex);
+					let range = parse_input!(inputs[5], usize);
+					self.bomb_list.push(Bomb {
+						x,
+						y,
+						explode_at,
+						range,
+					});
+				}
+				EntityType::Item => {
+					self.item_list.push(Item { x, y });
+				}
+			}
+		}
+	}
+}
+
+fn best_action(e: &Env) -> Action {
+	let mut queue = VecDeque::new();
+
+	Action {
+		bomb: true,
+		direction: None,
+	}
 }
 
 fn main() {
-	let mut board: Board = [[Cell::Empty; BOARD_WIDTH]; BOARD_HEIGHT];
+	let mut e = Env {
+		turn: 0,
+		board: [[Cell::Empty; BOARD_WIDTH]; BOARD_HEIGHT],
+		me: Player::default(),
+		bomb_list: Vec::new(),
+		item_list: Vec::new(),
+		turn_start_time: Instant::now(),
+	};
 
 	let mut input_line = String::new();
 	io::stdin().read_line(&mut input_line).unwrap();
 	let inputs = input_line.split(" ").collect::<Vec<_>>();
 	assert_eq!(parse_input!(inputs[0], usize), BOARD_WIDTH);
 	assert_eq!(parse_input!(inputs[1], usize), BOARD_HEIGHT);
-	let my_id = parse_input!(inputs[2], Id);
+	e.me.id = parse_input!(inputs[2], Id);
 
-	let mut my_x: usize = 0;
-	let mut my_y: usize = 0;
-
-	let mut turn: TurnIndex = 0;
 	loop {
-		read_board(&mut board);
+		e.read_board();
+		e.read_entities();
+		e.turn_start_time = Instant::now();
 
-		let mut input_line = String::new();
-		io::stdin().read_line(&mut input_line).unwrap();
-		let entities = parse_input!(input_line, usize);
-		for i in 0..entities {
-			let mut input_line = String::new();
-			io::stdin().read_line(&mut input_line).unwrap();
-			eprintln!(
-				"entity[{i}] = '{input_line}'",
-				input_line = input_line.trim()
-			);
-			let inputs = input_line.split(" ").collect::<Vec<_>>();
-			let _entity_type = parse_input!(inputs[0], i32);
-			let owner_id: Id = parse_input!(inputs[1], Id);
-			let x = parse_input!(inputs[2], usize);
-			let y = parse_input!(inputs[3], usize);
-			let _param1 = parse_input!(inputs[4], i32);
-			let _param2 = parse_input!(inputs[5], i32);
+		let action = best_action(&e);
+		let target_cell = match action.direction {
+			None => (e.me.x, e.me.y),
+			Some(dir) => match dir {
+				Direction::Up => (e.me.x, e.me.y.saturating_sub(1)),
+				Direction::Down => (e.me.x, (e.me.y + 1).min(BOARD_HEIGHT - 1)),
+				Direction::Left => (e.me.x.saturating_sub(1), e.me.y),
+				Direction::Right => ((e.me.x + 1).min(BOARD_WIDTH - 1), e.me.y),
+			},
+		};
 
-			if owner_id == my_id {
-				my_x = x;
-				my_y = y;
-			}
-		}
+		println!(
+			"{bomb_action} {x} {y}",
+			bomb_action = if action.bomb { "BOMB" } else { "MOVE" },
+			x = target_cell.0,
+			y = target_cell.1
+		);
 
-		let best_cell = find_cell_with_most_destructible(&board);
-		if let Some((x, y)) = best_cell {
-			println!("BOMB {x} {y} {turn}");
-			board[y][x] = Cell::Box(Box {
-				item: 0,
-				explode_at: Some(turn + 8),
-			});
-		} else {
-			println!("MOVE {my_x} {my_y} WAIT");
-		}
-
-		turn += 1;
+		e.turn += 1;
 	}
 }
