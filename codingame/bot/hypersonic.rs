@@ -72,11 +72,16 @@ struct Player {
 	bomb_range: usize,
 }
 
+#[derive(Clone, Copy)]
 struct Bomb {
 	x: Axis,
 	y: Axis,
 	range: Axis,
 	explode_at: TurnIndex,
+}
+
+impl Bomb {
+	const TIMER: TurnIndex = 8;
 }
 
 struct Item {
@@ -110,7 +115,7 @@ struct Env {
 	turn_start_time: Instant,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct Action {
 	bomb: bool,
 	direction: Option<Direction>,
@@ -319,7 +324,7 @@ fn available_direction(board: &Board, x: Axis, y: Axis) -> Vec<(Option<Direction
 
 type ActionEventIndex = usize;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 struct ActionEvent {
 	death: usize,
 	boxes_destroyed: usize,
@@ -442,6 +447,8 @@ fn init_starting_action(e: &Env, queue: &mut Queue) -> (Vec<Action>, Vec<ActionE
 			action_index: index,
 			x: nx,
 			y: ny,
+			bomb_count: e.me.bomb_count,
+			bomb_list: e.bomb_list.clone(),
 		});
 
 		if start_with_bomb {
@@ -461,10 +468,19 @@ fn init_starting_action(e: &Env, queue: &mut Queue) -> (Vec<Action>, Vec<ActionE
 				true,
 				e.me.bomb_range
 			);
+			let mut new_bomb_list = e.bomb_list.clone();
+			new_bomb_list.push(Bomb {
+				x: nx,
+				y: ny,
+				range: e.me.bomb_range,
+				explode_at: e.turn + Bomb::TIMER,
+			});
 			queue.push_back(QueueItem {
 				action_index: index,
 				x: nx,
 				y: ny,
+				bomb_count: e.me.bomb_count - 1,
+				bomb_list: new_bomb_list,
 			});
 		}
 	}
@@ -478,6 +494,8 @@ struct QueueItem {
 	action_index: ActionEventIndex,
 	x: Axis,
 	y: Axis,
+	bomb_count: usize,
+	bomb_list: Vec<Bomb>,
 }
 
 fn best_action(e: &Env) -> Action {
@@ -488,19 +506,21 @@ fn best_action(e: &Env) -> Action {
 		init_starting_action(e, &mut queue);
 
 	let mut turn = e.turn;
-	while turn < e.turn + 8 {
+	while turn < e.turn + Bomb::TIMER {
 		turn += 1;
 		dbg!(turn, e.turn_start_time.elapsed().as_millis());
 		std::mem::swap(&mut queue, &mut current_queue);
 
-		let detonating_bomb_list = get_detonating_bomb_list(&e.bomb_list, turn);
-
 		while let Some(item) = current_queue.pop_front() {
+			let detonating_bomb_list = get_detonating_bomb_list(&item.bomb_list, turn);
+
 			for (_, (nx, ny)) in available_direction(&e.board, item.x, item.y).into_iter() {
 				if is_in_range_of_detonating_bomb(&e.board, &detonating_bomb_list, nx, ny) {
 					starting_action_event_list[item.action_index].death += 1;
 					continue;
 				}
+
+				let has_bomb = item.bomb_count > 0;
 
 				update_event_action!(
 					starting_action_event_list,
@@ -509,14 +529,33 @@ fn best_action(e: &Env) -> Action {
 					e.item_list,
 					nx,
 					ny,
-					true, // TODO: real simulation with bomb count & keep bombed cells
+					has_bomb,
 					e.me.bomb_range
 				);
+
+				if has_bomb {
+					let mut new_bomb_list = item.bomb_list.clone();
+					new_bomb_list.push(Bomb {
+						x: nx,
+						y: ny,
+						range: e.me.bomb_range,
+						explode_at: turn + Bomb::TIMER,
+					});
+					queue.push_back(QueueItem {
+						action_index: item.action_index,
+						x: nx,
+						y: ny,
+						bomb_count: item.bomb_count - 1,
+						bomb_list: new_bomb_list,
+					});
+				}
 
 				queue.push_back(QueueItem {
 					action_index: item.action_index,
 					x: nx,
 					y: ny,
+					bomb_count: item.bomb_count,
+					bomb_list: item.bomb_list.clone(),
 				});
 			}
 		}
@@ -526,6 +565,12 @@ fn best_action(e: &Env) -> Action {
 	for item in queue.iter() {
 		action_remaining_count_list[item.action_index] += 1;
 	}
+
+	dbg!(
+		&starting_action_list,
+		&starting_action_event_list,
+		&action_remaining_count_list
+	);
 
 	let mut best = (0, (usize::MAX, 0));
 	for (i, event) in starting_action_event_list.iter().enumerate() {
