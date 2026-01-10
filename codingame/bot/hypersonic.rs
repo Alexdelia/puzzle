@@ -6,7 +6,7 @@ macro_rules! parse_input {
 	};
 }
 
-type TurnIndex = u16;
+type TurnIndex = u8;
 type Id = u8;
 
 const BOARD_WIDTH: usize = 13;
@@ -17,7 +17,7 @@ type Board = [[Cell; BOARD_WIDTH]; BOARD_HEIGHT];
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Cell {
 	Empty,
-	/// explod at turn index
+	Wall,
 	Box(Box),
 }
 
@@ -37,6 +37,7 @@ fn read_board(board: &mut Board) {
 		for (x, c) in input_line.trim().chars().enumerate() {
 			match c {
 				'.' => board[y][x] = Cell::Empty,
+				'X' => board[y][x] = Cell::Wall,
 				_ => match board[y][x] {
 					Cell::Box(_) => {}
 					_ => {
@@ -74,6 +75,8 @@ fn find_cell_with_most_destructible(board: &Board) -> Option<(usize, usize)> {
 						break;
 					}
 					match board[ny as usize][nx as usize] {
+						Cell::Empty => {}
+						Cell::Wall => break,
 						Cell::Box(b) => {
 							if b.explode_at.is_none() {
 								count += 1;
@@ -81,7 +84,6 @@ fn find_cell_with_most_destructible(board: &Board) -> Option<(usize, usize)> {
 								break;
 							}
 						}
-						Cell::Empty => {}
 					}
 				}
 			}
