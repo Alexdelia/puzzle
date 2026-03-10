@@ -16,11 +16,17 @@ struct Env {
 	my_id: Id,
 	my_snakebot_id_list: Vec<Id>,
 	foe_snakebot_id_list: Vec<Id>,
+
+	my_snakebot_list: Vec<(Id, Vec<Coord>)>,
 }
 
 // NOTE: does not handle going out of bounds
+// TODO: try flat Vec<Tile> and index with y * w + x
+// TODO: try 1 bit per tile and bitwise operations
 type Grid = Vec<Vec<Tile>>;
+type Coord = (usize, usize);
 
+#[derive(Clone, Copy)]
 enum Tile {
 	Empty,
 	Block,
@@ -86,37 +92,95 @@ impl Env {
 			my_id,
 			my_snakebot_id_list,
 			foe_snakebot_id_list,
+
+			my_snakebot_list: Vec::with_capacity(snakebot_per_player),
+		}
+	}
+
+	fn read_apple(grid: &mut Grid) {
+		let mut s = String::new();
+
+		io::stdin().read_line(&mut s).unwrap();
+		let power_source_count = parse_input!(s, usize);
+		for _ in 0..power_source_count {
+			s.clear();
+			io::stdin().read_line(&mut s).unwrap();
+			let mut input = s.split(" ");
+			let x = parse_input!(input.next().unwrap(), usize);
+			let y = parse_input!(input.next().unwrap(), usize);
+
+			grid[y][x] = Tile::Apple;
+		}
+	}
+
+	fn read_snakebot(&mut self, grid: &mut Grid) {
+		self.my_snakebot_list.clear();
+
+		let mut s = String::new();
+
+		io::stdin().read_line(&mut s).unwrap();
+		let snakebot_count = parse_input!(s, usize);
+
+		for _ in 0..snakebot_count {
+			s.clear();
+			io::stdin().read_line(&mut s).unwrap();
+			let mut input = s.split(" ");
+			let snakebot_id = parse_input!(input.next().unwrap(), Id);
+			let body = input
+				.next()
+				.unwrap()
+				.trim()
+				.split(",")
+				.map(|coord| {
+					let mut parts = coord.split(":");
+					let x = parse_input!(parts.next().unwrap(), usize);
+					let y = parse_input!(parts.next().unwrap(), usize);
+					(x, y)
+				})
+				.collect::<Vec<_>>();
+
+			if self.my_snakebot_id_list.contains(&snakebot_id) {
+				self.my_snakebot_list.push((snakebot_id, body));
+			} else {
+				let (x, y) = body[0];
+				for_neighbor(x, y, self.w, self.h, |x, y| {
+					grid[y][x] = Tile::Block;
+				});
+				for (x, y) in body {
+					grid[y][x] = Tile::Block;
+				}
+			}
 		}
 	}
 }
 
+#[inline]
+fn for_neighbor<F>(x: usize, y: usize, w: usize, h: usize, mut f: F)
+where
+	F: FnMut(usize, usize),
+{
+	if x > 0 {
+		f(x - 1, y);
+	}
+	if x + 1 < w {
+		f(x + 1, y);
+	}
+	if y > 0 {
+		f(x, y - 1);
+	}
+	if y + 1 < h {
+		f(x, y + 1);
+	}
+}
+
 fn main() {
-	let env = Env::read();
+	let mut env = Env::read();
 
 	loop {
-		let mut input_line = String::new();
-		io::stdin().read_line(&mut input_line).unwrap();
-		let power_source_count = parse_input!(input_line, i32);
-		for i in 0..power_source_count as usize {
-			let mut input_line = String::new();
-			io::stdin().read_line(&mut input_line).unwrap();
-			let inputs = input_line.split(" ").collect::<Vec<_>>();
-			let x = parse_input!(inputs[0], i32);
-			let y = parse_input!(inputs[1], i32);
-		}
-		let mut input_line = String::new();
-		io::stdin().read_line(&mut input_line).unwrap();
-		let snakebot_count = parse_input!(input_line, i32);
-		for i in 0..snakebot_count as usize {
-			let mut input_line = String::new();
-			io::stdin().read_line(&mut input_line).unwrap();
-			let inputs = input_line.split(" ").collect::<Vec<_>>();
-			let snakebot_id = parse_input!(inputs[0], i32);
-			let body = inputs[1].trim().to_string();
-		}
+		let mut grid = env.base_grid.clone();
 
-		// Write an action using println!("message...");
-		// To debug: eprintln!("Debug message...");
+		Env::read_apple(&mut grid);
+		env.read_snakebot(&mut grid);
 
 		println!("WAIT");
 	}
