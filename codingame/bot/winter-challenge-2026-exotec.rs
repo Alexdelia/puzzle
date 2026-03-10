@@ -1,4 +1,4 @@
-use std::io;
+use std::{fmt::Display, io};
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
@@ -16,8 +16,6 @@ struct Env {
 	my_id: Id,
 	my_snakebot_id_list: Vec<Id>,
 	foe_snakebot_id_list: Vec<Id>,
-
-	my_snakebot_list: Vec<(Id, Vec<Coord>)>,
 }
 
 // NOTE: does not handle going out of bounds
@@ -31,6 +29,18 @@ enum Tile {
 	Empty,
 	Block,
 	Apple,
+}
+
+struct Action {
+	snakebot_id: Id,
+	direction: Dir,
+}
+
+enum Dir {
+	U,
+	D,
+	L,
+	R,
 }
 
 impl Tile {
@@ -92,8 +102,6 @@ impl Env {
 			my_id,
 			my_snakebot_id_list,
 			foe_snakebot_id_list,
-
-			my_snakebot_list: Vec::with_capacity(snakebot_per_player),
 		}
 	}
 
@@ -113,8 +121,8 @@ impl Env {
 		}
 	}
 
-	fn read_snakebot(&mut self, grid: &mut Grid) {
-		self.my_snakebot_list.clear();
+	fn read_snakebot(&self, grid: &mut Grid, my_snakebot_list: &mut Vec<(Id, Vec<Coord>)>) {
+		my_snakebot_list.clear();
 
 		let mut s = String::new();
 
@@ -130,17 +138,30 @@ impl Env {
 				.next()
 				.unwrap()
 				.trim()
-				.split(",")
-				.map(|coord| {
-					let mut parts = coord.split(":");
-					let x = parse_input!(parts.next().unwrap(), usize);
-					let y = parse_input!(parts.next().unwrap(), usize);
-					(x, y)
+				.split(":")
+				.filter_map(|coord| {
+					let mut parts = coord.split(",");
+					let x = parse_input!(parts.next().unwrap(), isize);
+					let y = parse_input!(parts.next().unwrap(), isize);
+
+					if x < 0 || y < 0 {
+						return None;
+					}
+
+					let (x, y) = (x as usize, y as usize);
+					if x >= self.w || y >= self.h {
+						return None;
+					}
+
+					Some((x, y))
 				})
 				.collect::<Vec<_>>();
+			if body.is_empty() {
+				continue;
+			}
 
 			if self.my_snakebot_id_list.contains(&snakebot_id) {
-				self.my_snakebot_list.push((snakebot_id, body));
+				my_snakebot_list.push((snakebot_id, body));
 			} else {
 				let (x, y) = body[0];
 				for_neighbor(x, y, self.w, self.h, |x, y| {
@@ -150,6 +171,23 @@ impl Env {
 					grid[y][x] = Tile::Block;
 				}
 			}
+		}
+	}
+}
+
+impl Display for Action {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{} {}", self.snakebot_id, self.direction)
+	}
+}
+
+impl Display for Dir {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Dir::U => write!(f, "UP"),
+			Dir::D => write!(f, "DOWN"),
+			Dir::L => write!(f, "LEFT"),
+			Dir::R => write!(f, "RIGHT"),
 		}
 	}
 }
@@ -173,15 +211,29 @@ where
 	}
 }
 
+fn find_snakebot_action(env: &Env, snakebot_id: Id, snakebot_body: &[Coord]) -> Action {
+	Action {
+		snakebot_id: snakebot_id,
+		direction: Dir::U,
+	}
+}
+
 fn main() {
-	let mut env = Env::read();
+	let env = Env::read();
+	let mut my_snakebot_list = Vec::with_capacity(env.my_snakebot_id_list.len());
 
 	loop {
 		let mut grid = env.base_grid.clone();
 
 		Env::read_apple(&mut grid);
-		env.read_snakebot(&mut grid);
+		env.read_snakebot(&mut grid, &mut my_snakebot_list);
 
-		println!("WAIT");
+		let action_list = my_snakebot_list
+			.iter()
+			.map(|(id, body)| find_snakebot_action(&env, *id, body).to_string())
+			.collect::<Vec<_>>()
+			.join(";");
+
+		println!("{action_list}");
 	}
 }
