@@ -27,3 +27,7 @@ path = "Summer_Challenge_2025.rs"
 [[bin]]
 name = "hypersonic"
 path = "hypersonic.rs"
+
+[[bin]]
+name = "winter_2026"
+path = "winter-challenge-2026-exotec.rs"
