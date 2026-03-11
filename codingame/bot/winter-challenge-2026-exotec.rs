@@ -1,5 +1,5 @@
+use std::time::SystemTime;
 use std::{collections::VecDeque, fmt::Display, io};
-std::time::SystemTime;
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
