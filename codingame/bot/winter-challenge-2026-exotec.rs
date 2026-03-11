@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::{collections::HashSet, time::SystemTime};
 use std::{collections::VecDeque, fmt::Display, io};
 
 macro_rules! parse_input {
@@ -215,36 +215,38 @@ where
 }
 
 macro_rules! move_and_queue {
-	($env:expr, $queue:expr, $grid:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {{
+	($env:expr, $queue:expr, $visited:expr, $grid:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {{
 		// TODO: try VecDeque
 		let mut body = Vec::with_capacity($body.len());
 		body.push(($x, $y));
 		body.extend_from_slice(&$body[..$body.len() - 1]);
 
-		// gravity
-		'outer: while true {
-			for i in 0..body.len() {
-				body[i].1 += 1;
+		if $visited.insert(body.clone()) {
+			// gravity
+			'outer: while true {
+				for i in 0..body.len() {
+					body[i].1 += 1;
 
-				if body[i].1 >= $env.h {
+					if body[i].1 >= $env.h {
+						break 'outer;
+					}
+					if $grid[body[i].1][body[i].0] == Tile::Empty {
+						continue;
+					}
+
+					for r in 0..=i {
+						body[r].1 -= 1;
+					}
+					$queue.push_back(($initial_dir, body));
 					break 'outer;
 				}
-				if $grid[body[i].1][body[i].0] == Tile::Empty {
-					continue;
-				}
-
-				for r in 0..=i {
-					body[r].1 -= 1;
-				}
-				$queue.push_back(($initial_dir, body));
-				break 'outer;
 			}
 		}
 	}};
 }
 
 macro_rules! try_visit {
-	($env:expr, $queue:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr  /*$visited:expr*/) => {
+	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {
 		if $grid[$y][$x] == Tile::Apple {
 			return Action {
 				snakebot_id: $id,
@@ -252,29 +254,27 @@ macro_rules! try_visit {
 			};
 		}
 
-		if $grid[$y][$x] == Tile::Empty && $body.iter().all(|&(bx, by)| bx != $x || by != $y)
-		/*&& !$visited.contains(&($x, $y))*/
-		{
-			// $visited.insert(($x, $y)); // TODO: try to optimize with .entry()
-			move_and_queue!($env, $queue, $grid, $initial_dir, $body, $x, $y);
+		if $grid[$y][$x] == Tile::Empty && $body.iter().all(|&(bx, by)| bx != $x || by != $y) {
+			move_and_queue!($env, $queue, $visited, $grid, $initial_dir, $body, $x, $y);
 		}
 	};
 }
 
 macro_rules! visit_neighbor {
-	($env:expr, $queue:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr  /*$visited:expr*/) => {
+	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr) => {
 		let (x, y) = $body[0];
 		if y > 0 {
 			let ny = y - 1;
 			try_visit!(
 				$env,
 				$queue,
+				$visited,
 				$grid,
 				$id,
 				$initial_dir,
 				$body,
 				x,
-				ny /*$visited*/
+				ny
 			);
 		}
 		if x > 0 {
@@ -282,12 +282,13 @@ macro_rules! visit_neighbor {
 			try_visit!(
 				$env,
 				$queue,
+				$visited,
 				$grid,
 				$id,
 				$initial_dir,
 				$body,
 				nx,
-				y /*$visited*/
+				y
 			);
 		}
 		let nx = x + 1;
@@ -295,12 +296,13 @@ macro_rules! visit_neighbor {
 			try_visit!(
 				$env,
 				$queue,
+				$visited,
 				$grid,
 				$id,
 				$initial_dir,
 				$body,
 				nx,
-				y /*$visited*/
+				y
 			);
 		}
 		let ny = y + 1;
@@ -308,83 +310,53 @@ macro_rules! visit_neighbor {
 			try_visit!(
 				$env,
 				$queue,
+				$visited,
 				$grid,
 				$id,
 				$initial_dir,
 				$body,
 				x,
-				ny /*$visited*/
+				ny
 			);
 		}
 	};
 }
 
 macro_rules! initial_visit_neighbor {
-	($env:expr, $queue:expr, $grid:expr, $id:expr, $body:expr /*$visited:expr*/) => {
+	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $body:expr) => {
 		let (x, y) = $body[0];
 		if y > 0 {
 			let ny = y - 1;
-			try_visit!(
-				$env,
-				$queue,
-				$grid,
-				$id,
-				Dir::U,
-				$body,
-				x,
-				ny /*$visited*/
-			);
+			try_visit!($env, $queue, $visited, $grid, $id, Dir::U, $body, x, ny);
 		}
 		if x > 0 {
 			let nx = x - 1;
-			try_visit!(
-				$env,
-				$queue,
-				$grid,
-				$id,
-				Dir::L,
-				$body,
-				nx,
-				y /*$visited*/
-			);
+			try_visit!($env, $queue, $visited, $grid, $id, Dir::L, $body, nx, y);
 		}
 		let nx = x + 1;
 		if nx < $env.w {
-			try_visit!(
-				$env,
-				$queue,
-				$grid,
-				$id,
-				Dir::R,
-				$body,
-				nx,
-				y /*$visited*/
-			);
+			try_visit!($env, $queue, $visited, $grid, $id, Dir::R, $body, nx, y);
 		}
 		let ny = y + 1;
 		if ny < $env.h {
-			try_visit!(
-				$env,
-				$queue,
-				$grid,
-				$id,
-				Dir::D,
-				$body,
-				x,
-				ny /*$visited*/
-			);
+			try_visit!($env, $queue, $visited, $grid, $id, Dir::D, $body, x, ny);
 		}
 	};
 }
 
 fn find_snakebot_action(env: &Env, snakebot_id: Id, snakebot_body: &[Coord]) -> Action {
+	// TODO: store body more efficiently?
+	let mut visited = HashSet::<Vec<Coord>>::new();
+	visited.insert(snakebot_body.to_vec());
+
 	let mut queue = VecDeque::<(Dir, Vec<Coord>)>::new();
 	initial_visit_neighbor!(
 		env,
 		queue,
+		visited,
 		env.base_grid,
 		snakebot_id,
-		snakebot_body /*visited*/
+		snakebot_body
 	);
 	let first = queue.clone().pop_front();
 
@@ -397,10 +369,11 @@ fn find_snakebot_action(env: &Env, snakebot_id: Id, snakebot_body: &[Coord]) -> 
 		visit_neighbor!(
 			env,
 			queue,
+			visited,
 			env.base_grid,
 			snakebot_id,
 			initial_dir,
-			body /*visited*/
+			body
 		);
 		i += 1;
 	}
