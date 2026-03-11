@@ -1,4 +1,4 @@
-use std::{fmt::Display, io};
+use std::{collections::VecDeque, fmt::Display, io};
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
@@ -24,7 +24,7 @@ struct Env {
 type Grid = Vec<Vec<Tile>>;
 type Coord = (usize, usize);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Tile {
 	Empty,
 	Block,
@@ -36,6 +36,7 @@ struct Action {
 	direction: Dir,
 }
 
+#[derive(Clone, Copy)]
 enum Dir {
 	U,
 	D,
@@ -160,6 +161,7 @@ impl Env {
 				continue;
 			}
 
+			// TODO: check for collision with my snakebot
 			if self.my_snakebot_id_list.contains(&snakebot_id) {
 				my_snakebot_list.push((snakebot_id, body));
 			} else {
@@ -211,10 +213,134 @@ where
 	}
 }
 
+macro_rules! push_to_queue {
+	($queue:expr, $grid:expr, $x:expr, $y:expr, $initial_dir:expr, $body:expr) => {
+		let mut body = Vec::with_capacity($body.len());
+		body.push(($x, $y));
+		body.extend_from_slice(&$body[..$body.len() - 1]);
+		$queue.push_back(($initial_dir, body));
+	};
+}
+
+macro_rules! try_visit {
+	($queue:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr  /*$visited:expr*/) => {
+		if $grid[$y][$x] == Tile::Apple {
+			return Action {
+				snakebot_id: $id,
+				direction: $initial_dir,
+			};
+		}
+
+		if $grid[$y][$x] == Tile::Empty && $body.iter().all(|&(bx, by)| bx != $x || by != $y)
+		/*&& !$visited.contains(&($x, $y))*/
+		{
+			// $visited.insert(($x, $y)); // TODO: try to optimize with .entry()
+			push_to_queue!($queue, $grid, $x, $y, $initial_dir, $body);
+		}
+	};
+}
+
+macro_rules! visit_neighbor {
+	($env:expr, $queue:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr  /*$visited:expr*/) => {
+		let (x, y) = $body[0];
+		if y > 0 {
+			let ny = y - 1;
+			try_visit!(
+				$queue,
+				$grid,
+				$id,
+				$initial_dir,
+				$body,
+				x,
+				ny /*$visited*/
+			);
+		}
+		if x > 0 {
+			let nx = x - 1;
+			try_visit!(
+				$queue,
+				$grid,
+				$id,
+				$initial_dir,
+				$body,
+				nx,
+				y /*$visited*/
+			);
+		}
+		let nx = x + 1;
+		if nx < $env.w {
+			try_visit!(
+				$queue,
+				$grid,
+				$id,
+				$initial_dir,
+				$body,
+				nx,
+				y /*$visited*/
+			);
+		}
+		let ny = y + 1;
+		if ny < $env.h {
+			try_visit!(
+				$queue,
+				$grid,
+				$id,
+				$initial_dir,
+				$body,
+				x,
+				ny /*$visited*/
+			);
+		}
+	};
+}
+
+macro_rules! initial_visit_neighbor {
+	($env:expr, $queue:expr, $grid:expr, $id:expr, $body:expr /*$visited:expr*/) => {
+		let (x, y) = $body[0];
+		if y > 0 {
+			let ny = y - 1;
+			try_visit!($queue, $grid, $id, Dir::U, $body, x, ny /*$visited*/);
+		}
+		if x > 0 {
+			let nx = x - 1;
+			try_visit!($queue, $grid, $id, Dir::L, $body, nx, y /*$visited*/);
+		}
+		let nx = x + 1;
+		if nx < $env.w {
+			try_visit!($queue, $grid, $id, Dir::R, $body, nx, y /*$visited*/);
+		}
+		let ny = y + 1;
+		if ny < $env.h {
+			try_visit!($queue, $grid, $id, Dir::D, $body, x, ny /*$visited*/);
+		}
+	};
+}
+
 fn find_snakebot_action(env: &Env, snakebot_id: Id, snakebot_body: &[Coord]) -> Action {
+	let mut queue = VecDeque::<(Dir, Vec<Coord>)>::new();
+	initial_visit_neighbor!(
+		env,
+		queue,
+		env.base_grid,
+		snakebot_id,
+		snakebot_body /*visited*/
+	);
+	let first = queue.clone().pop_front();
+
+	while let Some((initial_dir, body)) = queue.pop_front() {
+		visit_neighbor!(
+			env,
+			queue,
+			env.base_grid,
+			snakebot_id,
+			initial_dir,
+			body /*visited*/
+		);
+	}
+
 	Action {
-		snakebot_id: snakebot_id,
-		direction: Dir::U,
+		snakebot_id,
+		direction: first.map(|(dir, _)| dir).unwrap_or(Dir::U),
 	}
 }
 
