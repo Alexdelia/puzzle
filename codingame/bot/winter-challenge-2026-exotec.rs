@@ -222,6 +222,15 @@ where
 	}
 }
 
+fn apply_dir((x, y): Coord, dir: Dir) -> Coord {
+	match dir {
+		Dir::U => (x, y - 1),
+		Dir::D => (x, y + 1),
+		Dir::L => (x - 1, y),
+		Dir::R => (x + 1, y),
+	}
+}
+
 fn is_upright(body: &[Coord]) -> bool {
 	let (x, mut y) = body[0];
 	for i in 1..body.len() {
@@ -267,6 +276,7 @@ macro_rules! move_and_queue {
 macro_rules! try_visit {
 	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {
 		if $grid[$y][$x] == Tile::Apple {
+			$grid[$y][$x] = Tile::Empty;
 			return Action {
 				snakebot_id: $id,
 				direction: $initial_dir,
@@ -363,7 +373,7 @@ macro_rules! initial_visit_neighbor {
 	};
 }
 
-fn has_single_valid_move(env: &Env, grid: &Grid, snakebot_body: &[Coord]) -> Option<Dir> {
+fn has_single_valid_move(env: &Env, grid: &mut Grid, snakebot_body: &[Coord]) -> Option<Dir> {
 	let (x, y) = snakebot_body[0];
 
 	let mut moves = Vec::<(usize, usize, Dir)>::with_capacity(4);
@@ -380,6 +390,7 @@ fn has_single_valid_move(env: &Env, grid: &Grid, snakebot_body: &[Coord]) -> Opt
 		let (nx, ny) = (nx as usize, ny as usize);
 		if nx < env.w && ny < env.h && grid[ny][nx] != Tile::Block {
 			if grid[ny][nx] == Tile::Apple {
+				grid[ny][nx] = Tile::Empty;
 				return Some(dir);
 			}
 			moves.push((nx, ny, dir));
@@ -397,7 +408,7 @@ fn has_single_valid_move(env: &Env, grid: &Grid, snakebot_body: &[Coord]) -> Opt
 
 fn find_snakebot_action(
 	env: &Env,
-	grid: &Grid,
+	grid: &mut Grid,
 	snakebot_id: Id,
 	snakebot_body: &[Coord],
 ) -> Action {
@@ -448,7 +459,9 @@ fn main() {
 			.iter()
 			.map(|(id, body)| {
 				let start = SystemTime::now();
-				let action = find_snakebot_action(&env, &grid, *id, body);
+				let action = find_snakebot_action(&env, &mut grid, *id, body);
+				let (nx, ny) = apply_dir(body[0], action.direction);
+				grid[ny][nx] = Tile::Block;
 				dbg!(id, start.elapsed().unwrap());
 				action.to_string()
 			})
