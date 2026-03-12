@@ -18,8 +18,10 @@ struct Env {
 	h: usize,
 	base_grid: Grid,
 
+	#[allow(dead_code)]
 	my_id: Id,
 	my_snakebot_id_list: Vec<Id>,
+	#[allow(dead_code)]
 	foe_snakebot_id_list: Vec<Id>,
 }
 
