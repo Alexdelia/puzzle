@@ -1,5 +1,11 @@
-use std::{collections::HashSet, time::SystemTime};
-use std::{collections::VecDeque, fmt::Display, io};
+use std::{
+	collections::{HashSet, VecDeque},
+	fmt::Display,
+	io,
+	time::SystemTime,
+};
+
+// TODO: check if SystemTime is the best way to measure elapsed time
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
@@ -214,6 +220,17 @@ where
 	}
 }
 
+fn is_upright(body: &[Coord]) -> bool {
+	let (x, mut y) = body[0];
+	for i in 1..body.len() {
+		y += 1;
+		if body[i].0 != x || body[i].1 != y {
+			return false;
+		}
+	}
+	true
+}
+
 macro_rules! move_and_queue {
 	($env:expr, $queue:expr, $visited:expr, $grid:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {{
 		// TODO: try VecDeque
@@ -325,7 +342,7 @@ macro_rules! visit_neighbor {
 macro_rules! initial_visit_neighbor {
 	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $body:expr) => {
 		let (x, y) = $body[0];
-		if y > 0 {
+		if y > 0 && !is_upright($body) {
 			let ny = y - 1;
 			try_visit!($env, $queue, $visited, $grid, $id, Dir::U, $body, x, ny);
 		}
@@ -358,14 +375,17 @@ fn find_snakebot_action(env: &Env, snakebot_id: Id, snakebot_body: &[Coord]) -> 
 		snakebot_id,
 		snakebot_body
 	);
-	let first = queue.clone().pop_front();
 
-	let start = SystemTime::now();
-	let mut i = 0;
+	let first = queue.clone().pop_front();
+	let default_dir = first.map(|(dir, _)| dir).unwrap_or(Dir::U);
+	if queue.len() <= 1 {
+		return Action {
+			snakebot_id,
+			direction: default_dir,
+		};
+	}
+
 	while let Some((initial_dir, body)) = queue.pop_front() {
-		if i % 100_000 == 0 {
-			dbg!(i, start.elapsed().unwrap());
-		}
 		visit_neighbor!(
 			env,
 			queue,
@@ -375,12 +395,11 @@ fn find_snakebot_action(env: &Env, snakebot_id: Id, snakebot_body: &[Coord]) -> 
 			initial_dir,
 			body
 		);
-		i += 1;
 	}
 
 	Action {
 		snakebot_id,
-		direction: first.map(|(dir, _)| dir).unwrap_or(Dir::U),
+		direction: default_dir,
 	}
 }
 
@@ -396,7 +415,12 @@ fn main() {
 
 		let action_list = my_snakebot_list
 			.iter()
-			.map(|(id, body)| find_snakebot_action(&env, *id, body).to_string())
+			.map(|(id, body)| {
+				let start = SystemTime::now();
+				let action = find_snakebot_action(&env, *id, body);
+				dbg!(id, start.elapsed().unwrap());
+				action.to_string()
+			})
 			.collect::<Vec<_>>()
 			.join(";");
 
