@@ -21,12 +21,15 @@ type Coord = (usize, usize);
 type Grid = Vec<Vec<Cell>>;
 
 struct Env {
+	#[allow(dead_code)]
 	player_id: Id,
 
 	ally: HashMap<Id, Agent>,
 	foe: HashMap<Id, Agent>,
 
+	#[allow(dead_code)]
 	w: usize,
+	#[allow(dead_code)]
 	h: usize,
 	grid: Grid,
 
@@ -42,6 +45,7 @@ struct Agent {
 	pos: Coord,
 	wet: Wetness,
 
+	#[allow(dead_code)]
 	total_shoot_cooldown: ShootCooldown,
 	current_shoot_cooldown: ShootCooldown,
 	optimal_range: usize,
@@ -52,8 +56,10 @@ struct Agent {
 }
 
 struct AgentActions {
+	#[allow(dead_code)]
 	r#move: Option<Coord>,
 	move_priority: MovePriorityQueue,
+	#[allow(dead_code)]
 	shoot: Option<Id>,
 }
 
@@ -283,7 +289,9 @@ enum Action {
 	Move(Coord),
 	Shoot(Id),
 	// Throw,
+	#[allow(dead_code)]
 	SelfCover25,
+	#[allow(dead_code)]
 	Message(String),
 }
 
