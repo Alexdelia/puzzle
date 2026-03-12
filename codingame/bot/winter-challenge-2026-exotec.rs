@@ -408,6 +408,11 @@ fn has_single_depth_move(
 			if grid[ny][nx] == Tile::Apple {
 				return Some((dir, Some((nx, ny))));
 			}
+
+			if snakebot_body.iter().any(|&(bx, by)| bx == nx && by == ny) {
+				continue;
+			}
+
 			moves.push((nx, ny, dir));
 		}
 	}
