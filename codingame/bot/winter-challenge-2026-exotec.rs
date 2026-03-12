@@ -2,19 +2,14 @@ use std::{
 	collections::{HashSet, VecDeque},
 	fmt::Display,
 	io,
-	time::SystemTime,
+	time::{Duration, SystemTime},
 };
 
 // TODO: check if SystemTime is the best way to measure elapsed time
-// TODO: timeout for if no apple is found (or findable)
 // TODO: set other ally snakebot as block during bfs
 // TODO: try to kill opponent snakebot if no apple exist
 
-macro_rules! parse_input {
-	($x:expr, $t:ident) => {
-		$x.trim().parse::<$t>().unwrap()
-	};
-}
+const MAX_TURN_DURATION: Duration = Duration::from_millis(1000 - 50);
 
 type Id = u8;
 
@@ -62,6 +57,12 @@ impl Tile {
 			_ => panic!("invalid tile character: {c}"),
 		}
 	}
+}
+
+macro_rules! parse_input {
+	($x:expr, $t:ident) => {
+		$x.trim().parse::<$t>().unwrap()
+	};
 }
 
 impl Env {
@@ -436,6 +437,7 @@ fn find_snakebot_action(
 	apple_list: &[Coord],
 	snakebot_id: Id,
 	snakebot_body: &[Coord],
+	allowed_time: Duration,
 ) -> (Action, Option<Coord>) {
 	if let Some((single_move, apple)) = has_single_depth_move(env, grid, &apple_list, snakebot_body)
 	{
@@ -467,8 +469,17 @@ fn find_snakebot_action(
 		);
 	}
 
+	let start = SystemTime::now();
+	let mut i = 0;
 	while let Some((initial_dir, body)) = queue.pop_front() {
 		visit_neighbor!(env, queue, visited, grid, snakebot_id, initial_dir, body);
+
+		i += 1;
+		let elapsed = start.elapsed().unwrap();
+		if i % 1000 == 0 && elapsed >= allowed_time {
+			eprintln!("timeout: visited {i} states in {elapsed:?}");
+			break;
+		}
 	}
 
 	(
@@ -485,6 +496,8 @@ fn main() {
 	let mut my_snakebot_list = Vec::with_capacity(env.my_snakebot_id_list.len());
 
 	loop {
+		let start = SystemTime::now();
+
 		let mut grid = env.base_grid.clone();
 
 		let mut apple_list = Env::read_apple(&mut grid);
@@ -492,10 +505,26 @@ fn main() {
 
 		let action_list = my_snakebot_list
 			.iter()
-			.map(|(id, body)| {
-				let start = SystemTime::now();
+			.enumerate()
+			.map(|(index, (id, body))| {
+				let sub_start = SystemTime::now();
 
-				let (action, apple) = find_snakebot_action(&env, &grid, &apple_list, *id, body);
+				let Some(allowed_time) = (MAX_TURN_DURATION.checked_sub(start.elapsed().unwrap()))
+					.map(|remaining| {
+						remaining.checked_div(env.my_snakebot_id_list.len() as u32 - index as u32)
+					})
+					.flatten()
+				else {
+					eprintln!("not enough time for snakebot {id}, skipping");
+					return Action {
+						snakebot_id: *id,
+						direction: Dir::U,
+					}
+					.to_string();
+				};
+
+				let (action, apple) =
+					find_snakebot_action(&env, &grid, &apple_list, *id, body, allowed_time);
 
 				if let Some(apple) = apple {
 					grid[apple.1][apple.0] = Tile::Empty;
@@ -504,7 +533,8 @@ fn main() {
 				let (nx, ny) = apply_dir(body[0], action.direction);
 				grid[ny][nx] = Tile::Block;
 
-				dbg!(id, start.elapsed().unwrap());
+				let elapsed = sub_start.elapsed().unwrap();
+				dbg!(id, elapsed);
 
 				action.to_string()
 			})
