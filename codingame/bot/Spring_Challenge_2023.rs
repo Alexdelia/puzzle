@@ -315,7 +315,7 @@ impl Env {
 				continue;
 			}
 
-			if !found.is_empty() && f.path.len() >= found[0].len() + 1 {
+			if !found.is_empty() && f.path.len() > found[0].len() {
 				// >= because another index is gonna be added this turn
 				// + 1 because want to parse +1 index
 				// (I do not use > in case I remove or modify the +1)
@@ -368,7 +368,7 @@ impl Env {
 			let gain = gain_type(self.gain(&b, self.my_ant), only_calc);
 
 			if (force || gain > current_gain || gain == current_gain && b.len() > self.beacon.len())
-				&& best.as_ref().map_or(true, |b| gain > b.0)
+				&& best.as_ref().is_none_or(|b| gain > b.0)
 			{
 				best = Some((gain, b));
 			}

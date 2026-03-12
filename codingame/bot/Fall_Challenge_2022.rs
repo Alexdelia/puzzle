@@ -341,9 +341,9 @@ impl Env {
 		}
 
 		direct_contact.sort_by(|a, b| {
-			needed(self.map[a.0.0][a.0.1].unit, self.map[a.1.0][a.1.1].unit).cmp(&needed(
-				self.map[b.0.0][b.0.1].unit,
-				self.map[b.1.0][b.1.1].unit,
+			needed(self.map[a.0 .0][a.0 .1].unit, self.map[a.1 .0][a.1 .1].unit).cmp(&needed(
+				self.map[b.0 .0][b.0 .1].unit,
+				self.map[b.1 .0][b.1 .1].unit,
 			))
 		});
 
@@ -393,26 +393,26 @@ impl Env {
 				}
 			}
 
-			let x = if closest.0.0 < t.0 {
-				closest.0.0 + 1
+			let x = if closest.0 .0 < t.0 {
+				closest.0 .0 + 1
 			} else {
-				closest.0.0 - 1
+				closest.0 .0 - 1
 			};
-			let y = if closest.0.1 < t.1 {
-				closest.0.1 + 1
+			let y = if closest.0 .1 < t.1 {
+				closest.0 .1 + 1
 			} else {
-				closest.0.1 - 1
+				closest.0 .1 - 1
 			};
 
-			if closest.0.0 != t.0
-				&& self.map[x][closest.0.1].scrap > 0
-				&& !self.map[x][closest.0.1].recycler
-				&& self.map[x][closest.0.1].owner != Owner::Me
-				&& ((self.map[closest.0.0][y].scrap > 0
-					&& self.map[closest.0.0][y].owner == Owner::Me)
-					|| (self.map[closest.0.0][y].scrap == 0))
+			if closest.0 .0 != t.0
+				&& self.map[x][closest.0 .1].scrap > 0
+				&& !self.map[x][closest.0 .1].recycler
+				&& self.map[x][closest.0 .1].owner != Owner::Me
+				&& ((self.map[closest.0 .0][y].scrap > 0
+					&& self.map[closest.0 .0][y].owner == Owner::Me)
+					|| (self.map[closest.0 .0][y].scrap == 0))
 			{
-				self.r#move(closest.0, (x, closest.0.1), 1);
+				self.r#move(closest.0, (x, closest.0 .1), 1);
 			} else {
 				self.r#move(closest.0, t, 1);
 			}
@@ -578,8 +578,8 @@ impl Env {
 		};
 		// sort by a.1 closest to y
 		gray_direct_contact.sort_by(|a, b| {
-			let a_dist = (a.0.1 as i32 - y).abs();
-			let b_dist = (b.0.1 as i32 - y).abs();
+			let a_dist = (a.0 .1 as i32 - y).abs();
+			let b_dist = (b.0 .1 as i32 - y).abs();
 			a_dist.cmp(&b_dist)
 		});
 		dbg!(gray_direct_contact.len());
@@ -627,7 +627,11 @@ fn needed(me: Unit, op: Unit) -> Unit {
 		1
 	} else {
 		let n: i32 = (op as i32 + 1) - me as i32;
-		if n < 0 { 0 } else { n as Unit }
+		if n < 0 {
+			0
+		} else {
+			n as Unit
+		}
 	}
 }
 
