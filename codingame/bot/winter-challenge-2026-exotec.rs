@@ -174,7 +174,9 @@ impl Env {
 			} else {
 				let (x, y) = body[0];
 				for_neighbor(x, y, self.w, self.h, |x, y| {
-					grid[y][x] = Tile::Block;
+					if grid[y][x] != Tile::Apple {
+						grid[y][x] = Tile::Block;
+					}
 				});
 				for (x, y) in body {
 					grid[y][x] = Tile::Block;
@@ -361,20 +363,57 @@ macro_rules! initial_visit_neighbor {
 	};
 }
 
-fn find_snakebot_action(env: &Env, snakebot_id: Id, snakebot_body: &[Coord]) -> Action {
+fn has_single_valid_move(env: &Env, grid: &Grid, snakebot_body: &[Coord]) -> Option<Dir> {
+	let (x, y) = snakebot_body[0];
+
+	let mut moves = Vec::<(usize, usize, Dir)>::with_capacity(4);
+	for (nx, ny, dir) in [
+		(0, -1, Dir::U),
+		(-1, 0, Dir::L),
+		(1, 0, Dir::R),
+		(0, 1, Dir::D),
+	] {
+		let (nx, ny) = (x as isize + nx, y as isize + ny);
+		if nx < 0 || ny < 0 {
+			continue;
+		}
+		let (nx, ny) = (nx as usize, ny as usize);
+		if nx < env.w && ny < env.h && grid[ny][nx] != Tile::Block {
+			if grid[ny][nx] == Tile::Apple {
+				return Some(dir);
+			}
+			moves.push((nx, ny, dir));
+		}
+	}
+
+	if moves.len() == 1 {
+		return Some(moves[0].2);
+	} else if moves.len() == 0 {
+		return Some(Dir::U);
+	}
+
+	None
+}
+
+fn find_snakebot_action(
+	env: &Env,
+	grid: &Grid,
+	snakebot_id: Id,
+	snakebot_body: &[Coord],
+) -> Action {
+	if let Some(single_move) = has_single_valid_move(env, grid, snakebot_body) {
+		return Action {
+			snakebot_id,
+			direction: single_move,
+		};
+	}
+
 	// TODO: store body more efficiently?
 	let mut visited = HashSet::<Vec<Coord>>::new();
 	visited.insert(snakebot_body.to_vec());
 
 	let mut queue = VecDeque::<(Dir, Vec<Coord>)>::new();
-	initial_visit_neighbor!(
-		env,
-		queue,
-		visited,
-		env.base_grid,
-		snakebot_id,
-		snakebot_body
-	);
+	initial_visit_neighbor!(env, queue, visited, grid, snakebot_id, snakebot_body);
 
 	let first = queue.clone().pop_front();
 	let default_dir = first.map(|(dir, _)| dir).unwrap_or(Dir::U);
@@ -386,15 +425,7 @@ fn find_snakebot_action(env: &Env, snakebot_id: Id, snakebot_body: &[Coord]) -> 
 	}
 
 	while let Some((initial_dir, body)) = queue.pop_front() {
-		visit_neighbor!(
-			env,
-			queue,
-			visited,
-			env.base_grid,
-			snakebot_id,
-			initial_dir,
-			body
-		);
+		visit_neighbor!(env, queue, visited, grid, snakebot_id, initial_dir, body);
 	}
 
 	Action {
@@ -417,7 +448,7 @@ fn main() {
 			.iter()
 			.map(|(id, body)| {
 				let start = SystemTime::now();
-				let action = find_snakebot_action(&env, *id, body);
+				let action = find_snakebot_action(&env, &grid, *id, body);
 				dbg!(id, start.elapsed().unwrap());
 				action.to_string()
 			})
