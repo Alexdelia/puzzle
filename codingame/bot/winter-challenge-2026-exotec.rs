@@ -8,7 +8,6 @@ use std::{
 // TODO: check if SystemTime is the best way to measure elapsed time
 // TODO: timeout for if no apple is found (or findable)
 // TODO: set other ally snakebot as block during bfs
-// TODO: try to survive if no apple exist
 // TODO: try to kill opponent snakebot if no apple exist
 
 macro_rules! parse_input {
@@ -385,9 +384,10 @@ macro_rules! initial_visit_neighbor {
 	};
 }
 
-fn has_single_valid_move(
+fn has_single_depth_move(
 	env: &Env,
 	grid: &Grid,
+	apple_list: &[Coord],
 	snakebot_body: &[Coord],
 ) -> Option<(Dir, Option<Coord>)> {
 	let (x, y) = snakebot_body[0];
@@ -418,16 +418,22 @@ fn has_single_valid_move(
 		return Some((Dir::U, None));
 	}
 
+	if apple_list.len() == 0 {
+		return Some((moves[0].2, None));
+	}
+
 	None
 }
 
 fn find_snakebot_action(
 	env: &Env,
 	grid: &Grid,
+	apple_list: &[Coord],
 	snakebot_id: Id,
 	snakebot_body: &[Coord],
 ) -> (Action, Option<Coord>) {
-	if let Some((single_move, apple)) = has_single_valid_move(env, grid, snakebot_body) {
+	if let Some((single_move, apple)) = has_single_depth_move(env, grid, &apple_list, snakebot_body)
+	{
 		return (
 			Action {
 				snakebot_id,
@@ -484,7 +490,7 @@ fn main() {
 			.map(|(id, body)| {
 				let start = SystemTime::now();
 
-				let (action, apple) = find_snakebot_action(&env, &grid, *id, body);
+				let (action, apple) = find_snakebot_action(&env, &grid, &apple_list, *id, body);
 
 				if let Some(apple) = apple {
 					grid[apple.1][apple.0] = Tile::Empty;
