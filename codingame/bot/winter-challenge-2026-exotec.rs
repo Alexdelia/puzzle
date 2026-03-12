@@ -9,7 +9,7 @@ use std::{
 // TODO: set other ally snakebot as block during bfs
 // TODO: try to kill opponent snakebot if no apple exist
 
-const MAX_TURN_DURATION: Duration = Duration::from_millis(1000 - 50);
+const MAX_TURN_DURATION: Duration = Duration::from_millis(80);
 
 type Id = u8;
 
@@ -239,9 +239,9 @@ where
 fn apply_dir((x, y): Coord, dir: Dir) -> Coord {
 	// TODO: apply gravity?
 	match dir {
-		Dir::U => (x, y - 1),
+		Dir::U => (x, y.saturating_sub(1)),
 		Dir::D => (x, y + 1),
-		Dir::L => (x - 1, y),
+		Dir::L => (x.saturating_sub(1), y),
 		Dir::R => (x + 1, y),
 	}
 }
@@ -526,7 +526,7 @@ fn main() {
 					}
 					.to_string();
 				};
-				eprintln!("allowed time for snakebot {id}: {allowed_time:?}");
+				eprintln!("[{id}] allowed: {allowed_time:?}");
 
 				for &(x, y) in body {
 					grid[y][x] = Tile::Empty;
@@ -547,7 +547,7 @@ fn main() {
 				}
 
 				let elapsed = sub_start.elapsed().unwrap();
-				dbg!(id, elapsed);
+				eprintln!("[{id}] took: {elapsed:?}");
 
 				action.to_string()
 			})
