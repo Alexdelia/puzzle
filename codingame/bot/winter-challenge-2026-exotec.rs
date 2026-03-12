@@ -180,8 +180,10 @@ impl Env {
 				continue;
 			}
 
-			// TODO: check for collision with my snakebot
 			if self.my_snakebot_id_list.contains(&snakebot_id) {
+				for &(x, y) in &body {
+					grid[y][x] = Tile::Block;
+				}
 				my_snakebot_list.push((snakebot_id, body));
 			} else {
 				let (x, y) = body[0];
@@ -235,6 +237,7 @@ where
 }
 
 fn apply_dir((x, y): Coord, dir: Dir) -> Coord {
+	// TODO: apply gravity?
 	match dir {
 		Dir::U => (x, y - 1),
 		Dir::D => (x, y + 1),
@@ -523,6 +526,11 @@ fn main() {
 					}
 					.to_string();
 				};
+				eprintln!("allowed time for snakebot {id}: {allowed_time:?}");
+
+				for &(x, y) in body {
+					grid[y][x] = Tile::Empty;
+				}
 
 				let (action, apple) =
 					find_snakebot_action(&env, &grid, &apple_list, *id, body, allowed_time);
@@ -533,6 +541,10 @@ fn main() {
 				}
 				let (nx, ny) = apply_dir(body[0], action.direction);
 				grid[ny][nx] = Tile::Block;
+				// TODO: test if tail is still block (take care of apple)
+				for &(x, y) in body.iter() {
+					grid[y][x] = Tile::Block;
+				}
 
 				let elapsed = sub_start.elapsed().unwrap();
 				dbg!(id, elapsed);
