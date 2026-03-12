@@ -243,9 +243,9 @@ fn apply_dir((x, y): Coord, dir: Dir) -> Coord {
 
 fn is_upright(body: &[Coord]) -> bool {
 	let (x, mut y) = body[0];
-	for i in 1..body.len() {
+	for part in body.iter().skip(1) {
 		y += 1;
-		if body[i].0 != x || body[i].1 != y {
+		if part.0 != x || part.1 != y {
 			return false;
 		}
 	}
