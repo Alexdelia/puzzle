@@ -6,6 +6,10 @@ use std::{
 };
 
 // TODO: check if SystemTime is the best way to measure elapsed time
+// TODO: timeout for if no apple is found (or findable)
+// TODO: set other ally snakebot as block during bfs
+// TODO: try to survive if no apple exist
+// TODO: try to kill opponent snakebot if no apple exist
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
@@ -113,11 +117,14 @@ impl Env {
 		}
 	}
 
-	fn read_apple(grid: &mut Grid) {
+	fn read_apple(grid: &mut Grid) -> Vec<Coord> {
 		let mut s = String::new();
 
 		io::stdin().read_line(&mut s).unwrap();
 		let power_source_count = parse_input!(s, usize);
+
+		let mut apple_list = Vec::with_capacity(power_source_count);
+
 		for _ in 0..power_source_count {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
@@ -125,8 +132,11 @@ impl Env {
 			let x = parse_input!(input.next().unwrap(), usize);
 			let y = parse_input!(input.next().unwrap(), usize);
 
+			apple_list.push((x, y));
 			grid[y][x] = Tile::Apple;
 		}
+
+		apple_list
 	}
 
 	fn read_snakebot(&self, grid: &mut Grid, my_snakebot_list: &mut Vec<(Id, Vec<Coord>)>) {
@@ -276,11 +286,13 @@ macro_rules! move_and_queue {
 macro_rules! try_visit {
 	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {
 		if $grid[$y][$x] == Tile::Apple {
-			$grid[$y][$x] = Tile::Empty;
-			return Action {
-				snakebot_id: $id,
-				direction: $initial_dir,
-			};
+			return (
+				Action {
+					snakebot_id: $id,
+					direction: $initial_dir,
+				},
+				Some(($x, $y)),
+			);
 		}
 
 		if $grid[$y][$x] == Tile::Empty && $body.iter().all(|&(bx, by)| bx != $x || by != $y) {
@@ -373,7 +385,11 @@ macro_rules! initial_visit_neighbor {
 	};
 }
 
-fn has_single_valid_move(env: &Env, grid: &mut Grid, snakebot_body: &[Coord]) -> Option<Dir> {
+fn has_single_valid_move(
+	env: &Env,
+	grid: &Grid,
+	snakebot_body: &[Coord],
+) -> Option<(Dir, Option<Coord>)> {
 	let (x, y) = snakebot_body[0];
 
 	let mut moves = Vec::<(usize, usize, Dir)>::with_capacity(4);
@@ -390,17 +406,16 @@ fn has_single_valid_move(env: &Env, grid: &mut Grid, snakebot_body: &[Coord]) ->
 		let (nx, ny) = (nx as usize, ny as usize);
 		if nx < env.w && ny < env.h && grid[ny][nx] != Tile::Block {
 			if grid[ny][nx] == Tile::Apple {
-				grid[ny][nx] = Tile::Empty;
-				return Some(dir);
+				return Some((dir, Some((nx, ny))));
 			}
 			moves.push((nx, ny, dir));
 		}
 	}
 
 	if moves.len() == 1 {
-		return Some(moves[0].2);
+		return Some((moves[0].2, None));
 	} else if moves.len() == 0 {
-		return Some(Dir::U);
+		return Some((Dir::U, None));
 	}
 
 	None
@@ -408,15 +423,18 @@ fn has_single_valid_move(env: &Env, grid: &mut Grid, snakebot_body: &[Coord]) ->
 
 fn find_snakebot_action(
 	env: &Env,
-	grid: &mut Grid,
+	grid: &Grid,
 	snakebot_id: Id,
 	snakebot_body: &[Coord],
-) -> Action {
-	if let Some(single_move) = has_single_valid_move(env, grid, snakebot_body) {
-		return Action {
-			snakebot_id,
-			direction: single_move,
-		};
+) -> (Action, Option<Coord>) {
+	if let Some((single_move, apple)) = has_single_valid_move(env, grid, snakebot_body) {
+		return (
+			Action {
+				snakebot_id,
+				direction: single_move,
+			},
+			apple,
+		);
 	}
 
 	// TODO: store body more efficiently?
@@ -429,20 +447,26 @@ fn find_snakebot_action(
 	let first = queue.clone().pop_front();
 	let default_dir = first.map(|(dir, _)| dir).unwrap_or(Dir::U);
 	if queue.len() <= 1 {
-		return Action {
-			snakebot_id,
-			direction: default_dir,
-		};
+		return (
+			Action {
+				snakebot_id,
+				direction: default_dir,
+			},
+			None,
+		);
 	}
 
 	while let Some((initial_dir, body)) = queue.pop_front() {
 		visit_neighbor!(env, queue, visited, grid, snakebot_id, initial_dir, body);
 	}
 
-	Action {
-		snakebot_id,
-		direction: default_dir,
-	}
+	(
+		Action {
+			snakebot_id,
+			direction: default_dir,
+		},
+		None,
+	)
 }
 
 fn main() {
@@ -452,17 +476,25 @@ fn main() {
 	loop {
 		let mut grid = env.base_grid.clone();
 
-		Env::read_apple(&mut grid);
+		let mut apple_list = Env::read_apple(&mut grid);
 		env.read_snakebot(&mut grid, &mut my_snakebot_list);
 
 		let action_list = my_snakebot_list
 			.iter()
 			.map(|(id, body)| {
 				let start = SystemTime::now();
-				let action = find_snakebot_action(&env, &mut grid, *id, body);
+
+				let (action, apple) = find_snakebot_action(&env, &grid, *id, body);
+
+				if let Some(apple) = apple {
+					grid[apple.1][apple.0] = Tile::Empty;
+					apple_list.retain(|&(x, y)| x != apple.0 || y != apple.1);
+				}
 				let (nx, ny) = apply_dir(body[0], action.direction);
 				grid[ny][nx] = Tile::Block;
+
 				dbg!(id, start.elapsed().unwrap());
+
 				action.to_string()
 			})
 			.collect::<Vec<_>>()
