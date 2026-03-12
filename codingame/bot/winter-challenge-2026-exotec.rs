@@ -420,11 +420,11 @@ fn has_single_depth_move(
 
 	if moves.len() == 1 {
 		return Some((moves[0].2, None));
-	} else if moves.len() == 0 {
+	} else if moves.is_empty() {
 		return Some((Dir::U, None));
 	}
 
-	if apple_list.len() == 0 {
+	if apple_list.is_empty() {
 		return Some((moves[0].2, None));
 	}
 
@@ -439,7 +439,7 @@ fn find_snakebot_action(
 	snakebot_body: &[Coord],
 	allowed_time: Duration,
 ) -> (Action, Option<Coord>) {
-	if let Some((single_move, apple)) = has_single_depth_move(env, grid, &apple_list, snakebot_body)
+	if let Some((single_move, apple)) = has_single_depth_move(env, grid, apple_list, snakebot_body)
 	{
 		return (
 			Action {
@@ -510,10 +510,9 @@ fn main() {
 				let sub_start = SystemTime::now();
 
 				let Some(allowed_time) = (MAX_TURN_DURATION.checked_sub(start.elapsed().unwrap()))
-					.map(|remaining| {
+					.and_then(|remaining| {
 						remaining.checked_div(env.my_snakebot_id_list.len() as u32 - index as u32)
 					})
-					.flatten()
 				else {
 					eprintln!("not enough time for snakebot {id}, skipping");
 					return Action {

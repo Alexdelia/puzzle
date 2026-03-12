@@ -219,9 +219,8 @@ fn bomb_min_x_range(board: &Board, bomb: &Bomb) -> Axis {
 			break;
 		}
 		let nx = bomb.x - x;
-		match board[bomb.y][nx] {
-			Cell::Wall => return nx + 1,
-			_ => {}
+		if board[bomb.y][nx] == Cell::Wall {
+			return nx + 1;
 		}
 	}
 	bomb.x.saturating_sub(bomb.range)
@@ -233,9 +232,8 @@ fn bomb_max_x_range(board: &Board, bomb: &Bomb) -> Axis {
 		if nx >= BOARD_WIDTH {
 			break;
 		}
-		match board[bomb.y][nx] {
-			Cell::Wall => return nx - 1,
-			_ => {}
+		if board[bomb.y][nx] == Cell::Wall {
+			return nx - 1;
 		}
 	}
 	(bomb.x + bomb.range).min(BOARD_WIDTH - 1)
@@ -247,9 +245,8 @@ fn bomb_min_y_range(board: &Board, bomb: &Bomb) -> Axis {
 			break;
 		}
 		let ny = bomb.y - y;
-		match board[ny][bomb.x] {
-			Cell::Wall => return ny + 1,
-			_ => {}
+		if board[ny][bomb.x] == Cell::Wall {
+			return ny + 1;
 		}
 	}
 	bomb.y.saturating_sub(bomb.range)
@@ -261,9 +258,8 @@ fn bomb_max_y_range(board: &Board, bomb: &Bomb) -> Axis {
 		if ny >= BOARD_HEIGHT {
 			break;
 		}
-		match board[ny][bomb.x] {
-			Cell::Wall => return ny - 1,
-			_ => {}
+		if board[ny][bomb.x] == Cell::Wall {
+			return ny - 1;
 		}
 	}
 	(bomb.y + bomb.range).min(BOARD_HEIGHT - 1)
@@ -306,10 +302,11 @@ fn available_direction(
 		}
 	}
 	let ny = y + 1;
-	if ny < BOARD_HEIGHT {
-		if board[ny][x].is_walkable() && !bomb_list.iter().any(|b| b.x == x && b.y == ny) {
-			dir.push((Some(Direction::Down), (x, ny)));
-		}
+	if ny < BOARD_HEIGHT
+		&& board[ny][x].is_walkable()
+		&& !bomb_list.iter().any(|b| b.x == x && b.y == ny)
+	{
+		dir.push((Some(Direction::Down), (x, ny)));
 	}
 	if x > 0 {
 		let nx = x - 1;
@@ -318,10 +315,11 @@ fn available_direction(
 		}
 	}
 	let nx = x + 1;
-	if nx < BOARD_WIDTH {
-		if board[y][nx].is_walkable() && !bomb_list.iter().any(|b| b.x == nx && b.y == y) {
-			dir.push((Some(Direction::Right), (nx, y)));
-		}
+	if nx < BOARD_WIDTH
+		&& board[y][nx].is_walkable()
+		&& !bomb_list.iter().any(|b| b.x == nx && b.y == y)
+	{
+		dir.push((Some(Direction::Right), (nx, y)));
 	}
 
 	if dir.is_empty() {
@@ -595,16 +593,16 @@ fn best_action(e: &Env) -> Action {
 		let death_ratio =
 			(event.death.pow(2) as f32) / (action_remaining_count_list[i].max(1) as f32);
 		let death_score = (death_ratio * 10.0).round() as usize;
-		if death_score > best.1.0 {
+		if death_score > best.1 .0 {
 			continue;
 		}
 
-		if death_score < best.1.0 {
+		if death_score < best.1 .0 {
 			best = (i, (death_score, score));
 			continue;
 		}
 
-		if score > best.1.1 {
+		if score > best.1 .1 {
 			best = (i, (death_score, score));
 		}
 	}

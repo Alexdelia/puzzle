@@ -559,7 +559,7 @@ mod tests {
 			bronze: 3,
 		};
 
-		assert_eq!(medal.total(), 1 * 3 + 2);
+		assert_eq!(medal.total(), 3 + 2);
 
 		let medal = GameMedal {
 			gold: 0,

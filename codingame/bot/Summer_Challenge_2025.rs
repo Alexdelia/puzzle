@@ -370,8 +370,8 @@ fn compute_damage(grid: &Grid, agent: &Agent, from: Coord, to: Coord) -> Wetness
 		Cell::Empty
 	};
 
-	let adx = dx.abs() as usize;
-	let ady = dy.abs() as usize;
+	let adx = dx.unsigned_abs();
+	let ady = dy.unsigned_abs();
 	let damage_reduction_factor = if adx > ady {
 		vertical_cover.damage_reduction_factor()
 	} else if adx < ady {
@@ -382,7 +382,7 @@ fn compute_damage(grid: &Grid, agent: &Agent, from: Coord, to: Coord) -> Wetness
 			.min(horizontal_cover.damage_reduction_factor())
 	};
 
-	return (base as f32 * damage_reduction_factor) as Wetness;
+	(base as f32 * damage_reduction_factor) as Wetness
 }
 
 fn dist(src: Coord, dst: Coord) -> usize {
