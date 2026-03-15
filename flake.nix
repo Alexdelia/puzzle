@@ -9,6 +9,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     treefmt-nix.url = "github:numtide/treefmt-nix";
   };
 
@@ -66,6 +71,8 @@
               languages = {
                 rust = {
                   enable = true;
+                  channel = "stable";
+                  version = "1.90.0"; # https://www.codingame.com/playgrounds/40701/help-center/languages-versions
                 };
 
                 python = {
