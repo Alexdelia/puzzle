@@ -829,6 +829,7 @@ impl GameStateTrait for GameState {
 		let mut apple_list = self.apple_list.clone();
 		if !eaten_apple_index_list.is_empty() {
 			eaten_apple_index_list.sort_unstable();
+			eaten_apple_index_list.dedup();
 			for i in eaten_apple_index_list.into_iter().rev() {
 				apple_list.remove(i);
 			}
