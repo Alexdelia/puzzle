@@ -296,10 +296,14 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 
 	fn search(&mut self) -> DecodedAction {
 		let start = Instant::now();
+		let mut iteration_count = 0;
 		while start.elapsed() < MAX_TURN_DURATION {
 			self.iterate();
+			iteration_count += 1;
 		}
-		eprintln!("search took: {:?}", start.elapsed());
+
+		let elapsed = start.elapsed();
+		eprintln!("search took: {elapsed:?}\niteration count: {iteration_count}");
 
 		self.my_best_action()
 	}
