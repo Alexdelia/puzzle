@@ -870,10 +870,25 @@ impl GameStateTrait for GameState {
 
 		let raw_score = my_raw_score as f32 - foe_raw_score as f32;
 
-		// TODO: better score if closer to apple
+		let my_avg_distance_to_apple = if self.my_snakebot_list.is_empty() {
+			0.0
+		} else {
+			self.my_snakebot_list
+				.iter()
+				.map(|snakebot| {
+					let head = snakebot.body[0];
 
-		#[allow(clippy::let_and_return)]
-		raw_score
+					self.apple_list
+						.iter()
+						.map(|&apple| manhattan_distance(head, apple) as u16)
+						.min()
+						.unwrap_or(0)
+				})
+				.sum::<u16>() as f32
+				/ self.my_snakebot_list.len() as f32
+		};
+
+		raw_score - my_avg_distance_to_apple * 0.1
 	}
 
 	fn is_terminal(&self) -> bool {
@@ -894,6 +909,10 @@ impl GameStateTrait for GameState {
 			0.0
 		}
 	}
+}
+
+fn manhattan_distance(a: Coord, b: Coord) -> u8 {
+	a.0.abs_diff(b.0) + a.1.abs_diff(b.1)
 }
 
 fn print_action(list: &[(SnakebotId, SnakebotAction, Dir)]) {
