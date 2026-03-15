@@ -10,6 +10,9 @@ use rand::{Rng, rngs::ThreadRng};
 // TODO: must remove initially stuck snakebot before monte-carlo tree search
 
 const MAX_TURN_DURATION: Duration = Duration::from_millis(80);
+const MAX_TURN_COUNT: Turn = 200;
+
+type Turn = u8;
 
 type SnakebotId = u8;
 
@@ -39,6 +42,7 @@ type VisitCount = u32;
 type HeuristicReward = f32;
 
 struct Env {
+	turn: Turn,
 	g: BlockGrid,
 
 	#[allow(dead_code)]
@@ -93,6 +97,7 @@ impl Env {
 
 		Env {
 			g,
+			turn: 0,
 
 			my_id,
 			my_snakebot_id_list,
@@ -200,7 +205,9 @@ impl BlockGrid {
 	}
 }
 
-struct Mcts<S: GameState> {
+struct Mcts<'e, S: GameStateTrait> {
+	env: &'e Env,
+
 	node_list: Vec<MctsNode<S>>,
 
 	root: NodeIndex,
@@ -209,7 +216,7 @@ struct Mcts<S: GameState> {
 }
 
 /// MCTS => Monte Carlo Tree Search
-struct MctsNode<S: GameState> {
+struct MctsNode<S: GameStateTrait> {
 	state: S,
 
 	node_visit_count: VisitCount,
@@ -307,7 +314,7 @@ fn find_snakebot_action(
 /// The Mcts solver.
 
 /// Trait that a game must implement to be used with Mcts.
-trait GameState: Clone {
+trait GameStateTrait: Clone {
 	fn my_action_count(&self) -> PlayerActionCount;
 	fn foe_action_count(&self) -> PlayerActionCount;
 
@@ -328,13 +335,15 @@ trait GameState: Clone {
 	fn terminal_value(&self) -> HeuristicReward;
 }
 
-impl<S: GameState> Mcts<S> {
+impl<'e, S: GameStateTrait> Mcts<'e, S> {
 	const EXPLORATION_CONSTANT: f32 = 1.4;
 
-	fn new(initial_state: S) -> Self {
+	fn new(env: &'e Env, initial_state: S) -> Self {
 		let root = MctsNode::new(initial_state);
 
 		Mcts {
+			env,
+
 			node_list: vec![root],
 			root: 0,
 
@@ -492,7 +501,7 @@ impl<S: GameState> Mcts<S> {
 	}
 }
 
-impl<S: GameState> MctsNode<S> {
+impl<S: GameStateTrait> MctsNode<S> {
 	fn new(state: S) -> Self {
 		let my_action_count = state.my_action_count();
 		let foe_action_count = state.foe_action_count();
@@ -507,6 +516,10 @@ impl<S: GameState> MctsNode<S> {
 			children: HashMap::new(),
 		}
 	}
+}
+
+struct GameState {
+	turn: Turn,
 }
 
 fn main() {
@@ -568,5 +581,6 @@ fn main() {
 			.join(";");
 
 		println!("{action_list}");
+		env.turn += 1;
 	}
 }
