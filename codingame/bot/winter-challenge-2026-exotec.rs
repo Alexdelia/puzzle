@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	fmt::Display,
 	io,
 	time::{Duration, Instant},
@@ -567,23 +567,8 @@ impl GameState {
 	}
 }
 
-macro_rules! remove_index_set_from_iterator {
-	($index_set:expr, $iterator:expr) => {{
-		$iterator
-			.enumerate()
-			.filter_map(|(i, item)| {
-				if $index_set.contains(&i) {
-					None
-				} else {
-					Some(item.to_owned())
-				}
-			})
-			.collect::<Vec<_>>()
-	}};
-}
-
 macro_rules! move_and_eat {
-	($apple_list:expr, $eaten_apple_index_set:expr, $snakebot_list:expr, $action_list:expr) => {{
+	($apple_list:expr, $eaten_apple_index_list:expr, $snakebot_list:expr, $action_list:expr) => {{
 		for (snakebot, action) in $snakebot_list.iter_mut().zip($action_list.into_iter()) {
 			let new_dir = match action {
 				STRAIGHT => snakebot.facing_dir,
@@ -604,7 +589,7 @@ macro_rules! move_and_eat {
 			snakebot.facing_dir = new_dir;
 
 			if let Some(apple_index) = $apple_list.iter().position(|&apple| apple == new_head) {
-				$eaten_apple_index_set.insert(apple_index);
+				$eaten_apple_index_list.push(apple_index);
 			} else {
 				snakebot.body.pop();
 			}
@@ -613,24 +598,24 @@ macro_rules! move_and_eat {
 }
 
 macro_rules! pop_from_collision {
-	($dead_snakebot_index_set:expr, $dead_head_index_set:expr, $snakebot:expr, $index:expr) => {{
+	($dead_snakebot_index_list:expr, $dead_head_index_list:expr, $snakebot:expr, $index:expr) => {{
 		if $snakebot.body.len() <= MIN_SNAKEBOT_LEN {
-			$dead_snakebot_index_set.insert($index);
+			$dead_snakebot_index_list.push($index);
 		} else {
-			$dead_head_index_set.insert($index);
+			$dead_head_index_list.push($index);
 		}
 	}};
 }
 
 macro_rules! apply_collision {
-	($snakebot_list:expr, $dead_snakebot_index_set:expr, $dead_head_index_set:expr, $grid:expr, $other_snakebot_list:expr) => {{
+	($snakebot_list:expr, $dead_snakebot_index_list:expr, $dead_head_index_list:expr, $grid:expr, $other_snakebot_list:expr) => {{
 		for (index, snakebot) in $snakebot_list.iter().enumerate() {
 			let (head_x, head_y) = snakebot.body[0];
 
 			if $grid.is_block(head_x, head_y) {
 				pop_from_collision!(
-					$dead_snakebot_index_set,
-					$dead_head_index_set,
+					$dead_snakebot_index_list,
+					$dead_head_index_list,
 					snakebot,
 					index
 				);
@@ -640,8 +625,8 @@ macro_rules! apply_collision {
 			for other_snakebot in $other_snakebot_list.iter() {
 				if other_snakebot.body.contains(&(head_x, head_y)) {
 					pop_from_collision!(
-						$dead_snakebot_index_set,
-						$dead_head_index_set,
+						$dead_snakebot_index_list,
+						$dead_head_index_list,
 						snakebot,
 						index
 					);
@@ -653,8 +638,8 @@ macro_rules! apply_collision {
 				if ally_index == index {
 					if ally_snakebot.body[1..].contains(&(head_x, head_y)) {
 						pop_from_collision!(
-							$dead_snakebot_index_set,
-							$dead_head_index_set,
+							$dead_snakebot_index_list,
+							$dead_head_index_list,
 							snakebot,
 							index
 						);
@@ -662,8 +647,8 @@ macro_rules! apply_collision {
 					}
 				} else if ally_snakebot.body.contains(&(head_x, head_y)) {
 					pop_from_collision!(
-						$dead_snakebot_index_set,
-						$dead_head_index_set,
+						$dead_snakebot_index_list,
+						$dead_head_index_list,
 						snakebot,
 						index
 					);
@@ -786,20 +771,17 @@ macro_rules! apply_gravity {
 			remaining_fall_distance -= 1;
 		}
 
-		let dead_snakebot_index_set = snakebot_fall_flag_list
-			.iter()
-			.enumerate()
-			.filter_map(|(i, flag)| if *flag { Some(i) } else { None })
-			.collect::<HashSet<_>>();
-		if !dead_snakebot_index_set.is_empty() {
-			$my_snakebot_list = remove_index_set_from_iterator!(
-				dead_snakebot_index_set,
-				$my_snakebot_list.into_iter()
-			);
-			$foe_snake_bot_list = remove_index_set_from_iterator!(
-				dead_snakebot_index_set,
-				$foe_snake_bot_list.into_iter()
-			);
+		let my_snakebot_count = $my_snakebot_list.len();
+		for index in 0..snakebot_fall_flag_list.len() {
+			if !snakebot_fall_flag_list[index] {
+				continue;
+			}
+
+			if index < $my_snakebot_list.len() {
+				$my_snakebot_list.remove(index);
+			} else {
+				$foe_snake_bot_list.remove(index - my_snakebot_count);
+			}
 		}
 	}};
 }
@@ -828,60 +810,70 @@ impl GameStateTrait for GameState {
 		let my_decoded_action = self.decode_action(my_action);
 		let foe_decoded_action = self.decode_action(foe_action);
 
-		let mut eaten_apple_index_set = HashSet::<usize>::new();
+		// TODO: try to set as global
+		let mut eaten_apple_index_list = Vec::<usize>::new();
 
 		move_and_eat!(
 			self.apple_list,
-			eaten_apple_index_set,
+			eaten_apple_index_list,
 			my_snakebot_list,
 			my_decoded_action
 		);
 		move_and_eat!(
 			self.apple_list,
-			eaten_apple_index_set,
+			eaten_apple_index_list,
 			foe_snakebot_list,
 			foe_decoded_action
 		);
 
-		let apple_list: AppleList =
-			remove_index_set_from_iterator!(eaten_apple_index_set, self.apple_list.iter());
+		let mut apple_list = self.apple_list.clone();
+		if !eaten_apple_index_list.is_empty() {
+			eaten_apple_index_list.sort_unstable();
+			for i in eaten_apple_index_list.into_iter().rev() {
+				apple_list.remove(i);
+			}
+		}
 
-		let mut my_dead_snakebot_index_set = HashSet::<usize>::new();
-		let mut foe_dead_snakebot_index_set = HashSet::<usize>::new();
-		let mut my_snakebot_dead_head_set = HashSet::<usize>::new();
-		let mut foe_snakebot_dead_head_set = HashSet::<usize>::new();
+		let mut my_dead_snakebot_index_list = Vec::<usize>::new();
+		let mut foe_dead_snakebot_index_list = Vec::<usize>::new();
+		let mut my_snakebot_dead_head_list = Vec::<usize>::new();
+		let mut foe_snakebot_dead_head_list = Vec::<usize>::new();
 
 		apply_collision!(
 			my_snakebot_list,
-			my_dead_snakebot_index_set,
-			my_snakebot_dead_head_set,
+			my_dead_snakebot_index_list,
+			my_snakebot_dead_head_list,
 			env.g,
 			foe_snakebot_list
 		);
 		apply_collision!(
 			foe_snakebot_list,
-			foe_dead_snakebot_index_set,
-			foe_snakebot_dead_head_set,
+			foe_dead_snakebot_index_list,
+			foe_snakebot_dead_head_list,
 			env.g,
 			my_snakebot_list
 		);
 
-		let mut my_snakebot_list: Vec<Snakebot> = remove_index_set_from_iterator!(
-			my_dead_snakebot_index_set,
-			my_snakebot_list.into_iter()
-		);
-		let mut foe_snakebot_list: Vec<Snakebot> = remove_index_set_from_iterator!(
-			foe_dead_snakebot_index_set,
-			foe_snakebot_list.into_iter()
-		);
-		for (index, snakebot) in my_snakebot_list.iter_mut().enumerate() {
-			if my_snakebot_dead_head_set.contains(&index) {
-				snakebot.body.remove(0);
+		if !my_snakebot_dead_head_list.is_empty() {
+			for i in my_snakebot_dead_head_list.into_iter() {
+				my_snakebot_list[i].body.remove(0);
 			}
 		}
-		for (index, snakebot) in foe_snakebot_list.iter_mut().enumerate() {
-			if foe_snakebot_dead_head_set.contains(&index) {
-				snakebot.body.remove(0);
+		if !foe_snakebot_dead_head_list.is_empty() {
+			for i in foe_snakebot_dead_head_list.into_iter() {
+				foe_snakebot_list[i].body.remove(0);
+			}
+		}
+		if !my_dead_snakebot_index_list.is_empty() {
+			my_dead_snakebot_index_list.sort_unstable();
+			for i in my_dead_snakebot_index_list.into_iter().rev() {
+				my_snakebot_list.remove(i);
+			}
+		}
+		if !foe_dead_snakebot_index_list.is_empty() {
+			foe_dead_snakebot_index_list.sort_unstable();
+			for i in foe_dead_snakebot_index_list.into_iter().rev() {
+				foe_snakebot_list.remove(i);
 			}
 		}
 
