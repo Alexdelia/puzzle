@@ -656,7 +656,18 @@ macro_rules! apply_collision {
 
 macro_rules! apply_gravity {
 	($my_snakebot_list:expr, $foe_snake_bot_list:expr, $grid:expr, $apple_list:expr) => {{
-		let mut extra_solid_block_set = HashSet::<Coord>::from_iter($apple_list.iter().cloned());
+		let mut extra_solid_block_list = Vec::<Coord>::with_capacity(
+			($my_snakebot_list
+				.iter()
+				.map(|s| s.body.len())
+				.sum::<usize>())
+				+ ($foe_snake_bot_list
+					.iter()
+					.map(|s| s.body.len())
+					.sum::<usize>())
+				+ $apple_list.len(),
+		);
+
 		let mut snakebot_fall_flag_list =
 			vec![true; $my_snakebot_list.len() + $foe_snake_bot_list.len()];
 
@@ -672,14 +683,15 @@ macro_rules! apply_gravity {
 					if $grid.is_block(
 						$my_snakebot_list[snakebot_index].body[body_part_index].0,
 						$my_snakebot_list[snakebot_index].body[body_part_index].1,
-					) || extra_solid_block_set
+					) || extra_solid_block_list
 						.contains(&$my_snakebot_list[snakebot_index].body[body_part_index])
 					{
 						for i in 0..=body_part_index {
 							$my_snakebot_list[snakebot_index].body[i].1 -= 1;
 						}
 
-						extra_solid_block_set.extend($my_snakebot_list[snakebot_index].body.iter());
+						extra_solid_block_list
+							.extend($my_snakebot_list[snakebot_index].body.iter());
 
 						snakebot_fall_flag_list[snakebot_index] = false;
 
@@ -709,14 +721,14 @@ macro_rules! apply_gravity {
 					if $grid.is_block(
 						$foe_snake_bot_list[snakebot_index].body[body_part_index].0,
 						$foe_snake_bot_list[snakebot_index].body[body_part_index].1,
-					) || extra_solid_block_set
+					) || extra_solid_block_list
 						.contains(&$foe_snake_bot_list[snakebot_index].body[body_part_index])
 					{
 						for i in 0..=body_part_index {
 							$foe_snake_bot_list[snakebot_index].body[i].1 -= 1;
 						}
 
-						extra_solid_block_set
+						extra_solid_block_list
 							.extend($foe_snake_bot_list[snakebot_index].body.iter());
 
 						snakebot_fall_flag_list[$my_snakebot_list.len() + snakebot_index] = false;
