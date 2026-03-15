@@ -1,5 +1,5 @@
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	fmt::Display,
 	io,
 	time::{Duration, Instant},
@@ -11,6 +11,7 @@ use rand::{Rng, rngs::ThreadRng};
 
 const MAX_TURN_DURATION: Duration = Duration::from_millis(80);
 const MAX_TURN_COUNT: Turn = 200;
+const MIN_SNAKEBOT_LEN: usize = 3;
 
 type Turn = u8;
 
@@ -251,6 +252,7 @@ trait GameStateTrait: Clone {
 
 	fn apply(
 		&self,
+		env: &Env,
 		my_action: PlayerActionReprAsIndex,
 		foe_action: PlayerActionReprAsIndex,
 	) -> Self;
@@ -325,7 +327,7 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 			}
 
 			// --- Expansion ---
-			let new_state = node.state.apply(my_action, foe_action);
+			let new_state = node.state.apply(self.env, my_action, foe_action);
 
 			let new_node = MctsNode::new(new_state);
 
@@ -538,6 +540,113 @@ impl GameState {
 	}
 }
 
+macro_rules! remove_index_set_from_iterator {
+	($index_set:expr, $iterator:expr) => {{
+		$iterator
+			.enumerate()
+			.filter_map(|(i, item)| {
+				if $index_set.contains(&i) {
+					None
+				} else {
+					Some(item.to_owned())
+				}
+			})
+			.collect::<Vec<_>>()
+	}};
+}
+
+macro_rules! move_and_eat {
+	($apple_list:expr, $eaten_apple_index_set:expr, $snakebot_list:expr, $action_list:expr) => {{
+		for (snakebot, action) in $snakebot_list.iter_mut().zip($action_list.into_iter()) {
+			let new_dir = match action {
+				STRAIGHT => snakebot.facing_dir,
+				LEFT => snakebot.facing_dir.turn_left(),
+				RIGHT => snakebot.facing_dir.turn_right(),
+				_ => unreachable!(),
+			};
+
+			let (head_x, head_y) = snakebot.body[0];
+			let new_head = match new_dir {
+				Dir::U => (head_x, head_y - 1),
+				Dir::R => (head_x + 1, head_y),
+				Dir::D => (head_x, head_y + 1),
+				Dir::L => (head_x - 1, head_y),
+			};
+
+			snakebot.body.insert(0, new_head);
+			snakebot.facing_dir = new_dir;
+
+			if let Some(apple_index) = $apple_list.iter().position(|&apple| apple == new_head) {
+				$eaten_apple_index_set.insert(apple_index);
+			} else {
+				snakebot.body.pop();
+			}
+		}
+	}};
+}
+
+macro_rules! pop_from_collision {
+	($dead_snakebot_index_set:expr, $dead_head_index_set:expr, $snakebot:expr, $index:expr) => {{
+		if $snakebot.body.len() <= MIN_SNAKEBOT_LEN {
+			$dead_snakebot_index_set.insert($index);
+		} else {
+			$dead_head_index_set.insert($index);
+		}
+	}};
+}
+
+macro_rules! apply_collision {
+	($snakebot_list:expr, $dead_snakebot_index_set:expr, $dead_head_index_set:expr, $grid:expr, $other_snakebot_list:expr) => {{
+		for (index, snakebot) in $snakebot_list.iter().enumerate() {
+			let (head_x, head_y) = snakebot.body[0];
+
+			if $grid.is_block(head_x, head_y) {
+				pop_from_collision!(
+					$dead_snakebot_index_set,
+					$dead_head_index_set,
+					snakebot,
+					index
+				);
+				continue;
+			}
+
+			for other_snakebot in $other_snakebot_list.iter() {
+				if other_snakebot.body.contains(&(head_x, head_y)) {
+					pop_from_collision!(
+						$dead_snakebot_index_set,
+						$dead_head_index_set,
+						snakebot,
+						index
+					);
+					break;
+				}
+			}
+
+			for (ally_index, ally_snakebot) in $snakebot_list.iter().enumerate() {
+				if ally_index == index {
+					if ally_snakebot.body[1..].contains(&(head_x, head_y)) {
+						pop_from_collision!(
+							$dead_snakebot_index_set,
+							$dead_head_index_set,
+							snakebot,
+							index
+						);
+						break;
+					}
+				} else if ally_snakebot.body.contains(&(head_x, head_y)) {
+					pop_from_collision!(
+						$dead_snakebot_index_set,
+						$dead_head_index_set,
+						snakebot,
+						index
+					);
+					break;
+				}
+			}
+		}
+	}};
+}
+
 impl GameStateTrait for GameState {
 	fn my_alive_agent_count(&self) -> usize {
 		self.my_snakebot_list.len()
@@ -552,10 +661,81 @@ impl GameStateTrait for GameState {
 
 	fn apply(
 		&self,
+		env: &Env,
 		my_action: PlayerActionReprAsIndex,
 		foe_action: PlayerActionReprAsIndex,
 	) -> Self {
-		todo!()
+		let mut my_snakebot_list = self.my_snakebot_list.clone();
+		let mut foe_snakebot_list = self.foe_snakebot_list.clone();
+
+		let my_decoded_action = self.decode_action(my_action);
+		let foe_decoded_action = self.decode_action(foe_action);
+
+		let mut eaten_apple_index_set = HashSet::<usize>::new();
+
+		move_and_eat!(
+			self.apple_list,
+			eaten_apple_index_set,
+			my_snakebot_list,
+			my_decoded_action
+		);
+		move_and_eat!(
+			self.apple_list,
+			eaten_apple_index_set,
+			foe_snakebot_list,
+			foe_decoded_action
+		);
+
+		let apple_list: AppleList =
+			remove_index_set_from_iterator!(eaten_apple_index_set, self.apple_list.iter());
+
+		let mut my_dead_snakebot_index_set = HashSet::<usize>::new();
+		let mut foe_dead_snakebot_index_set = HashSet::<usize>::new();
+		let mut my_snakebot_dead_head_set = HashSet::<usize>::new();
+		let mut foe_snakebot_dead_head_set = HashSet::<usize>::new();
+
+		apply_collision!(
+			my_snakebot_list,
+			my_dead_snakebot_index_set,
+			my_snakebot_dead_head_set,
+			env.g,
+			foe_snakebot_list
+		);
+		apply_collision!(
+			foe_snakebot_list,
+			foe_dead_snakebot_index_set,
+			foe_snakebot_dead_head_set,
+			env.g,
+			my_snakebot_list
+		);
+
+		let mut my_snakebot_list: Vec<Snakebot> = remove_index_set_from_iterator!(
+			my_dead_snakebot_index_set,
+			my_snakebot_list.into_iter()
+		);
+		let mut foe_snakebot_list: Vec<Snakebot> = remove_index_set_from_iterator!(
+			foe_dead_snakebot_index_set,
+			foe_snakebot_list.into_iter()
+		);
+		for (index, snakebot) in my_snakebot_list.iter_mut().enumerate() {
+			if my_snakebot_dead_head_set.contains(&index) {
+				snakebot.body.remove(0);
+			}
+		}
+		for (index, snakebot) in foe_snakebot_list.iter_mut().enumerate() {
+			if foe_snakebot_dead_head_set.contains(&index) {
+				snakebot.body.remove(0);
+			}
+		}
+
+		// apply gravity
+
+		GameState {
+			turn: self.turn + 1,
+			my_snakebot_list,
+			foe_snakebot_list,
+			apple_list,
+		}
 	}
 
 	fn evaluate(&self) -> HeuristicReward {
