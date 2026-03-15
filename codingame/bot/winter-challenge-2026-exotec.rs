@@ -650,6 +650,109 @@ macro_rules! apply_collision {
 	}};
 }
 
+macro_rules! apply_gravity {
+	($my_snakebot_list:expr, $foe_snake_bot_list:expr, $grid:expr, $apple_list:expr) => {{
+		let mut extra_solid_block_set = HashSet::<Coord>::from_iter($apple_list.iter().cloned());
+		let mut snakebot_fall_flag_list =
+			vec![true; $my_snakebot_list.len() + $foe_snake_bot_list.len()];
+
+		let mut remaining_fall_distance = $grid.h;
+		while snakebot_fall_flag_list.iter().any(|flag| *flag) && remaining_fall_distance > 0 {
+			for snakebot_index in 0..$my_snakebot_list.len() {
+				if !snakebot_fall_flag_list[snakebot_index] {
+					continue;
+				}
+
+				for body_part_index in 0..$my_snakebot_list[snakebot_index].body.len() {
+					$my_snakebot_list[snakebot_index].body[body_part_index].1 += 1;
+					if $grid.is_block(
+						$my_snakebot_list[snakebot_index].body[body_part_index].0,
+						$my_snakebot_list[snakebot_index].body[body_part_index].1,
+					) || extra_solid_block_set
+						.contains(&$my_snakebot_list[snakebot_index].body[body_part_index])
+					{
+						for i in 0..=body_part_index {
+							$my_snakebot_list[snakebot_index].body[i].1 -= 1;
+						}
+
+						extra_solid_block_set.extend($my_snakebot_list[snakebot_index].body.iter());
+
+						snakebot_fall_flag_list[snakebot_index] = false;
+
+						for previous_snakebot_index in 0..snakebot_index {
+							if !snakebot_fall_flag_list[previous_snakebot_index] {
+								continue;
+							}
+
+							for body_part_index in
+								0..$my_snakebot_list[previous_snakebot_index].body.len()
+							{
+								$my_snakebot_list[previous_snakebot_index].body[body_part_index]
+									.1 -= 1;
+							}
+						}
+					}
+				}
+			}
+
+			for snakebot_index in 0..$foe_snake_bot_list.len() {
+				if !snakebot_fall_flag_list[$my_snakebot_list.len() + snakebot_index] {
+					continue;
+				}
+
+				for body_part_index in 0..$foe_snake_bot_list[snakebot_index].body.len() {
+					$foe_snake_bot_list[snakebot_index].body[body_part_index].1 += 1;
+					if $grid.is_block(
+						$foe_snake_bot_list[snakebot_index].body[body_part_index].0,
+						$foe_snake_bot_list[snakebot_index].body[body_part_index].1,
+					) || extra_solid_block_set
+						.contains(&$foe_snake_bot_list[snakebot_index].body[body_part_index])
+					{
+						for i in 0..=body_part_index {
+							$foe_snake_bot_list[snakebot_index].body[i].1 -= 1;
+						}
+
+						extra_solid_block_set
+							.extend($foe_snake_bot_list[snakebot_index].body.iter());
+
+						snakebot_fall_flag_list[$my_snakebot_list.len() + snakebot_index] = false;
+
+						for previous_snakebot_index in 0..snakebot_index {
+							if !snakebot_fall_flag_list
+								[$my_snakebot_list.len() + previous_snakebot_index]
+							{
+								continue;
+							}
+
+							for body_part_index in
+								0..$foe_snake_bot_list[previous_snakebot_index].body.len()
+							{
+								$foe_snake_bot_list[previous_snakebot_index].body
+									[body_part_index]
+									.1 -= 1;
+							}
+						}
+
+						for my_snakebot_index in 0..$my_snakebot_list.len() {
+							if !snakebot_fall_flag_list[my_snakebot_index] {
+								continue;
+							}
+
+							for body_part_index in
+								0..$my_snakebot_list[my_snakebot_index].body.len()
+							{
+								$my_snakebot_list[my_snakebot_index].body[body_part_index].1 -= 1;
+							}
+						}
+					}
+				}
+			}
+
+			remaining_fall_distance -= 1;
+		}
+	}};
+}
+
 impl GameStateTrait for GameState {
 	fn my_alive_agent_count(&self) -> usize {
 		self.my_snakebot_list.len()
@@ -731,7 +834,7 @@ impl GameStateTrait for GameState {
 			}
 		}
 
-		// apply gravity
+		apply_gravity!(my_snakebot_list, foe_snakebot_list, env.g, apple_list);
 
 		GameState {
 			turn: self.turn + 1,
