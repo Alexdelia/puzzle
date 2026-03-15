@@ -1,5 +1,4 @@
 use std::{
-	collections::HashMap,
 	fmt::Display,
 	io,
 	time::{Duration, Instant},
@@ -27,7 +26,7 @@ type Coord = (Axis, Axis);
 /// this gives a unique incrementing index representing the permutation of actions for all agents
 /// max 4 snakebot per player, and 3^4 = 81 (so < u8::MAX = 255)
 type PlayerActionReprAsIndex = u8;
-type BothPlayerAction = (PlayerActionReprAsIndex, PlayerActionReprAsIndex);
+// type BothPlayerAction = (PlayerActionReprAsIndex, PlayerActionReprAsIndex);
 
 type SnakebotAction = u8;
 const STRAIGHT: SnakebotAction = 0;
@@ -255,8 +254,7 @@ struct MctsNode<S: GameStateTrait> {
 	/// must be indexable by PlayerActionReprAsIndex
 	my_ucb_list: Vec<UcbActionStats>,
 	foe_ucb_list: Vec<UcbActionStats>,
-
-	children: HashMap<BothPlayerAction, NodeIndex>,
+	// children: HashMap<BothPlayerAction, NodeIndex>,
 }
 
 /// UCB => Upper Confidence Bound
@@ -346,11 +344,13 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 			let my_action = Self::ucb1_action(&node.my_ucb_list, node.node_visit_count);
 			let foe_action = Self::ucb1_action(&node.foe_ucb_list, node.node_visit_count);
 
+			/*
 			if let Some(&child_node_index) = node.children.get(&(my_action, foe_action)) {
 				path.push((node_index, my_action, foe_action));
 				node_index = child_node_index;
 				continue;
 			}
+			*/
 
 			// --- Expansion ---
 			let new_state = node.state.apply(self.env, my_action, foe_action);
@@ -360,9 +360,11 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 			let new_node_index = self.node_list.len();
 
 			self.node_list.push(new_node);
+			/*
 			self.node_list[node_index]
 				.children
 				.insert((my_action, foe_action), new_node_index);
+			*/
 			path.push((node_index, my_action, foe_action));
 
 			node_index = new_node_index;
@@ -453,8 +455,7 @@ impl<S: GameStateTrait> MctsNode<S> {
 			node_visit_count: 0,
 			my_ucb_list: vec![UcbActionStats::default(); my_action_count],
 			foe_ucb_list: vec![UcbActionStats::default(); foe_action_count],
-
-			children: HashMap::new(),
+			// children: HashMap::new(),
 		}
 	}
 }
@@ -463,6 +464,7 @@ impl<S: GameStateTrait> MctsNode<S> {
 struct GameState {
 	turn: Turn,
 
+	// TODO: store as [Snakebot; MAX_SNAKEBOT_PER_PLAYER]
 	my_snakebot_list: Vec<Snakebot>,
 	foe_snakebot_list: Vec<Snakebot>,
 
@@ -653,6 +655,7 @@ fn apply_collision(
 	}
 }
 
+// TODO: refactor
 fn apply_gravity(
 	my_snakebot_list: &mut Vec<Snakebot>,
 	foe_snake_bot_list: &mut Vec<Snakebot>,
