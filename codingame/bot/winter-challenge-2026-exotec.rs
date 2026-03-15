@@ -56,6 +56,7 @@ struct Env {
 	foe_snakebot_id_list: Vec<SnakebotId>,
 }
 
+#[derive(Clone)]
 struct BlockGrid {
 	w: Axis,
 	h: Axis,
@@ -179,6 +180,13 @@ impl Env {
 }
 
 impl BlockGrid {
+	#[inline]
+	fn index(x: Axis, y: Axis, w: Axis) -> (usize, usize) {
+		let index = (y as usize * w as usize + x as usize) / 64;
+		let bit = (y as usize * w as usize + x as usize) % 64;
+		(index, bit)
+	}
+
 	fn read() -> Self {
 		let mut s = String::new();
 
@@ -189,30 +197,46 @@ impl BlockGrid {
 		io::stdin().read_line(&mut s).unwrap();
 		let h = parse_input!(s, Axis);
 
-		let mut d = vec![0; (w as usize * h as usize).div_ceil(64)];
+		let d = vec![0; (w as usize * h as usize).div_ceil(64)];
+
+		let mut g = BlockGrid { w, h, d };
+
 		for y in 0..h {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
 			for (x, c) in s.trim_matches('\n').chars().enumerate() {
 				if c == '#' {
-					let index = (y as usize * w as usize + x) / 64;
-					let bit = (y as usize * w as usize + x) % 64;
-					d[index] |= 1 << bit;
+					g.set(x as Axis, y);
 				}
 			}
 		}
 
-		BlockGrid { w, h, d }
+		g
 	}
 
+	#[inline]
 	fn is_block(&self, x: Axis, y: Axis) -> bool {
 		if x < 0 || y < 0 || x >= self.w || y >= self.h {
 			return false;
 		}
 
-		let index = (y as usize * self.w as usize + x as usize) / 64;
-		let bit = (y as usize * self.w as usize + x as usize) % 64;
+		let (index, bit) = Self::index(x, y, self.w);
 		(self.d[index] & (1 << bit)) != 0
+	}
+
+	#[inline]
+	fn safe_set(&mut self, x: Axis, y: Axis) {
+		if x < 0 || y < 0 || x >= self.w || y >= self.h {
+			return;
+		}
+
+		self.set(x, y);
+	}
+
+	#[inline]
+	fn set(&mut self, x: Axis, y: Axis) {
+		let (index, bit) = Self::index(x, y, self.w);
+		self.d[index] |= 1 << bit;
 	}
 }
 
@@ -656,17 +680,10 @@ macro_rules! apply_collision {
 
 macro_rules! apply_gravity {
 	($my_snakebot_list:expr, $foe_snake_bot_list:expr, $grid:expr, $apple_list:expr) => {{
-		let mut extra_solid_block_list = Vec::<Coord>::with_capacity(
-			($my_snakebot_list
-				.iter()
-				.map(|s| s.body.len())
-				.sum::<usize>())
-				+ ($foe_snake_bot_list
-					.iter()
-					.map(|s| s.body.len())
-					.sum::<usize>())
-				+ $apple_list.len(),
-		);
+		let mut extra_block = $grid.clone();
+		for apple in $apple_list.iter() {
+			extra_block.set(apple.0, apple.1);
+		}
 
 		let mut snakebot_fall_flag_list =
 			vec![true; $my_snakebot_list.len() + $foe_snake_bot_list.len()];
@@ -683,15 +700,18 @@ macro_rules! apply_gravity {
 					if $grid.is_block(
 						$my_snakebot_list[snakebot_index].body[body_part_index].0,
 						$my_snakebot_list[snakebot_index].body[body_part_index].1,
-					) || extra_solid_block_list
-						.contains(&$my_snakebot_list[snakebot_index].body[body_part_index])
-					{
+					) || extra_block.is_block(
+						$my_snakebot_list[snakebot_index].body[body_part_index].0,
+						$my_snakebot_list[snakebot_index].body[body_part_index].1,
+					) {
 						for i in 0..=body_part_index {
 							$my_snakebot_list[snakebot_index].body[i].1 -= 1;
 						}
 
-						extra_solid_block_list
-							.extend($my_snakebot_list[snakebot_index].body.iter());
+						extra_block.safe_set(
+							$my_snakebot_list[snakebot_index].body[body_part_index].0,
+							$my_snakebot_list[snakebot_index].body[body_part_index].1,
+						);
 
 						snakebot_fall_flag_list[snakebot_index] = false;
 
@@ -721,15 +741,18 @@ macro_rules! apply_gravity {
 					if $grid.is_block(
 						$foe_snake_bot_list[snakebot_index].body[body_part_index].0,
 						$foe_snake_bot_list[snakebot_index].body[body_part_index].1,
-					) || extra_solid_block_list
-						.contains(&$foe_snake_bot_list[snakebot_index].body[body_part_index])
-					{
+					) || extra_block.is_block(
+						$foe_snake_bot_list[snakebot_index].body[body_part_index].0,
+						$foe_snake_bot_list[snakebot_index].body[body_part_index].1,
+					) {
 						for i in 0..=body_part_index {
 							$foe_snake_bot_list[snakebot_index].body[i].1 -= 1;
 						}
 
-						extra_solid_block_list
-							.extend($foe_snake_bot_list[snakebot_index].body.iter());
+						extra_block.safe_set(
+							$foe_snake_bot_list[snakebot_index].body[body_part_index].0,
+							$foe_snake_bot_list[snakebot_index].body[body_part_index].1,
+						);
 
 						snakebot_fall_flag_list[$my_snakebot_list.len() + snakebot_index] = false;
 
