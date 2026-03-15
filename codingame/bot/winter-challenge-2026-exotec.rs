@@ -754,6 +754,22 @@ macro_rules! apply_gravity {
 
 			remaining_fall_distance -= 1;
 		}
+
+		let dead_snakebot_index_set = snakebot_fall_flag_list
+			.iter()
+			.enumerate()
+			.filter_map(|(i, flag)| if *flag { Some(i) } else { None })
+			.collect::<HashSet<_>>();
+		if !dead_snakebot_index_set.is_empty() {
+			$my_snakebot_list = remove_index_set_from_iterator!(
+				dead_snakebot_index_set,
+				$my_snakebot_list.into_iter()
+			);
+			$foe_snake_bot_list = remove_index_set_from_iterator!(
+				dead_snakebot_index_set,
+				$foe_snake_bot_list.into_iter()
+			);
+		}
 	}};
 }
 
