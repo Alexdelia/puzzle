@@ -313,8 +313,10 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 				return;
 			}
 
-			let my_action = self.ucb1_action(&node.my_ucb_list, node.node_visit_count);
-			let foe_action = self.ucb1_action(&node.foe_ucb_list, node.node_visit_count);
+			let my_action =
+				Self::ucb1_action(&mut self.rng, &node.my_ucb_list, node.node_visit_count);
+			let foe_action =
+				Self::ucb1_action(&mut self.rng, &node.foe_ucb_list, node.node_visit_count);
 
 			if let Some(&child_node_index) = node.children.get(&(my_action, foe_action)) {
 				path.push((node_index, my_action, foe_action));
@@ -352,7 +354,7 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 	}
 
 	fn ucb1_action(
-		&mut self,
+		rng: &mut ThreadRng,
 		player_ucb_list: &[UcbActionStats],
 		parent_visit_count: VisitCount,
 	) -> PlayerActionReprAsIndex {
@@ -380,10 +382,9 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 		}
 		if best_action_list.is_empty() {
 			// fallback, should not happen
-			self.rng.random_range(0..player_ucb_list.len()) as PlayerActionReprAsIndex
+			rng.random_range(0..player_ucb_list.len()) as PlayerActionReprAsIndex
 		} else {
-			best_action_list[self.rng.random_range(0..best_action_list.len())]
-				as PlayerActionReprAsIndex
+			best_action_list[rng.random_range(0..best_action_list.len())] as PlayerActionReprAsIndex
 		}
 	}
 
