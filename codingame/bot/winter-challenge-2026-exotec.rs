@@ -1,65 +1,62 @@
 use std::{
-	collections::{HashSet, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	fmt::Display,
 	io,
-	time::{Duration, SystemTime},
+	time::{Duration, Instant, SystemTime},
 };
 
-// TODO: check if SystemTime is the best way to measure elapsed time
-// TODO: set other ally snakebot as block during bfs
-// TODO: try to kill opponent snakebot if no apple exist
+use rand::{Rng, rngs::ThreadRng};
+
+// TODO: must remove initially stuck snakebot before monte-carlo tree search
 
 const MAX_TURN_DURATION: Duration = Duration::from_millis(80);
 
-type Id = u8;
+type SnakebotId = u8;
+
+/// max 45w x 30h (=1350 tile)
+/// snakebot can go out of bounds, but we don't expect under -128 or above 127-45=82
+type Axis = i8;
+type Coord = (Axis, Axis);
+
+// TODO: check time optimization between u16 and usize
+/// each snakebot has 3 possible actions (straight, left, right)
+/// encode actions as base‑3 number over the alive agents in increasing order of agent index
+/// this gives a unique incrementing index representing the permutation of actions for all agents
+/// max 4 snakebot per player, and 3^4 = 81 (so < u8::MAX = 255)
+type PlayerActionReprAsIndex = u8;
+type BothPlayerAction = (PlayerActionReprAsIndex, PlayerActionReprAsIndex);
+
+const ACTION_REPR_STRAIGHT: PlayerActionReprAsIndex = 0;
+const ACTION_REPR_LEFT: PlayerActionReprAsIndex = 1;
+const ACTION_REPR_RIGHT: PlayerActionReprAsIndex = 2;
+
+/// technically fit in a u8, but always cast as a usize
+type PlayerActionCount = usize;
+
+type NodeIndex = usize;
+type VisitCount = u32;
+
+type HeuristicReward = f32;
 
 struct Env {
-	w: usize,
-	h: usize,
-	base_grid: Grid,
+	g: BlockGrid,
 
 	#[allow(dead_code)]
-	my_id: Id,
-	my_snakebot_id_list: Vec<Id>,
+	my_id: SnakebotId,
+	my_snakebot_id_list: Vec<SnakebotId>,
 	#[allow(dead_code)]
-	foe_snakebot_id_list: Vec<Id>,
+	foe_snakebot_id_list: Vec<SnakebotId>,
 }
 
-// NOTE: does not handle going out of bounds
-// TODO: try flat Vec<Tile> and index with y * w + x
-// TODO: try 1 bit per tile and bitwise operations
-type Grid = Vec<Vec<Tile>>;
-type Coord = (usize, usize);
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Tile {
-	Empty,
-	Block,
-	Apple,
+struct BlockGrid {
+	w: Axis,
+	h: Axis,
+	d: Vec<u64>,
 }
 
-struct Action {
-	snakebot_id: Id,
-	direction: Dir,
-}
-
-#[derive(Clone, Copy)]
-enum Dir {
-	U,
-	D,
-	L,
-	R,
-}
-
-impl Tile {
-	fn from_char(c: char) -> Self {
-		match c {
-			'.' => Tile::Empty,
-			'#' => Tile::Block,
-			_ => panic!("invalid tile character: {c}"),
-		}
-	}
-}
+// TODO: try HashSet<Coord>
+// TODO: try bitset like BlockGrid
+type AppleList = Vec<Coord>;
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
@@ -72,23 +69,9 @@ impl Env {
 		let mut s = String::new();
 
 		io::stdin().read_line(&mut s).unwrap();
-		let my_id = parse_input!(s, Id);
+		let my_id = parse_input!(s, SnakebotId);
 
-		s.clear();
-		io::stdin().read_line(&mut s).unwrap();
-		let w = parse_input!(s, usize);
-
-		s.clear();
-		io::stdin().read_line(&mut s).unwrap();
-		let h = parse_input!(s, usize);
-
-		let mut grid = Vec::with_capacity(h);
-		for _ in 0..h {
-			s.clear();
-			io::stdin().read_line(&mut s).unwrap();
-			let row = s.trim_matches('\n').chars().map(Tile::from_char).collect();
-			grid.push(row);
-		}
+		let g = BlockGrid::read();
 
 		s.clear();
 		io::stdin().read_line(&mut s).unwrap();
@@ -100,18 +83,16 @@ impl Env {
 		for _ in 0..snakebot_per_player {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
-			my_snakebot_id_list.push(parse_input!(s, Id));
+			my_snakebot_id_list.push(parse_input!(s, SnakebotId));
 		}
 		for _ in 0..snakebot_per_player {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
-			foe_snakebot_id_list.push(parse_input!(s, Id));
+			foe_snakebot_id_list.push(parse_input!(s, SnakebotId));
 		}
 
 		Env {
-			w,
-			h,
-			base_grid: grid,
+			g,
 
 			my_id,
 			my_snakebot_id_list,
@@ -119,7 +100,7 @@ impl Env {
 		}
 	}
 
-	fn read_apple(grid: &mut Grid) -> Vec<Coord> {
+	fn read_apple() -> AppleList {
 		let mut s = String::new();
 
 		io::stdin().read_line(&mut s).unwrap();
@@ -131,29 +112,29 @@ impl Env {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
 			let mut input = s.split(" ");
-			let x = parse_input!(input.next().unwrap(), usize);
-			let y = parse_input!(input.next().unwrap(), usize);
+			let x = parse_input!(input.next().unwrap(), Axis);
+			let y = parse_input!(input.next().unwrap(), Axis);
 
 			apple_list.push((x, y));
-			grid[y][x] = Tile::Apple;
 		}
 
 		apple_list
 	}
 
-	fn read_snakebot(&self, grid: &mut Grid, my_snakebot_list: &mut Vec<(Id, Vec<Coord>)>) {
-		my_snakebot_list.clear();
-
+	fn read_snakebot(&self) -> (Vec<(SnakebotId, Vec<Coord>)>, Vec<(SnakebotId, Vec<Coord>)>) {
 		let mut s = String::new();
 
 		io::stdin().read_line(&mut s).unwrap();
 		let snakebot_count = parse_input!(s, usize);
 
+		let mut my_snakebot_list = Vec::with_capacity(snakebot_count);
+		let mut foe_snakebot_list = Vec::with_capacity(snakebot_count);
+
 		for _ in 0..snakebot_count {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
 			let mut input = s.split(" ");
-			let snakebot_id = parse_input!(input.next().unwrap(), Id);
+			let snakebot_id = parse_input!(input.next().unwrap(), SnakebotId);
 			let body = input
 				.next()
 				.unwrap()
@@ -161,43 +142,89 @@ impl Env {
 				.split(":")
 				.filter_map(|coord| {
 					let mut parts = coord.split(",");
-					let x = parse_input!(parts.next().unwrap(), isize);
-					let y = parse_input!(parts.next().unwrap(), isize);
-
-					if x < 0 || y < 0 {
-						return None;
-					}
-
-					let (x, y) = (x as usize, y as usize);
-					if x >= self.w || y >= self.h {
-						return None;
-					}
-
+					let x = parse_input!(parts.next().unwrap(), Axis);
+					let y = parse_input!(parts.next().unwrap(), Axis);
 					Some((x, y))
 				})
 				.collect::<Vec<_>>();
-			if body.is_empty() {
-				continue;
-			}
 
 			if self.my_snakebot_id_list.contains(&snakebot_id) {
-				for &(x, y) in &body {
-					grid[y][x] = Tile::Block;
-				}
 				my_snakebot_list.push((snakebot_id, body));
 			} else {
-				let (x, y) = body[0];
-				for_neighbor(x, y, self.w, self.h, |x, y| {
-					if grid[y][x] != Tile::Apple {
-						grid[y][x] = Tile::Block;
-					}
-				});
-				for (x, y) in body {
-					grid[y][x] = Tile::Block;
+				foe_snakebot_list.push((snakebot_id, body));
+			}
+		}
+
+		my_snakebot_list.shrink_to_fit();
+		foe_snakebot_list.shrink_to_fit();
+
+		(my_snakebot_list, foe_snakebot_list)
+	}
+}
+
+impl BlockGrid {
+	fn read() -> Self {
+		let mut s = String::new();
+
+		io::stdin().read_line(&mut s).unwrap();
+		let w = parse_input!(s, Axis);
+
+		s.clear();
+		io::stdin().read_line(&mut s).unwrap();
+		let h = parse_input!(s, Axis);
+
+		let mut d = vec![0; ((w as usize * h as usize) + 63) / 64];
+		for y in 0..h {
+			s.clear();
+			io::stdin().read_line(&mut s).unwrap();
+			for (x, c) in s.trim_matches('\n').chars().enumerate() {
+				if c == '#' {
+					let index = (y as usize * w as usize + x) / 64;
+					let bit = (y as usize * w as usize + x) % 64;
+					d[index] |= 1 << bit;
 				}
 			}
 		}
+
+		BlockGrid { w, h, d }
 	}
+
+	fn is_block(&self, x: Axis, y: Axis) -> bool {
+		if x < 0 || y < 0 || x >= self.w || y >= self.h {
+			return false;
+		}
+
+		let index = (y as usize * self.w as usize + x as usize) / 64;
+		let bit = (y as usize * self.w as usize + x as usize) % 64;
+		(self.d[index] & (1 << bit)) != 0
+	}
+}
+
+struct Mcts<S: GameState> {
+	node_list: Vec<MctsNode<S>>,
+
+	root: NodeIndex,
+
+	rng: ThreadRng,
+}
+
+/// MCTS => Monte Carlo Tree Search
+struct MctsNode<S: GameState> {
+	state: S,
+
+	node_visit_count: VisitCount,
+	/// must be indexable by PlayerActionReprAsIndex
+	my_ucb_list: Vec<UcbActionStats>,
+	foe_ucb_list: Vec<UcbActionStats>,
+
+	children: HashMap<BothPlayerAction, NodeIndex>,
+}
+
+/// UCB => Upper Confidence Bound
+#[derive(Clone, Copy, Default)]
+struct UcbActionStats {
+	visit_count: VisitCount,
+	total_reward: HeuristicReward,
 }
 
 impl Display for Action {
@@ -217,230 +244,11 @@ impl Display for Dir {
 	}
 }
 
-#[inline]
-fn for_neighbor<F>(x: usize, y: usize, w: usize, h: usize, mut f: F)
-where
-	F: FnMut(usize, usize),
-{
-	if x > 0 {
-		f(x - 1, y);
-	}
-	if x + 1 < w {
-		f(x + 1, y);
-	}
-	if y > 0 {
-		f(x, y - 1);
-	}
-	if y + 1 < h {
-		f(x, y + 1);
-	}
-}
-
-fn apply_dir((x, y): Coord, dir: Dir) -> Coord {
-	// TODO: apply gravity?
-	match dir {
-		Dir::U => (x, y.saturating_sub(1)),
-		Dir::D => (x, y + 1),
-		Dir::L => (x.saturating_sub(1), y),
-		Dir::R => (x + 1, y),
-	}
-}
-
-fn is_upright(body: &[Coord]) -> bool {
-	let (x, mut y) = body[0];
-	for part in body.iter().skip(1) {
-		y += 1;
-		if part.0 != x || part.1 != y {
-			return false;
-		}
-	}
-	true
-}
-
-macro_rules! move_and_queue {
-	($env:expr, $queue:expr, $visited:expr, $grid:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {{
-		// TODO: try VecDeque
-		let mut body = Vec::with_capacity($body.len());
-		body.push(($x, $y));
-		body.extend_from_slice(&$body[..$body.len() - 1]);
-
-		if $visited.insert(body.clone()) {
-			// gravity
-			'outer: while true {
-				for i in 0..body.len() {
-					body[i].1 += 1;
-
-					if body[i].1 >= $env.h {
-						break 'outer;
-					}
-					if $grid[body[i].1][body[i].0] == Tile::Empty {
-						continue;
-					}
-
-					for r in 0..=i {
-						body[r].1 -= 1;
-					}
-					$queue.push_back(($initial_dir, body));
-					break 'outer;
-				}
-			}
-		}
-	}};
-}
-
-macro_rules! try_visit {
-	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {
-		if $grid[$y][$x] == Tile::Apple {
-			return (
-				Action {
-					snakebot_id: $id,
-					direction: $initial_dir,
-				},
-				Some(($x, $y)),
-			);
-		}
-
-		if $grid[$y][$x] == Tile::Empty && $body.iter().all(|&(bx, by)| bx != $x || by != $y) {
-			move_and_queue!($env, $queue, $visited, $grid, $initial_dir, $body, $x, $y);
-		}
-	};
-}
-
-macro_rules! visit_neighbor {
-	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr) => {
-		let (x, y) = $body[0];
-		if y > 0 {
-			let ny = y - 1;
-			try_visit!(
-				$env,
-				$queue,
-				$visited,
-				$grid,
-				$id,
-				$initial_dir,
-				$body,
-				x,
-				ny
-			);
-		}
-		if x > 0 {
-			let nx = x - 1;
-			try_visit!(
-				$env,
-				$queue,
-				$visited,
-				$grid,
-				$id,
-				$initial_dir,
-				$body,
-				nx,
-				y
-			);
-		}
-		let nx = x + 1;
-		if nx < $env.w {
-			try_visit!(
-				$env,
-				$queue,
-				$visited,
-				$grid,
-				$id,
-				$initial_dir,
-				$body,
-				nx,
-				y
-			);
-		}
-		let ny = y + 1;
-		if ny < $env.h {
-			try_visit!(
-				$env,
-				$queue,
-				$visited,
-				$grid,
-				$id,
-				$initial_dir,
-				$body,
-				x,
-				ny
-			);
-		}
-	};
-}
-
-macro_rules! initial_visit_neighbor {
-	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $body:expr) => {
-		let (x, y) = $body[0];
-		if y > 0 && !is_upright($body) {
-			let ny = y - 1;
-			try_visit!($env, $queue, $visited, $grid, $id, Dir::U, $body, x, ny);
-		}
-		if x > 0 {
-			let nx = x - 1;
-			try_visit!($env, $queue, $visited, $grid, $id, Dir::L, $body, nx, y);
-		}
-		let nx = x + 1;
-		if nx < $env.w {
-			try_visit!($env, $queue, $visited, $grid, $id, Dir::R, $body, nx, y);
-		}
-		let ny = y + 1;
-		if ny < $env.h {
-			try_visit!($env, $queue, $visited, $grid, $id, Dir::D, $body, x, ny);
-		}
-	};
-}
-
-fn has_single_depth_move(
-	env: &Env,
-	grid: &Grid,
-	apple_list: &[Coord],
-	snakebot_body: &[Coord],
-) -> Option<(Dir, Option<Coord>)> {
-	let (x, y) = snakebot_body[0];
-
-	let mut moves = Vec::<(usize, usize, Dir)>::with_capacity(4);
-	for (nx, ny, dir) in [
-		(0, -1, Dir::U),
-		(-1, 0, Dir::L),
-		(1, 0, Dir::R),
-		(0, 1, Dir::D),
-	] {
-		let (nx, ny) = (x as isize + nx, y as isize + ny);
-		if nx < 0 || ny < 0 {
-			continue;
-		}
-		let (nx, ny) = (nx as usize, ny as usize);
-		if nx < env.w && ny < env.h && grid[ny][nx] != Tile::Block {
-			if grid[ny][nx] == Tile::Apple {
-				return Some((dir, Some((nx, ny))));
-			}
-
-			if snakebot_body.iter().any(|&(bx, by)| bx == nx && by == ny) {
-				continue;
-			}
-
-			moves.push((nx, ny, dir));
-		}
-	}
-
-	if moves.len() == 1 {
-		return Some((moves[0].2, None));
-	} else if moves.is_empty() {
-		return Some((Dir::U, None));
-	}
-
-	if apple_list.is_empty() {
-		return Some((moves[0].2, None));
-	}
-
-	None
-}
-
 fn find_snakebot_action(
 	env: &Env,
 	grid: &Grid,
 	apple_list: &[Coord],
-	snakebot_id: Id,
+	snakebot_id: SnakebotId,
 	snakebot_body: &[Coord],
 	allowed_time: Duration,
 ) -> (Action, Option<Coord>) {
@@ -494,6 +302,211 @@ fn find_snakebot_action(
 		},
 		None,
 	)
+}
+
+/// The Mcts solver.
+
+/// Trait that a game must implement to be used with Mcts.
+trait GameState: Clone {
+	fn my_action_count(&self) -> PlayerActionCount;
+	fn foe_action_count(&self) -> PlayerActionCount;
+
+	/// Apply joint actions and return the new state.
+	/// Actions are encoded as base‑3 numbers over the alive agents in increasing order of agent index.
+	fn apply(
+		&self,
+		my_action: PlayerActionReprAsIndex,
+		foe_action: PlayerActionReprAsIndex,
+	) -> Self;
+	/// Heuristic evaluation from player 1's perspective (positive if player 1 is ahead).
+	/// Only called for non‑terminal states.
+	fn evaluate(&self) -> HeuristicReward;
+	/// Returns true if the game has ended in this state.
+	fn is_terminal(&self) -> bool;
+	/// Returns the final value from player 1's perspective (+1 win, -1 loss, 0 draw).
+	/// Only called when `is_terminal()` is true.
+	fn terminal_value(&self) -> HeuristicReward;
+}
+
+impl<S: GameState> Mcts<S> {
+	const EXPLORATION_CONSTANT: f32 = 1.4;
+
+	fn new(initial_state: S) -> Self {
+		let root = MctsNode::new(initial_state);
+
+		Mcts {
+			node_list: vec![root],
+			root: 0,
+
+			rng: rand::rng(),
+		}
+	}
+
+	fn search(&mut self, time_limit: Duration) {
+		let start = Instant::now();
+		while start.elapsed() < time_limit {
+			self.iterate();
+		}
+	}
+
+	fn iterate(&mut self) {
+		let mut path = Vec::<(NodeIndex, PlayerActionReprAsIndex, PlayerActionReprAsIndex)>::new();
+		let mut node_index = self.root;
+
+		// --- Selection ---
+		loop {
+			let node = &self.node_list[node_index];
+			if node.state.is_terminal() {
+				self.backpropagate(path, node.state.terminal_value());
+				return;
+			}
+
+			let my_action = self.ucb1_action(&node.my_ucb_list, node.node_visit_count);
+			let foe_action = self.ucb1_action(&node.foe_ucb_list, node.node_visit_count);
+
+			if let Some(&child_node_index) = node.children.get(&(my_action, foe_action)) {
+				path.push((node_index, my_action, foe_action));
+				node_index = child_node_index;
+				continue;
+			}
+
+			// --- Expansion ---
+			let new_state = node.state.apply(my_action, foe_action);
+
+			let new_node = MctsNode::new(new_state);
+
+			let new_node_index = self.node_list.len();
+
+			self.node_list.push(new_node);
+			self.node_list[node_index]
+				.children
+				.insert((my_action, foe_action), new_node_index);
+			path.push((node_index, my_action, foe_action));
+
+			node_index = new_node_index;
+			break;
+		}
+
+		// --- Evaluation ---
+		let leaf_node = &self.node_list[node_index];
+		let value = if leaf_node.state.is_terminal() {
+			leaf_node.state.terminal_value()
+		} else {
+			self.rollout(&leaf_node.state)
+		};
+
+		// --- Backpropagation ---
+		self.backpropagate(path, value);
+	}
+
+	fn ucb1_action(
+		&mut self,
+		player_ucb_list: &[UcbActionStats],
+		parent_visit_count: VisitCount,
+	) -> PlayerActionReprAsIndex {
+		let mut best_action_list = Vec::new();
+		let mut best_ucb = f32::NEG_INFINITY;
+
+		for (i, stat) in player_ucb_list.iter().enumerate() {
+			let ucb = if stat.visit_count == 0 {
+				f32::INFINITY
+			} else {
+				let mean = stat.total_reward / stat.visit_count as f32;
+				let exploration = Self::EXPLORATION_CONSTANT
+					* ((parent_visit_count as f32).ln() / stat.visit_count as f32).sqrt();
+				mean + exploration
+			};
+
+			// TODO: do not store all best action, and only keep one
+			if ucb > best_ucb + 1e-6 {
+				best_ucb = ucb;
+				best_action_list.clear();
+				best_action_list.push(i);
+			} else if (ucb - best_ucb).abs() < 1e-6 {
+				best_action_list.push(i);
+			}
+		}
+		if best_action_list.is_empty() {
+			// fallback, should not happen
+			self.rng.random_range(0..player_ucb_list.len()) as PlayerActionReprAsIndex
+		} else {
+			best_action_list[self.rng.random_range(0..best_action_list.len())]
+				as PlayerActionReprAsIndex
+		}
+	}
+
+	fn rollout(&self, state: &S) -> HeuristicReward {
+		state.evaluate()
+	}
+
+	fn backpropagate(
+		&mut self,
+		path: Vec<(NodeIndex, PlayerActionReprAsIndex, PlayerActionReprAsIndex)>,
+		value: HeuristicReward,
+	) {
+		for (node_index, my_action, foe_action) in path.into_iter().rev() {
+			let node = &mut self.node_list[node_index];
+
+			node.node_visit_count += 1;
+
+			let my_action = my_action as usize;
+			let foe_action = foe_action as usize;
+			node.my_ucb_list[my_action].visit_count += 1;
+			node.my_ucb_list[my_action].total_reward += value;
+			node.foe_ucb_list[foe_action].visit_count += 1;
+			node.foe_ucb_list[foe_action].total_reward -= value;
+		}
+	}
+
+	fn my_best_action(&self) -> PlayerActionReprAsIndex {
+		let root = &self.node_list[self.root];
+		let mut best = 0;
+		let mut best_value = f32::NEG_INFINITY;
+		for (i, stat) in root.my_ucb_list.iter().enumerate() {
+			if stat.visit_count > 0 {
+				let avg = stat.total_reward / stat.visit_count as f32;
+				if avg > best_value {
+					best_value = avg;
+					best = i;
+				}
+			}
+		}
+		best as PlayerActionReprAsIndex
+	}
+
+	/// decode a player action into per‑agent action for the alive agents.
+	/// the order corresponds to increasing agent index (first alive agent is most significant digit).
+	fn decode_action(
+		&self,
+		action: PlayerActionReprAsIndex,
+		my_agent_alive_count: usize,
+	) -> Vec<PlayerActionReprAsIndex> {
+		let mut agent_action_list = Vec::with_capacity(my_agent_alive_count);
+		let mut rem = action;
+		for _ in 0..my_agent_alive_count {
+			agent_action_list.push(rem % 3);
+			rem /= 3;
+		}
+		agent_action_list.reverse();
+		agent_action_list
+	}
+}
+
+impl<S: GameState> MctsNode<S> {
+	fn new(state: S) -> Self {
+		let my_action_count = state.my_action_count();
+		let foe_action_count = state.foe_action_count();
+
+		MctsNode {
+			state,
+
+			node_visit_count: 0,
+			my_ucb_list: vec![UcbActionStats::default(); my_action_count],
+			foe_ucb_list: vec![UcbActionStats::default(); foe_action_count],
+
+			children: HashMap::new(),
+		}
+	}
 }
 
 fn main() {
