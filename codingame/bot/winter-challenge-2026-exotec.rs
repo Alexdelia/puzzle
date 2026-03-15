@@ -555,7 +555,7 @@ impl GameState {
 }
 
 fn move_and_eat(
-	snakebot_list: &mut Vec<Snakebot>,
+	snakebot_list: &mut [Snakebot],
 	action_list: DecodedAction,
 	apple_list: &AppleList,
 	eaten_apple_index_list: &mut Vec<usize>,
@@ -598,11 +598,11 @@ macro_rules! pop_from_collision {
 }
 
 fn apply_collision(
-	snakebot_list: &mut Vec<Snakebot>,
+	snakebot_list: &mut [Snakebot],
 	dead_snakebot_index_list: &mut Vec<usize>,
 	dead_head_index_list: &mut Vec<usize>,
 	grid: &BlockGrid,
-	other_snakebot_list: &Vec<Snakebot>,
+	other_snakebot_list: &[Snakebot],
 ) {
 	for (index, snakebot) in snakebot_list.iter().enumerate() {
 		let (head_x, head_y) = snakebot.body[0];
