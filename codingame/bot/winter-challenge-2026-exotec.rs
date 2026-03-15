@@ -29,11 +29,10 @@ type Coord = (Axis, Axis);
 type PlayerActionReprAsIndex = u8;
 type BothPlayerAction = (PlayerActionReprAsIndex, PlayerActionReprAsIndex);
 
-enum SnakebotAction {
-	Straight = 0,
-	Left = 1,
-	Right = 2,
-}
+type SnakebotAction = u8;
+const STRAIGHT: SnakebotAction = 0;
+const LEFT: SnakebotAction = 1;
+const RIGHT: SnakebotAction = 2;
 
 type DecodedAction = Vec<SnakebotAction>;
 
@@ -157,10 +156,13 @@ impl Env {
 				})
 				.collect::<Vec<_>>();
 
+			let facing_dir = Dir::from(body.as_slice());
+			let snakebot = Snakebot { body, facing_dir };
+
 			if self.my_snakebot_id_list.contains(&snakebot_id) {
-				my_snakebot_list.push((snakebot_id, body));
+				my_snakebot_list.push((snakebot_id, snakebot));
 			} else {
-				foe_snakebot_list.push((snakebot_id, body));
+				foe_snakebot_list.push((snakebot_id, snakebot));
 			}
 		}
 
@@ -498,6 +500,19 @@ impl Display for Dir {
 	}
 }
 
+impl From<&[Coord]> for Dir {
+	fn from(body: &[Coord]) -> Self {
+		let (head_x, head_y) = body[0];
+		let (neck_x, neck_y) = body[1];
+
+		if head_x == neck_x {
+			if head_y < neck_y { Self::U } else { Self::D }
+		} else {
+			if head_x < neck_x { Self::L } else { Self::R }
+		}
+	}
+}
+
 impl GameStateTrait for GameState {
 	fn my_alive_agent_count(&self) -> usize {
 		todo!()
@@ -534,10 +549,10 @@ fn print_action(list: &[(SnakebotId, SnakebotAction, Dir)]) {
 	let s = list
 		.iter()
 		.map(|(id, action, facing_dir)| {
-			let dir = match action {
-				SnakebotAction::Straight => *facing_dir,
-				SnakebotAction::Left => facing_dir.turn_left(),
-				SnakebotAction::Right => facing_dir.turn_right(),
+			let dir = match *action {
+				STRAIGHT => *facing_dir,
+				LEFT => facing_dir.turn_left(),
+				_ => facing_dir.turn_right(),
 			};
 
 			format!("{id} {dir}")
@@ -579,7 +594,7 @@ fn main() {
 		}
 		for (id, snakebot) in stuck_snakebot_id_list.into_iter() {
 			// TODO: compute best action to stay alive instead of always straight
-			grouped_snakebot_action_list.push((id, SnakebotAction::Straight, snakebot.facing_dir));
+			grouped_snakebot_action_list.push((id, STRAIGHT, snakebot.facing_dir));
 		}
 
 		print_action(&grouped_snakebot_action_list);
