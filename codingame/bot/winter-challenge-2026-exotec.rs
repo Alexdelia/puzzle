@@ -12,6 +12,7 @@ use rand::{Rng, rngs::ThreadRng};
 const MAX_TURN_DURATION: Duration = Duration::from_millis(45);
 const MAX_TURN_COUNT: Turn = 200;
 const MIN_SNAKEBOT_LEN: usize = 3;
+const MAX_SNAKEBOT_PER_PLAYER: usize = 4;
 
 type Turn = u8;
 
@@ -35,7 +36,7 @@ const STRAIGHT: SnakebotAction = 0;
 const LEFT: SnakebotAction = 1;
 const RIGHT: SnakebotAction = 2;
 
-type DecodedAction = Vec<SnakebotAction>;
+type DecodedAction = [SnakebotAction; MAX_SNAKEBOT_PER_PLAYER];
 
 /// technically fit in a u8, but always cast as a usize
 type PlayerActionCount = usize;
@@ -291,13 +292,12 @@ trait GameStateTrait: Clone {
 	/// the order corresponds to increasing agent index (first alive agent is most significant digit).
 	fn decode_action(&self, action: PlayerActionReprAsIndex) -> DecodedAction {
 		let my_alive_agent_count = self.my_alive_agent_count();
-		let mut agent_action_list = Vec::with_capacity(my_alive_agent_count);
+		let mut agent_action_list = [0; MAX_SNAKEBOT_PER_PLAYER];
 		let mut rem = action;
-		for _ in 0..my_alive_agent_count {
-			agent_action_list.push(rem % 3);
+		for i in 0..my_alive_agent_count {
+			agent_action_list[my_alive_agent_count - 1 - i] = rem % 3;
 			rem /= 3;
 		}
-		agent_action_list.reverse();
 		agent_action_list
 	}
 }
@@ -1091,12 +1091,18 @@ mod tests {
 			apple_list: vec![],
 		};
 
-		assert_eq!(state.decode_action(0), vec![STRAIGHT, STRAIGHT, STRAIGHT]);
+		assert_eq!(
+			state.decode_action(0),
+			[STRAIGHT, STRAIGHT, STRAIGHT, STRAIGHT]
+		);
 
-		assert_eq!(state.decode_action(1), vec![STRAIGHT, STRAIGHT, LEFT]);
+		assert_eq!(state.decode_action(1), [STRAIGHT, STRAIGHT, LEFT, STRAIGHT]);
 
-		assert_eq!(state.decode_action(2), vec![STRAIGHT, STRAIGHT, RIGHT]);
+		assert_eq!(
+			state.decode_action(2),
+			[STRAIGHT, STRAIGHT, RIGHT, STRAIGHT]
+		);
 
-		assert_eq!(state.decode_action(3), vec![STRAIGHT, LEFT, STRAIGHT]);
+		assert_eq!(state.decode_action(3), [STRAIGHT, LEFT, STRAIGHT, STRAIGHT]);
 	}
 }
