@@ -57,6 +57,7 @@
 
                   cargo-flamegraph
                   hyperfine
+                  perf
 
                   imagemagick
                   bc
