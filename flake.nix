@@ -58,6 +58,7 @@
                   cargo-flamegraph
                   hyperfine
                   perf
+                  libllvm
 
                   imagemagick
                   bc
