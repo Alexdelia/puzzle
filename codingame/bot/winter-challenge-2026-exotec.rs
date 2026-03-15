@@ -1,8 +1,8 @@
 use std::{
-	collections::{HashMap, HashSet, VecDeque},
+	collections::HashMap,
 	fmt::Display,
 	io,
-	time::{Duration, Instant, SystemTime},
+	time::{Duration, Instant},
 };
 
 use rand::{Rng, rngs::ThreadRng};
@@ -29,9 +29,13 @@ type Coord = (Axis, Axis);
 type PlayerActionReprAsIndex = u8;
 type BothPlayerAction = (PlayerActionReprAsIndex, PlayerActionReprAsIndex);
 
-const ACTION_REPR_STRAIGHT: PlayerActionReprAsIndex = 0;
-const ACTION_REPR_LEFT: PlayerActionReprAsIndex = 1;
-const ACTION_REPR_RIGHT: PlayerActionReprAsIndex = 2;
+enum SnakebotAction {
+	Straight = 0,
+	Left = 1,
+	Right = 2,
+}
+
+type DecodedAction = Vec<SnakebotAction>;
 
 /// technically fit in a u8, but always cast as a usize
 type PlayerActionCount = usize;
@@ -126,7 +130,7 @@ impl Env {
 		apple_list
 	}
 
-	fn read_snakebot(&self) -> (Vec<(SnakebotId, Vec<Coord>)>, Vec<(SnakebotId, Vec<Coord>)>) {
+	fn read_snakebot(&self) -> (Vec<(SnakebotId, Snakebot)>, Vec<(SnakebotId, Snakebot)>) {
 		let mut s = String::new();
 
 		io::stdin().read_line(&mut s).unwrap();
@@ -162,6 +166,9 @@ impl Env {
 
 		my_snakebot_list.shrink_to_fit();
 		foe_snakebot_list.shrink_to_fit();
+
+		my_snakebot_list.sort_by_key(|(id, _)| *id);
+		foe_snakebot_list.sort_by_key(|(id, _)| *id);
 
 		(my_snakebot_list, foe_snakebot_list)
 	}
@@ -234,105 +241,36 @@ struct UcbActionStats {
 	total_reward: HeuristicReward,
 }
 
-impl Display for Action {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{} {}", self.snakebot_id, self.direction)
-	}
-}
-
-impl Display for Dir {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self {
-			Dir::U => write!(f, "UP"),
-			Dir::D => write!(f, "DOWN"),
-			Dir::L => write!(f, "LEFT"),
-			Dir::R => write!(f, "RIGHT"),
-		}
-	}
-}
-
-fn find_snakebot_action(
-	env: &Env,
-	grid: &Grid,
-	apple_list: &[Coord],
-	snakebot_id: SnakebotId,
-	snakebot_body: &[Coord],
-	allowed_time: Duration,
-) -> (Action, Option<Coord>) {
-	if let Some((single_move, apple)) = has_single_depth_move(env, grid, apple_list, snakebot_body)
-	{
-		return (
-			Action {
-				snakebot_id,
-				direction: single_move,
-			},
-			apple,
-		);
-	}
-
-	// TODO: store body more efficiently?
-	let mut visited = HashSet::<Vec<Coord>>::new();
-	visited.insert(snakebot_body.to_vec());
-
-	let mut queue = VecDeque::<(Dir, Vec<Coord>)>::new();
-	initial_visit_neighbor!(env, queue, visited, grid, snakebot_id, snakebot_body);
-
-	let first = queue.clone().pop_front();
-	let default_dir = first.map(|(dir, _)| dir).unwrap_or(Dir::U);
-	if queue.len() <= 1 {
-		return (
-			Action {
-				snakebot_id,
-				direction: default_dir,
-			},
-			None,
-		);
-	}
-
-	let start = SystemTime::now();
-	let mut i = 0;
-	while let Some((initial_dir, body)) = queue.pop_front() {
-		visit_neighbor!(env, queue, visited, grid, snakebot_id, initial_dir, body);
-
-		i += 1;
-		let elapsed = start.elapsed().unwrap();
-		if i % 1000 == 0 && elapsed >= allowed_time {
-			eprintln!("timeout: visited {i} states in {elapsed:?}");
-			break;
-		}
-	}
-
-	(
-		Action {
-			snakebot_id,
-			direction: default_dir,
-		},
-		None,
-	)
-}
-
-/// The Mcts solver.
-
-/// Trait that a game must implement to be used with Mcts.
 trait GameStateTrait: Clone {
+	fn my_alive_agent_count(&self) -> usize;
+
 	fn my_action_count(&self) -> PlayerActionCount;
 	fn foe_action_count(&self) -> PlayerActionCount;
 
-	/// Apply joint actions and return the new state.
-	/// Actions are encoded as base‑3 numbers over the alive agents in increasing order of agent index.
 	fn apply(
 		&self,
 		my_action: PlayerActionReprAsIndex,
 		foe_action: PlayerActionReprAsIndex,
 	) -> Self;
-	/// Heuristic evaluation from player 1's perspective (positive if player 1 is ahead).
-	/// Only called for non‑terminal states.
+
 	fn evaluate(&self) -> HeuristicReward;
-	/// Returns true if the game has ended in this state.
+
 	fn is_terminal(&self) -> bool;
-	/// Returns the final value from player 1's perspective (+1 win, -1 loss, 0 draw).
-	/// Only called when `is_terminal()` is true.
 	fn terminal_value(&self) -> HeuristicReward;
+
+	/// decode a player action into per‑agent action for the alive agents.
+	/// the order corresponds to increasing agent index (first alive agent is most significant digit).
+	fn decode_action(&self, action: PlayerActionReprAsIndex) -> DecodedAction {
+		let my_alive_agent_count = self.my_alive_agent_count();
+		let mut agent_action_list = Vec::with_capacity(my_alive_agent_count);
+		let mut rem = action;
+		for _ in 0..my_alive_agent_count {
+			agent_action_list.push(rem % 3);
+			rem /= 3;
+		}
+		agent_action_list.reverse();
+		agent_action_list
+	}
 }
 
 impl<'e, S: GameStateTrait> Mcts<'e, S> {
@@ -351,11 +289,14 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 		}
 	}
 
-	fn search(&mut self, time_limit: Duration) {
+	fn search(&mut self) -> DecodedAction {
 		let start = Instant::now();
-		while start.elapsed() < time_limit {
+		while start.elapsed() < MAX_TURN_DURATION {
 			self.iterate();
 		}
+		eprintln!("search took: {:?}", start.elapsed());
+
+		self.my_best_action()
 	}
 
 	fn iterate(&mut self) {
@@ -467,7 +408,7 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 		}
 	}
 
-	fn my_best_action(&self) -> PlayerActionReprAsIndex {
+	fn my_best_action(&self) -> DecodedAction {
 		let root = &self.node_list[self.root];
 		let mut best = 0;
 		let mut best_value = f32::NEG_INFINITY;
@@ -480,24 +421,7 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 				}
 			}
 		}
-		best as PlayerActionReprAsIndex
-	}
-
-	/// decode a player action into per‑agent action for the alive agents.
-	/// the order corresponds to increasing agent index (first alive agent is most significant digit).
-	fn decode_action(
-		&self,
-		action: PlayerActionReprAsIndex,
-		my_agent_alive_count: usize,
-	) -> Vec<PlayerActionReprAsIndex> {
-		let mut agent_action_list = Vec::with_capacity(my_agent_alive_count);
-		let mut rem = action;
-		for _ in 0..my_agent_alive_count {
-			agent_action_list.push(rem % 3);
-			rem /= 3;
-		}
-		agent_action_list.reverse();
-		agent_action_list
+		root.state.decode_action(best as PlayerActionReprAsIndex)
 	}
 }
 
@@ -518,69 +442,148 @@ impl<S: GameStateTrait> MctsNode<S> {
 	}
 }
 
+#[derive(Clone)]
 struct GameState {
 	turn: Turn,
+
+	my_snakebot_list: Vec<Snakebot>,
+	foe_snakebot_list: Vec<Snakebot>,
+
+	apple_list: AppleList,
+}
+
+#[derive(Clone)]
+struct Snakebot {
+	body: Vec<Coord>,
+	facing_dir: Dir,
+}
+
+#[derive(Clone, Copy)]
+enum Dir {
+	U,
+	R,
+	D,
+	L,
+}
+
+impl Dir {
+	fn turn_left(&self) -> Self {
+		match self {
+			Self::U => Self::L,
+			Self::R => Self::U,
+			Self::D => Self::R,
+			Self::L => Self::D,
+		}
+	}
+
+	fn turn_right(&self) -> Self {
+		match self {
+			Self::U => Self::R,
+			Self::R => Self::D,
+			Self::D => Self::L,
+			Self::L => Self::U,
+		}
+	}
+}
+
+impl Display for Dir {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		let s = match self {
+			Self::U => "UP",
+			Self::R => "RIGHT",
+			Self::D => "DOWN",
+			Self::L => "LEFT",
+		};
+		write!(f, "{s}")
+	}
+}
+
+impl GameStateTrait for GameState {
+	fn my_alive_agent_count(&self) -> usize {
+		todo!()
+	}
+
+	fn my_action_count(&self) -> PlayerActionCount {
+		todo!()
+	}
+	fn foe_action_count(&self) -> PlayerActionCount {
+		todo!()
+	}
+
+	fn apply(
+		&self,
+		my_action: PlayerActionReprAsIndex,
+		foe_action: PlayerActionReprAsIndex,
+	) -> Self {
+		todo!()
+	}
+
+	fn evaluate(&self) -> HeuristicReward {
+		todo!()
+	}
+
+	fn is_terminal(&self) -> bool {
+		todo!()
+	}
+	fn terminal_value(&self) -> HeuristicReward {
+		todo!()
+	}
+}
+
+fn print_action(list: &[(SnakebotId, SnakebotAction, Dir)]) {
+	let s = list
+		.iter()
+		.map(|(id, action, facing_dir)| {
+			let dir = match action {
+				SnakebotAction::Straight => *facing_dir,
+				SnakebotAction::Left => facing_dir.turn_left(),
+				SnakebotAction::Right => facing_dir.turn_right(),
+			};
+
+			format!("{id} {dir}")
+		})
+		.collect::<Vec<_>>()
+		.join(";");
+	println!("{s}");
 }
 
 fn main() {
-	let env = Env::read();
-	let mut my_snakebot_list = Vec::with_capacity(env.my_snakebot_id_list.len());
+	let mut env = Env::read();
 
 	loop {
-		let start = SystemTime::now();
+		let apple_list = Env::read_apple();
+		let (my_snakebot_list, foe_snakebot_list) = env.read_snakebot();
 
-		let mut grid = env.base_grid.clone();
+		// TODO: remove initially stuck snakebot (if any)
+		let stuck_snakebot_id_list = Vec::<(SnakebotId, Snakebot)>::default();
 
-		let mut apple_list = Env::read_apple(&mut grid);
-		env.read_snakebot(&mut grid, &mut my_snakebot_list);
+		let state = GameState {
+			turn: env.turn,
+			my_snakebot_list: my_snakebot_list
+				.iter()
+				.map(|(_, snakebot)| snakebot.clone())
+				.collect(),
+			foe_snakebot_list: foe_snakebot_list
+				.iter()
+				.map(|(_, snakebot)| snakebot.clone())
+				.collect(),
+			apple_list,
+		};
 
-		let action_list = my_snakebot_list
-			.iter()
-			.enumerate()
-			.map(|(index, (id, body))| {
-				let sub_start = SystemTime::now();
+		let mut mcts = Mcts::new(&env, state);
+		let best_action = mcts.search();
 
-				let Some(allowed_time) = (MAX_TURN_DURATION.checked_sub(start.elapsed().unwrap()))
-					.and_then(|remaining| {
-						remaining.checked_div(env.my_snakebot_id_list.len() as u32 - index as u32)
-					})
-				else {
-					eprintln!("not enough time for snakebot {id}, skipping");
-					return Action {
-						snakebot_id: *id,
-						direction: Dir::U,
-					}
-					.to_string();
-				};
-				eprintln!("[{id}] allowed: {allowed_time:?}");
+		let mut grouped_snakebot_action_list = Vec::with_capacity(my_snakebot_list.len());
+		for ((id, snakebot), action) in my_snakebot_list.into_iter().zip(best_action.into_iter()) {
+			grouped_snakebot_action_list.push((id, action, snakebot.facing_dir));
+		}
+		for (id, snakebot) in stuck_snakebot_id_list.into_iter() {
+			// TODO: compute best action to stay alive instead of always straight
+			grouped_snakebot_action_list.push((id, SnakebotAction::Straight, snakebot.facing_dir));
+		}
 
-				for &(x, y) in body {
-					grid[y][x] = Tile::Empty;
-				}
+		print_action(&grouped_snakebot_action_list);
 
-				let (action, apple) =
-					find_snakebot_action(&env, &grid, &apple_list, *id, body, allowed_time);
-
-				if let Some(apple) = apple {
-					grid[apple.1][apple.0] = Tile::Empty;
-					apple_list.retain(|&(x, y)| x != apple.0 || y != apple.1);
-				}
-				let (nx, ny) = apply_dir(body[0], action.direction);
-				grid[ny][nx] = Tile::Block;
-				// TODO: test if tail is still block (take care of apple)
-				for &(x, y) in body.iter() {
-					grid[y][x] = Tile::Block;
-				}
-
-				let elapsed = sub_start.elapsed().unwrap();
-				eprintln!("[{id}] took: {elapsed:?}");
-
-				action.to_string()
-			})
-			.collect::<Vec<_>>()
-			.join(";");
-
-		println!("{action_list}");
 		env.turn += 1;
 	}
 }
