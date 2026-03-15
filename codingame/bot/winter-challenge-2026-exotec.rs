@@ -377,7 +377,7 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 		let value = if leaf_node.state.is_terminal() {
 			leaf_node.state.terminal_value()
 		} else {
-			self.rollout(&leaf_node.state)
+			leaf_node.state.evaluate()
 		};
 
 		// --- Backpropagation ---
@@ -417,10 +417,6 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 		} else {
 			best_action_list[rng.random_range(0..best_action_list.len())] as PlayerActionReprAsIndex
 		}
-	}
-
-	fn rollout(&self, state: &S) -> HeuristicReward {
-		state.evaluate()
 	}
 
 	fn backpropagate(
@@ -923,7 +919,7 @@ impl GameStateTrait for GameState {
 				/ self.my_snakebot_list.len() as f32
 		};
 
-		raw_score - my_avg_distance_to_apple * 0.1
+		raw_score - (my_avg_distance_to_apple * 0.1)
 	}
 
 	fn is_terminal(&self) -> bool {
