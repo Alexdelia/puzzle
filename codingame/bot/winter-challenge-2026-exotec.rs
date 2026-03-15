@@ -130,6 +130,7 @@ impl Env {
 		apple_list
 	}
 
+	#[allow(clippy::type_complexity)]
 	fn read_snakebot(&self) -> (Vec<(SnakebotId, Snakebot)>, Vec<(SnakebotId, Snakebot)>) {
 		let mut s = String::new();
 
@@ -149,11 +150,11 @@ impl Env {
 				.unwrap()
 				.trim()
 				.split(":")
-				.filter_map(|coord| {
+				.map(|coord| {
 					let mut parts = coord.split(",");
 					let x = parse_input!(parts.next().unwrap(), Axis);
 					let y = parse_input!(parts.next().unwrap(), Axis);
-					Some((x, y))
+					(x, y)
 				})
 				.collect::<Vec<_>>();
 
@@ -188,7 +189,7 @@ impl BlockGrid {
 		io::stdin().read_line(&mut s).unwrap();
 		let h = parse_input!(s, Axis);
 
-		let mut d = vec![0; ((w as usize * h as usize) + 63) / 64];
+		let mut d = vec![0; (w as usize * h as usize).div_ceil(64)];
 		for y in 0..h {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
@@ -510,8 +511,10 @@ impl From<&[Coord]> for Dir {
 
 		if head_x == neck_x {
 			if head_y < neck_y { Self::U } else { Self::D }
+		} else if head_x < neck_x {
+			Self::L
 		} else {
-			if head_x < neck_x { Self::L } else { Self::R }
+			Self::R
 		}
 	}
 }
@@ -746,6 +749,7 @@ impl GameStateTrait for GameState {
 
 		// TODO: better score if closer to apple
 
+		#[allow(clippy::let_and_return)]
 		raw_score
 	}
 
