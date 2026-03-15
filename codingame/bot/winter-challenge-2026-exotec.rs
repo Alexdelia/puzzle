@@ -514,16 +514,24 @@ impl From<&[Coord]> for Dir {
 	}
 }
 
+const ACTION_COUNT_BY_AGENT_COUNT: [PlayerActionCount; 5] = [
+	1,  // 0
+	3,  // 1
+	9,  // 2
+	27, // 3
+	81, // 4
+];
+
 impl GameStateTrait for GameState {
 	fn my_alive_agent_count(&self) -> usize {
-		todo!()
+		self.my_snakebot_list.len()
 	}
 
 	fn my_action_count(&self) -> PlayerActionCount {
-		todo!()
+		ACTION_COUNT_BY_AGENT_COUNT[self.my_alive_agent_count()]
 	}
 	fn foe_action_count(&self) -> PlayerActionCount {
-		todo!()
+		ACTION_COUNT_BY_AGENT_COUNT[self.foe_snakebot_list.len()]
 	}
 
 	fn apply(
