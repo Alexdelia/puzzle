@@ -905,7 +905,13 @@ impl GameStateTrait for GameState {
 		let my_raw_score = self.my_raw_score();
 		let foe_raw_score = self.foe_raw_score();
 
-		let raw_score = my_raw_score as f32 - foe_raw_score as f32;
+		let raw_score = if my_raw_score > foe_raw_score {
+			(my_raw_score - foe_raw_score).pow(2) as f32
+		} else if my_raw_score < foe_raw_score {
+			-((foe_raw_score - my_raw_score).pow(2) as f32)
+		} else {
+			0.0
+		};
 
 		let my_avg_distance_to_apple = if self.my_snakebot_list.is_empty() {
 			0.0
@@ -925,7 +931,7 @@ impl GameStateTrait for GameState {
 				/ self.my_snakebot_list.len() as f32
 		};
 
-		raw_score - (my_avg_distance_to_apple * 0.1)
+		(raw_score * 10.0) + (1.0 / (my_avg_distance_to_apple + 1.0))
 	}
 
 	fn is_terminal(&self) -> bool {
@@ -939,9 +945,9 @@ impl GameStateTrait for GameState {
 		let foe_raw_score = self.foe_raw_score();
 
 		if my_raw_score > foe_raw_score {
-			(my_raw_score - foe_raw_score).pow(2) as f32
+			(my_raw_score - foe_raw_score).pow(3) as f32
 		} else if my_raw_score < foe_raw_score {
-			-((foe_raw_score - my_raw_score).pow(2) as f32)
+			-((foe_raw_score - my_raw_score).pow(3) as f32)
 		} else {
 			0.0
 		}
