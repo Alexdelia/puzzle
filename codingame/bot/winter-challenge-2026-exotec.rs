@@ -597,57 +597,60 @@ macro_rules! pop_from_collision {
 	}};
 }
 
-// TODO: remove macro
-macro_rules! apply_collision {
-	($snakebot_list:expr, $dead_snakebot_index_list:expr, $dead_head_index_list:expr, $grid:expr, $other_snakebot_list:expr) => {{
-		for (index, snakebot) in $snakebot_list.iter().enumerate() {
-			let (head_x, head_y) = snakebot.body[0];
+fn apply_collision(
+	snakebot_list: &mut Vec<Snakebot>,
+	dead_snakebot_index_list: &mut Vec<usize>,
+	dead_head_index_list: &mut Vec<usize>,
+	grid: &BlockGrid,
+	other_snakebot_list: &Vec<Snakebot>,
+) {
+	for (index, snakebot) in snakebot_list.iter().enumerate() {
+		let (head_x, head_y) = snakebot.body[0];
 
-			if $grid.is_block(head_x, head_y) {
+		if grid.is_block(head_x, head_y) {
+			pop_from_collision!(
+				dead_snakebot_index_list,
+				dead_head_index_list,
+				snakebot,
+				index
+			);
+			continue;
+		}
+
+		for other_snakebot in other_snakebot_list.iter() {
+			if other_snakebot.body.contains(&(head_x, head_y)) {
 				pop_from_collision!(
-					$dead_snakebot_index_list,
-					$dead_head_index_list,
+					dead_snakebot_index_list,
+					dead_head_index_list,
 					snakebot,
 					index
 				);
-				continue;
-			}
-
-			for other_snakebot in $other_snakebot_list.iter() {
-				if other_snakebot.body.contains(&(head_x, head_y)) {
-					pop_from_collision!(
-						$dead_snakebot_index_list,
-						$dead_head_index_list,
-						snakebot,
-						index
-					);
-					break;
-				}
-			}
-
-			for (ally_index, ally_snakebot) in $snakebot_list.iter().enumerate() {
-				if ally_index == index {
-					if ally_snakebot.body[1..].contains(&(head_x, head_y)) {
-						pop_from_collision!(
-							$dead_snakebot_index_list,
-							$dead_head_index_list,
-							snakebot,
-							index
-						);
-						break;
-					}
-				} else if ally_snakebot.body.contains(&(head_x, head_y)) {
-					pop_from_collision!(
-						$dead_snakebot_index_list,
-						$dead_head_index_list,
-						snakebot,
-						index
-					);
-					break;
-				}
+				break;
 			}
 		}
-	}};
+
+		for (ally_index, ally_snakebot) in snakebot_list.iter().enumerate() {
+			if ally_index == index {
+				if ally_snakebot.body[1..].contains(&(head_x, head_y)) {
+					pop_from_collision!(
+						dead_snakebot_index_list,
+						dead_head_index_list,
+						snakebot,
+						index
+					);
+					break;
+				}
+			} else if ally_snakebot.body.contains(&(head_x, head_y)) {
+				pop_from_collision!(
+					dead_snakebot_index_list,
+					dead_head_index_list,
+					snakebot,
+					index
+				);
+				break;
+			}
+		}
+	}
 }
 
 fn apply_gravity(
@@ -855,19 +858,19 @@ impl GameStateTrait for GameState {
 		let mut my_snakebot_dead_head_list = Vec::<usize>::new();
 		let mut foe_snakebot_dead_head_list = Vec::<usize>::new();
 
-		apply_collision!(
-			my_snakebot_list,
-			my_dead_snakebot_index_list,
-			my_snakebot_dead_head_list,
-			env.g,
-			foe_snakebot_list
+		apply_collision(
+			&mut my_snakebot_list,
+			&mut my_dead_snakebot_index_list,
+			&mut my_snakebot_dead_head_list,
+			&env.g,
+			&foe_snakebot_list,
 		);
-		apply_collision!(
-			foe_snakebot_list,
-			foe_dead_snakebot_index_list,
-			foe_snakebot_dead_head_list,
-			env.g,
-			my_snakebot_list
+		apply_collision(
+			&mut foe_snakebot_list,
+			&mut foe_dead_snakebot_index_list,
+			&mut foe_snakebot_dead_head_list,
+			&env.g,
+			&my_snakebot_list,
 		);
 
 		if !my_snakebot_dead_head_list.is_empty() {
