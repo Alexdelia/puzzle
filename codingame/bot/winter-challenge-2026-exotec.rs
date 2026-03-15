@@ -9,7 +9,7 @@ use rand::{Rng, rngs::ThreadRng};
 
 // TODO: must remove initially stuck snakebot before monte-carlo tree search
 
-const MAX_TURN_DURATION: Duration = Duration::from_millis(80);
+const MAX_TURN_DURATION: Duration = Duration::from_millis(45);
 const MAX_TURN_COUNT: Turn = 200;
 const MIN_SNAKEBOT_LEN: usize = 3;
 
