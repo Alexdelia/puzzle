@@ -567,34 +567,37 @@ impl GameState {
 	}
 }
 
-macro_rules! move_and_eat {
-	($apple_list:expr, $eaten_apple_index_list:expr, $snakebot_list:expr, $action_list:expr) => {{
-		for (snakebot, action) in $snakebot_list.iter_mut().zip($action_list.into_iter()) {
-			let new_dir = match action {
-				STRAIGHT => snakebot.facing_dir,
-				LEFT => snakebot.facing_dir.turn_left(),
-				RIGHT => snakebot.facing_dir.turn_right(),
-				_ => unreachable!(),
-			};
+fn move_and_eat(
+	snakebot_list: &mut Vec<Snakebot>,
+	action_list: DecodedAction,
+	apple_list: &AppleList,
+	eaten_apple_index_list: &mut Vec<usize>,
+) {
+	for (snakebot, action) in snakebot_list.iter_mut().zip(action_list.into_iter()) {
+		let new_dir = match action {
+			STRAIGHT => snakebot.facing_dir,
+			LEFT => snakebot.facing_dir.turn_left(),
+			RIGHT => snakebot.facing_dir.turn_right(),
+			_ => unreachable!(),
+		};
 
-			let (head_x, head_y) = snakebot.body[0];
-			let new_head = match new_dir {
-				Dir::U => (head_x, head_y - 1),
-				Dir::R => (head_x + 1, head_y),
-				Dir::D => (head_x, head_y + 1),
-				Dir::L => (head_x - 1, head_y),
-			};
+		let (head_x, head_y) = snakebot.body[0];
+		let new_head = match new_dir {
+			Dir::U => (head_x, head_y - 1),
+			Dir::R => (head_x + 1, head_y),
+			Dir::D => (head_x, head_y + 1),
+			Dir::L => (head_x - 1, head_y),
+		};
 
-			snakebot.body.insert(0, new_head);
-			snakebot.facing_dir = new_dir;
+		snakebot.body.insert(0, new_head);
+		snakebot.facing_dir = new_dir;
 
-			if let Some(apple_index) = $apple_list.iter().position(|&apple| apple == new_head) {
-				$eaten_apple_index_list.push(apple_index);
-			} else {
-				snakebot.body.pop();
-			}
+		if let Some(apple_index) = apple_list.iter().position(|&apple| apple == new_head) {
+			eaten_apple_index_list.push(apple_index);
+		} else {
+			snakebot.body.pop();
 		}
-	}};
+	}
 }
 
 macro_rules! pop_from_collision {
@@ -607,6 +610,7 @@ macro_rules! pop_from_collision {
 	}};
 }
 
+// TODO: remove macro
 macro_rules! apply_collision {
 	($snakebot_list:expr, $dead_snakebot_index_list:expr, $dead_head_index_list:expr, $grid:expr, $other_snakebot_list:expr) => {{
 		for (index, snakebot) in $snakebot_list.iter().enumerate() {
@@ -659,131 +663,129 @@ macro_rules! apply_collision {
 	}};
 }
 
-macro_rules! apply_gravity {
-	($my_snakebot_list:expr, $foe_snake_bot_list:expr, $grid:expr, $apple_list:expr) => {{
-		let mut extra_block = $grid.clone();
-		for apple in $apple_list.iter() {
-			extra_block.set(apple.0, apple.1);
-		}
+fn apply_gravity(
+	my_snakebot_list: &mut Vec<Snakebot>,
+	foe_snake_bot_list: &mut Vec<Snakebot>,
+	grid: &BlockGrid,
+	apple_list: &AppleList,
+) {
+	let mut extra_block = grid.clone();
+	for apple in apple_list.iter() {
+		extra_block.set(apple.0, apple.1);
+	}
 
-		let mut snakebot_fall_flag_list =
-			vec![true; $my_snakebot_list.len() + $foe_snake_bot_list.len()];
+	let mut snakebot_fall_flag_list = vec![true; my_snakebot_list.len() + foe_snake_bot_list.len()];
 
-		let mut remaining_fall_distance = $grid.h;
-		while snakebot_fall_flag_list.iter().any(|flag| *flag) && remaining_fall_distance > 0 {
-			for snakebot_index in 0..$my_snakebot_list.len() {
-				if !snakebot_fall_flag_list[snakebot_index] {
-					continue;
-				}
-
-				for body_part_index in 0..$my_snakebot_list[snakebot_index].body.len() {
-					$my_snakebot_list[snakebot_index].body[body_part_index].1 += 1;
-					if $grid.is_block(
-						$my_snakebot_list[snakebot_index].body[body_part_index].0,
-						$my_snakebot_list[snakebot_index].body[body_part_index].1,
-					) || extra_block.is_block(
-						$my_snakebot_list[snakebot_index].body[body_part_index].0,
-						$my_snakebot_list[snakebot_index].body[body_part_index].1,
-					) {
-						for i in 0..=body_part_index {
-							$my_snakebot_list[snakebot_index].body[i].1 -= 1;
-						}
-
-						extra_block.safe_set(
-							$my_snakebot_list[snakebot_index].body[body_part_index].0,
-							$my_snakebot_list[snakebot_index].body[body_part_index].1,
-						);
-
-						snakebot_fall_flag_list[snakebot_index] = false;
-
-						for previous_snakebot_index in 0..snakebot_index {
-							if !snakebot_fall_flag_list[previous_snakebot_index] {
-								continue;
-							}
-
-							for body_part_index in
-								0..$my_snakebot_list[previous_snakebot_index].body.len()
-							{
-								$my_snakebot_list[previous_snakebot_index].body[body_part_index]
-									.1 -= 1;
-							}
-						}
-					}
-				}
-			}
-
-			for snakebot_index in 0..$foe_snake_bot_list.len() {
-				if !snakebot_fall_flag_list[$my_snakebot_list.len() + snakebot_index] {
-					continue;
-				}
-
-				for body_part_index in 0..$foe_snake_bot_list[snakebot_index].body.len() {
-					$foe_snake_bot_list[snakebot_index].body[body_part_index].1 += 1;
-					if $grid.is_block(
-						$foe_snake_bot_list[snakebot_index].body[body_part_index].0,
-						$foe_snake_bot_list[snakebot_index].body[body_part_index].1,
-					) || extra_block.is_block(
-						$foe_snake_bot_list[snakebot_index].body[body_part_index].0,
-						$foe_snake_bot_list[snakebot_index].body[body_part_index].1,
-					) {
-						for i in 0..=body_part_index {
-							$foe_snake_bot_list[snakebot_index].body[i].1 -= 1;
-						}
-
-						extra_block.safe_set(
-							$foe_snake_bot_list[snakebot_index].body[body_part_index].0,
-							$foe_snake_bot_list[snakebot_index].body[body_part_index].1,
-						);
-
-						snakebot_fall_flag_list[$my_snakebot_list.len() + snakebot_index] = false;
-
-						for previous_snakebot_index in 0..snakebot_index {
-							if !snakebot_fall_flag_list
-								[$my_snakebot_list.len() + previous_snakebot_index]
-							{
-								continue;
-							}
-
-							for body_part_index in
-								0..$foe_snake_bot_list[previous_snakebot_index].body.len()
-							{
-								$foe_snake_bot_list[previous_snakebot_index].body
-									[body_part_index]
-									.1 -= 1;
-							}
-						}
-
-						for my_snakebot_index in 0..$my_snakebot_list.len() {
-							if !snakebot_fall_flag_list[my_snakebot_index] {
-								continue;
-							}
-
-							for body_part_index in
-								0..$my_snakebot_list[my_snakebot_index].body.len()
-							{
-								$my_snakebot_list[my_snakebot_index].body[body_part_index].1 -= 1;
-							}
-						}
-					}
-				}
-			}
-
-			remaining_fall_distance -= 1;
-		}
-
-		let my_snakebot_count = $my_snakebot_list.len();
-		for index in 0..snakebot_fall_flag_list.len() {
-			if !snakebot_fall_flag_list[index] {
+	let mut remaining_fall_distance = grid.h;
+	while snakebot_fall_flag_list.iter().any(|flag| *flag) && remaining_fall_distance > 0 {
+		for snakebot_index in 0..my_snakebot_list.len() {
+			if !snakebot_fall_flag_list[snakebot_index] {
 				continue;
 			}
 
-			if index < $my_snakebot_list.len() {
-				$my_snakebot_list.remove(index);
-			} else {
-				$foe_snake_bot_list.remove(index - my_snakebot_count);
+			for body_part_index in 0..my_snakebot_list[snakebot_index].body.len() {
+				my_snakebot_list[snakebot_index].body[body_part_index].1 += 1;
+				if grid.is_block(
+					my_snakebot_list[snakebot_index].body[body_part_index].0,
+					my_snakebot_list[snakebot_index].body[body_part_index].1,
+				) || extra_block.is_block(
+					my_snakebot_list[snakebot_index].body[body_part_index].0,
+					my_snakebot_list[snakebot_index].body[body_part_index].1,
+				) {
+					for i in 0..=body_part_index {
+						my_snakebot_list[snakebot_index].body[i].1 -= 1;
+					}
+
+					extra_block.safe_set(
+						my_snakebot_list[snakebot_index].body[body_part_index].0,
+						my_snakebot_list[snakebot_index].body[body_part_index].1,
+					);
+
+					snakebot_fall_flag_list[snakebot_index] = false;
+
+					for previous_snakebot_index in 0..snakebot_index {
+						if !snakebot_fall_flag_list[previous_snakebot_index] {
+							continue;
+						}
+
+						for body_part_index in
+							0..my_snakebot_list[previous_snakebot_index].body.len()
+						{
+							my_snakebot_list[previous_snakebot_index].body[body_part_index].1 -= 1;
+						}
+					}
+				}
 			}
 		}
-	}};
+
+		for snakebot_index in 0..foe_snake_bot_list.len() {
+			if !snakebot_fall_flag_list[my_snakebot_list.len() + snakebot_index] {
+				continue;
+			}
+
+			for body_part_index in 0..foe_snake_bot_list[snakebot_index].body.len() {
+				foe_snake_bot_list[snakebot_index].body[body_part_index].1 += 1;
+				if grid.is_block(
+					foe_snake_bot_list[snakebot_index].body[body_part_index].0,
+					foe_snake_bot_list[snakebot_index].body[body_part_index].1,
+				) || extra_block.is_block(
+					foe_snake_bot_list[snakebot_index].body[body_part_index].0,
+					foe_snake_bot_list[snakebot_index].body[body_part_index].1,
+				) {
+					for i in 0..=body_part_index {
+						foe_snake_bot_list[snakebot_index].body[i].1 -= 1;
+					}
+
+					extra_block.safe_set(
+						foe_snake_bot_list[snakebot_index].body[body_part_index].0,
+						foe_snake_bot_list[snakebot_index].body[body_part_index].1,
+					);
+
+					snakebot_fall_flag_list[my_snakebot_list.len() + snakebot_index] = false;
+
+					for previous_snakebot_index in 0..snakebot_index {
+						if !snakebot_fall_flag_list
+							[my_snakebot_list.len() + previous_snakebot_index]
+						{
+							continue;
+						}
+
+						for body_part_index in
+							0..foe_snake_bot_list[previous_snakebot_index].body.len()
+						{
+							foe_snake_bot_list[previous_snakebot_index].body[body_part_index].1 -=
+								1;
+						}
+					}
+
+					for my_snakebot_index in 0..my_snakebot_list.len() {
+						if !snakebot_fall_flag_list[my_snakebot_index] {
+							continue;
+						}
+
+						for body_part_index in 0..my_snakebot_list[my_snakebot_index].body.len() {
+							my_snakebot_list[my_snakebot_index].body[body_part_index].1 -= 1;
+						}
+					}
+				}
+			}
+		}
+
+		remaining_fall_distance -= 1;
+	}
+
+	let my_snakebot_count = my_snakebot_list.len();
+	for index in (0..my_snakebot_count + foe_snake_bot_list.len()).rev() {
+		if !snakebot_fall_flag_list[index] {
+			continue;
+		}
+
+		if index < my_snakebot_count {
+			my_snakebot_list.remove(index);
+		} else {
+			foe_snake_bot_list.remove(index - my_snakebot_count);
+		}
+	}
 }
 
 impl GameStateTrait for GameState {
@@ -813,17 +815,17 @@ impl GameStateTrait for GameState {
 		// TODO: try to set as global
 		let mut eaten_apple_index_list = Vec::<usize>::new();
 
-		move_and_eat!(
-			self.apple_list,
-			eaten_apple_index_list,
-			my_snakebot_list,
-			my_decoded_action
+		move_and_eat(
+			&mut my_snakebot_list,
+			my_decoded_action,
+			&self.apple_list,
+			&mut eaten_apple_index_list,
 		);
-		move_and_eat!(
-			self.apple_list,
-			eaten_apple_index_list,
-			foe_snakebot_list,
-			foe_decoded_action
+		move_and_eat(
+			&mut foe_snakebot_list,
+			foe_decoded_action,
+			&self.apple_list,
+			&mut eaten_apple_index_list,
 		);
 
 		let mut apple_list = self.apple_list.clone();
@@ -878,7 +880,12 @@ impl GameStateTrait for GameState {
 			}
 		}
 
-		apply_gravity!(my_snakebot_list, foe_snakebot_list, env.g, apple_list);
+		apply_gravity(
+			&mut my_snakebot_list,
+			&mut foe_snakebot_list,
+			&env.g,
+			&apple_list,
+		);
 
 		GameState {
 			turn: self.turn + 1,
