@@ -303,7 +303,7 @@ trait GameStateTrait: Clone {
 }
 
 impl<'e, S: GameStateTrait> Mcts<'e, S> {
-	const EXPLORATION_CONSTANT: f32 = 1.4;
+	const EXPLORATION_CONSTANT: f32 = 1.1;
 
 	fn new(env: &'e Env, initial_state: S) -> Self {
 		let root = MctsNode::new(initial_state);
