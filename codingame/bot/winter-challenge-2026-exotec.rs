@@ -1075,4 +1075,28 @@ mod tests {
 		let mut mcts = Mcts::new(&env, state);
 		let _ = mcts.search();
 	}
+
+	#[test]
+	fn test_decode_action() {
+		let state = GameState {
+			turn: 0,
+			my_snakebot_list: vec![
+				Snakebot {
+					body: Vec::default(),
+					facing_dir: Dir::U,
+				};
+				3
+			],
+			foe_snakebot_list: vec![],
+			apple_list: vec![],
+		};
+
+		assert_eq!(state.decode_action(0), vec![STRAIGHT, STRAIGHT, STRAIGHT]);
+
+		assert_eq!(state.decode_action(1), vec![STRAIGHT, STRAIGHT, LEFT]);
+
+		assert_eq!(state.decode_action(2), vec![STRAIGHT, STRAIGHT, RIGHT]);
+
+		assert_eq!(state.decode_action(3), vec![STRAIGHT, LEFT, STRAIGHT]);
+	}
 }
