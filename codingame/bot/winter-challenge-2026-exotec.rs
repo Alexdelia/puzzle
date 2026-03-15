@@ -522,6 +522,22 @@ const ACTION_COUNT_BY_AGENT_COUNT: [PlayerActionCount; 5] = [
 	81, // 4
 ];
 
+impl GameState {
+	fn my_raw_score(&self) -> usize {
+		self.my_snakebot_list
+			.iter()
+			.map(|snakebot| snakebot.body.len())
+			.sum()
+	}
+
+	fn foe_raw_score(&self) -> usize {
+		self.foe_snakebot_list
+			.iter()
+			.map(|snakebot| snakebot.body.len())
+			.sum()
+	}
+}
+
 impl GameStateTrait for GameState {
 	fn my_alive_agent_count(&self) -> usize {
 		self.my_snakebot_list.len()
@@ -543,14 +559,33 @@ impl GameStateTrait for GameState {
 	}
 
 	fn evaluate(&self) -> HeuristicReward {
-		todo!()
+		let my_raw_score = self.my_raw_score();
+		let foe_raw_score = self.foe_raw_score();
+
+		let raw_score = my_raw_score as f32 - foe_raw_score as f32;
+
+		// TODO: better score if closer to apple
+
+		raw_score
 	}
 
 	fn is_terminal(&self) -> bool {
-		todo!()
+		self.apple_list.is_empty()
+			|| self.turn >= MAX_TURN_COUNT
+			|| self.my_snakebot_list.is_empty()
+			|| self.foe_snakebot_list.is_empty()
 	}
 	fn terminal_value(&self) -> HeuristicReward {
-		todo!()
+		let my_raw_score = self.my_raw_score();
+		let foe_raw_score = self.foe_raw_score();
+
+		if my_raw_score > foe_raw_score {
+			(my_raw_score - foe_raw_score).pow(2) as f32
+		} else if my_raw_score < foe_raw_score {
+			-((foe_raw_score - my_raw_score).pow(2) as f32)
+		} else {
+			0.0
+		}
 	}
 }
 
