@@ -5,8 +5,6 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use rand::{Rng, rngs::ThreadRng};
-
 // TODO: must remove initially stuck snakebot before monte-carlo tree search
 
 const MAX_TURN_DURATION: Duration = Duration::from_millis(45);
@@ -247,8 +245,6 @@ struct Mcts<'e, S: GameStateTrait> {
 	node_list: Vec<MctsNode<S>>,
 
 	root: NodeIndex,
-
-	rng: ThreadRng,
 }
 
 /// MCTS => Monte Carlo Tree Search
@@ -313,21 +309,24 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 
 			node_list: vec![root],
 			root: 0,
-
-			rng: rand::rng(),
 		}
 	}
 
 	fn search(&mut self) -> DecodedAction {
 		let start = Instant::now();
 		let mut iteration_count = 0;
-		while start.elapsed() < MAX_TURN_DURATION {
+		loop {
 			self.iterate();
-			iteration_count += 1;
-		}
 
-		let elapsed = start.elapsed();
-		eprintln!("search took: {elapsed:?}\niteration count: {iteration_count}");
+			iteration_count += 1;
+			if iteration_count % 50 == 0 {
+				let elapsed = start.elapsed();
+				if elapsed >= MAX_TURN_DURATION {
+					eprintln!("search took: {elapsed:?}\niteration count: {iteration_count}");
+					break;
+				}
+			}
+		}
 
 		self.my_best_action()
 	}
@@ -344,10 +343,8 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 				return;
 			}
 
-			let my_action =
-				Self::ucb1_action(&mut self.rng, &node.my_ucb_list, node.node_visit_count);
-			let foe_action =
-				Self::ucb1_action(&mut self.rng, &node.foe_ucb_list, node.node_visit_count);
+			let my_action = Self::ucb1_action(&node.my_ucb_list, node.node_visit_count);
+			let foe_action = Self::ucb1_action(&node.foe_ucb_list, node.node_visit_count);
 
 			if let Some(&child_node_index) = node.children.get(&(my_action, foe_action)) {
 				path.push((node_index, my_action, foe_action));
@@ -385,38 +382,28 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 	}
 
 	fn ucb1_action(
-		rng: &mut ThreadRng,
 		player_ucb_list: &[UcbActionStats],
 		parent_visit_count: VisitCount,
 	) -> PlayerActionReprAsIndex {
-		let mut best_action_list = Vec::new();
-		let mut best_ucb = f32::NEG_INFINITY;
+		let mut best = (PlayerActionReprAsIndex::default(), f32::NEG_INFINITY);
 
 		for (i, stat) in player_ucb_list.iter().enumerate() {
-			let ucb = if stat.visit_count == 0 {
-				f32::INFINITY
-			} else {
-				let mean = stat.total_reward / stat.visit_count as f32;
-				let exploration = Self::EXPLORATION_CONSTANT
-					* ((parent_visit_count as f32).ln() / stat.visit_count as f32).sqrt();
-				mean + exploration
-			};
+			// TODO: validate if we want to force exploration
+			if stat.visit_count == 0 {
+				return i as PlayerActionReprAsIndex;
+			}
 
-			// TODO: do not store all best action, and only keep one
-			if ucb > best_ucb + 1e-6 {
-				best_ucb = ucb;
-				best_action_list.clear();
-				best_action_list.push(i);
-			} else if (ucb - best_ucb).abs() < 1e-6 {
-				best_action_list.push(i);
+			let mean = stat.total_reward / stat.visit_count as f32;
+			let exploration = Self::EXPLORATION_CONSTANT
+				* ((parent_visit_count as f32).ln() / stat.visit_count as f32).sqrt();
+			let ucb = mean + exploration;
+
+			if ucb > best.1 {
+				best = (i as PlayerActionReprAsIndex, ucb);
 			}
 		}
-		if best_action_list.is_empty() {
-			// fallback, should not happen
-			rng.random_range(0..player_ucb_list.len()) as PlayerActionReprAsIndex
-		} else {
-			best_action_list[rng.random_range(0..best_action_list.len())] as PlayerActionReprAsIndex
-		}
+
+		best.0
 	}
 
 	fn backpropagate(
@@ -788,6 +775,32 @@ fn apply_gravity(
 	}
 }
 
+fn remove_indices<T>(vec: &mut Vec<T>, mut indices: Vec<usize>) {
+	if indices.is_empty() {
+		return;
+	}
+
+	indices.sort_unstable();
+
+	let mut write = 0;
+	let mut read = 0;
+	let mut next_remove = 0;
+
+	while read < vec.len() {
+		if next_remove < indices.len() && read == indices[next_remove] {
+			next_remove += 1;
+		} else {
+			if write != read {
+				vec.swap(write, read);
+			}
+			write += 1;
+		}
+		read += 1;
+	}
+
+	vec.truncate(write);
+}
+
 impl GameStateTrait for GameState {
 	fn my_alive_agent_count(&self) -> usize {
 		self.my_snakebot_list.len()
@@ -830,10 +843,10 @@ impl GameStateTrait for GameState {
 
 		let mut apple_list = self.apple_list.clone();
 		if !eaten_apple_index_list.is_empty() {
-			eaten_apple_index_list.sort_unstable();
+			eaten_apple_index_list.sort_unstable_by(|a, b| b.cmp(a));
 			eaten_apple_index_list.dedup();
-			for i in eaten_apple_index_list.into_iter().rev() {
-				apple_list.remove(i);
+			for i in eaten_apple_index_list.into_iter() {
+				apple_list.swap_remove(i);
 			}
 		}
 
@@ -867,18 +880,8 @@ impl GameStateTrait for GameState {
 				foe_snakebot_list[i].body.remove(0);
 			}
 		}
-		if !my_dead_snakebot_index_list.is_empty() {
-			my_dead_snakebot_index_list.sort_unstable();
-			for i in my_dead_snakebot_index_list.into_iter().rev() {
-				my_snakebot_list.remove(i);
-			}
-		}
-		if !foe_dead_snakebot_index_list.is_empty() {
-			foe_dead_snakebot_index_list.sort_unstable();
-			for i in foe_dead_snakebot_index_list.into_iter().rev() {
-				foe_snakebot_list.remove(i);
-			}
-		}
+		remove_indices(&mut my_snakebot_list, my_dead_snakebot_index_list);
+		remove_indices(&mut foe_snakebot_list, foe_dead_snakebot_index_list);
 
 		apply_gravity(
 			&mut my_snakebot_list,
