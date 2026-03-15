@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Alexandre Delille <adelille@student.42.fr>"]
 
 [dependencies]
-rand = "0.10"
+rand = "0.9.2" # https://www.codingame.com/playgrounds/40701/help-center/languages-versions
 
 [[bin]]
 name = "game_of_drones"
