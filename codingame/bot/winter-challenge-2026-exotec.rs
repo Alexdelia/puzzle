@@ -972,3 +972,76 @@ fn main() {
 		env.turn += 1;
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_bench_mcts() {
+		let env = Env {
+			turn: 4,
+			g: BlockGrid {
+				w: 22,
+				h: 12,
+				d: vec![
+					0,
+					7734932360009220480,
+					17149567210541469696,
+					18446742012124758015,
+					255,
+				],
+			},
+			my_id: 1,
+			my_snakebot_id_list: vec![3, 4, 5],
+			foe_snakebot_id_list: vec![0, 1, 2],
+		};
+
+		let state = GameState {
+			turn: 4,
+			my_snakebot_list: vec![
+				Snakebot {
+					body: vec![(19, 3), (19, 4), (19, 5), (20, 5)],
+					facing_dir: Dir::U,
+				},
+				Snakebot {
+					body: vec![(20, 7), (19, 7), (19, 6), (18, 6), (17, 6)],
+					facing_dir: Dir::R,
+				},
+				Snakebot {
+					body: vec![(9, 3), (9, 2), (8, 2), (8, 3), (8, 4)],
+					facing_dir: Dir::D,
+				},
+			],
+			foe_snakebot_list: vec![
+				Snakebot {
+					body: vec![(0, 5), (0, 6), (1, 6), (1, 7)],
+					facing_dir: Dir::U,
+				},
+				Snakebot {
+					body: vec![(3, 6), (2, 6), (2, 7), (3, 7), (4, 7)],
+					facing_dir: Dir::R,
+				},
+				Snakebot {
+					body: vec![(12, 4), (12, 3), (12, 2), (13, 2), (13, 3)],
+					facing_dir: Dir::D,
+				},
+			],
+			apple_list: vec![
+				(7, 4),
+				(14, 4),
+				(9, 5),
+				(12, 5),
+				(0, 0),
+				(21, 0),
+				(3, 1),
+				(18, 1),
+				(0, 3),
+				(21, 3),
+			],
+		};
+
+		let mut mcts = Mcts::new(&env, state);
+		let _ = mcts.search();
+	}
+}
