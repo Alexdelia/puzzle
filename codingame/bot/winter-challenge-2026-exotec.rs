@@ -2,14 +2,13 @@ use std::{
 	collections::{HashSet, VecDeque},
 	fmt::Display,
 	io,
-	time::{Duration, SystemTime},
+	time::{Duration, Instant},
 };
 
-// TODO: check if SystemTime is the best way to measure elapsed time
 // TODO: set other ally snakebot as block during bfs
 // TODO: try to kill opponent snakebot if no apple exist
 
-const MAX_TURN_DURATION: Duration = Duration::from_millis(80);
+const MAX_TURN_DURATION: Duration = Duration::from_millis(45);
 
 type Id = u8;
 
@@ -474,14 +473,14 @@ fn find_snakebot_action(
 		);
 	}
 
-	let start = SystemTime::now();
+	let start = Instant::now();
 	let mut i = 0;
 	while let Some((initial_dir, body)) = queue.pop_front() {
 		visit_neighbor!(env, queue, visited, grid, snakebot_id, initial_dir, body);
 
 		i += 1;
-		let elapsed = start.elapsed().unwrap();
-		if i % 1000 == 0 && elapsed >= allowed_time {
+		let elapsed = start.elapsed();
+		if i % 100 == 0 && elapsed >= allowed_time {
 			eprintln!("timeout: visited {i} states in {elapsed:?}");
 			break;
 		}
@@ -501,7 +500,7 @@ fn main() {
 	let mut my_snakebot_list = Vec::with_capacity(env.my_snakebot_id_list.len());
 
 	loop {
-		let start = SystemTime::now();
+		let start = Instant::now();
 
 		let mut grid = env.base_grid.clone();
 
@@ -512,10 +511,10 @@ fn main() {
 			.iter()
 			.enumerate()
 			.map(|(index, (id, body))| {
-				let sub_start = SystemTime::now();
+				let sub_start = Instant::now();
 
-				let Some(allowed_time) = (MAX_TURN_DURATION.checked_sub(start.elapsed().unwrap()))
-					.and_then(|remaining| {
+				let Some(allowed_time) =
+					(MAX_TURN_DURATION.checked_sub(start.elapsed())).and_then(|remaining| {
 						remaining.checked_div(env.my_snakebot_id_list.len() as u32 - index as u32)
 					})
 				else {
@@ -546,7 +545,7 @@ fn main() {
 					grid[y][x] = Tile::Block;
 				}
 
-				let elapsed = sub_start.elapsed().unwrap();
+				let elapsed = sub_start.elapsed();
 				eprintln!("[{id}] took: {elapsed:?}");
 
 				action.to_string()
