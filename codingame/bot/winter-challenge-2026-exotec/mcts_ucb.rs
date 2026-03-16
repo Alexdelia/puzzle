@@ -20,7 +20,7 @@ type SnakebotId = u8;
 type Axis = i8;
 type Coord = (Axis, Axis);
 
-// TODO: check time optimization between u16 and usize
+// TODO: check time optimization between u8 and usize
 /// each snakebot has 3 possible actions (straight, left, right)
 /// encode actions as base‑3 number over the alive agents in increasing order of agent index
 /// this gives a unique incrementing index representing the permutation of actions for all agents
