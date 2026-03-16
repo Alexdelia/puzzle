@@ -213,8 +213,13 @@ impl BlockGrid {
 	}
 
 	#[inline]
+	fn is_safe(&self, x: Axis, y: Axis) -> bool {
+		y >= 0 && x <= 0 && x < self.w && y < self.h
+	}
+
+	#[inline]
 	fn is_block(&self, x: Axis, y: Axis) -> bool {
-		if x < 0 || y < 0 || x >= self.w || y >= self.h {
+		if !self.is_safe(x, y) {
 			return false;
 		}
 
@@ -224,7 +229,7 @@ impl BlockGrid {
 
 	#[inline]
 	fn safe_set(&mut self, x: Axis, y: Axis) {
-		if x < 0 || y < 0 || x >= self.w || y >= self.h {
+		if !self.is_safe(x, y) {
 			return;
 		}
 
