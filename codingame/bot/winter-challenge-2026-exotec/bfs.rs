@@ -332,7 +332,7 @@ fn try_visit(
 		return Some((initial_dir, Some((x, y))));
 	}
 
-	if !grid.is_set(x, y) && body.iter().all(|&(bx, by)| bx != x || by != y) {
+	if !grid.is_set(x, y) && body.iter().skip(1).all(|&(bx, by)| bx != x || by != y) {
 		move_and_queue!(q, visited, grid, initial_dir, body, x, y);
 	}
 
@@ -471,7 +471,13 @@ fn find_snakebot_action(
 	let start = Instant::now();
 	let mut i = 0;
 	while let Some((initial_dir, body)) = q.pop_front() {
-		visit_neighbor(&mut q, &mut visited, grid, apple_grid, initial_dir, &body);
+		if let Some(solution) =
+			visit_neighbor(&mut q, &mut visited, grid, apple_grid, initial_dir, &body)
+		{
+			let elapsed = start.elapsed();
+			eprintln!("visited {i} states in {elapsed:?}");
+			return solution;
+		}
 
 		i += 1;
 		let elapsed = start.elapsed();
