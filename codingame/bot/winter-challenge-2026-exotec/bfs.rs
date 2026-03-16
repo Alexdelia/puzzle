@@ -317,55 +317,83 @@ macro_rules! move_and_queue {
 	}};
 }
 
-macro_rules! try_visit {
-	($q:expr, $visited:expr, $grid:expr, $apple:expr, $id:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {
-		if $apple.is_set($x, $y) {
-			return (
-				Action {
-					snakebot_id: $id,
-					direction: $initial_dir,
-				},
-				Some(($x, $y)),
-			);
-		}
+fn try_visit(
+	q: &mut VecDeque<(Dir, Vec<Coord>)>,
+	visited: &mut HashSet<Vec<Coord>>,
+	grid: &BlockGrid,
+	apple: &BlockGrid,
+	initial_dir: Dir,
+	body: &[Coord],
+	x: Axis,
+	y: Axis,
+) -> Option<(Dir, Option<Coord>)> {
+	if apple.is_set(x, y) {
+		return Some((initial_dir, Some((x, y))));
+	}
 
-		if !$grid.is_set($x, $y) && $body.iter().all(|&(bx, by)| bx != $x || by != $y) {
-			move_and_queue!($q, $visited, $grid, $initial_dir, $body, $x, $y);
-		}
-	};
+	if !grid.is_set(x, y) && body.iter().all(|&(bx, by)| bx != x || by != y) {
+		move_and_queue!(q, visited, grid, initial_dir, body, x, y);
+	}
+
+	None
 }
 
-macro_rules! visit_neighbor {
-	($q:expr, $visited:expr, $grid:expr, $apple:expr, $id:expr, $initial_dir:expr, $body:expr) => {
-		let (x, y) = $body[0];
-		let ny = y - 1;
-		try_visit!($q, $visited, $grid, $apple, $id, $initial_dir, $body, x, ny);
-		let nx = x - 1;
-		try_visit!($q, $visited, $grid, $apple, $id, $initial_dir, $body, nx, y);
-		let nx = x + 1;
-		try_visit!($q, $visited, $grid, $apple, $id, $initial_dir, $body, nx, y);
-		let ny = y + 1;
-		try_visit!($q, $visited, $grid, $apple, $id, $initial_dir, $body, x, ny);
-	};
+fn visit_neighbor(
+	q: &mut VecDeque<(Dir, Vec<Coord>)>,
+	visited: &mut HashSet<Vec<Coord>>,
+	grid: &BlockGrid,
+	apple: &BlockGrid,
+	initial_dir: Dir,
+	body: &[Coord],
+) -> Option<(Dir, Option<Coord>)> {
+	let (x, y) = body[0];
+
+	if let Some(solution) = try_visit(q, visited, grid, apple, initial_dir, body, x, y - 1) {
+		return Some(solution);
+	}
+
+	// TODO: choose left if more towards right and right if more towards left
+	if let Some(solution) = try_visit(q, visited, grid, apple, initial_dir, body, x - 1, y) {
+		return Some(solution);
+	}
+	if let Some(solution) = try_visit(q, visited, grid, apple, initial_dir, body, x + 1, y) {
+		return Some(solution);
+	}
+
+	if let Some(solution) = try_visit(q, visited, grid, apple, initial_dir, body, x, y + 1) {
+		return Some(solution);
+	}
+
+	None
 }
 
-macro_rules! initial_visit_neighbor {
-	($q:expr, $visited:expr, $grid:expr, $apple:expr, $id:expr, $body:expr) => {
-		let (x, y) = $body[0];
-		if !is_upright($body) {
-			let ny = y - 1;
-			try_visit!($q, $visited, $grid, $apple, $id, Dir::U, $body, x, ny);
+fn initial_visit_neighbor(
+	q: &mut VecDeque<(Dir, Vec<Coord>)>,
+	visited: &mut HashSet<Vec<Coord>>,
+	grid: &BlockGrid,
+	apple: &BlockGrid,
+	body: &[Coord],
+) -> Option<(Dir, Option<Coord>)> {
+	let (x, y) = body[0];
+	if !is_upright(body) {
+		if let Some(solution) = try_visit(q, visited, grid, apple, Dir::U, body, x, y - 1) {
+			return Some(solution);
 		}
+	}
 
-		// TODO: choose left if more towards right and right if more towards left
-		let nx = x - 1;
-		try_visit!($q, $visited, $grid, $apple, $id, Dir::L, $body, nx, y);
-		let nx = x + 1;
-		try_visit!($q, $visited, $grid, $apple, $id, Dir::R, $body, nx, y);
+	// TODO: choose left if more towards right and right if more towards left
+	if let Some(solution) = try_visit(q, visited, grid, apple, Dir::L, body, x - 1, y) {
+		return Some(solution);
+	}
+	if let Some(solution) = try_visit(q, visited, grid, apple, Dir::R, body, x + 1, y) {
+		return Some(solution);
+	}
 
-		let ny = y + 1;
-		try_visit!($q, $visited, $grid, $apple, $id, Dir::D, $body, x, ny);
-	};
+	if let Some(solution) = try_visit(q, visited, grid, apple, Dir::D, body, x, y + 1) {
+		return Some(solution);
+	}
+
+	None
 }
 
 fn has_single_depth_move(
@@ -415,18 +443,11 @@ fn has_single_depth_move(
 fn find_snakebot_action(
 	grid: &BlockGrid,
 	apple_grid: &BlockGrid,
-	snakebot_id: SnakebotId,
 	snakebot_body: &[Coord],
 	allowed_time: Duration,
-) -> (Action, Option<Coord>) {
-	if let Some((single_move, apple)) = has_single_depth_move(grid, apple_grid, snakebot_body) {
-		return (
-			Action {
-				snakebot_id,
-				direction: single_move,
-			},
-			apple,
-		);
+) -> (Dir, Option<Coord>) {
+	if let Some(solution) = has_single_depth_move(grid, apple_grid, snakebot_body) {
+		return solution;
 	}
 
 	// TODO: store body more efficiently?
@@ -434,24 +455,22 @@ fn find_snakebot_action(
 	visited.insert(snakebot_body.to_vec());
 
 	let mut q = VecDeque::<(Dir, Vec<Coord>)>::new();
-	initial_visit_neighbor!(q, visited, grid, apple_grid, snakebot_id, snakebot_body);
+	if let Some(solution) =
+		initial_visit_neighbor(&mut q, &mut visited, grid, apple_grid, snakebot_body)
+	{
+		return solution;
+	}
 
 	let first = q.clone().pop_front();
 	let default_dir = first.map(|(dir, _)| dir).unwrap_or(Dir::U);
 	if q.len() <= 1 {
-		return (
-			Action {
-				snakebot_id,
-				direction: default_dir,
-			},
-			None,
-		);
+		return (default_dir, None);
 	}
 
 	let start = Instant::now();
 	let mut i = 0;
 	while let Some((initial_dir, body)) = q.pop_front() {
-		visit_neighbor!(q, visited, grid, apple_grid, snakebot_id, initial_dir, body);
+		visit_neighbor(&mut q, &mut visited, grid, apple_grid, initial_dir, &body);
 
 		i += 1;
 		let elapsed = start.elapsed();
@@ -461,13 +480,7 @@ fn find_snakebot_action(
 		}
 	}
 
-	(
-		Action {
-			snakebot_id,
-			direction: default_dir,
-		},
-		None,
-	)
+	(default_dir, None)
 }
 
 fn main() {
@@ -506,8 +519,11 @@ fn main() {
 					grid.safe_unset(x, y);
 				}
 
-				let (action, apple) =
-					find_snakebot_action(&grid, &apple_grid, *id, body, allowed_time);
+				let (dir, apple) = find_snakebot_action(&grid, &apple_grid, body, allowed_time);
+				let action = Action {
+					snakebot_id: *id,
+					direction: dir,
+				};
 
 				if let Some(apple) = apple {
 					apple_grid.safe_unset(apple.0, apple.1);
