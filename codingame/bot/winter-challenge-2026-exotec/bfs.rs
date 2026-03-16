@@ -5,40 +5,40 @@ use std::{
 	time::{Duration, Instant},
 };
 
-// TODO: set other ally snakebot as block during bfs
-// TODO: try to kill opponent snakebot if no apple exist
-
 const MAX_TURN_DURATION: Duration = Duration::from_millis(45);
+// const MAX_TURN_COUNT: Turn = 200;
+// const MIN_SNAKEBOT_LEN: usize = 3;
+// const MAX_SNAKEBOT_PER_PLAYER: usize = 4;
 
-type Id = u8;
+// type Turn = u8;
+
+type SnakebotId = u8;
+
+/// max 45w x 30h (=1350 tile)
+/// snakebot can go out of bounds, but we don't expect under -128 or above 127-45=82
+type Axis = i8;
+type Coord = (Axis, Axis);
 
 struct Env {
-	w: usize,
-	h: usize,
-	base_grid: Grid,
+	// turn: Turn,
+	g: BlockGrid,
 
 	#[allow(dead_code)]
-	my_id: Id,
-	my_snakebot_id_list: Vec<Id>,
+	my_id: SnakebotId,
+	my_snakebot_id_list: Vec<SnakebotId>,
 	#[allow(dead_code)]
-	foe_snakebot_id_list: Vec<Id>,
+	foe_snakebot_id_list: Vec<SnakebotId>,
 }
 
-// NOTE: does not handle going out of bounds
-// TODO: try flat Vec<Tile> and index with y * w + x
-// TODO: try 1 bit per tile and bitwise operations
-type Grid = Vec<Vec<Tile>>;
-type Coord = (usize, usize);
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Tile {
-	Empty,
-	Block,
-	Apple,
+#[derive(Clone)]
+struct BlockGrid {
+	w: Axis,
+	h: Axis,
+	d: Vec<u64>,
 }
 
 struct Action {
-	snakebot_id: Id,
+	snakebot_id: SnakebotId,
 	direction: Dir,
 }
 
@@ -48,16 +48,6 @@ enum Dir {
 	D,
 	L,
 	R,
-}
-
-impl Tile {
-	fn from_char(c: char) -> Self {
-		match c {
-			'.' => Tile::Empty,
-			'#' => Tile::Block,
-			_ => panic!("invalid tile character: {c}"),
-		}
-	}
 }
 
 macro_rules! parse_input {
@@ -71,23 +61,9 @@ impl Env {
 		let mut s = String::new();
 
 		io::stdin().read_line(&mut s).unwrap();
-		let my_id = parse_input!(s, Id);
+		let my_id = parse_input!(s, SnakebotId);
 
-		s.clear();
-		io::stdin().read_line(&mut s).unwrap();
-		let w = parse_input!(s, usize);
-
-		s.clear();
-		io::stdin().read_line(&mut s).unwrap();
-		let h = parse_input!(s, usize);
-
-		let mut grid = Vec::with_capacity(h);
-		for _ in 0..h {
-			s.clear();
-			io::stdin().read_line(&mut s).unwrap();
-			let row = s.trim_matches('\n').chars().map(Tile::from_char).collect();
-			grid.push(row);
-		}
+		let grid = BlockGrid::read();
 
 		s.clear();
 		io::stdin().read_line(&mut s).unwrap();
@@ -99,18 +75,17 @@ impl Env {
 		for _ in 0..snakebot_per_player {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
-			my_snakebot_id_list.push(parse_input!(s, Id));
+			my_snakebot_id_list.push(parse_input!(s, SnakebotId));
 		}
 		for _ in 0..snakebot_per_player {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
-			foe_snakebot_id_list.push(parse_input!(s, Id));
+			foe_snakebot_id_list.push(parse_input!(s, SnakebotId));
 		}
 
 		Env {
-			w,
-			h,
-			base_grid: grid,
+			// turn: 0,
+			g: grid,
 
 			my_id,
 			my_snakebot_id_list,
@@ -118,29 +93,32 @@ impl Env {
 		}
 	}
 
-	fn read_apple(grid: &mut Grid) -> Vec<Coord> {
+	fn read_apple(w: Axis, h: Axis) -> BlockGrid {
+		let mut apple_grid = BlockGrid::new(w, h);
+
 		let mut s = String::new();
 
 		io::stdin().read_line(&mut s).unwrap();
 		let power_source_count = parse_input!(s, usize);
 
-		let mut apple_list = Vec::with_capacity(power_source_count);
-
 		for _ in 0..power_source_count {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
 			let mut input = s.split(" ");
-			let x = parse_input!(input.next().unwrap(), usize);
-			let y = parse_input!(input.next().unwrap(), usize);
+			let x = parse_input!(input.next().unwrap(), Axis);
+			let y = parse_input!(input.next().unwrap(), Axis);
 
-			apple_list.push((x, y));
-			grid[y][x] = Tile::Apple;
+			apple_grid.set(x, y);
 		}
 
-		apple_list
+		apple_grid
 	}
 
-	fn read_snakebot(&self, grid: &mut Grid, my_snakebot_list: &mut Vec<(Id, Vec<Coord>)>) {
+	fn read_snakebot(
+		&self,
+		grid: &mut BlockGrid,
+		my_snakebot_list: &mut Vec<(SnakebotId, Vec<Coord>)>,
+	) {
 		my_snakebot_list.clear();
 
 		let mut s = String::new();
@@ -152,50 +130,122 @@ impl Env {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
 			let mut input = s.split(" ");
-			let snakebot_id = parse_input!(input.next().unwrap(), Id);
+			let snakebot_id = parse_input!(input.next().unwrap(), SnakebotId);
 			let body = input
 				.next()
 				.unwrap()
 				.trim()
 				.split(":")
-				.filter_map(|coord| {
+				.map(|coord| {
 					let mut parts = coord.split(",");
-					let x = parse_input!(parts.next().unwrap(), isize);
-					let y = parse_input!(parts.next().unwrap(), isize);
+					let x = parse_input!(parts.next().unwrap(), Axis);
+					let y = parse_input!(parts.next().unwrap(), Axis);
 
-					if x < 0 || y < 0 {
-						return None;
-					}
-
-					let (x, y) = (x as usize, y as usize);
-					if x >= self.w || y >= self.h {
-						return None;
-					}
-
-					Some((x, y))
+					(x, y)
 				})
 				.collect::<Vec<_>>();
-			if body.is_empty() {
-				continue;
-			}
 
 			if self.my_snakebot_id_list.contains(&snakebot_id) {
 				for &(x, y) in &body {
-					grid[y][x] = Tile::Block;
+					grid.safe_set(x, y);
 				}
 				my_snakebot_list.push((snakebot_id, body));
 			} else {
-				let (x, y) = body[0];
-				for_neighbor(x, y, self.w, self.h, |x, y| {
-					if grid[y][x] != Tile::Apple {
-						grid[y][x] = Tile::Block;
-					}
-				});
+				// TODO: check if this is pertinent
+				// let (x, y) = body[0];
+				// grid.safe_set(x + 1, y);
+				// grid.safe_set(x - 1, y);
+				// grid.safe_set(x, y + 1);
+				// grid.safe_set(x, y - 1);
 				for (x, y) in body {
-					grid[y][x] = Tile::Block;
+					grid.safe_set(x, y);
 				}
 			}
 		}
+	}
+}
+
+impl BlockGrid {
+	#[inline]
+	fn index(x: Axis, y: Axis, w: Axis) -> (usize, usize) {
+		let index = (y as usize * w as usize + x as usize) / 64;
+		let bit = (y as usize * w as usize + x as usize) % 64;
+		(index, bit)
+	}
+
+	fn new(w: Axis, h: Axis) -> Self {
+		let d = vec![0; (w as usize * h as usize).div_ceil(64)];
+		BlockGrid { w, h, d }
+	}
+
+	fn read() -> Self {
+		let mut s = String::new();
+
+		io::stdin().read_line(&mut s).unwrap();
+		let w = parse_input!(s, Axis);
+
+		s.clear();
+		io::stdin().read_line(&mut s).unwrap();
+		let h = parse_input!(s, Axis);
+
+		let mut g = Self::new(w, h);
+
+		for y in 0..h {
+			s.clear();
+			io::stdin().read_line(&mut s).unwrap();
+			for (x, c) in s.trim_matches('\n').chars().enumerate() {
+				if c == '#' {
+					g.set(x as Axis, y);
+				}
+			}
+		}
+
+		g
+	}
+
+	#[inline]
+	fn is_safe(&self, x: Axis, y: Axis) -> bool {
+		y >= 0 && x <= 0 && x < self.w && y < self.h
+	}
+
+	#[inline]
+	fn is_set(&self, x: Axis, y: Axis) -> bool {
+		if !self.is_safe(x, y) {
+			return false;
+		}
+
+		let (index, bit) = Self::index(x, y, self.w);
+		(self.d[index] & (1 << bit)) != 0
+	}
+
+	#[inline]
+	fn safe_set(&mut self, x: Axis, y: Axis) {
+		if !self.is_safe(x, y) {
+			return;
+		}
+
+		self.set(x, y);
+	}
+
+	#[inline]
+	fn set(&mut self, x: Axis, y: Axis) {
+		let (index, bit) = Self::index(x, y, self.w);
+		self.d[index] |= 1 << bit;
+	}
+
+	#[inline]
+	fn safe_unset(&mut self, x: Axis, y: Axis) {
+		if !self.is_safe(x, y) {
+			return;
+		}
+
+		self.unset(x, y);
+	}
+
+	#[inline]
+	fn unset(&mut self, x: Axis, y: Axis) {
+		let (index, bit) = Self::index(x, y, self.w);
+		self.d[index] &= !(1 << bit);
 	}
 }
 
@@ -216,31 +266,11 @@ impl Display for Dir {
 	}
 }
 
-#[inline]
-fn for_neighbor<F>(x: usize, y: usize, w: usize, h: usize, mut f: F)
-where
-	F: FnMut(usize, usize),
-{
-	if x > 0 {
-		f(x - 1, y);
-	}
-	if x + 1 < w {
-		f(x + 1, y);
-	}
-	if y > 0 {
-		f(x, y - 1);
-	}
-	if y + 1 < h {
-		f(x, y + 1);
-	}
-}
-
 fn apply_dir((x, y): Coord, dir: Dir) -> Coord {
-	// TODO: apply gravity?
 	match dir {
-		Dir::U => (x, y.saturating_sub(1)),
+		Dir::U => (x, y - 1),
 		Dir::D => (x, y + 1),
-		Dir::L => (x.saturating_sub(1), y),
+		Dir::L => (x - 1, y),
 		Dir::R => (x + 1, y),
 	}
 }
@@ -257,7 +287,7 @@ fn is_upright(body: &[Coord]) -> bool {
 }
 
 macro_rules! move_and_queue {
-	($env:expr, $queue:expr, $visited:expr, $grid:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {{
+	($q:expr, $visited:expr, $grid:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {{
 		// TODO: try VecDeque
 		let mut body = Vec::with_capacity($body.len());
 		body.push(($x, $y));
@@ -269,17 +299,17 @@ macro_rules! move_and_queue {
 				for i in 0..body.len() {
 					body[i].1 += 1;
 
-					if body[i].1 >= $env.h {
+					if body[i].1 >= $grid.h + body.len() as Axis {
 						break 'outer;
 					}
-					if $grid[body[i].1][body[i].0] == Tile::Empty {
+					if !$grid.is_set(body[i].0, body[i].1) {
 						continue;
 					}
 
 					for r in 0..=i {
 						body[r].1 -= 1;
 					}
-					$queue.push_back(($initial_dir, body));
+					$q.push_back(($initial_dir, body));
 					break 'outer;
 				}
 			}
@@ -288,8 +318,8 @@ macro_rules! move_and_queue {
 }
 
 macro_rules! try_visit {
-	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {
-		if $grid[$y][$x] == Tile::Apple {
+	($q:expr, $visited:expr, $grid:expr, $apple:expr, $id:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {
+		if $apple.is_set($x, $y) {
 			return (
 				Action {
 					snakebot_id: $id,
@@ -299,127 +329,76 @@ macro_rules! try_visit {
 			);
 		}
 
-		if $grid[$y][$x] == Tile::Empty && $body.iter().all(|&(bx, by)| bx != $x || by != $y) {
-			move_and_queue!($env, $queue, $visited, $grid, $initial_dir, $body, $x, $y);
+		if !$grid.is_set($x, $y) && $body.iter().all(|&(bx, by)| bx != $x || by != $y) {
+			move_and_queue!($q, $visited, $grid, $initial_dir, $body, $x, $y);
 		}
 	};
 }
 
 macro_rules! visit_neighbor {
-	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $initial_dir:expr, $body:expr) => {
+	($q:expr, $visited:expr, $grid:expr, $apple:expr, $id:expr, $initial_dir:expr, $body:expr) => {
 		let (x, y) = $body[0];
-		if y > 0 {
-			let ny = y - 1;
-			try_visit!(
-				$env,
-				$queue,
-				$visited,
-				$grid,
-				$id,
-				$initial_dir,
-				$body,
-				x,
-				ny
-			);
-		}
-		if x > 0 {
-			let nx = x - 1;
-			try_visit!(
-				$env,
-				$queue,
-				$visited,
-				$grid,
-				$id,
-				$initial_dir,
-				$body,
-				nx,
-				y
-			);
-		}
+		let ny = y - 1;
+		try_visit!($q, $visited, $grid, $apple, $id, $initial_dir, $body, x, ny);
+		let nx = x - 1;
+		try_visit!($q, $visited, $grid, $apple, $id, $initial_dir, $body, nx, y);
 		let nx = x + 1;
-		if nx < $env.w {
-			try_visit!(
-				$env,
-				$queue,
-				$visited,
-				$grid,
-				$id,
-				$initial_dir,
-				$body,
-				nx,
-				y
-			);
-		}
+		try_visit!($q, $visited, $grid, $apple, $id, $initial_dir, $body, nx, y);
 		let ny = y + 1;
-		if ny < $env.h {
-			try_visit!(
-				$env,
-				$queue,
-				$visited,
-				$grid,
-				$id,
-				$initial_dir,
-				$body,
-				x,
-				ny
-			);
-		}
+		try_visit!($q, $visited, $grid, $apple, $id, $initial_dir, $body, x, ny);
 	};
 }
 
 macro_rules! initial_visit_neighbor {
-	($env:expr, $queue:expr, $visited:expr, $grid:expr, $id:expr, $body:expr) => {
+	($q:expr, $visited:expr, $grid:expr, $apple:expr, $id:expr, $body:expr) => {
 		let (x, y) = $body[0];
-		if y > 0 && !is_upright($body) {
+		if !is_upright($body) {
 			let ny = y - 1;
-			try_visit!($env, $queue, $visited, $grid, $id, Dir::U, $body, x, ny);
+			try_visit!($q, $visited, $grid, $apple, $id, Dir::U, $body, x, ny);
 		}
-		if x > 0 {
-			let nx = x - 1;
-			try_visit!($env, $queue, $visited, $grid, $id, Dir::L, $body, nx, y);
-		}
+
+		// TODO: choose left if more towards right and right if more towards left
+		let nx = x - 1;
+		try_visit!($q, $visited, $grid, $apple, $id, Dir::L, $body, nx, y);
 		let nx = x + 1;
-		if nx < $env.w {
-			try_visit!($env, $queue, $visited, $grid, $id, Dir::R, $body, nx, y);
-		}
+		try_visit!($q, $visited, $grid, $apple, $id, Dir::R, $body, nx, y);
+
 		let ny = y + 1;
-		if ny < $env.h {
-			try_visit!($env, $queue, $visited, $grid, $id, Dir::D, $body, x, ny);
-		}
+		try_visit!($q, $visited, $grid, $apple, $id, Dir::D, $body, x, ny);
 	};
 }
 
 fn has_single_depth_move(
-	env: &Env,
-	grid: &Grid,
-	apple_list: &[Coord],
+	grid: &BlockGrid,
+	apple_grid: &BlockGrid,
 	snakebot_body: &[Coord],
 ) -> Option<(Dir, Option<Coord>)> {
 	let (x, y) = snakebot_body[0];
 
-	let mut moves = Vec::<(usize, usize, Dir)>::with_capacity(4);
+	let mut moves = Vec::<(Axis, Axis, Dir)>::with_capacity(4);
 	for (nx, ny, dir) in [
-		(0, -1, Dir::U),
-		(-1, 0, Dir::L),
-		(1, 0, Dir::R),
-		(0, 1, Dir::D),
+		(x, y - 1, Dir::U),
+		(x - 1, y, Dir::L),
+		(x + 1, y, Dir::R),
+		(x, y + 1, Dir::D),
 	] {
-		let (nx, ny) = (x as isize + nx, y as isize + ny);
-		if nx < 0 || ny < 0 {
+		if grid.is_set(nx, ny) {
 			continue;
 		}
-		let (nx, ny) = (nx as usize, ny as usize);
-		if nx < env.w && ny < env.h && grid[ny][nx] != Tile::Block {
-			if grid[ny][nx] == Tile::Apple {
-				return Some((dir, Some((nx, ny))));
-			}
 
-			if snakebot_body.iter().any(|&(bx, by)| bx == nx && by == ny) {
-				continue;
-			}
-
-			moves.push((nx, ny, dir));
+		if apple_grid.is_set(nx, ny) {
+			return Some((dir, Some((nx, ny))));
 		}
+
+		if snakebot_body
+			.iter()
+			.skip(1)
+			.any(|&(bx, by)| bx == nx && by == ny)
+		{
+			continue;
+		}
+
+		moves.push((nx, ny, dir));
 	}
 
 	if moves.len() == 1 {
@@ -428,23 +407,19 @@ fn has_single_depth_move(
 		return Some((Dir::U, None));
 	}
 
-	if apple_list.is_empty() {
-		return Some((moves[0].2, None));
-	}
+	// TODO: maybe early exit if no more apple
 
 	None
 }
 
 fn find_snakebot_action(
-	env: &Env,
-	grid: &Grid,
-	apple_list: &[Coord],
-	snakebot_id: Id,
+	grid: &BlockGrid,
+	apple_grid: &BlockGrid,
+	snakebot_id: SnakebotId,
 	snakebot_body: &[Coord],
 	allowed_time: Duration,
 ) -> (Action, Option<Coord>) {
-	if let Some((single_move, apple)) = has_single_depth_move(env, grid, apple_list, snakebot_body)
-	{
+	if let Some((single_move, apple)) = has_single_depth_move(grid, apple_grid, snakebot_body) {
 		return (
 			Action {
 				snakebot_id,
@@ -458,12 +433,12 @@ fn find_snakebot_action(
 	let mut visited = HashSet::<Vec<Coord>>::new();
 	visited.insert(snakebot_body.to_vec());
 
-	let mut queue = VecDeque::<(Dir, Vec<Coord>)>::new();
-	initial_visit_neighbor!(env, queue, visited, grid, snakebot_id, snakebot_body);
+	let mut q = VecDeque::<(Dir, Vec<Coord>)>::new();
+	initial_visit_neighbor!(q, visited, grid, apple_grid, snakebot_id, snakebot_body);
 
-	let first = queue.clone().pop_front();
+	let first = q.clone().pop_front();
 	let default_dir = first.map(|(dir, _)| dir).unwrap_or(Dir::U);
-	if queue.len() <= 1 {
+	if q.len() <= 1 {
 		return (
 			Action {
 				snakebot_id,
@@ -475,8 +450,8 @@ fn find_snakebot_action(
 
 	let start = Instant::now();
 	let mut i = 0;
-	while let Some((initial_dir, body)) = queue.pop_front() {
-		visit_neighbor!(env, queue, visited, grid, snakebot_id, initial_dir, body);
+	while let Some((initial_dir, body)) = q.pop_front() {
+		visit_neighbor!(q, visited, grid, apple_grid, snakebot_id, initial_dir, body);
 
 		i += 1;
 		let elapsed = start.elapsed();
@@ -502,9 +477,9 @@ fn main() {
 	loop {
 		let start = Instant::now();
 
-		let mut grid = env.base_grid.clone();
+		let mut grid = env.g.clone();
 
-		let mut apple_list = Env::read_apple(&mut grid);
+		let mut apple_grid = Env::read_apple(env.g.w, env.g.h);
 		env.read_snakebot(&mut grid, &mut my_snakebot_list);
 
 		let action_list = my_snakebot_list
@@ -528,21 +503,21 @@ fn main() {
 				eprintln!("[{id}] allowed: {allowed_time:?}");
 
 				for &(x, y) in body {
-					grid[y][x] = Tile::Empty;
+					grid.safe_unset(x, y);
 				}
 
 				let (action, apple) =
-					find_snakebot_action(&env, &grid, &apple_list, *id, body, allowed_time);
+					find_snakebot_action(&grid, &apple_grid, *id, body, allowed_time);
 
 				if let Some(apple) = apple {
-					grid[apple.1][apple.0] = Tile::Empty;
-					apple_list.retain(|&(x, y)| x != apple.0 || y != apple.1);
+					apple_grid.safe_unset(apple.0, apple.1);
+					// apple_list.retain(|&(x, y)| x != apple.0 || y != apple.1);
 				}
 				let (nx, ny) = apply_dir(body[0], action.direction);
-				grid[ny][nx] = Tile::Block;
+				grid.safe_set(nx, ny);
 				// TODO: test if tail is still block (take care of apple)
 				for &(x, y) in body.iter() {
-					grid[y][x] = Tile::Block;
+					grid.safe_set(x, y);
 				}
 
 				let elapsed = sub_start.elapsed();
