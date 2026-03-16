@@ -317,6 +317,7 @@ macro_rules! move_and_queue {
 	}};
 }
 
+#[allow(clippy::too_many_arguments)]
 fn try_visit(
 	q: &mut VecDeque<(Dir, Vec<Coord>)>,
 	visited: &mut HashSet<Vec<Coord>>,
@@ -375,10 +376,10 @@ fn initial_visit_neighbor(
 	body: &[Coord],
 ) -> Option<(Dir, Option<Coord>)> {
 	let (x, y) = body[0];
-	if !is_upright(body) {
-		if let Some(solution) = try_visit(q, visited, grid, apple, Dir::U, body, x, y - 1) {
-			return Some(solution);
-		}
+	if !is_upright(body)
+		&& let Some(solution) = try_visit(q, visited, grid, apple, Dir::U, body, x, y - 1)
+	{
+		return Some(solution);
 	}
 
 	// TODO: choose left if more towards right and right if more towards left
