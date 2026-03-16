@@ -286,35 +286,44 @@ fn is_upright(body: &[Coord]) -> bool {
 	true
 }
 
-macro_rules! move_and_queue {
-	($q:expr, $visited:expr, $grid:expr, $initial_dir:expr, $body:expr, $x:expr, $y:expr) => {{
-		// TODO: try VecDeque
-		let mut body = Vec::with_capacity($body.len());
-		body.push(($x, $y));
-		body.extend_from_slice(&$body[..$body.len() - 1]);
+fn move_and_queue(
+	q: &mut VecDeque<(Dir, Vec<Coord>)>,
+	visited: &mut HashSet<Vec<Coord>>,
+	grid: &BlockGrid,
+	apple: &BlockGrid,
+	initial_dir: Dir,
+	base_body: &[Coord],
+	x: Axis,
+	y: Axis,
+) {
+	// TODO: try VecDeque
+	let mut body = Vec::with_capacity(base_body.len());
+	body.push((x, y));
+	body.extend_from_slice(&base_body[..base_body.len() - 1]);
 
-		if $visited.insert(body.clone()) {
-			// gravity
-			'outer: while true {
-				for i in 0..body.len() {
-					body[i].1 += 1;
+	if !visited.insert(body.clone()) {
+		return;
+	}
 
-					if body[i].1 >= $grid.h + body.len() as Axis {
-						break 'outer;
-					}
-					if !$grid.is_set(body[i].0, body[i].1) {
-						continue;
-					}
+	// gravity
+	loop {
+		for i in 0..body.len() {
+			body[i].1 += 1;
 
-					for r in 0..=i {
-						body[r].1 -= 1;
-					}
-					$q.push_back(($initial_dir, body));
-					break 'outer;
-				}
+			if body[i].1 >= grid.h + body.len() as Axis {
+				return;
 			}
+			if !grid.is_set(body[i].0, body[i].1) && !apple.is_set(body[i].0, body[i].1) {
+				continue;
+			}
+
+			for r in 0..=i {
+				body[r].1 -= 1;
+			}
+			q.push_back((initial_dir, body));
+			return;
 		}
-	}};
+	}
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -333,7 +342,7 @@ fn try_visit(
 	}
 
 	if !grid.is_set(x, y) && body.iter().skip(1).all(|&(bx, by)| bx != x || by != y) {
-		move_and_queue!(q, visited, grid, initial_dir, body, x, y);
+		move_and_queue(q, visited, grid, apple, initial_dir, body, x, y);
 	}
 
 	None
