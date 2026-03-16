@@ -205,7 +205,7 @@ impl BlockGrid {
 
 	#[inline]
 	fn is_safe(&self, x: Axis, y: Axis) -> bool {
-		y >= 0 && x <= 0 && x < self.w && y < self.h
+		y >= 0 && x >= 0 && x < self.w && y < self.h
 	}
 
 	#[inline]
