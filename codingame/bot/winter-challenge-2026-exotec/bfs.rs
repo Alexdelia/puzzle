@@ -504,12 +504,12 @@ fn main() {
 	let mut my_snakebot_list = Vec::with_capacity(env.my_snakebot_id_list.len());
 
 	loop {
-		let start = Instant::now();
-
 		let mut grid = env.g.clone();
 
 		let mut apple_grid = Env::read_apple(env.g.w, env.g.h);
 		env.read_snakebot(&mut grid, &mut my_snakebot_list);
+
+		let start = Instant::now();
 
 		let action_list = my_snakebot_list
 			.iter()
@@ -519,7 +519,7 @@ fn main() {
 
 				let Some(allowed_time) =
 					(MAX_TURN_DURATION.checked_sub(start.elapsed())).and_then(|remaining| {
-						remaining.checked_div(env.my_snakebot_id_list.len() as u32 - index as u32)
+						remaining.checked_div(my_snakebot_list.len() as u32 - index as u32)
 					})
 				else {
 					eprintln!("not enough time for snakebot {id}, skipping");
