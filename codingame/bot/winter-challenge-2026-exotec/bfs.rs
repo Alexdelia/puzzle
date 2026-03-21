@@ -44,10 +44,22 @@ struct Action {
 
 #[derive(Clone, Copy)]
 enum Dir {
-	U,
-	D,
-	L,
-	R,
+	U = 0,
+	D = 1,
+	L = 2,
+	R = 3,
+}
+
+impl From<usize> for Dir {
+	fn from(value: usize) -> Self {
+		match value {
+			0 => Dir::U,
+			1 => Dir::D,
+			2 => Dir::L,
+			3 => Dir::R,
+			_ => unreachable!(),
+		}
+	}
 }
 
 macro_rules! parse_input {
@@ -472,57 +484,63 @@ fn find_snakebot_action(
 		return solution;
 	}
 
-	let default_dir = q.clone().pop_front().map(|(dir, _)| dir).unwrap_or(Dir::U);
+	let default_dir: Dir = q.clone().pop_front().map(|(dir, _)| dir).unwrap_or(Dir::U);
+	let default_ret: (Dir, Option<Coord>) = (default_dir, None);
 	if q.len() <= 1 {
-		return (default_dir, None);
+		return default_ret;
 	}
+
+	let mut solution = None;
 
 	let start = Instant::now();
 	let mut i = 0;
 	while let Some((initial_dir, body)) = q.pop_front() {
-		if let Some(solution) =
-			visit_neighbor(&mut q, &mut visited, grid, apple_grid, initial_dir, &body)
+		if let Some(s) = visit_neighbor(&mut q, &mut visited, grid, apple_grid, initial_dir, &body)
 		{
-			let elapsed = start.elapsed();
-			eprintln!("visited {i} states in {elapsed:?}");
-			return solution;
+			if solution.is_none() {
+				eprintln!(
+					"found solution '{dir}'->{apple:?} after visiting {i} states in {elapsed:?}",
+					dir = s.0,
+					apple = s.1,
+					elapsed = start.elapsed()
+				);
+				solution = Some(s);
+			}
 		}
 
 		i += 1;
 		let elapsed = start.elapsed();
 		if i % 100 == 0 && elapsed >= allowed_time {
 			eprintln!("timeout: visited {i} states in {elapsed:?}");
-
-			let mut remaining_dir_count = [0; 4];
-			for (dir, _) in q {
-				remaining_dir_count[dir as usize] += 1;
-			}
-
-			let mut max_dir = 0;
-			for i in 1..4 {
-				if remaining_dir_count[i] > remaining_dir_count[max_dir] {
-					max_dir = i;
-				}
-			}
-
-			if remaining_dir_count[max_dir] == 0 {
-				eprintln!("no more states to visit, defaulting to {default_dir}");
-				return (default_dir, None);
-			}
-
-			let best_dir = match max_dir {
-				0 => Dir::U,
-				1 => Dir::L,
-				2 => Dir::R,
-				3 => Dir::D,
-				_ => unreachable!(),
-			};
-
-			return (best_dir, None);
+			break;
 		}
 	}
 
-	(default_dir, None)
+	if q.is_empty() {
+		return solution.unwrap_or(default_ret);
+	}
+
+	let mut remaining_dir_count = [0; 4];
+	for (dir, _) in q {
+		remaining_dir_count[dir as usize] += 1;
+	}
+
+	let mut max_dir = 0;
+	for i in 1..4 {
+		if remaining_dir_count[i] > remaining_dir_count[max_dir] {
+			max_dir = i;
+		}
+	}
+
+	if let Some(solution) = solution {
+		if remaining_dir_count[solution.0 as usize] > 0 {
+			return solution;
+		}
+	}
+
+	let best_dir = Dir::from(max_dir);
+
+	return (best_dir, None);
 }
 
 fn main() {
