@@ -278,11 +278,11 @@ fn is_new_head_in_body(body: &[Coord], x: Axis, y: Axis) -> bool {
 		return true;
 	}
 
-	if body.len() <= 4 {
+	if body.len() <= 3 {
 		return false;
 	}
 
-	body[4..body.len() - 1]
+	body[3..body.len() - 1]
 		.iter()
 		.any(|&(bx, by)| bx == x && by == y)
 }
