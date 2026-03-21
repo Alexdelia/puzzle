@@ -1,6 +1,9 @@
 use svg::Document;
 
-use crate::referee::env::{CHECKPOINT_RADIUS, Coord};
+use crate::{
+	referee::env::{CHECKPOINT_RADIUS, Coord},
+	visualize::scale::scale_x,
+};
 
 use super::*;
 
@@ -27,9 +30,9 @@ pub fn checkpoint_list(checkpoint_list: &[Coord]) -> Document {
 	for c in checkpoint_list {
 		document = document.add(
 			svg::node::element::Circle::new()
-				.set("cx", c.x)
-				.set("cy", c.y)
-				.set("r", CHECKPOINT_RADIUS)
+				.set("cx", scale_x(c.x))
+				.set("cy", scale_x(c.y))
+				.set("r", scale_x(CHECKPOINT_RADIUS))
 				.set("fill", "none")
 				.set("stroke", CHECKPOINT_COLOR)
 				.set("stroke-width", CHECKPOINT_STROKE_WIDTH),
