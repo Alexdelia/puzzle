@@ -107,13 +107,21 @@ pub fn solve(
 		solution_list = breed_generation(solution_list, score_list);
 
 		if generation.is_multiple_of(128) {
-			eprint!("\r{generation} {best_score}", best_score = best.0);
+			eprint!(
+				"\r{generation} {best_score} {best_step_count}",
+				best_score = best.0,
+				best_step_count = best.1.step_count
+			);
 		}
 
 		generation += 1;
 	}
 
-	eprintln!("\r{generation} {best_score}", best_score = best.0);
+	eprintln!(
+		"\r{generation} {best_score} {best_step_count}",
+		best_score = best.0,
+		best_step_count = best.1.step_count
+	);
 
 	let mut solution = best.1.solution;
 	solution.truncate(best.1.step_count);
