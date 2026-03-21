@@ -511,52 +511,65 @@ fn main() {
 
 		let start = Instant::now();
 
-		let action_list = my_snakebot_list
-			.iter()
-			.enumerate()
-			.map(|(index, (id, body))| {
-				let sub_start = Instant::now();
+		let mut action_list = Vec::<Action>::with_capacity(my_snakebot_list.len());
+		let mut remaining_my_snakebot_count = my_snakebot_list.len() as u32;
 
-				let Some(allowed_time) =
-					(MAX_TURN_DURATION.checked_sub(start.elapsed())).and_then(|remaining| {
-						remaining.checked_div(my_snakebot_list.len() as u32 - index as u32)
-					})
-				else {
-					eprintln!("not enough time for snakebot {id}, skipping");
-					return Action {
-						snakebot_id: *id,
-						direction: Dir::U,
-					}
-					.to_string();
-				};
-				eprintln!("[{id}] allowed: {allowed_time:?}");
-
-				for &(x, y) in body {
-					grid.safe_unset(x, y);
-				}
-
-				let (dir, apple) = find_snakebot_action(&grid, &apple_grid, body, allowed_time);
-				let action = Action {
+		for (id, body) in &my_snakebot_list {
+			if let Some(solution) = has_single_depth_move(&grid, &apple_grid, body) {
+				let (dir, apple) = solution;
+				action_list.push(Action {
 					snakebot_id: *id,
 					direction: dir,
-				};
+				});
+
+				remaining_my_snakebot_count -= 1;
 
 				if let Some(apple) = apple {
 					apple_grid.safe_unset(apple.0, apple.1);
-					// apple_list.retain(|&(x, y)| x != apple.0 || y != apple.1);
 				}
-				let (nx, ny) = apply_dir(body[0], action.direction);
-				grid.safe_set(nx, ny);
-				// TODO: test if tail is still block (take care of apple)
-				for &(x, y) in body.iter() {
-					grid.safe_set(x, y);
-				}
+			}
+		}
 
-				let elapsed = sub_start.elapsed();
-				eprintln!("[{id}] took: {elapsed:?}");
+		for (id, body) in my_snakebot_list.iter() {
+			if action_list.iter().any(|action| action.snakebot_id == *id) {
+				eprintln!("[{id}] already has a single depth move, skipping");
+				continue;
+			}
 
-				action.to_string()
-			})
+			let sub_start = Instant::now();
+
+			let Some(allowed_time) = MAX_TURN_DURATION
+				.checked_sub(start.elapsed())
+				.and_then(|remaining| remaining.checked_div(remaining_my_snakebot_count))
+			else {
+				eprintln!("not enough time for snakebot {id}, skipping");
+				action_list.push(Action {
+					snakebot_id: *id,
+					direction: Dir::U,
+				});
+				continue;
+			};
+			eprintln!("[{id}] allowed: {allowed_time:?}");
+
+			let (dir, apple) = find_snakebot_action(&grid, &apple_grid, body, allowed_time);
+			action_list.push(Action {
+				snakebot_id: *id,
+				direction: dir,
+			});
+
+			if let Some(apple) = apple {
+				apple_grid.safe_unset(apple.0, apple.1);
+			}
+
+			let elapsed = sub_start.elapsed();
+			eprintln!("[{id}] took: {elapsed:?}");
+
+			remaining_my_snakebot_count -= 1;
+		}
+
+		let action_list = action_list
+			.into_iter()
+			.map(|action| format!("{action}"))
 			.collect::<Vec<_>>()
 			.join(";");
 
