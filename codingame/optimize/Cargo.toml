@@ -9,13 +9,13 @@ default = []
 lossless = []
 
 [[bin]]
-name = "spring_2025"
-path = "Spring_Challenge_2025.rs"
+name = "spring-2025"
+path = "spring-challenge-2025.rs"
 
 [[bin]]
-name = "number_shifting"
-path = "Number_Shifting.rs"
+name = "number-shifting"
+path = "number-shifting.rs"
 
 [[bin]]
-name = "code_of_the_rings"
-path = "Code_of_the_Rings.rs"
+name = "code-of-the-rings"
+path = "code-of-the-rings.rs"
