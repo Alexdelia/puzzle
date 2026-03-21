@@ -472,10 +472,9 @@ fn find_snakebot_action(
 		return solution;
 	}
 
-	let first = q.clone().pop_front();
-	let default_dir = first.map(|(dir, _)| dir).unwrap_or(Dir::U);
 	if q.len() <= 1 {
-		return (default_dir, None);
+		let only_dir = q.pop_front().map(|(dir, _)| dir).unwrap_or(Dir::U);
+		return (only_dir, None);
 	}
 
 	let start = Instant::now();
@@ -497,7 +496,27 @@ fn find_snakebot_action(
 		}
 	}
 
-	(default_dir, None)
+	let mut remaining_dir_count = [0; 4];
+	for (dir, _) in q {
+		remaining_dir_count[dir as usize] += 1;
+	}
+
+	let mut max_dir = 0;
+	for i in 1..4 {
+		if remaining_dir_count[i] > remaining_dir_count[max_dir] {
+			max_dir = i;
+		}
+	}
+
+	let best_dir = match max_dir {
+		0 => Dir::U,
+		1 => Dir::L,
+		2 => Dir::R,
+		3 => Dir::D,
+		_ => unreachable!(),
+	};
+
+	(best_dir, None)
 }
 
 fn main() {
