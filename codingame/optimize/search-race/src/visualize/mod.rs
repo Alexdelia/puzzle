@@ -4,10 +4,11 @@ mod solution;
 pub use solution::solution;
 mod generation_number;
 pub use generation_number::generation_number;
+mod scale;
 
 use crate::{
 	OUTPUT_DIR,
-	referee::env::{Axis, MAX_HEIGHT, MAX_WIDTH},
+	referee::env::{MAX_HEIGHT, MAX_WIDTH},
 };
 
 const VISUALIZE_OUTPUT_DIR: &str = "visualize";
