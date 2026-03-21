@@ -306,22 +306,17 @@ fn move_and_queue(
 	}
 
 	// gravity
-	loop {
+	for _ in 0..=grid.h {
 		for i in 0..body.len() {
 			body[i].1 += 1;
 
-			if body[i].1 >= grid.h + body.len() as Axis {
+			if grid.is_set(body[i].0, body[i].1) || apple.is_set(body[i].0, body[i].1) {
+				for r in 0..=i {
+					body[r].1 -= 1;
+				}
+				q.push_back((initial_dir, body));
 				return;
 			}
-			if !grid.is_set(body[i].0, body[i].1) && !apple.is_set(body[i].0, body[i].1) {
-				continue;
-			}
-
-			for r in 0..=i {
-				body[r].1 -= 1;
-			}
-			q.push_back((initial_dir, body));
-			return;
 		}
 	}
 }
