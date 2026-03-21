@@ -65,6 +65,19 @@ struct BlockGrid {
 // TODO: try bitset like BlockGrid
 type AppleList = Vec<Coord>;
 
+#[derive(Clone, Default)]
+struct Arr4<T: Clone + Default> {
+	a: [T; 4],
+	size: usize,
+}
+
+impl<T: Clone + Default> Arr4<T> {
+	fn push(&mut self, value: T) {
+		self.a[self.size] = value;
+		self.size += 1;
+	}
+}
+
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
 		$x.trim().parse::<$t>().unwrap()
@@ -130,14 +143,14 @@ impl Env {
 	}
 
 	#[allow(clippy::type_complexity)]
-	fn read_snakebot(&self) -> (Vec<(SnakebotId, Snakebot)>, Vec<(SnakebotId, Snakebot)>) {
+	fn read_snakebot(&self) -> (Arr4<(SnakebotId, Snakebot)>, Arr4<(SnakebotId, Snakebot)>) {
 		let mut s = String::new();
 
 		io::stdin().read_line(&mut s).unwrap();
 		let snakebot_count = parse_input!(s, usize);
 
-		let mut my_snakebot_list = Vec::with_capacity(snakebot_count);
-		let mut foe_snakebot_list = Vec::with_capacity(snakebot_count);
+		let mut my_snakebot_list = Arr4::default();
+		let mut foe_snakebot_list = Arr4::default();
 
 		for _ in 0..snakebot_count {
 			s.clear();
@@ -167,11 +180,8 @@ impl Env {
 			}
 		}
 
-		my_snakebot_list.shrink_to_fit();
-		foe_snakebot_list.shrink_to_fit();
-
-		my_snakebot_list.sort_by_key(|(id, _)| *id);
-		foe_snakebot_list.sort_by_key(|(id, _)| *id);
+		my_snakebot_list.a[..my_snakebot_list.size].sort_by_key(|(id, _)| *id);
+		foe_snakebot_list.a[..foe_snakebot_list.size].sort_by_key(|(id, _)| *id);
 
 		(my_snakebot_list, foe_snakebot_list)
 	}
@@ -469,21 +479,21 @@ impl<S: GameStateTrait> MctsNode<S> {
 struct GameState {
 	turn: Turn,
 
-	// TODO: store as [Snakebot; MAX_SNAKEBOT_PER_PLAYER]
-	my_snakebot_list: Vec<Snakebot>,
-	foe_snakebot_list: Vec<Snakebot>,
+	my_snakebot_list: Arr4<Snakebot>,
+	foe_snakebot_list: Arr4<Snakebot>,
 
 	apple_list: AppleList,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct Snakebot {
 	body: Vec<Coord>,
 	facing_dir: Dir,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 enum Dir {
+	#[default]
 	U,
 	R,
 	D,
@@ -547,14 +557,14 @@ const ACTION_COUNT_BY_AGENT_COUNT: [PlayerActionCount; 5] = [
 
 impl GameState {
 	fn my_raw_score(&self) -> usize {
-		self.my_snakebot_list
+		self.my_snakebot_list.a[..self.my_snakebot_list.size]
 			.iter()
 			.map(|snakebot| snakebot.body.len())
 			.sum()
 	}
 
 	fn foe_raw_score(&self) -> usize {
-		self.foe_snakebot_list
+		self.foe_snakebot_list.a[..self.foe_snakebot_list.size]
 			.iter()
 			.map(|snakebot| snakebot.body.len())
 			.sum()
@@ -562,13 +572,15 @@ impl GameState {
 }
 
 fn move_and_eat(
-	snakebot_list: &mut [Snakebot],
+	snakebot_list: &mut Arr4<Snakebot>,
 	action_list: DecodedAction,
 	apple_list: &AppleList,
 	eaten_apple_index_list: &mut Vec<usize>,
 ) {
-	for (snakebot, action) in snakebot_list.iter_mut().zip(action_list.into_iter()) {
-		let new_dir = match action {
+	for i in 0..snakebot_list.size {
+		let snakebot = &mut snakebot_list.a[i];
+
+		let new_dir = match action_list[i] {
 			STRAIGHT => snakebot.facing_dir,
 			LEFT => snakebot.facing_dir.turn_left(),
 			RIGHT => snakebot.facing_dir.turn_right(),
@@ -605,13 +617,14 @@ macro_rules! pop_from_collision {
 }
 
 fn apply_collision(
-	snakebot_list: &mut [Snakebot],
-	dead_snakebot_index_list: &mut Vec<usize>,
-	dead_head_index_list: &mut Vec<usize>,
+	snakebot_list: &mut Arr4<Snakebot>,
+	dead_snakebot_index_list: &mut Arr4<usize>,
+	dead_head_index_list: &mut Arr4<usize>,
 	grid: &BlockGrid,
-	other_snakebot_list: &[Snakebot],
+	other_snakebot_list: &Arr4<Snakebot>,
 ) {
-	for (index, snakebot) in snakebot_list.iter().enumerate() {
+	for index in 0..snakebot_list.size {
+		let snakebot = &snakebot_list.a[index];
 		let (head_x, head_y) = snakebot.body[0];
 
 		if grid.is_block(head_x, head_y) {
@@ -624,7 +637,7 @@ fn apply_collision(
 			continue;
 		}
 
-		for other_snakebot in other_snakebot_list.iter() {
+		for other_snakebot in other_snakebot_list.a[..other_snakebot_list.size].iter() {
 			if other_snakebot.body.contains(&(head_x, head_y)) {
 				pop_from_collision!(
 					dead_snakebot_index_list,
@@ -636,9 +649,9 @@ fn apply_collision(
 			}
 		}
 
-		for (ally_index, ally_snakebot) in snakebot_list.iter().enumerate() {
+		for ally_index in 0..snakebot_list.size {
 			if ally_index == index {
-				if ally_snakebot.body[1..].contains(&(head_x, head_y)) {
+				if snakebot_list.a[ally_index].body[1..].contains(&(head_x, head_y)) {
 					pop_from_collision!(
 						dead_snakebot_index_list,
 						dead_head_index_list,
@@ -647,7 +660,7 @@ fn apply_collision(
 					);
 					break;
 				}
-			} else if ally_snakebot.body.contains(&(head_x, head_y)) {
+			} else if snakebot_list.a[ally_index].body.contains(&(head_x, head_y)) {
 				pop_from_collision!(
 					dead_snakebot_index_list,
 					dead_head_index_list,
@@ -662,8 +675,8 @@ fn apply_collision(
 
 // TODO: refactor
 fn apply_gravity(
-	my_snakebot_list: &mut Vec<Snakebot>,
-	foe_snake_bot_list: &mut Vec<Snakebot>,
+	my_snakebot_list: &mut Arr4<Snakebot>,
+	foe_snake_bot_list: &mut Arr4<Snakebot>,
 	grid: &BlockGrid,
 	apple_list: &AppleList,
 ) {
@@ -672,31 +685,32 @@ fn apply_gravity(
 		extra_block.set(apple.0, apple.1);
 	}
 
-	let mut snakebot_fall_flag_list = vec![true; my_snakebot_list.len() + foe_snake_bot_list.len()];
+	// TODO: optimize
+	let mut snakebot_fall_flag_list = vec![true; my_snakebot_list.size + foe_snake_bot_list.size];
 
 	let mut remaining_fall_distance = grid.h;
 	while snakebot_fall_flag_list.iter().any(|flag| *flag) && remaining_fall_distance > 0 {
-		for snakebot_index in 0..my_snakebot_list.len() {
+		for snakebot_index in 0..my_snakebot_list.size {
 			if !snakebot_fall_flag_list[snakebot_index] {
 				continue;
 			}
 
-			for body_part_index in 0..my_snakebot_list[snakebot_index].body.len() {
-				my_snakebot_list[snakebot_index].body[body_part_index].1 += 1;
+			for body_part_index in 0..my_snakebot_list.a[snakebot_index].body.len() {
+				my_snakebot_list.a[snakebot_index].body[body_part_index].1 += 1;
 				if grid.is_block(
-					my_snakebot_list[snakebot_index].body[body_part_index].0,
-					my_snakebot_list[snakebot_index].body[body_part_index].1,
+					my_snakebot_list.a[snakebot_index].body[body_part_index].0,
+					my_snakebot_list.a[snakebot_index].body[body_part_index].1,
 				) || extra_block.is_block(
-					my_snakebot_list[snakebot_index].body[body_part_index].0,
-					my_snakebot_list[snakebot_index].body[body_part_index].1,
+					my_snakebot_list.a[snakebot_index].body[body_part_index].0,
+					my_snakebot_list.a[snakebot_index].body[body_part_index].1,
 				) {
 					for i in 0..=body_part_index {
-						my_snakebot_list[snakebot_index].body[i].1 -= 1;
+						my_snakebot_list.a[snakebot_index].body[i].1 -= 1;
 					}
 
 					extra_block.safe_set(
-						my_snakebot_list[snakebot_index].body[body_part_index].0,
-						my_snakebot_list[snakebot_index].body[body_part_index].1,
+						my_snakebot_list.a[snakebot_index].body[body_part_index].0,
+						my_snakebot_list.a[snakebot_index].body[body_part_index].1,
 					);
 
 					snakebot_fall_flag_list[snakebot_index] = false;
@@ -707,62 +721,62 @@ fn apply_gravity(
 						}
 
 						for body_part_index in
-							0..my_snakebot_list[previous_snakebot_index].body.len()
+							0..my_snakebot_list.a[previous_snakebot_index].body.len()
 						{
-							my_snakebot_list[previous_snakebot_index].body[body_part_index].1 -= 1;
+							my_snakebot_list.a[previous_snakebot_index].body[body_part_index].1 -=
+								1;
 						}
 					}
 				}
 			}
 		}
 
-		for snakebot_index in 0..foe_snake_bot_list.len() {
-			if !snakebot_fall_flag_list[my_snakebot_list.len() + snakebot_index] {
+		for snakebot_index in 0..foe_snake_bot_list.size {
+			if !snakebot_fall_flag_list[my_snakebot_list.size + snakebot_index] {
 				continue;
 			}
 
-			for body_part_index in 0..foe_snake_bot_list[snakebot_index].body.len() {
-				foe_snake_bot_list[snakebot_index].body[body_part_index].1 += 1;
+			for body_part_index in 0..foe_snake_bot_list.a[snakebot_index].body.len() {
+				foe_snake_bot_list.a[snakebot_index].body[body_part_index].1 += 1;
 				if grid.is_block(
-					foe_snake_bot_list[snakebot_index].body[body_part_index].0,
-					foe_snake_bot_list[snakebot_index].body[body_part_index].1,
+					foe_snake_bot_list.a[snakebot_index].body[body_part_index].0,
+					foe_snake_bot_list.a[snakebot_index].body[body_part_index].1,
 				) || extra_block.is_block(
-					foe_snake_bot_list[snakebot_index].body[body_part_index].0,
-					foe_snake_bot_list[snakebot_index].body[body_part_index].1,
+					foe_snake_bot_list.a[snakebot_index].body[body_part_index].0,
+					foe_snake_bot_list.a[snakebot_index].body[body_part_index].1,
 				) {
 					for i in 0..=body_part_index {
-						foe_snake_bot_list[snakebot_index].body[i].1 -= 1;
+						foe_snake_bot_list.a[snakebot_index].body[i].1 -= 1;
 					}
 
 					extra_block.safe_set(
-						foe_snake_bot_list[snakebot_index].body[body_part_index].0,
-						foe_snake_bot_list[snakebot_index].body[body_part_index].1,
+						foe_snake_bot_list.a[snakebot_index].body[body_part_index].0,
+						foe_snake_bot_list.a[snakebot_index].body[body_part_index].1,
 					);
 
-					snakebot_fall_flag_list[my_snakebot_list.len() + snakebot_index] = false;
+					snakebot_fall_flag_list[my_snakebot_list.size + snakebot_index] = false;
 
 					for previous_snakebot_index in 0..snakebot_index {
-						if !snakebot_fall_flag_list
-							[my_snakebot_list.len() + previous_snakebot_index]
+						if !snakebot_fall_flag_list[my_snakebot_list.size + previous_snakebot_index]
 						{
 							continue;
 						}
 
 						for body_part_index in
-							0..foe_snake_bot_list[previous_snakebot_index].body.len()
+							0..foe_snake_bot_list.a[previous_snakebot_index].body.len()
 						{
-							foe_snake_bot_list[previous_snakebot_index].body[body_part_index].1 -=
-								1;
+							foe_snake_bot_list.a[previous_snakebot_index].body[body_part_index]
+								.1 -= 1;
 						}
 					}
 
-					for my_snakebot_index in 0..my_snakebot_list.len() {
+					for my_snakebot_index in 0..my_snakebot_list.size {
 						if !snakebot_fall_flag_list[my_snakebot_index] {
 							continue;
 						}
 
-						for body_part_index in 0..my_snakebot_list[my_snakebot_index].body.len() {
-							my_snakebot_list[my_snakebot_index].body[body_part_index].1 -= 1;
+						for body_part_index in 0..my_snakebot_list.a[my_snakebot_index].body.len() {
+							my_snakebot_list.a[my_snakebot_index].body[body_part_index].1 -= 1;
 						}
 					}
 				}
@@ -772,56 +786,60 @@ fn apply_gravity(
 		remaining_fall_distance -= 1;
 	}
 
-	let my_snakebot_count = my_snakebot_list.len();
-	for index in (0..my_snakebot_count + foe_snake_bot_list.len()).rev() {
+	let my_snakebot_count = my_snakebot_list.size;
+	for index in (0..my_snakebot_count + foe_snake_bot_list.size).rev() {
 		if !snakebot_fall_flag_list[index] {
 			continue;
 		}
 
 		if index < my_snakebot_count {
-			my_snakebot_list.remove(index);
+			my_snakebot_list.a.swap(index, my_snakebot_list.size - 1);
+			my_snakebot_list.size -= 1;
 		} else {
-			foe_snake_bot_list.remove(index - my_snakebot_count);
+			foe_snake_bot_list
+				.a
+				.swap(index - my_snakebot_count, foe_snake_bot_list.size - 1);
+			foe_snake_bot_list.size -= 1;
 		}
 	}
 }
 
-fn remove_indices<T>(vec: &mut Vec<T>, mut indices: Vec<usize>) {
-	if indices.is_empty() {
+fn remove_indices<T: Clone + Default>(arr: &mut Arr4<T>, mut indices: Arr4<usize>) {
+	if indices.size == 0 {
 		return;
 	}
 
-	indices.sort_unstable();
+	indices.a.sort_unstable();
 
 	let mut write = 0;
 	let mut read = 0;
 	let mut next_remove = 0;
 
-	while read < vec.len() {
-		if next_remove < indices.len() && read == indices[next_remove] {
+	while read < arr.size {
+		if next_remove < indices.size && read == indices.a[next_remove] {
 			next_remove += 1;
 		} else {
 			if write != read {
-				vec.swap(write, read);
+				arr.a.swap(write, read);
 			}
 			write += 1;
 		}
 		read += 1;
 	}
 
-	vec.truncate(write);
+	arr.size -= indices.size;
 }
 
 impl GameStateTrait for GameState {
 	fn my_alive_agent_count(&self) -> usize {
-		self.my_snakebot_list.len()
+		self.my_snakebot_list.size
 	}
 
 	fn my_action_count(&self) -> PlayerActionCount {
 		ACTION_COUNT_BY_AGENT_COUNT[self.my_alive_agent_count()]
 	}
 	fn foe_action_count(&self) -> PlayerActionCount {
-		ACTION_COUNT_BY_AGENT_COUNT[self.foe_snakebot_list.len()]
+		ACTION_COUNT_BY_AGENT_COUNT[self.foe_snakebot_list.size]
 	}
 
 	fn apply(
@@ -861,10 +879,10 @@ impl GameStateTrait for GameState {
 			}
 		}
 
-		let mut my_dead_snakebot_index_list = Vec::<usize>::new();
-		let mut foe_dead_snakebot_index_list = Vec::<usize>::new();
-		let mut my_snakebot_dead_head_list = Vec::<usize>::new();
-		let mut foe_snakebot_dead_head_list = Vec::<usize>::new();
+		let mut my_dead_snakebot_index_list = Arr4::<usize>::default();
+		let mut foe_dead_snakebot_index_list = Arr4::<usize>::default();
+		let mut my_snakebot_dead_head_list = Arr4::<usize>::default();
+		let mut foe_snakebot_dead_head_list = Arr4::<usize>::default();
 
 		apply_collision(
 			&mut my_snakebot_list,
@@ -881,14 +899,14 @@ impl GameStateTrait for GameState {
 			&my_snakebot_list,
 		);
 
-		if !my_snakebot_dead_head_list.is_empty() {
-			for i in my_snakebot_dead_head_list.into_iter() {
-				my_snakebot_list[i].body.remove(0);
+		if !my_snakebot_dead_head_list.size == 0 {
+			for i in my_snakebot_dead_head_list.a.into_iter() {
+				my_snakebot_list.a[i].body.remove(0);
 			}
 		}
-		if !foe_snakebot_dead_head_list.is_empty() {
-			for i in foe_snakebot_dead_head_list.into_iter() {
-				foe_snakebot_list[i].body.remove(0);
+		if !foe_snakebot_dead_head_list.size == 0 {
+			for i in foe_snakebot_dead_head_list.a.into_iter() {
+				foe_snakebot_list.a[i].body.remove(0);
 			}
 		}
 		remove_indices(&mut my_snakebot_list, my_dead_snakebot_index_list);
@@ -921,10 +939,10 @@ impl GameStateTrait for GameState {
 			0.0
 		};
 
-		let my_avg_distance_to_apple = if self.my_snakebot_list.is_empty() {
+		let my_avg_distance_to_apple = if self.my_snakebot_list.size == 0 {
 			0.0
 		} else {
-			self.my_snakebot_list
+			self.my_snakebot_list.a[..self.my_snakebot_list.size]
 				.iter()
 				.map(|snakebot| {
 					let head = snakebot.body[0];
@@ -936,7 +954,7 @@ impl GameStateTrait for GameState {
 						.unwrap_or(0)
 				})
 				.sum::<u16>() as f32
-				/ self.my_snakebot_list.len() as f32
+				/ self.my_snakebot_list.size as f32
 		};
 
 		(raw_score * 10.0) + (1.0 / (my_avg_distance_to_apple + 1.0))
@@ -945,8 +963,8 @@ impl GameStateTrait for GameState {
 	fn is_terminal(&self) -> bool {
 		self.apple_list.is_empty()
 			|| self.turn >= MAX_TURN_COUNT
-			|| self.my_snakebot_list.is_empty()
-			|| self.foe_snakebot_list.is_empty()
+			|| self.my_snakebot_list.size == 0
+			|| self.foe_snakebot_list.size == 0
 	}
 	fn terminal_value(&self) -> HeuristicReward {
 		let my_raw_score = self.my_raw_score();
@@ -966,8 +984,8 @@ fn manhattan_distance(a: Coord, b: Coord) -> u8 {
 	a.0.abs_diff(b.0) + a.1.abs_diff(b.1)
 }
 
-fn print_action(list: &[(SnakebotId, SnakebotAction, Dir)]) {
-	let s = list
+fn print_action(list: Arr4<(SnakebotId, SnakebotAction, Dir)>) {
+	let s = list.a[..list.size]
 		.iter()
 		.map(|(id, action, facing_dir)| {
 			let dir = match *action {
@@ -991,34 +1009,44 @@ fn main() {
 		let (my_snakebot_list, foe_snakebot_list) = env.read_snakebot();
 
 		// TODO: remove initially stuck snakebot (if any)
-		let stuck_snakebot_id_list = Vec::<(SnakebotId, Snakebot)>::default();
+		// let stuck_snakebot_id_list = Vec::<(SnakebotId, Snakebot)>::default();
+
+		let mut state_my_snakebot_list = Arr4::default();
+		for i in 0..my_snakebot_list.size {
+			state_my_snakebot_list.a[i] = my_snakebot_list.a[i].1.clone();
+		}
+		state_my_snakebot_list.size = my_snakebot_list.size;
+		let mut state_foe_snakebot_list = Arr4::default();
+		for i in 0..foe_snakebot_list.size {
+			state_foe_snakebot_list.a[i] = foe_snakebot_list.a[i].1.clone();
+		}
+		state_foe_snakebot_list.size = foe_snakebot_list.size;
 
 		let state = GameState {
 			turn: env.turn,
-			my_snakebot_list: my_snakebot_list
-				.iter()
-				.map(|(_, snakebot)| snakebot.clone())
-				.collect(),
-			foe_snakebot_list: foe_snakebot_list
-				.iter()
-				.map(|(_, snakebot)| snakebot.clone())
-				.collect(),
+			my_snakebot_list: state_my_snakebot_list,
+			foe_snakebot_list: state_foe_snakebot_list,
 			apple_list,
 		};
 
 		let mut mcts = Mcts::new(&env, state);
 		let best_action = mcts.search();
 
-		let mut grouped_snakebot_action_list = Vec::with_capacity(my_snakebot_list.len());
-		for ((id, snakebot), action) in my_snakebot_list.into_iter().zip(best_action.into_iter()) {
-			grouped_snakebot_action_list.push((id, action, snakebot.facing_dir));
+		let mut grouped_snakebot_action_list = Arr4::default();
+		for i in 0..my_snakebot_list.size {
+			let (id, snakebot) = &my_snakebot_list.a[i];
+			let action = best_action[i];
+			grouped_snakebot_action_list.a[i] = (*id, action, snakebot.facing_dir);
 		}
+		grouped_snakebot_action_list.size = my_snakebot_list.size;
+		/*
 		for (id, snakebot) in stuck_snakebot_id_list.into_iter() {
 			// TODO: compute best action to stay alive instead of always straight
 			grouped_snakebot_action_list.push((id, STRAIGHT, snakebot.facing_dir));
 		}
+		*/
 
-		print_action(&grouped_snakebot_action_list);
+		print_action(grouped_snakebot_action_list);
 
 		env.turn += 1;
 	}
@@ -1050,34 +1078,42 @@ mod tests {
 
 		let state = GameState {
 			turn: 4,
-			my_snakebot_list: vec![
-				Snakebot {
-					body: vec![(19, 3), (19, 4), (19, 5), (20, 5)],
-					facing_dir: Dir::U,
-				},
-				Snakebot {
-					body: vec![(20, 7), (19, 7), (19, 6), (18, 6), (17, 6)],
-					facing_dir: Dir::R,
-				},
-				Snakebot {
-					body: vec![(9, 3), (9, 2), (8, 2), (8, 3), (8, 4)],
-					facing_dir: Dir::D,
-				},
-			],
-			foe_snakebot_list: vec![
-				Snakebot {
-					body: vec![(0, 5), (0, 6), (1, 6), (1, 7)],
-					facing_dir: Dir::U,
-				},
-				Snakebot {
-					body: vec![(3, 6), (2, 6), (2, 7), (3, 7), (4, 7)],
-					facing_dir: Dir::R,
-				},
-				Snakebot {
-					body: vec![(12, 4), (12, 3), (12, 2), (13, 2), (13, 3)],
-					facing_dir: Dir::D,
-				},
-			],
+			my_snakebot_list: Arr4 {
+				a: [
+					Snakebot {
+						body: vec![(19, 3), (19, 4), (19, 5), (20, 5)],
+						facing_dir: Dir::U,
+					},
+					Snakebot {
+						body: vec![(20, 7), (19, 7), (19, 6), (18, 6), (17, 6)],
+						facing_dir: Dir::R,
+					},
+					Snakebot {
+						body: vec![(9, 3), (9, 2), (8, 2), (8, 3), (8, 4)],
+						facing_dir: Dir::D,
+					},
+					Snakebot::default(),
+				],
+				size: 3,
+			},
+			foe_snakebot_list: Arr4 {
+				a: [
+					Snakebot {
+						body: vec![(0, 5), (0, 6), (1, 6), (1, 7)],
+						facing_dir: Dir::U,
+					},
+					Snakebot {
+						body: vec![(3, 6), (2, 6), (2, 7), (3, 7), (4, 7)],
+						facing_dir: Dir::R,
+					},
+					Snakebot {
+						body: vec![(12, 4), (12, 3), (12, 2), (13, 2), (13, 3)],
+						facing_dir: Dir::D,
+					},
+					Snakebot::default(),
+				],
+				size: 3,
+			},
 			apple_list: vec![
 				(7, 4),
 				(14, 4),
@@ -1098,18 +1134,13 @@ mod tests {
 
 	#[test]
 	fn test_decode_action() {
-		let state = GameState {
+		let mut state = GameState {
 			turn: 0,
-			my_snakebot_list: vec![
-				Snakebot {
-					body: Vec::default(),
-					facing_dir: Dir::U,
-				};
-				3
-			],
-			foe_snakebot_list: vec![],
+			my_snakebot_list: Arr4::default(),
+			foe_snakebot_list: Arr4::default(),
 			apple_list: vec![],
 		};
+		state.my_snakebot_list.size = 3;
 
 		assert_eq!(
 			state.decode_action(0),
