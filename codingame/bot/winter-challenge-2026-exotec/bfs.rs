@@ -266,7 +266,20 @@ impl Display for Dir {
 	}
 }
 
+fn apply_dir((x, y): Coord, dir: Dir) -> Coord {
+	match dir {
+		Dir::U => (x, y - 1),
+		Dir::D => (x, y + 1),
+		Dir::L => (x - 1, y),
+		Dir::R => (x + 1, y),
+	}
+}
+
 fn is_new_head_in_body(body: &[Coord], x: Axis, y: Axis) -> bool {
+	if body[1].0 == x && body[1].1 == y {
+		return true;
+	}
+
 	if body.len() <= 4 {
 		return false;
 	}
@@ -308,6 +321,7 @@ fn move_and_queue(
 
 	// gravity
 	for _ in 0..=grid.h {
+		// TODO: optimize by reverse iterating
 		for i in 0..body.len() {
 			body[i].1 += 1;
 
@@ -538,11 +552,21 @@ fn main() {
 			};
 			eprintln!("[{id}] allowed: {allowed_time:?}");
 
+			for &(x, y) in body {
+				grid.safe_unset(x, y);
+			}
+
 			let (dir, apple) = find_snakebot_action(&grid, &apple_grid, body, allowed_time);
 			action_list.push(Action {
 				snakebot_id: *id,
 				direction: dir,
 			});
+
+			let new_head = apply_dir(body[0], dir);
+			grid.safe_set(new_head.0, new_head.1);
+			for &(x, y) in body[..body.len() - 1].iter() {
+				grid.safe_set(x, y);
+			}
 
 			if let Some(apple) = apple {
 				apple_grid.safe_unset(apple.0, apple.1);
