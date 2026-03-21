@@ -8,6 +8,7 @@ pub fn intersect(checkpoint: Coord, from: Coord, to: Coord) -> bool {
 	if dist(from.x, from.y, checkpoint.x, checkpoint.y) <= CHECKPOINT_RADIUS {
 		return true;
 	}
+	return false;
 
 	let d = Coord {
 		x: to.x - from.x,
@@ -30,5 +31,5 @@ pub fn intersect(checkpoint: Coord, from: Coord, to: Coord) -> bool {
 	let sqrt_discriminant = discriminant.sqrt();
 	let t = (-b - sqrt_discriminant) / (2.0 * a);
 
-	t <= 0.0
+	t > 0.0
 }

@@ -3,10 +3,11 @@ use std::{fs, path::Path};
 use crate::{
 	OUTPUT_DIR, OUTPUT_SOLUTION_REPR_FILE,
 	output_repr::{Solution, Step},
+	referee::env::MAX_STEP,
 	solve::SOLUTION_PER_GENERATION,
 };
 
-const INITIAL_SOLUTION_STEP_SIZE: usize = 84;
+const INITIAL_SOLUTION_STEP_SIZE: usize = MAX_STEP;
 
 pub fn init_first_generation(
 	validator_name: &str,
