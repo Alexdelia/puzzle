@@ -145,22 +145,20 @@ impl Env {
 				})
 				.collect::<Vec<_>>();
 
-			if self.my_snakebot_id_list.contains(&snakebot_id) {
-				for &(x, y) in &body {
-					grid.safe_set(x, y);
-				}
-				my_snakebot_list.push((snakebot_id, body));
-			} else {
-				// TODO: check if this is pertinent
-				// let (x, y) = body[0];
-				// grid.safe_set(x + 1, y);
-				// grid.safe_set(x - 1, y);
-				// grid.safe_set(x, y + 1);
-				// grid.safe_set(x, y - 1);
-				for (x, y) in body {
-					grid.safe_set(x, y);
-				}
+			for &(x, y) in body[..body.len() - 1].iter() {
+				grid.safe_set(x, y);
 			}
+
+			if self.my_snakebot_id_list.contains(&snakebot_id) {
+				my_snakebot_list.push((snakebot_id, body));
+			} /* else {
+			// TODO: check if this is pertinent
+			let (x, y) = body[0];
+			grid.safe_set(x + 1, y);
+			grid.safe_set(x - 1, y);
+			grid.safe_set(x, y + 1);
+			grid.safe_set(x, y - 1);
+			}*/
 		}
 	}
 }
