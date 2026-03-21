@@ -266,13 +266,14 @@ impl Display for Dir {
 	}
 }
 
-fn apply_dir((x, y): Coord, dir: Dir) -> Coord {
-	match dir {
-		Dir::U => (x, y - 1),
-		Dir::D => (x, y + 1),
-		Dir::L => (x - 1, y),
-		Dir::R => (x + 1, y),
+fn is_new_head_in_body(body: &[Coord], x: Axis, y: Axis) -> bool {
+	if body.len() <= 4 {
+		return false;
 	}
+
+	body[4..body.len() - 1]
+		.iter()
+		.any(|&(bx, by)| bx == x && by == y)
 }
 
 fn is_upright(body: &[Coord]) -> bool {
@@ -336,7 +337,7 @@ fn try_visit(
 		return Some((initial_dir, Some((x, y))));
 	}
 
-	if !grid.is_set(x, y) && body.iter().skip(1).all(|&(bx, by)| bx != x || by != y) {
+	if !grid.is_set(x, y) && !is_new_head_in_body(body, x, y) {
 		move_and_queue(q, visited, grid, apple, initial_dir, body, x, y);
 	}
 
@@ -423,11 +424,7 @@ fn has_single_depth_move(
 			return Some((dir, Some((nx, ny))));
 		}
 
-		if snakebot_body
-			.iter()
-			.skip(1)
-			.any(|&(bx, by)| bx == nx && by == ny)
-		{
+		if is_new_head_in_body(snakebot_body, nx, ny) {
 			continue;
 		}
 
@@ -506,8 +503,7 @@ fn main() {
 		let mut remaining_my_snakebot_count = my_snakebot_list.len() as u32;
 
 		for (id, body) in &my_snakebot_list {
-			if let Some(solution) = has_single_depth_move(&grid, &apple_grid, body) {
-				let (dir, apple) = solution;
+			if let Some((dir, apple)) = has_single_depth_move(&grid, &apple_grid, body) {
 				action_list.push(Action {
 					snakebot_id: *id,
 					direction: dir,
