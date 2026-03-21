@@ -451,10 +451,6 @@ fn find_snakebot_action(
 	snakebot_body: &[Coord],
 	allowed_time: Duration,
 ) -> (Dir, Option<Coord>) {
-	if let Some(solution) = has_single_depth_move(grid, apple_grid, snakebot_body) {
-		return solution;
-	}
-
 	// TODO: store body more efficiently?
 	let mut visited = HashSet::<Vec<Coord>>::new();
 	visited.insert(snakebot_body.to_vec());
