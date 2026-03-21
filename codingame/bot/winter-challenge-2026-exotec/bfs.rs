@@ -472,9 +472,9 @@ fn find_snakebot_action(
 		return solution;
 	}
 
+	let default_dir = q.clone().pop_front().map(|(dir, _)| dir).unwrap_or(Dir::U);
 	if q.len() <= 1 {
-		let only_dir = q.pop_front().map(|(dir, _)| dir).unwrap_or(Dir::U);
-		return (only_dir, None);
+		return (default_dir, None);
 	}
 
 	let start = Instant::now();
@@ -492,31 +492,37 @@ fn find_snakebot_action(
 		let elapsed = start.elapsed();
 		if i % 100 == 0 && elapsed >= allowed_time {
 			eprintln!("timeout: visited {i} states in {elapsed:?}");
-			break;
+
+			let mut remaining_dir_count = [0; 4];
+			for (dir, _) in q {
+				remaining_dir_count[dir as usize] += 1;
+			}
+
+			let mut max_dir = 0;
+			for i in 1..4 {
+				if remaining_dir_count[i] > remaining_dir_count[max_dir] {
+					max_dir = i;
+				}
+			}
+
+			if remaining_dir_count[max_dir] == 0 {
+				eprintln!("no more states to visit, defaulting to {default_dir}");
+				return (default_dir, None);
+			}
+
+			let best_dir = match max_dir {
+				0 => Dir::U,
+				1 => Dir::L,
+				2 => Dir::R,
+				3 => Dir::D,
+				_ => unreachable!(),
+			};
+
+			return (best_dir, None);
 		}
 	}
 
-	let mut remaining_dir_count = [0; 4];
-	for (dir, _) in q {
-		remaining_dir_count[dir as usize] += 1;
-	}
-
-	let mut max_dir = 0;
-	for i in 1..4 {
-		if remaining_dir_count[i] > remaining_dir_count[max_dir] {
-			max_dir = i;
-		}
-	}
-
-	let best_dir = match max_dir {
-		0 => Dir::U,
-		1 => Dir::L,
-		2 => Dir::R,
-		3 => Dir::D,
-		_ => unreachable!(),
-	};
-
-	(best_dir, None)
+	(default_dir, None)
 }
 
 fn main() {
