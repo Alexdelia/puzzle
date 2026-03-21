@@ -34,7 +34,7 @@ pub fn parse(path: &str) -> Result<(Lander, Vec<Segment>), String> {
 		);
 	}
 
-	Ok((parse_lander(lines[0])?, parse_landsacpe(&lines[1..])?))
+	Ok((parse_lander(lines[0])?, parse_landscape(&lines[1..])?))
 }
 
 fn parse_n<T>(key: &str, s: Option<&str>) -> Result<T, String>
@@ -61,7 +61,7 @@ fn parse_lander(line: &str) -> Result<Lander, String> {
 	})
 }
 
-fn parse_landsacpe(lines: &[&str]) -> Result<Vec<Segment>, String> {
+fn parse_landscape(lines: &[&str]) -> Result<Vec<Segment>, String> {
 	let point_list: Vec<Coord> = lines
 		.iter()
 		.map(|line| {
