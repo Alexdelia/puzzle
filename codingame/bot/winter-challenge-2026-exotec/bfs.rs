@@ -300,6 +300,7 @@ fn is_upright(body: &[Coord]) -> bool {
 	true
 }
 
+#[allow(clippy::too_many_arguments)]
 fn move_and_queue(
 	q: &mut VecDeque<(Dir, Vec<Coord>)>,
 	visited: &mut HashSet<Vec<Coord>>,
