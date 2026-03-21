@@ -522,6 +522,8 @@ fn main() {
 					direction: dir,
 				});
 
+				let new_head = apply_dir(body[0], dir);
+				grid.safe_set(new_head.0, new_head.1);
 				remaining_my_snakebot_count -= 1;
 
 				if let Some(apple) = apple {
