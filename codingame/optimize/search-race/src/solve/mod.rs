@@ -10,10 +10,13 @@ use std::sync::mpsc;
 use rayon::ThreadPoolBuilder;
 
 #[cfg(feature = "visualize")]
-use crate::referee::env::Coord;
-#[cfg(feature = "visualize")]
 use crate::visualize;
-use crate::{output_repr::Solution, parse::get_iteration, referee::car::Car};
+
+use crate::{
+	output_repr::Solution,
+	parse::get_iteration,
+	referee::{car::Car, env::Coord},
+};
 
 pub const SOLUTION_PER_GENERATION: usize = 512;
 
