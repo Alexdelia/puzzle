@@ -348,7 +348,7 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 		let mut path = Vec::<(NodeIndex, PlayerActionReprAsIndex, PlayerActionReprAsIndex)>::new();
 		let mut node_index = self.root;
 
-		// --- Selection ---
+		// --- selection ---
 		loop {
 			let node = &self.node_list[node_index];
 			if node.state.is_terminal() {
@@ -367,7 +367,7 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 			}
 			*/
 
-			// --- Expansion ---
+			// --- expansion ---
 			let new_state = node.state.apply(self.env, my_action, foe_action);
 
 			let new_node = MctsNode::new(new_state);
@@ -386,7 +386,7 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 			break;
 		}
 
-		// --- Evaluation ---
+		// --- evaluation ---
 		let leaf_node = &self.node_list[node_index];
 		let value = if leaf_node.state.is_terminal() {
 			leaf_node.state.terminal_value()
@@ -394,7 +394,7 @@ impl<'e, S: GameStateTrait> Mcts<'e, S> {
 			leaf_node.state.evaluate()
 		};
 
-		// --- Backpropagation ---
+		// --- backpropagation ---
 		self.backpropagate(path, value);
 	}
 
@@ -478,6 +478,7 @@ impl<S: GameStateTrait> MctsNode<S> {
 #[derive(Clone)]
 struct GameState {
 	turn: Turn,
+	parent_my_alive_snakebot_count: usize,
 
 	my_snakebot_list: Arr4<Snakebot>,
 	foe_snakebot_list: Arr4<Snakebot>,
@@ -921,6 +922,7 @@ impl GameStateTrait for GameState {
 
 		GameState {
 			turn: self.turn + 1,
+			parent_my_alive_snakebot_count: self.my_snakebot_list.size,
 			my_snakebot_list,
 			foe_snakebot_list,
 			apple_list,
@@ -961,7 +963,8 @@ impl GameStateTrait for GameState {
 	}
 
 	fn is_terminal(&self) -> bool {
-		self.apple_list.is_empty()
+		self.parent_my_alive_snakebot_count > self.my_snakebot_list.size
+			|| self.apple_list.is_empty()
 			|| self.turn >= MAX_TURN_COUNT
 			|| self.my_snakebot_list.size == 0
 			|| self.foe_snakebot_list.size == 0
@@ -1024,6 +1027,7 @@ fn main() {
 
 		let state = GameState {
 			turn: env.turn,
+			parent_my_alive_snakebot_count: my_snakebot_list.size,
 			my_snakebot_list: state_my_snakebot_list,
 			foe_snakebot_list: state_foe_snakebot_list,
 			apple_list,
@@ -1078,6 +1082,7 @@ mod tests {
 
 		let state = GameState {
 			turn: 4,
+			parent_my_alive_snakebot_count: 3,
 			my_snakebot_list: Arr4 {
 				a: [
 					Snakebot {
@@ -1136,6 +1141,7 @@ mod tests {
 	fn test_decode_action() {
 		let mut state = GameState {
 			turn: 0,
+			parent_my_alive_snakebot_count: 3,
 			my_snakebot_list: Arr4::default(),
 			foe_snakebot_list: Arr4::default(),
 			apple_list: vec![],
