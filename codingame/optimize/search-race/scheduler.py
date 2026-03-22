@@ -69,6 +69,14 @@ def sort_by_time(
 	return sorted(validator_list, key=lambda x: x[2])
 
 
+def human_readable_time(seconds: int) -> str:
+	if seconds < 60:
+		return f"{seconds}s"
+	if seconds < 3600:
+		return f"{seconds // 60}m {seconds % 60}s"
+	return f"{seconds // 3600}h {(seconds % 3600) // 60}m {seconds % 60}s"
+
+
 binary = build()
 
 vl = get_validator_list()
@@ -77,7 +85,7 @@ vl = sort_by_time(vl)
 
 print()
 for vn, _, vt in vl:
-	print(f"- \033[32m{vn}\033[0m: \033[36m{vt}\033[0ms")
+	print(f"- \033[32m{vn}\033[0m: \033[36m{human_readable_time(vt)}\033[0m")
 print()
 
 
@@ -94,7 +102,10 @@ while True:
 	elapsed = int(end - start)
 	vt += elapsed
 
-	print(f"\033[36m{elapsed}\033[0ms (\033[36m{vt}\033[0ms)\n")
+	print(
+		f"\033[36m{human_readable_time(elapsed)}\033[0m"
+		f" (\033[36m{human_readable_time(vt)}\033[0m)\n"
+	)
 
 	update_time(vn, vt)
 
