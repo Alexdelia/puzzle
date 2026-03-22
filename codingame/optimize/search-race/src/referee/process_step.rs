@@ -15,8 +15,9 @@ pub fn process_step(car: &mut Car, step: &Step) {
 	let angle_radians = (car.angle as f64).to_radians();
 	let thrust = step.thrust as f64;
 
-	car.sx += thrust * angle_radians.cos();
-	car.sy += thrust * angle_radians.sin();
+	let (sin, cos) = angle_radians.sin_cos();
+	car.sx += thrust * cos;
+	car.sy += thrust * sin;
 
 	car.x += car.sx;
 	car.y += car.sy;
