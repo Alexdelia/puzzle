@@ -1,6 +1,7 @@
 use std::sync::mpsc;
 
 use crate::{
+	dist::dist,
 	output_repr::Solution,
 	referee::{
 		car::Car,
@@ -34,6 +35,7 @@ pub fn simulate_generation(
 
 				let mut checkpoint_index = 0;
 				let mut reached_at_step = MAX_STEP;
+				let mut closest_to_checkpoint = f64::INFINITY;
 
 				for (step_index, step) in solution.iter().enumerate() {
 					let from = Coord { x: car.x, y: car.y };
@@ -60,9 +62,15 @@ pub fn simulate_generation(
 
 					let current_checkpoint = checkpoint_list[checkpoint_index];
 
+					let d = dist(car.x, car.y, current_checkpoint.x, current_checkpoint.y);
+					if d < closest_to_checkpoint {
+						closest_to_checkpoint = d;
+					}
+
 					if intersect(current_checkpoint, traveled.a, traveled.b) {
 						checkpoint_index += 1;
 						reached_at_step = step_index;
+						closest_to_checkpoint = f64::INFINITY;
 
 						let step_count = step_index + 1;
 
@@ -74,8 +82,8 @@ pub fn simulate_generation(
 									checkpoint_list,
 									checkpoint_index,
 									&car,
+									closest_to_checkpoint,
 									step_count,
-									reached_at_step,
 								),
 								step_count,
 								#[cfg(feature = "visualize")]
@@ -97,8 +105,8 @@ pub fn simulate_generation(
 						checkpoint_list,
 						checkpoint_index,
 						&car,
+						closest_to_checkpoint,
 						step_count,
-						reached_at_step,
 					),
 					#[cfg(feature = "visualize")]
 					path,
