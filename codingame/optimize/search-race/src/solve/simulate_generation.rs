@@ -2,7 +2,12 @@ use std::sync::mpsc;
 
 use crate::{
 	output_repr::Solution,
-	referee::{car::Car, env::Coord, intersect, process_step::process_step},
+	referee::{
+		car::Car,
+		env::{Coord, MAX_STEP},
+		intersect,
+		process_step::process_step,
+	},
 	segment::Segment,
 	solve::get_score::get_score,
 };
@@ -28,6 +33,7 @@ pub fn simulate_generation(
 				path.push(Coord { x: car.x, y: car.y });
 
 				let mut checkpoint_index = 0;
+				let mut reached_at_step = MAX_STEP;
 
 				for (step_index, step) in solution.iter().enumerate() {
 					let from = Coord { x: car.x, y: car.y };
@@ -45,6 +51,7 @@ pub fn simulate_generation(
 
 					if intersect(current_checkpoint, traveled.a, traveled.b) {
 						checkpoint_index += 1;
+						reached_at_step = step_index;
 
 						let step_count = step_index + 1;
 
@@ -57,6 +64,7 @@ pub fn simulate_generation(
 									checkpoint_index,
 									&car,
 									step_count,
+									reached_at_step,
 								),
 								step_count,
 								#[cfg(feature = "visualize")]
@@ -74,7 +82,13 @@ pub fn simulate_generation(
 					index: i,
 					finished: false,
 					step_count,
-					score: get_score(checkpoint_list, checkpoint_index, &car, step_count),
+					score: get_score(
+						checkpoint_list,
+						checkpoint_index,
+						&car,
+						step_count,
+						reached_at_step,
+					),
 					#[cfg(feature = "visualize")]
 					path,
 				})
