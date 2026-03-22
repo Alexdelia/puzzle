@@ -24,9 +24,14 @@ const fn gen_mutation_rate() -> [MutationRate; SOLUTION_PER_GENERATION] {
 const MUTATION_RATE: [MutationRate; SOLUTION_PER_GENERATION] = gen_mutation_rate();
 
 pub fn breed_generation(
-	solution_list: [Solution; SOLUTION_PER_GENERATION],
+	mut solution_list: [Solution; SOLUTION_PER_GENERATION],
 	score_list: [Score; SOLUTION_PER_GENERATION],
+	step_count_list: [usize; SOLUTION_PER_GENERATION],
 ) -> [Solution; SOLUTION_PER_GENERATION] {
+	for i in 0..SOLUTION_PER_GENERATION {
+		solution_list[i].truncate(step_count_list[i]);
+	}
+
 	let mut ordered_solution_list = sort(solution_list, score_list);
 
 	let keep_count = (SOLUTION_PER_GENERATION as f32 * KEEP_RATE).ceil() as usize;
