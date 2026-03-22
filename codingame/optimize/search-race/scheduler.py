@@ -14,6 +14,8 @@ SUCCESS_FILE_NAME = "success.flag"
 
 ITERATION = 100_000
 
+type ValidatorList = list[tuple[str, Path, int, bool]]
+
 
 def build() -> Path:
 	subprocess.run(
@@ -40,7 +42,7 @@ def exexcute(binary: Path, validator_path: Path) -> bool:
 		return True
 
 
-def get_validator_list() -> list[tuple[str, Path, int]]:
+def get_validator_list() -> ValidatorList:
 	validator_list = []
 
 	for validator in VALIDATOR_DIR.iterdir():
@@ -54,14 +56,12 @@ def get_validator_list() -> list[tuple[str, Path, int]]:
 			else:
 				time = 0
 
-			validator_list.append((name, validator, time))
+			success_file = OUTPUT_DIR / name / SUCCESS_FILE_NAME
+			success = success_file.exists()
+
+			validator_list.append((name, validator, time, success))
 
 	return validator_list
-
-
-def is_success(validator_name: str) -> bool:
-	success_file = OUTPUT_DIR / validator_name / SUCCESS_FILE_NAME
-	return success_file.exists()
 
 
 def mark_success(validator_name: str) -> None:
@@ -77,10 +77,8 @@ def update_time(validator_name: str, time: int) -> None:
 		f.write(str(time))
 
 
-def sort_by_time(
-	validator_list: list[tuple[str, Path, int]],
-) -> list[tuple[str, Path, int]]:
-	return sorted(validator_list, key=lambda x: x[2])
+def sort(validator_list: ValidatorList) -> ValidatorList:
+	return sorted(validator_list, key=lambda x: x[2] + (0 if x[3] else 1_000_000))
 
 
 def human_readable_time(seconds: int) -> str:
@@ -94,13 +92,12 @@ def human_readable_time(seconds: int) -> str:
 binary = build()
 
 vl = get_validator_list()
-vl = sort_by_time(vl)
+vl = sort(vl)
 
 
 print()
-for vn, _, vt in vl:
-	success = is_success(vn)
-	success_mark = "\033[1;32m✓\033[0m" if success else "-"
+for vn, _, vt, vs in vl:
+	success_mark = "\033[1;32m✓\033[0m" if vs else "-"
 	print(
 		f"  {success_mark} \033[32m{vn}\033[0m:"
 		f" \033[36m{human_readable_time(vt)}\033[0m"
@@ -109,7 +106,7 @@ print()
 
 
 while True:
-	[vn, vp, vt] = vl.pop(0)
+	[vn, vp, vt, vs] = vl.pop(0)
 
 	print(f"\033[1;32m{vn}\033[0m")
 
@@ -117,6 +114,7 @@ while True:
 
 	success = exexcute(binary, vp)
 	if success:
+		vs = True
 		mark_success(vn)
 
 	end = time.perf_counter()
@@ -133,5 +131,5 @@ while True:
 	if not success:
 		break
 
-	vl.append((vn, vp, vt))
-	vl = sort_by_time(vl)
+	vl.append((vn, vp, vt, vs))
+	vl = sort(vl)
