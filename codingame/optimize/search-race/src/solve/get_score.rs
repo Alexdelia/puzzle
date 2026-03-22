@@ -3,7 +3,7 @@ use crate::{
 	dist::dist,
 	referee::{
 		car::Car,
-		env::{Axis, Coord, Degree, MAX_STEP},
+		env::{Axis, Coord, MAX_STEP},
 	},
 };
 
@@ -35,24 +35,4 @@ pub fn get_score(
 		+ ((d as Score) / DIST_DIV_FACTOR)
 		+ (((last_checkpoint_reached_at_step as Score) / (step_count as Score))
 			* (remaining_checkpoint_count as Score))
-		+ if d > 2000.0 {
-			angle_penalty(car, current_checkpoint)
-		} else {
-			0
-		}
-}
-
-fn angle_penalty(car: &Car, checkpoint: Coord) -> Score {
-	let car_angle = car.angle;
-	let bearing_to_checkpoint = bearing(car.x, car.y, checkpoint.x, checkpoint.y);
-
-	let angle_diff = (car_angle - bearing_to_checkpoint).abs();
-
-	angle_diff * 2
-}
-
-fn bearing(from_x: Axis, from_y: Axis, to_x: Axis, to_y: Axis) -> Degree {
-	let dy = to_y - from_y;
-	let dx = to_x - from_x;
-	((dy.atan2(dx).to_degrees() as Degree) + 360) % 360
 }

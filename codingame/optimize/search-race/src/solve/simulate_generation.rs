@@ -4,7 +4,7 @@ use crate::{
 	output_repr::Solution,
 	referee::{
 		car::Car,
-		env::{Coord, MAX_STEP},
+		env::{Coord, MAX_HEIGHT, MAX_STEP, MAX_WIDTH},
 		intersect,
 		process_step::process_step,
 	},
@@ -46,6 +46,17 @@ pub fn simulate_generation(
 					};
 					#[cfg(feature = "visualize")]
 					path.push(traveled.b);
+
+					if reached_at_step + 32 < step_index {
+						break;
+					}
+					if traveled.b.x < 0.0
+						|| traveled.b.x > MAX_WIDTH
+						|| traveled.b.y < 0.0
+						|| traveled.b.y > MAX_HEIGHT
+					{
+						break;
+					}
 
 					let current_checkpoint = checkpoint_list[checkpoint_index];
 
