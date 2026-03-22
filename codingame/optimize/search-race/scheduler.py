@@ -10,6 +10,7 @@ SCRIPT_DIR = __file__.rsplit("/", 1)[0]
 VALIDATOR_DIR = Path(SCRIPT_DIR) / "validator"
 OUTPUT_DIR = Path(SCRIPT_DIR) / "output"
 TIME_FILE_NAME = "time.txt"
+SUCCESS_FILE_NAME = "success.flag"
 
 ITERATION = 100_000
 
@@ -58,6 +59,17 @@ def get_validator_list() -> list[tuple[str, Path, int]]:
 	return validator_list
 
 
+def is_success(validator_name: str) -> bool:
+	success_file = OUTPUT_DIR / validator_name / SUCCESS_FILE_NAME
+	return success_file.exists()
+
+
+def mark_success(validator_name: str) -> None:
+	success_file = OUTPUT_DIR / validator_name / SUCCESS_FILE_NAME
+	success_file.parent.mkdir(parents=True, exist_ok=True)
+	success_file.touch()
+
+
 def update_time(validator_name: str, time: int) -> None:
 	time_file = OUTPUT_DIR / validator_name / TIME_FILE_NAME
 	time_file.parent.mkdir(parents=True, exist_ok=True)
@@ -87,7 +99,11 @@ vl = sort_by_time(vl)
 
 print()
 for vn, _, vt in vl:
-	print(f"- \033[32m{vn}\033[0m: \033[36m{human_readable_time(vt)}\033[0m")
+	success = is_success(vn)
+	success_mark = "\033[1;32m✓\033[0m" if success else "-"
+	print(
+		f"{success_mark} \033[32m{vn}\033[0m: \033[36m{human_readable_time(vt)}\033[0m"
+	)
 print()
 
 
@@ -99,6 +115,8 @@ while True:
 	start = time.perf_counter()
 
 	success = exexcute(binary, vp)
+	if success:
+		mark_success(vn)
 
 	end = time.perf_counter()
 	elapsed = int(end - start)
