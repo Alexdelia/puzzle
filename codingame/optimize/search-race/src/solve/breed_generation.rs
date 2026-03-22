@@ -118,13 +118,8 @@ fn breed(
 	for i in 0..solution_size {
 		if let (Some(step_a), Some(step_b)) = (parent_a.get(i), parent_b.get(i)) {
 			let mut step = Step {
-				// tilt: ((((step_a.tilt + step_b.tilt) + 15) / 2) - 15).clamp(-15, 15),
 				tilt: (step_a.tilt + step_b.tilt) / 2,
-				thrust: if rng.random_bool(0.5) {
-					step_a.thrust
-				} else {
-					step_b.thrust
-				},
+				thrust: (step_a.thrust + step_b.thrust) / 2,
 			};
 
 			mutate(rng, mutation_rate, &mut step);
