@@ -102,7 +102,8 @@ for vn, _, vt in vl:
 	success = is_success(vn)
 	success_mark = "\033[1;32m✓\033[0m" if success else "-"
 	print(
-		f"{success_mark} \033[32m{vn}\033[0m: \033[36m{human_readable_time(vt)}\033[0m"
+		f"  {success_mark} \033[32m{vn}\033[0m:"
+		f" \033[36m{human_readable_time(vt)}\033[0m"
 	)
 print()
 
