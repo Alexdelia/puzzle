@@ -78,7 +78,7 @@ def update_time(validator_name: str, time: int) -> None:
 
 
 def sort(validator_list: ValidatorList) -> ValidatorList:
-	return sorted(validator_list, key=lambda x: x[2] + (0 if x[3] else 1_000_000))
+	return sorted(validator_list, key=lambda x: x[2] + (1_000_000 if x[3] else 0))
 
 
 def human_readable_time(seconds: int) -> str:
