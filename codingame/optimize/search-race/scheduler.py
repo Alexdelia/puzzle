@@ -26,7 +26,7 @@ def build() -> Path:
 	return Path(SCRIPT_DIR) / "target/release/search-race"
 
 
-def exexcute(binary: Path, validator_path: Path) -> None:
+def exexcute(binary: Path, validator_path: Path) -> bool:
 	try:
 		subprocess.run(  # noqa: S603
 			[str(binary), str(validator_path)],
@@ -34,7 +34,9 @@ def exexcute(binary: Path, validator_path: Path) -> None:
 			check=True,
 		)
 	except KeyboardInterrupt:
-		sys.exit(0)
+		return False
+	else:
+		return True
 
 
 def get_validator_list() -> list[tuple[str, Path, int]]:
@@ -96,7 +98,7 @@ while True:
 
 	start = time.perf_counter()
 
-	exexcute(binary, vp)
+	success = exexcute(binary, vp)
 
 	end = time.perf_counter()
 	elapsed = int(end - start)
@@ -108,6 +110,9 @@ while True:
 	)
 
 	update_time(vn, vt)
+
+	if not success:
+		break
 
 	vl.append((vn, vp, vt))
 	vl = sort_by_time(vl)
