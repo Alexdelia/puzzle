@@ -1,8 +1,8 @@
 use std::{fs, path::Path};
 
 use crate::{
-	OUTPUT_DIR, OUTPUT_SOLUTION_REPR_FILE,
 	output_repr::{Solution, Step},
+	output_solution::{OUTPUT_DIR, OUTPUT_SOLUTION_REPR_FILE},
 	referee::env::MAX_STEP,
 	solve::SOLUTION_PER_GENERATION,
 };

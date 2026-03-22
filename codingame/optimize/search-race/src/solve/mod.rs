@@ -14,6 +14,7 @@ use crate::visualize;
 
 use crate::{
 	output_repr::Solution,
+	output_solution::output_solution,
 	parse::get_iteration,
 	referee::{car::Car, env::Coord},
 };
@@ -89,6 +90,8 @@ pub fn solve(
 						path: r.path.clone(),
 					},
 				);
+
+				output_solution(&best.1.solution, validator_name)?;
 			}
 
 			#[cfg(feature = "visualize")]
