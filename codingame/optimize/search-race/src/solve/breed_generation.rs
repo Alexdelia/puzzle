@@ -1,7 +1,10 @@
 use rand::RngExt;
 
 use super::{SOLUTION_PER_GENERATION, Score};
-use crate::output_repr::{Solution, Step};
+use crate::{
+	output_repr::{Solution, Step},
+	referee::env::MAX_STEP,
+};
 
 const KEEP_RATE: f32 = 0.1;
 const RANDOM_RATE: f32 = 0.1;
@@ -32,11 +35,14 @@ pub fn breed_generation(
 	let keep_count = (SOLUTION_PER_GENERATION as f32 * KEEP_RATE).ceil() as usize;
 	let random_count = (SOLUTION_PER_GENERATION as f32 * RANDOM_RATE).ceil() as usize;
 
+	/*
 	let max_solution_size = ordered_solution_list[0..keep_count]
 		.iter()
 		.map(|s| s.len())
 		.max()
 		.expect("no solutions to breed");
+	*/
+	let max_solution_size = MAX_STEP;
 
 	let mut rng = rand::rng();
 
