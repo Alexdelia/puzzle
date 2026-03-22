@@ -2,7 +2,6 @@
 
 import os
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -12,7 +11,7 @@ VALIDATOR_DIR = Path(SCRIPT_DIR) / "validator"
 OUTPUT_DIR = Path(SCRIPT_DIR) / "output"
 TIME_FILE_NAME = "time.txt"
 
-ITERATION = 10_000
+ITERATION = 100_000
 
 
 def build() -> Path:
@@ -34,6 +33,7 @@ def exexcute(binary: Path, validator_path: Path) -> bool:
 			check=True,
 		)
 	except KeyboardInterrupt:
+		print()
 		return False
 	else:
 		return True
