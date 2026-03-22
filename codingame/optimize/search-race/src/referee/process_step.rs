@@ -10,7 +10,7 @@ use crate::{
 /// The current speed vector is multiplied by 0.85
 /// The speed's values are truncated, angles converted to degrees and rounded and the position's values are truncated.
 pub fn process_step(car: &mut Car, step: &Step) {
-	car.angle = (car.angle + (step.tilt as i16)) % 360;
+	car.angle = ((car.angle + (step.tilt as i16)) + 360) % 360;
 
 	let angle_radians = (car.angle as f64).to_radians();
 	let thrust = step.thrust as f64;
