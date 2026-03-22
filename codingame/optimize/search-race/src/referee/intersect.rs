@@ -4,8 +4,10 @@ use crate::{
 };
 
 /// based on https://github.com/Illedan/CGSearchRace/blob/master/SearchRace/src/main/java/com/codingame/game/Unit.java#L36
-pub fn intersect(checkpoint: Coord, from: Coord, to: Coord) -> bool {
+pub fn intersect(checkpoint: Coord, _from: Coord, to: Coord) -> bool {
 	dist(to.x, to.y, checkpoint.x, checkpoint.y) <= CHECKPOINT_RADIUS
+	// TODO: check segment intersection with checkpoint circle, not just the end point
+
 	/*
 	if dist(from.x, from.y, checkpoint.x, checkpoint.y) <= CHECKPOINT_RADIUS {
 		return true;
