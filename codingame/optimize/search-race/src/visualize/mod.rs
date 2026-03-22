@@ -7,7 +7,7 @@ pub use generation_number::generation_number;
 mod scale;
 
 use crate::{
-	OUTPUT_DIR,
+	output_solution::OUTPUT_DIR,
 	referee::env::{MAX_HEIGHT, MAX_WIDTH},
 };
 
