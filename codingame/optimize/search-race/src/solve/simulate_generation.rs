@@ -49,7 +49,7 @@ pub fn simulate_generation(
 					#[cfg(feature = "visualize")]
 					path.push(traveled.b);
 
-					if reached_at_step + 32 < step_index {
+					if reached_at_step + 64 < step_index {
 						break;
 					}
 

@@ -21,7 +21,7 @@ use crate::{
 
 pub const SOLUTION_PER_GENERATION: usize = 512;
 
-pub type Score = i16;
+pub type Score = f32;
 
 struct ProcessOutput {
 	index: usize,

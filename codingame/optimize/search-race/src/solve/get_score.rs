@@ -4,7 +4,7 @@ use crate::referee::env::{Axis, Coord, MAX_STEP};
 /// (w^2 + h^2)^0.5
 const MAX_DISTANCE: Axis = 18357.6;
 
-const DIST_DIV_FACTOR: Score = 128;
+const DIST_DIV_FACTOR: Score = 1.0;
 const CHECKPOINT_FACTOR: Score = (MAX_DISTANCE as Score) / DIST_DIV_FACTOR;
 
 pub fn get_score(
