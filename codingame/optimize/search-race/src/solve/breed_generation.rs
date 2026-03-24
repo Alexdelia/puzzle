@@ -42,6 +42,7 @@ pub fn breed_generation(
 		.map(|s| s.len())
 		.max()
 		.expect("no solutions to breed");
+	let max_solution_size = max_solution_size.min(300);
 
 	let mut rng = rand::rng();
 
@@ -100,7 +101,8 @@ fn sort(
 		.try_into()
 		.expect("paired list size mismatch");
 
-	paired_list.sort_by_key(|&(_, score)| score);
+	// paired_list.sort_by_key(|&(_, score)| score);
+	paired_list.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
 	let (ordered_solution_list, _) = paired_list
 		.into_iter()
