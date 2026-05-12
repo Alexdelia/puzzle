@@ -172,6 +172,15 @@ impl Env {
 					'.' => {
 						// TODO: store grass
 					}
+					'~' => {
+						// TODO: store water
+					}
+					'#' => {
+						// TODO: store rock
+					}
+					'+' => {
+						// TODO: store iron
+					}
 					'0' => {
 						my_shack = (x as Axis, y);
 					}
