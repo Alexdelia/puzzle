@@ -1,0 +1,12 @@
+[package]
+name = "bot"
+version = "0.1.0"
+edition = "2024"
+authors = ["Alexandre Delille <adelille@student.42.fr>"]
+
+[profile.release]
+debug = true
+
+[[bin]]
+name = "spring-chalenge-2026-troll-farm"
+path = "main.rs"
