@@ -24,6 +24,11 @@ type TrollId = u8;
 // TODO: find max resource amount
 type Resource = u16;
 
+type MoveSpeed = Axis;
+type CarryCapacity = Resource;
+type HarvestPower = CarryCapacity;
+type ChopPower = Resource;
+
 // TODO: check if can store resource in uint
 // (128/6 ~= 21; 2^21 = 2_097_152)
 // (64/6 ~= 10; 2^10 = 1_024)
@@ -48,6 +53,19 @@ impl FromStr for ResourceKind {
 			"IRON" => Ok(Self::Iron),
 			"WOOD" => Ok(Self::Wood),
 			_ => Err(()),
+		}
+	}
+}
+
+impl Display for ResourceKind {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::Plum => write!(f, "PLUM"),
+			Self::Lemon => write!(f, "LEMON"),
+			Self::Apple => write!(f, "APPLE"),
+			Self::Banana => write!(f, "BANANA"),
+			Self::Iron => write!(f, "IRON"),
+			Self::Wood => write!(f, "WOOD"),
 		}
 	}
 }
@@ -110,6 +128,9 @@ enum Action {
 	Move(TrollId, Coord),
 	Harvest(TrollId),
 	Drop(TrollId),
+	Plant(TrollId, ResourceKind),
+	Pick(TrollId, ResourceKind),
+	Train(MoveSpeed, CarryCapacity, HarvestPower, ChopPower),
 }
 
 impl Display for Action {
@@ -118,6 +139,9 @@ impl Display for Action {
 			Action::Move(id, (x, y)) => write!(f, "MOVE {id} {x} {y}"),
 			Action::Harvest(id) => write!(f, "HARVEST {id}"),
 			Action::Drop(id) => write!(f, "DROP {id}"),
+			Action::Plant(id, kind) => write!(f, "PLANT {id} {kind}"),
+			Action::Pick(id, kind) => write!(f, "PICK {id} {kind}"),
+			Action::Train(ms, cc, hp, cp) => write!(f, "TRAIN {ms} {cc} {hp} {cp}"),
 		}
 	}
 }
@@ -215,13 +239,27 @@ impl Troll {
 
 		Self {
 			id: parse_input!(input[0], TrollId),
-			my_troll: parse_input!(input[0], u8) == 0,
+			my_troll: parse_input!(input[1], u8) == 0,
 			pos: (parse_input!(input[2], Axis), parse_input!(input[3], Axis)),
 			movement_speed: parse_input!(input[4], i32),
 			carry_capacity: parse_input!(input[5], i32),
 			harvest_power: parse_input!(input[6], i32),
 			chop_power: parse_input!(input[7], i32),
 			carry: PlayerInventory::parse(&input[8..]),
+		}
+	}
+
+	fn able_to_plant(&self) -> Option<ResourceKind> {
+		if self.carry.plum > 0 {
+			Some(ResourceKind::Plum)
+		} else if self.carry.lemon > 0 {
+			Some(ResourceKind::Lemon)
+		} else if self.carry.apple > 0 {
+			Some(ResourceKind::Apple)
+		} else if self.carry.banana > 0 {
+			Some(ResourceKind::Banana)
+		} else {
+			None
 		}
 	}
 }
@@ -320,7 +358,53 @@ fn solve(env: &Env, state: &TurnState) -> Vec<Action> {
 	// TODO: check if not better to allocate on stack with [Action; MAX_TROLL_COUNT]
 	let mut action_list = Vec::with_capacity(state.my_troll_list.len());
 
+	if state.my_troll_list.len() <= 1
+		&& (
+			state.my_inventory.plum >= 2
+				&& state.my_inventory.lemon >= 2
+				&& state.my_inventory.apple >= 2
+			// && state.my_inventory.banana >= 2
+		) {
+		action_list.push(Action::Train(1, 1, 1, 0));
+	}
+
 	for troll in &state.my_troll_list {
+		if let Some(plant_kind) = troll.able_to_plant() {
+			let mut pos = None;
+			for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
+				let x = env.my_shack.0 as i8 + dx;
+				if x < 0 || x >= env.w as i8 {
+					continue;
+				}
+				let y = env.my_shack.1 as i8 + dy;
+				if y < 0 || y >= env.h as i8 {
+					continue;
+				}
+
+				if state
+					.tree_list
+					.iter()
+					.find(|t| t.pos == (x as Axis, y as Axis))
+					.is_none()
+				{
+					pos = Some((x as Axis, y as Axis));
+					break;
+				};
+			}
+
+			if let Some(pos) = pos {
+				if troll.pos.0 == pos.0 && troll.pos.1 == pos.1 {
+					action_list.push(Action::Plant(troll.id, plant_kind));
+				} else {
+					action_list.push(Action::Move(troll.id, pos));
+				}
+			} else {
+				action_list.push(drop_to_shack(troll, env));
+			}
+
+			continue;
+		}
+
 		if troll.carry.plum > 0
 			|| troll.carry.lemon > 0
 			|| troll.carry.apple > 0
