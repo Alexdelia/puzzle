@@ -268,6 +268,12 @@ impl TurnState {
 	}
 }
 
+// TODO: cache??
+/// manhattan distance
+fn dist(a: Coord, b: Coord) -> u8 {
+	(a.0 as i8 - b.0 as i8).abs() as u8 + (a.1 as i8 - b.1 as i8).abs() as u8
+}
+
 fn drop_to_shack(troll: &Troll, env: &Env) -> Action {
 	if (troll.pos.0 == env.my_shack.0 && (troll.pos.1 as i8 - env.my_shack.1 as i8).abs() == 1)
 		|| (troll.pos.1 == env.my_shack.1 && (troll.pos.0 as i8 - env.my_shack.0 as i8).abs() == 1)
@@ -286,6 +292,30 @@ fn harvest_tree(troll: &Troll, tree: &Tree) -> Action {
 	}
 }
 
+fn find_best_tree<'a>(_env: &'a Env, state: &'a TurnState, troll: &'a Troll) -> Option<&'a Tree> {
+	let mut best_tree = None;
+	let mut best_tree_dist = u8::MAX;
+
+	for tree in &state.tree_list {
+		if tree.fruit == 0 {
+			continue;
+		}
+
+		let Some(_best) = best_tree else {
+			best_tree = Some(tree);
+			continue;
+		};
+
+		let tree_dist = dist(troll.pos, tree.pos);
+		if tree_dist < best_tree_dist {
+			best_tree = Some(tree);
+			best_tree_dist = tree_dist;
+		}
+	}
+
+	best_tree
+}
+
 fn solve(env: &Env, state: &TurnState) -> Vec<Action> {
 	// TODO: check if not better to allocate on stack with [Action; MAX_TROLL_COUNT]
 	let mut action_list = Vec::with_capacity(state.my_troll_list.len());
@@ -302,7 +332,11 @@ fn solve(env: &Env, state: &TurnState) -> Vec<Action> {
 			continue;
 		}
 
-		action_list.push(harvest_tree(troll, &state.tree_list[0]));
+		if let Some(best_tree) = find_best_tree(env, state, troll) {
+			action_list.push(harvest_tree(troll, best_tree));
+		} else {
+			action_list.push(drop_to_shack(troll, env));
+		}
 	}
 
 	action_list
