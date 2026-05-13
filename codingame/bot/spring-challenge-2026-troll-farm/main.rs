@@ -170,8 +170,8 @@ struct Grid {
 impl Grid {
 	const GRASS: u64 = 0b00;
 	const WATER: u64 = 0b01;
-	const ROCK: u64 = 0b10;
-	const IRON: u64 = 0b11;
+	const IRON: u64 = 0b10;
+	const ROCK: u64 = 0b11;
 
 	fn read() -> (
 		Self,
@@ -204,27 +204,28 @@ impl Grid {
 			io::stdin().read_line(&mut s).unwrap();
 
 			for (x, c) in s.trim_matches('\n').chars().enumerate() {
+				let pos = (x as Axis, y as Axis);
 				match c {
 					'.' => {
-						grid.g[y] &= !(Self::GRASS << (x * 2));
+						grid.set_cell(pos, Self::GRASS);
 					}
 					'~' => {
-						grid.g[y] &= !(Self::WATER << (x * 2));
-						water_list.push((x as Axis, y as Axis));
+						grid.set_cell(pos, Self::WATER);
+						water_list.push(pos);
 					}
 					'#' => {
-						grid.g[y] &= !(Self::ROCK << (x * 2));
-						rock_list.push((x as Axis, y as Axis));
+						grid.set_cell(pos, Self::ROCK);
+						rock_list.push(pos);
 					}
 					'+' => {
-						grid.g[y] &= !(Self::IRON << (x * 2));
-						iron_list.push((x as Axis, y as Axis));
+						grid.set_cell(pos, Self::IRON);
+						iron_list.push(pos);
 					}
 					'0' => {
-						my_shack = (x as Axis, y as Axis);
+						my_shack = pos;
 					}
 					'1' => {
-						op_shack = (x as Axis, y as Axis);
+						op_shack = pos;
 					}
 					_ => panic!("invalid grid character '{c}' at ({x}, {y})"),
 				}
@@ -264,6 +265,11 @@ impl Grid {
 			rock_list,
 			iron_list,
 		)
+	}
+
+	fn set_cell(&mut self, (x, y): Coord, cell: u64) {
+		self.g[y as usize] &= !(0b11 << (x * 2));
+		self.g[y as usize] |= cell << (x * 2);
 	}
 
 	fn is_grass(&self, (x, y): Coord) -> bool {
@@ -583,10 +589,12 @@ fn find_best_close_to_shack_plant_spot(env: &Env, state: &TurnState) -> Option<C
 
 fn plant_best_tree_close_to_shack(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	let Some(spot) = find_best_close_to_shack_plant_spot(env, state) else {
-		return Action::Move(troll.id, env.my_shack);
+		dbg!("no valid spot to plant close to shack");
+		return Action::Move(troll.id, env.op_shack);
 	};
 
 	if troll.pos.0 != spot.0 || troll.pos.1 != spot.1 {
+		dbg!(troll.pos, spot);
 		return Action::Move(troll.id, spot);
 	}
 
@@ -595,7 +603,8 @@ fn plant_best_tree_close_to_shack(env: &Env, state: &TurnState, troll: &Troll) -
 	} else if let Some(resource_kind) = state.my_inventory.able_to_plant() {
 		return Action::Pick(troll.id, resource_kind);
 	} else {
-		Action::Move(troll.id, env.my_shack)
+		dbg!("no resource to plant");
+		Action::Move(troll.id, env.op_shack)
 	}
 }
 
@@ -612,7 +621,7 @@ fn find_best_tree_to_chop<'a>(
 		let dist_to_shack = dist(tree.pos, env.my_shack);
 		let dist_to_op_shack = dist(tree.pos, env.op_shack);
 
-		let score = dist_to_troll + dist_to_shack - dist_to_op_shack;
+		let score = dist_to_troll + dist_to_shack + dist_to_op_shack;
 		if score < best_tree_score {
 			best_tree = Some(tree);
 			best_tree_score = score;
@@ -668,7 +677,8 @@ fn solve(env: &Env, state: &TurnState) -> Vec<Action> {
 		action_list.push(Action::Train(
 			best_stat_train(troll_count, state.my_inventory.plum) as MoveSpeed,
 			best_stat_train(troll_count, state.my_inventory.lemon) as CarryCapacity,
-			best_stat_train(troll_count, state.my_inventory.apple) as HarvestPower,
+			// best_stat_train(troll_count, state.my_inventory.apple) as HarvestPower,
+			0,
 			best_stat_train(troll_count, state.my_inventory.iron) as ChopPower,
 		));
 	}
