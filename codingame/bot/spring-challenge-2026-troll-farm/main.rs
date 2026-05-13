@@ -13,8 +13,8 @@ const FIRST_TURN_MS_LIMIT: u64 = 1000;
 const TURN_MS_LIMIT: u64 = 50;
 
 type Axis = u8;
-// const MAX_H = 11;
-// const MAX_W = MAX_H * 2;
+const MAX_H: Axis = 11;
+const MAX_W: Axis = MAX_H * 2;
 
 type Coord = (Axis, Axis);
 
@@ -28,6 +28,15 @@ type MoveSpeed = Axis;
 type CarryCapacity = Resource;
 type HarvestPower = CarryCapacity;
 type ChopPower = Resource;
+
+/// 0..=4
+type TreeSize = u8;
+/// 0..=20
+type TreeHealth = u8;
+/// 0..=3
+type TreeFruit = u8;
+/// 0..=9
+type TreeCooldown = u8;
 
 // TODO: check if can store resource in uint
 // (128/6 ~= 21; 2^21 = 2_097_152)
@@ -83,10 +92,11 @@ struct PlayerInventory {
 struct Tree {
 	kind: ResourceKind,
 	pos: Coord,
-	size: i32,   // TODO: find best type
-	health: i32, // TODO: find best type
-	fruit: u8,
-	cooldown: i32, // TODO: find best type
+	is_next_to_water: bool,
+	size: TreeSize,
+	health: TreeHealth,
+	fruit: TreeFruit,
+	cooldown: TreeCooldown,
 }
 
 impl Tree {
@@ -105,13 +115,14 @@ struct Troll {
 }
 
 struct Env {
-	w: Axis,
-	h: Axis,
-
-	grass_grid: Vec<Vec<bool>>, // TODO: optimize to 11*22
+	grid: Grid,
 
 	my_shack: Coord,
 	op_shack: Coord,
+
+	water_list: Vec<Coord>,
+	rock_list: Vec<Coord>,
+	iron_list: Vec<Coord>,
 }
 
 struct TurnState {
@@ -146,75 +157,134 @@ impl Display for Action {
 	}
 }
 
-/* grid:
-N = player id shack ?
-. = grass
-*/
-impl Env {
-	fn read() -> Self {
-		let mut s = String::new();
+#[derive(Default)]
+struct Grid {
+	g: [u64; MAX_H as usize],
+	w: Axis,
+	h: Axis,
+}
 
+impl Grid {
+	const GRASS: u64 = 0b00;
+	const WATER: u64 = 0b01;
+	const ROCK: u64 = 0b10;
+	const IRON: u64 = 0b11;
+
+	fn read() -> (Self, Coord, Coord, Vec<Coord>, Vec<Coord>, Vec<Coord>) {
+		let mut s = String::new();
 		io::stdin().read_line(&mut s).unwrap();
 		let input = s.split(" ").collect::<Vec<_>>();
-		let w = parse_input!(input[0], Axis);
-		let h = parse_input!(input[1], Axis);
+
+		let mut grid = Self {
+			g: [u64::MAX; MAX_H as usize],
+			w: parse_input!(input[0], Axis),
+			h: parse_input!(input[1], Axis),
+		};
 
 		let mut my_shack = Coord::default();
 		let mut op_shack = Coord::default();
 
-		let grass_grid = Vec::with_capacity(h as usize);
-		for y in 0..h {
+		let mut water_list = Vec::new();
+		let mut rock_list = Vec::new();
+		let mut iron_list = Vec::new();
+
+		for y in 0..grid.h as usize {
 			s.clear();
 			io::stdin().read_line(&mut s).unwrap();
 
 			for (x, c) in s.trim_matches('\n').chars().enumerate() {
 				match c {
 					'.' => {
-						// TODO: store grass
+						grid.g[y] &= !(Self::GRASS << (x * 2));
 					}
 					'~' => {
-						// TODO: store water
+						grid.g[y] &= !(Self::WATER << (x * 2));
+						water_list.push((x as Axis, y as Axis));
 					}
 					'#' => {
-						// TODO: store rock
+						grid.g[y] &= !(Self::ROCK << (x * 2));
+						rock_list.push((x as Axis, y as Axis));
 					}
 					'+' => {
-						// TODO: store iron
+						grid.g[y] &= !(Self::IRON << (x * 2));
+						iron_list.push((x as Axis, y as Axis));
 					}
 					'0' => {
-						my_shack = (x as Axis, y);
+						my_shack = (x as Axis, y as Axis);
 					}
 					'1' => {
-						op_shack = (x as Axis, y);
+						op_shack = (x as Axis, y as Axis);
 					}
 					_ => panic!("invalid grid character '{c}' at ({x}, {y})"),
 				}
 			}
 		}
 
+		water_list.shrink_to_fit();
+		rock_list.shrink_to_fit();
+		iron_list.shrink_to_fit();
+
+		(grid, my_shack, op_shack, water_list, rock_list, iron_list)
+	}
+
+	fn is_grass(&self, (x, y): Coord) -> bool {
+		(self.g[y as usize] >> (x * 2)) & Self::GRASS != 0
+	}
+
+	fn is_water_next_to(&self, (x, y): Coord) -> bool {
+		if x > 0 && (self.g[y as usize] >> ((x - 1) as usize * 2)) & Self::WATER != 0 {
+			return true;
+		}
+
+		let right = x + 1;
+		if right < self.w && (self.g[y as usize] >> (right as usize * 2)) & Self::WATER != 0 {
+			return true;
+		}
+
+		if y > 0 && (self.g[(y - 1) as usize] >> (x as usize * 2)) & Self::WATER != 0 {
+			return true;
+		}
+
+		let down = y + 1;
+		if down < self.h && (self.g[down as usize] >> (x as usize * 2)) & Self::WATER != 0 {
+			return true;
+		}
+
+		false
+	}
+}
+
+impl Env {
+	fn read() -> Self {
+		let (grid, my_shack, op_shack, water_list, rock_list, iron_list) = Grid::read();
+
 		Self {
-			w,
-			h,
-			grass_grid,
+			grid,
 			my_shack,
 			op_shack,
+			water_list,
+			rock_list,
+			iron_list,
 		}
 	}
 }
 
 impl Tree {
-	fn read() -> Self {
+	fn read(env: &Env) -> Self {
 		let mut s = String::new();
 		io::stdin().read_line(&mut s).unwrap();
 		let input = s.split(" ").collect::<Vec<_>>();
 
+		let pos = (parse_input!(input[1], Axis), parse_input!(input[2], Axis));
+
 		Self {
 			kind: parse_input!(input[0], ResourceKind),
-			pos: (parse_input!(input[1], Axis), parse_input!(input[2], Axis)),
-			size: parse_input!(input[3], i32),
-			health: parse_input!(input[4], i32),
-			fruit: parse_input!(input[5], u8),
-			cooldown: parse_input!(input[6], i32),
+			pos,
+			is_next_to_water: env.grid.is_water_next_to(pos),
+			size: parse_input!(input[3], TreeSize),
+			health: parse_input!(input[4], TreeHealth),
+			fruit: parse_input!(input[5], TreeFruit),
+			cooldown: parse_input!(input[6], TreeCooldown),
 		}
 	}
 }
@@ -274,7 +344,7 @@ impl Troll {
 }
 
 impl TurnState {
-	fn read() -> Self {
+	fn read(env: &Env) -> Self {
 		let mut s = String::new();
 
 		let my_inventory = PlayerInventory::read();
@@ -285,7 +355,7 @@ impl TurnState {
 
 		let mut tree_list = Vec::with_capacity(tree_count);
 		for _ in 0..tree_count {
-			tree_list.push(Tree::read());
+			tree_list.push(Tree::read(env));
 		}
 
 		s.clear();
@@ -382,11 +452,11 @@ fn solve(env: &Env, state: &TurnState) -> Vec<Action> {
 			let mut pos = None;
 			for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
 				let x = env.my_shack.0 as i8 + dx;
-				if x < 0 || x >= env.w as i8 {
+				if x < 0 || x >= env.grid.w as i8 {
 					continue;
 				}
 				let y = env.my_shack.1 as i8 + dy;
-				if y < 0 || y >= env.h as i8 {
+				if y < 0 || y >= env.grid.h as i8 {
 					continue;
 				}
 
@@ -439,7 +509,7 @@ fn main() {
 	let env = Env::read();
 
 	loop {
-		let state = TurnState::read();
+		let state = TurnState::read(&env);
 
 		let action_list = solve(&env, &state);
 		println!(
