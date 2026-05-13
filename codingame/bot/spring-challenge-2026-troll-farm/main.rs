@@ -11,12 +11,12 @@ macro_rules! parse_input {
 // type Turn = u16;
 // const MAX_TURN: Turn = 300;
 
-const FIRST_TURN_MS_LIMIT: u64 = 1000;
-const TURN_MS_LIMIT: u64 = 50;
+// const FIRST_TURN_MS_LIMIT: u64 = 1000;
+// const TURN_MS_LIMIT: u64 = 50;
 
 type Axis = u8;
 const MAX_H: Axis = 11;
-const MAX_W: Axis = MAX_H * 2;
+// const MAX_W: Axis = MAX_H * 2;
 
 type Coord = (Axis, Axis);
 
@@ -126,9 +126,11 @@ struct Env {
 
 struct TurnState {
 	my_inventory: PlayerInventory,
+	#[allow(dead_code)]
 	op_inventory: PlayerInventory,
 
 	my_troll_list: Vec<Troll>,
+	#[allow(dead_code)]
 	op_troll_list: Vec<Troll>,
 
 	tree_list: Vec<Tree>,
@@ -273,7 +275,7 @@ impl Grid {
 	}
 
 	fn is_grass(&self, (x, y): Coord) -> bool {
-		(self.g[y as usize] >> (x * 2)) & Self::GRASS != 0
+		(self.g[y as usize] >> (x as usize * 2)) & 0b11 == Self::GRASS
 	}
 
 	fn is_water_next_to(&self, (x, y): Coord) -> bool {
