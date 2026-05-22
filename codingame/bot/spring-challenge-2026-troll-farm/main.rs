@@ -1,31 +1,17 @@
 use std::{fmt::Display, io, str::FromStr};
 
-// TODO: maybe start to chop only when op chop
-
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
 		$x.trim().parse::<$t>().unwrap()
 	};
 }
 
-// type Turn = u16;
-// const MAX_TURN: Turn = 300;
-
-// const FIRST_TURN_MS_LIMIT: u64 = 1000;
-// const TURN_MS_LIMIT: u64 = 50;
-
 type Axis = u8;
 const MAX_H: Axis = 11;
-// const MAX_W: Axis = MAX_H * 2;
 
 type Coord = (Axis, Axis);
-
-// TODO: find max troll id
 type TrollId = u8;
-
-// TODO: find max resource amount
 type Resource = u16;
-
 type MoveSpeed = Axis;
 type CarryCapacity = Resource;
 type HarvestPower = CarryCapacity;
@@ -40,9 +26,9 @@ type TreeFruit = u8;
 /// 0..=9
 type TreeCooldown = u8;
 
-// TODO: check if can store resource in uint
-// (128/6 ~= 21; 2^21 = 2_097_152)
-// (64/6 ~= 10; 2^10 = 1_024)
+type Turn = u16;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum ResourceKind {
 	Plum = 0,
 	Lemon = 1,
@@ -103,7 +89,7 @@ struct Tree {
 
 struct Troll {
 	id: TrollId,
-	my_troll: bool, // TODO: check if necessary to store
+	my_troll: bool,
 	pos: Coord,
 	move_speed: MoveSpeed,
 	carry_capacity: CarryCapacity,
@@ -112,12 +98,17 @@ struct Troll {
 	carry: PlayerInventory,
 }
 
+#[derive(Default)]
+struct Grid {
+	g: [u64; MAX_H as usize],
+	w: Axis,
+	h: Axis,
+}
+
 struct Env {
 	grid: Grid,
-
 	my_shack: Coord,
 	op_shack: Coord,
-
 	grass_next_to_water_list: Vec<Coord>,
 	water_list: Vec<Coord>,
 	rock_list: Vec<Coord>,
@@ -128,11 +119,9 @@ struct TurnState {
 	my_inventory: PlayerInventory,
 	#[allow(dead_code)]
 	op_inventory: PlayerInventory,
-
 	my_troll_list: Vec<Troll>,
 	#[allow(dead_code)]
 	op_troll_list: Vec<Troll>,
-
 	tree_list: Vec<Tree>,
 }
 
@@ -162,11 +151,32 @@ impl Display for Action {
 	}
 }
 
-#[derive(Default)]
-struct Grid {
-	g: [u64; MAX_H as usize],
-	w: Axis,
-	h: Axis,
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum TrollRole {
+	/// Initial troll with stats (1,1,1,1)
+	Initial,
+	/// Harvester with stats (2,2,2,0)
+	Harvester,
+	/// Carrier with stats (3,4,1,2)
+	Carrier,
+	/// Woodcutter with stats (2,4,0,3)
+	Woodcutter,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Goal {
+	/// train harvester (2,2,2,0)
+	/// plant to have 2 lemon, 4 plum
+	TrainHarvester,
+	/// train carrier (3,4,1,2)
+	/// plan to have 4 lemon, 4 plum
+	TrainCarrier,
+	/// train woodcutter (2,4,0,3)
+	TrainWoodcutter,
+	/// ghather banana and chop tree
+	GatherPoint,
+	/// turn >= 280: final push
+	Endgame,
 }
 
 impl Grid {
@@ -367,6 +377,21 @@ impl PlayerInventory {
 			&& self.wood == 0
 	}
 
+	fn get(&self, kind: ResourceKind) -> Resource {
+		match kind {
+			ResourceKind::Plum => self.plum,
+			ResourceKind::Lemon => self.lemon,
+			ResourceKind::Apple => self.apple,
+			ResourceKind::Banana => self.banana,
+			ResourceKind::Iron => self.iron,
+			ResourceKind::Wood => self.wood,
+		}
+	}
+
+	fn total(&self) -> Resource {
+		self.plum + self.lemon + self.apple + self.banana + self.iron + self.wood
+	}
+
 	fn able_to_plant(&self) -> Option<ResourceKind> {
 		if self.banana > 0 {
 			Some(ResourceKind::Banana)
@@ -379,6 +404,10 @@ impl PlayerInventory {
 		} else {
 			None
 		}
+	}
+
+	fn able_to_plant_kind(&self, kind: ResourceKind) -> bool {
+		self.get(kind) > 0
 	}
 }
 
@@ -397,6 +426,18 @@ impl Troll {
 			harvest_power: parse_input!(input[6], HarvestPower),
 			chop_power: parse_input!(input[7], ChopPower),
 			carry: PlayerInventory::parse(&input[8..]),
+		}
+	}
+
+	fn role(&self) -> TrollRole {
+		if self.move_speed >= 3 {
+			TrollRole::Carrier
+		} else if self.harvest_power >= 2 {
+			TrollRole::Harvester
+		} else if self.chop_power >= 3 {
+			TrollRole::Woodcutter
+		} else {
+			TrollRole::Initial
 		}
 	}
 }
@@ -421,7 +462,6 @@ impl TurnState {
 		let troll_count = parse_input!(s, usize);
 		let player_troll_count = troll_count / 2;
 
-		// TODO: check if not better to allocate on stack with [Troll; MAX_TROLL_COUNT]
 		let mut my_troll_list = Vec::with_capacity(player_troll_count);
 		let mut op_troll_list = Vec::with_capacity(player_troll_count);
 		for _ in 0..troll_count {
@@ -443,64 +483,130 @@ impl TurnState {
 	}
 }
 
-// TODO: cache??
-/// manhattan distance
 fn dist(a: Coord, b: Coord) -> u8 {
 	(a.0 as i8 - b.0 as i8).abs() as u8 + (a.1 as i8 - b.1 as i8).abs() as u8
 }
 
+fn is_adjacent(a: Coord, b: Coord) -> bool {
+	dist(a, b) == 1
+}
+
+fn move_or_do(troll: &Troll, target: Coord, action: Action) -> Action {
+	if troll.pos == target {
+		action
+	} else {
+		Action::Move(troll.id, target)
+	}
+}
+
 fn drop_to_shack(troll: &Troll, env: &Env) -> Action {
-	if (troll.pos.0 == env.my_shack.0 && (troll.pos.1 as i8 - env.my_shack.1 as i8).abs() == 1)
-		|| (troll.pos.1 == env.my_shack.1 && (troll.pos.0 as i8 - env.my_shack.0 as i8).abs() == 1)
-	{
+	if is_adjacent(troll.pos, env.my_shack) {
 		Action::Drop(troll.id)
 	} else {
 		Action::Move(troll.id, env.my_shack)
 	}
 }
 
-fn harvest_tree(troll: &Troll, tree: &Tree) -> Action {
-	if troll.pos.0 == tree.pos.0 && troll.pos.1 == tree.pos.1 {
-		Action::Harvest(troll.id)
-	} else {
-		Action::Move(troll.id, tree.pos)
-	}
-}
-
-fn chop_tree(troll: &Troll, tree: &Tree) -> Action {
-	if troll.pos.0 == tree.pos.0 && troll.pos.1 == tree.pos.1 {
-		Action::Chop(troll.id)
-	} else {
-		Action::Move(troll.id, tree.pos)
-	}
-}
-
 fn is_valid_plant_spot(env: &Env, state: &TurnState, pos: Coord) -> bool {
-	env.grid.is_grass(pos) && state.tree_list.iter().find(|t| t.pos == pos).is_none()
+	env.grid.is_grass(pos) && state.tree_list.iter().all(|t| t.pos != pos)
 }
 
-fn find_best_tree<'a>(_env: &'a Env, state: &'a TurnState, troll: &'a Troll) -> Option<&'a Tree> {
-	let mut best_tree = None;
-	let mut best_tree_dist = u8::MAX;
+/// Find grass spots within `max_dist` of shack, sorted by distance to shack (closest first),
+/// tie-broken by distance to op_shack (farthest first).
+fn get_plant_spot_list_near_shack(env: &Env, state: &TurnState, max_dist: u8) -> Vec<Coord> {
+	let mut spot_list = Vec::new();
+	let (sx, sy) = env.my_shack;
 
-	for tree in &state.tree_list {
-		if tree.fruit == 0 {
+	for dy in -(max_dist as i8)..=(max_dist as i8) {
+		let y = sy as i8 + dy;
+		if y < 0 || y >= env.grid.h as i8 {
 			continue;
 		}
-
-		let Some(_best) = best_tree else {
-			best_tree = Some(tree);
-			continue;
-		};
-
-		let tree_dist = dist(troll.pos, tree.pos);
-		if tree_dist < best_tree_dist {
-			best_tree = Some(tree);
-			best_tree_dist = tree_dist;
+		let remaining = max_dist as i8 - dy.abs();
+		for dx in -remaining..=remaining {
+			let x = sx as i8 + dx;
+			if x < 0 || x >= env.grid.w as i8 {
+				continue;
+			}
+			let pos = (x as Axis, y as Axis);
+			if pos == env.my_shack {
+				continue;
+			}
+			if is_valid_plant_spot(env, state, pos) {
+				spot_list.push(pos);
+			}
 		}
 	}
 
-	best_tree
+	spot_list.sort_by(|a, b| {
+		let da = dist(*a, env.my_shack);
+		let db = dist(*b, env.my_shack);
+		da.cmp(&db).then_with(|| {
+			let oa = dist(*a, env.op_shack);
+			let ob = dist(*b, env.op_shack);
+			ob.cmp(&oa)
+		})
+	});
+
+	spot_list
+}
+
+fn count_tree_near_shack(env: &Env, state: &TurnState, kind: ResourceKind, max_dist: u8) -> u8 {
+	state
+		.tree_list
+		.iter()
+		.filter(|t| t.kind == kind && dist(t.pos, env.my_shack) <= max_dist)
+		.count() as u8
+}
+
+fn find_closest_tree_with_fruit<'a>(state: &'a TurnState, troll: &Troll) -> Option<&'a Tree> {
+	state
+		.tree_list
+		.iter()
+		.filter(|t| t.fruit > 0)
+		.min_by_key(|t| dist(troll.pos, t.pos))
+}
+
+fn find_closest_tree_of_kind<'a>(
+	state: &'a TurnState,
+	troll: &Troll,
+	kind: ResourceKind,
+) -> Option<&'a Tree> {
+	state
+		.tree_list
+		.iter()
+		.filter(|t| t.kind == kind && t.fruit > 0)
+		.min_by_key(|t| dist(troll.pos, t.pos))
+}
+
+fn find_best_tree_to_chop<'a>(
+	env: &'a Env,
+	state: &'a TurnState,
+	troll: &'a Troll,
+) -> Option<&'a Tree> {
+	state
+		.tree_list
+		.iter()
+		.min_by_key(|t| dist(troll.pos, t.pos) + dist(t.pos, env.my_shack))
+}
+
+fn find_best_tree_to_chop_near_shack<'a>(
+	env: &'a Env,
+	state: &'a TurnState,
+	troll: &'a Troll,
+) -> Option<&'a Tree> {
+	state.tree_list.iter().min_by_key(|t| {
+		let d_shack = dist(t.pos, env.my_shack);
+		let d_troll = dist(troll.pos, t.pos);
+		(d_shack, d_troll)
+	})
+}
+
+fn find_closest_iron<'a>(env: &'a Env, troll: &Troll) -> Option<Coord> {
+	env.iron_list
+		.iter()
+		.copied()
+		.min_by_key(|&pos| dist(troll.pos, pos))
 }
 
 fn best_stat_train(troll_count: usize, resource_available: Resource) -> Resource {
@@ -518,187 +624,369 @@ fn best_stat_train(troll_count: usize, resource_available: Resource) -> Resource
 	best
 }
 
-fn best_close_to_shack_tree<'a>(
-	env: &'a Env,
-	state: &'a TurnState,
-	troll: &'a Troll,
-) -> Option<&'a Tree> {
-	let mut best_tree = None;
-	let mut best_tree_dist_to_troll = u8::MAX;
-
-	for tree in &state.tree_list {
-		let dist_to_shack = dist(tree.pos, env.my_shack);
-		if dist_to_shack > 3 {
-			continue;
-		}
-
-		let dist_to_troll = dist(troll.pos, tree.pos);
-		if dist_to_troll < best_tree_dist_to_troll {
-			best_tree = Some(tree);
-			best_tree_dist_to_troll = dist_to_troll;
-		}
+fn determine_goal(state: &TurnState, turn: Turn) -> Goal {
+	if turn >= 280 {
+		return Goal::Endgame;
 	}
 
-	best_tree
-}
-
-fn find_best_close_to_shack_plant_spot(env: &Env, state: &TurnState) -> Option<Coord> {
-	let (cx, cy) = env.my_shack;
-
-	let mut valid_spot_list = Vec::with_capacity(4);
-
-	if cx > 0 {
-		let n = (cx - 1, cy);
-		if is_valid_plant_spot(env, state, n) {
-			valid_spot_list.push(n);
-		}
-	}
-	if cx < env.grid.w - 1 {
-		let n = (cx + 1, cy);
-		if is_valid_plant_spot(env, state, n) {
-			valid_spot_list.push(n);
-		}
-	}
-	if cy > 0 {
-		let n = (cx, cy - 1);
-		if is_valid_plant_spot(env, state, n) {
-			valid_spot_list.push(n);
-		}
-	}
-	if cy < env.grid.h - 1 {
-		let n = (cx, cy + 1);
-		if is_valid_plant_spot(env, state, n) {
-			valid_spot_list.push(n);
-		}
-	}
-
-	if valid_spot_list.is_empty() {
-		return None;
-	}
-
-	let mut best_spot = valid_spot_list.pop().expect("valid_spot_list is not empty");
-	let mut best_dist_to_op_shack = dist(best_spot, env.op_shack);
-	for spot in valid_spot_list {
-		let dist_to_op_shack = dist(spot, env.op_shack);
-		if dist_to_op_shack > best_dist_to_op_shack {
-			best_spot = spot;
-			best_dist_to_op_shack = dist_to_op_shack;
-		}
-	}
-
-	Some(best_spot)
-}
-
-fn plant_best_tree_close_to_shack(env: &Env, state: &TurnState, troll: &Troll) -> Action {
-	let Some(spot) = find_best_close_to_shack_plant_spot(env, state) else {
-		dbg!("no valid spot to plant close to shack");
-		return Action::Move(troll.id, env.op_shack);
-	};
-
-	if troll.pos.0 != spot.0 || troll.pos.1 != spot.1 {
-		dbg!(troll.pos, spot);
-		return Action::Move(troll.id, spot);
-	}
-
-	if let Some(resource_kind) = troll.carry.able_to_plant() {
-		Action::Plant(troll.id, resource_kind)
-	} else if let Some(resource_kind) = state.my_inventory.able_to_plant() {
-		return Action::Pick(troll.id, resource_kind);
-	} else {
-		dbg!("no resource to plant");
-		Action::Move(troll.id, env.op_shack)
-	}
-}
-
-fn find_best_tree_to_chop<'a>(
-	env: &'a Env,
-	state: &'a TurnState,
-	troll: &'a Troll,
-) -> Option<&'a Tree> {
-	let mut best_tree = None;
-	let mut best_tree_score = u8::MAX;
-
-	for tree in &state.tree_list {
-		let dist_to_troll = dist(troll.pos, tree.pos);
-		let dist_to_shack = dist(tree.pos, env.my_shack);
-		let dist_to_op_shack = dist(tree.pos, env.op_shack);
-
-		let score = dist_to_troll + dist_to_shack + dist_to_op_shack;
-		if score < best_tree_score {
-			best_tree = Some(tree);
-			best_tree_score = score;
-		}
-	}
-
-	best_tree
-}
-
-fn solve_troll_action(env: &Env, state: &TurnState, troll: &Troll) -> Action {
-	if !troll.carry.is_empty() {
-		if troll.carry.able_to_plant().is_some() {
-			return plant_best_tree_close_to_shack(env, state, troll);
-		} else {
-			return drop_to_shack(troll, env);
-		}
-	}
-
-	if state
-		.tree_list
+	let has_harvester = state
+		.my_troll_list
 		.iter()
-		.find(|t| t.pos == troll.pos)
-		.is_some()
-	{
-		return Action::Chop(troll.id);
+		.any(|t| t.role() == TrollRole::Harvester);
+	if !has_harvester {
+		return Goal::TrainHarvester;
 	}
 
-	if troll.move_speed == 1
-		&& troll.carry_capacity == 1
-		&& troll.harvest_power == 1
-		&& troll.chop_power == 1
-	{
-		if let Some(tree) = best_close_to_shack_tree(env, state, troll) {
-			return chop_tree(troll, tree);
-		} else if state.my_inventory.able_to_plant().is_some() {
-			return plant_best_tree_close_to_shack(env, state, troll);
+	let has_carrier = state
+		.my_troll_list
+		.iter()
+		.any(|t| t.role() == TrollRole::Carrier);
+	if !has_carrier {
+		return Goal::TrainCarrier;
+	}
+
+	let has_woodcutter = state
+		.my_troll_list
+		.iter()
+		.any(|t| t.role() == TrollRole::Woodcutter);
+	if !has_woodcutter {
+		return Goal::TrainWoodcutter;
+	}
+
+	Goal::GatherPoint
+}
+
+struct TrainTarget {
+	move_speed: MoveSpeed,
+	carry_capacity: Resource,
+	harvest_power: Resource,
+	chop_power: Resource,
+}
+
+impl TrainTarget {
+	fn cost(&self, troll_count: usize) -> PlayerInventory {
+		let base = troll_count as Resource;
+		PlayerInventory {
+			plum: base + (self.move_speed as Resource) * (self.move_speed as Resource),
+			lemon: base + self.carry_capacity * self.carry_capacity,
+			apple: base + self.harvest_power * self.harvest_power,
+			banana: 0,
+			iron: base + self.chop_power * self.chop_power,
+			wood: 0,
 		}
 	}
 
-	if let Some(tree) = find_best_tree_to_chop(env, state, troll) {
-		return chop_tree(troll, tree);
+	fn can_afford(&self, inventory: &PlayerInventory, troll_count: usize) -> bool {
+		let cost = self.cost(troll_count);
+		inventory.plum >= cost.plum
+			&& inventory.lemon >= cost.lemon
+			&& inventory.apple >= cost.apple
+			&& inventory.iron >= cost.iron
 	}
 
-	Action::Move(troll.id, env.op_shack)
+	fn train_action(&self) -> Action {
+		Action::Train(
+			self.move_speed,
+			self.carry_capacity,
+			self.harvest_power,
+			self.chop_power,
+		)
+	}
 }
 
-fn solve(env: &Env, state: &TurnState) -> Vec<Action> {
-	// TODO: check if not better to allocate on stack with [Action; MAX_TROLL_COUNT]
-	let mut action_list = Vec::with_capacity(state.my_troll_list.len());
-
-	if state.my_troll_list.len() <= 1 {
-		let troll_count = state.my_troll_list.len();
-		action_list.push(Action::Train(
-			best_stat_train(troll_count, state.my_inventory.plum) as MoveSpeed,
-			best_stat_train(troll_count, state.my_inventory.lemon) as CarryCapacity,
-			// best_stat_train(troll_count, state.my_inventory.apple) as HarvestPower,
-			0,
-			best_stat_train(troll_count, state.my_inventory.iron) as ChopPower,
-		));
+impl TrollRole {
+	const fn target(self) -> TrainTarget {
+		match self {
+			TrollRole::Harvester => TrainTarget {
+				move_speed: 2,
+				carry_capacity: 2,
+				harvest_power: 2,
+				chop_power: 0,
+			},
+			TrollRole::Carrier => TrainTarget {
+				move_speed: 3,
+				carry_capacity: 4,
+				harvest_power: 1,
+				chop_power: 2,
+			},
+			TrollRole::Woodcutter => TrainTarget {
+				move_speed: 2,
+				carry_capacity: 4,
+				harvest_power: 0,
+				chop_power: 3,
+			},
+			TrollRole::Initial => TrainTarget {
+				move_speed: 0,
+				carry_capacity: 0,
+				harvest_power: 0,
+				chop_power: 0,
+			},
+		}
 	}
+}
+
+fn solve_goal_train(env: &Env, state: &TurnState, role: TrollRole) -> Vec<Action> {
+	let mut action_list = Vec::new();
+	let target = role.target();
+	let troll_count = state.my_troll_list.len();
+
+	if target.can_afford(&state.my_inventory, troll_count) {
+		action_list.push(target.train_action());
+		for troll in &state.my_troll_list {
+			action_list.push(solve_troll_gather(env, state, troll));
+		}
+		return action_list;
+	}
+
+	let cost = target.cost(troll_count);
 
 	for troll in &state.my_troll_list {
-		action_list.push(solve_troll_action(env, state, troll));
+		let troll_role = troll.role();
+		let action = match troll_role {
+			TrollRole::Harvester if state.my_inventory.apple < cost.apple => {
+				solve_troll_harvest_resource(env, state, troll, ResourceKind::Apple)
+			}
+			TrollRole::Carrier if state.my_inventory.iron < cost.iron => {
+				solve_troll_mine_iron(env, state, troll)
+			}
+			_ => solve_troll_for_training(env, state, troll),
+		};
+		action_list.push(action);
 	}
 
 	action_list
 }
 
+fn solve_troll_for_training(env: &Env, state: &TurnState, troll: &Troll) -> Action {
+	if !troll.carry.is_empty() {
+		if let Some(kind) = troll.carry.able_to_plant() {
+			let spot_list = get_plant_spot_list_near_shack(env, state, 3);
+			if let Some(&spot) = spot_list.first() {
+				return move_or_do(troll, spot, Action::Plant(troll.id, kind));
+			}
+		}
+		return drop_to_shack(troll, env);
+	}
+
+	if let Some(tree) = state.tree_list.iter().find(|t| t.pos == troll.pos) {
+		if tree.fruit > 0 {
+			return Action::Harvest(troll.id);
+		}
+	}
+
+	if state.my_inventory.able_to_plant().is_some() {
+		let spot_list = get_plant_spot_list_near_shack(env, state, 3);
+		if !spot_list.is_empty() {
+			if is_adjacent(troll.pos, env.my_shack) {
+				let kind = state.my_inventory.able_to_plant().unwrap();
+				return Action::Pick(troll.id, kind);
+			}
+			return Action::Move(troll.id, env.my_shack);
+		}
+	}
+
+	if let Some(tree) = find_closest_tree_with_fruit(state, troll) {
+		return Action::Move(troll.id, tree.pos);
+	}
+
+	Action::Move(troll.id, env.op_shack)
+}
+
+fn solve_troll_harvest_resource(
+	env: &Env,
+	state: &TurnState,
+	troll: &Troll,
+	kind: ResourceKind,
+) -> Action {
+	if !troll.carry.is_empty() {
+		return drop_to_shack(troll, env);
+	}
+
+	if let Some(tree) = state.tree_list.iter().find(|t| t.pos == troll.pos) {
+		if tree.kind == kind && tree.fruit > 0 {
+			return Action::Harvest(troll.id);
+		}
+	}
+
+	if let Some(tree) = find_closest_tree_of_kind(state, troll, kind) {
+		return Action::Move(troll.id, tree.pos);
+	}
+
+	solve_troll_for_training(env, state, troll)
+}
+
+fn solve_troll_mine_iron(env: &Env, state: &TurnState, troll: &Troll) -> Action {
+	if !troll.carry.is_empty() {
+		return drop_to_shack(troll, env);
+	}
+
+	if env.iron_list.iter().any(|&pos| pos == troll.pos) {
+		return Action::Mine(troll.id);
+	}
+
+	if let Some(iron_pos) = find_closest_iron(env, troll) {
+		return Action::Move(troll.id, iron_pos);
+	}
+
+	solve_troll_for_training(env, state, troll)
+}
+
+fn solve_goal_gather_point(env: &Env, state: &TurnState) -> Vec<Action> {
+	let mut action_list = Vec::new();
+
+	for troll in &state.my_troll_list {
+		let role = troll.role();
+		match role {
+			TrollRole::Initial | TrollRole::Harvester => {
+				action_list.push(solve_troll_banana_planter(env, state, troll));
+			}
+			_ => {
+				action_list.push(solve_troll_chopper(env, state, troll));
+			}
+		}
+	}
+
+	action_list
+}
+
+fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Action {
+	if !troll.carry.is_empty() {
+		if troll.carry.able_to_plant().is_some() {
+			let spot_list = get_plant_spot_list_near_shack(env, state, 5);
+			if let Some(&spot) = spot_list.first() {
+				return move_or_do(
+					troll,
+					spot,
+					Action::Plant(troll.id, troll.carry.able_to_plant().unwrap()),
+				);
+			}
+		}
+		return drop_to_shack(troll, env);
+	}
+
+	if let Some(_tree) = state
+		.tree_list
+		.iter()
+		.find(|t| t.pos == troll.pos && t.fruit > 0)
+	{
+		return Action::Harvest(troll.id);
+	}
+
+	if let Some(tree) = find_closest_tree_of_kind(state, troll, ResourceKind::Banana) {
+		return Action::Move(troll.id, tree.pos);
+	}
+
+	if state.my_inventory.banana > 0 && is_adjacent(troll.pos, env.my_shack) {
+		return Action::Pick(troll.id, ResourceKind::Banana);
+	}
+	if state.my_inventory.banana > 0 {
+		return Action::Move(troll.id, env.my_shack);
+	}
+
+	if let Some(kind) = state.my_inventory.able_to_plant() {
+		if is_adjacent(troll.pos, env.my_shack) {
+			return Action::Pick(troll.id, kind);
+		}
+		return Action::Move(troll.id, env.my_shack);
+	}
+
+	if let Some(tree) = find_closest_tree_with_fruit(state, troll) {
+		return Action::Move(troll.id, tree.pos);
+	}
+
+	solve_troll_chopper(env, state, troll)
+}
+
+fn solve_troll_chopper(env: &Env, state: &TurnState, troll: &Troll) -> Action {
+	if !troll.carry.is_empty() {
+		return drop_to_shack(troll, env);
+	}
+
+	if state.tree_list.iter().any(|t| t.pos == troll.pos) {
+		return Action::Chop(troll.id);
+	}
+
+	if let Some(tree) = find_best_tree_to_chop(env, state, troll) {
+		return Action::Move(troll.id, tree.pos);
+	}
+
+	Action::Move(troll.id, env.op_shack)
+}
+
+fn solve_goal_endgame(env: &Env, state: &TurnState) -> Vec<Action> {
+	let mut action_list = Vec::new();
+
+	for troll in &state.my_troll_list {
+		let role = troll.role();
+		match role {
+			TrollRole::Harvester => {
+				action_list.push(solve_troll_banana_planter(env, state, troll));
+			}
+			_ => {
+				// Chop trees closest to tent
+				action_list.push(solve_troll_chopper_near_shack(env, state, troll));
+			}
+		}
+	}
+
+	action_list
+}
+
+fn solve_troll_chopper_near_shack(env: &Env, state: &TurnState, troll: &Troll) -> Action {
+	if !troll.carry.is_empty() {
+		return drop_to_shack(troll, env);
+	}
+
+	if state.tree_list.iter().any(|t| t.pos == troll.pos) {
+		return Action::Chop(troll.id);
+	}
+
+	if let Some(tree) = find_best_tree_to_chop_near_shack(env, state, troll) {
+		return Action::Move(troll.id, tree.pos);
+	}
+
+	Action::Move(troll.id, env.op_shack)
+}
+
+fn solve_troll_gather(env: &Env, state: &TurnState, troll: &Troll) -> Action {
+	if !troll.carry.is_empty() {
+		return drop_to_shack(troll, env);
+	}
+
+	if let Some(tree) = find_closest_tree_with_fruit(state, troll) {
+		return move_or_do(troll, tree.pos, Action::Harvest(troll.id));
+	}
+
+	if let Some(tree) = find_best_tree_to_chop(env, state, troll) {
+		return move_or_do(troll, tree.pos, Action::Chop(troll.id));
+	}
+
+	Action::Move(troll.id, env.op_shack)
+}
+
+fn solve(env: &Env, state: &TurnState, turn: Turn) -> Vec<Action> {
+	let goal = determine_goal(state, turn);
+	dbg!(&goal);
+
+	match goal {
+		Goal::TrainHarvester => solve_goal_train(env, state, TrollRole::Harvester),
+		Goal::TrainCarrier => solve_goal_train(env, state, TrollRole::Carrier),
+		Goal::TrainWoodcutter => solve_goal_train(env, state, TrollRole::Woodcutter),
+		Goal::GatherPoint => solve_goal_gather_point(env, state),
+		Goal::Endgame => solve_goal_endgame(env, state),
+	}
+}
+
 fn main() {
 	let env = Env::read();
 
+	let mut turn: Turn = 0;
+
 	loop {
 		let state = TurnState::read(&env);
+		turn += 1;
 
-		let action_list = solve(&env, &state);
+		let action_list = solve(&env, &state, turn);
 		println!(
 			"{}",
 			action_list
