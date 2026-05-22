@@ -851,26 +851,26 @@ fn solve_goal_train(env: &Env, state: &TurnState, role: TrollRole) -> Vec<Action
 	for troll in &state.my_troll_list {
 		let action = if need_planting && !planter_assigned {
 			planter_assigned = true;
-			solve_troll_plant_for_goal(env, state, troll, need_plant_plum, need_plant_lemon)
+			solve_troll_plant_for_goal(env, state, troll, need_plant_plum, need_plant_lemon, &cost)
 		} else {
 			match troll.role() {
 				TrollRole::Harvester if need_apple && !apple_assigned => {
 					apple_assigned = true;
-					solve_troll_harvest_resource(env, state, troll, ResourceKind::Apple)
+					solve_troll_harvest_resource(env, state, troll, ResourceKind::Apple, &cost)
 				}
 				TrollRole::Carrier | TrollRole::Woodcutter if need_iron && !iron_assigned => {
 					iron_assigned = true;
-					solve_troll_mine_iron(env, state, troll)
+					solve_troll_mine_iron(env, state, troll, &cost)
 				}
 				_ if need_iron && !iron_assigned && !has_miner => {
 					iron_assigned = true;
-					solve_troll_mine_iron(env, state, troll)
+					solve_troll_mine_iron(env, state, troll, &cost)
 				}
 				_ if need_apple && !apple_assigned && !has_harvester => {
 					apple_assigned = true;
-					solve_troll_harvest_resource(env, state, troll, ResourceKind::Apple)
+					solve_troll_harvest_resource(env, state, troll, ResourceKind::Apple, &cost)
 				}
-				_ => solve_troll_accumulate(env, state, troll),
+				_ => solve_troll_accumulate(env, state, troll, &cost),
 			}
 		};
 		action_list.push(action);
@@ -885,6 +885,7 @@ fn solve_troll_plant_for_goal(
 	troll: &Troll,
 	need_plum: bool,
 	need_lemon: bool,
+	cost: &PlayerInventory,
 ) -> Action {
 	if !troll.carry.is_empty() {
 		let plant_kind = if need_plum && troll.carry.plum > 0 {
@@ -931,10 +932,24 @@ fn solve_troll_plant_for_goal(
 		}
 	}
 
-	solve_troll_accumulate(env, state, troll)
+	solve_troll_accumulate(env, state, troll, cost)
 }
 
-fn solve_troll_accumulate(env: &Env, state: &TurnState, troll: &Troll) -> Action {
+fn is_needed_resource(kind: ResourceKind, inventory: &PlayerInventory, cost: &PlayerInventory) -> bool {
+	match kind {
+		ResourceKind::Plum => inventory.plum < cost.plum,
+		ResourceKind::Lemon => inventory.lemon < cost.lemon,
+		ResourceKind::Apple => inventory.apple < cost.apple,
+		_ => false,
+	}
+}
+
+fn solve_troll_accumulate(
+	env: &Env,
+	state: &TurnState,
+	troll: &Troll,
+	cost: &PlayerInventory,
+) -> Action {
 	if !troll.carry.is_empty() {
 		return drop_to_shack(troll, env);
 	}
@@ -942,12 +957,17 @@ fn solve_troll_accumulate(env: &Env, state: &TurnState, troll: &Troll) -> Action
 	if state
 		.tree_list
 		.iter()
-		.any(|t| t.pos == troll.pos && t.fruit > 0)
+		.any(|t| t.pos == troll.pos && t.fruit > 0 && is_needed_resource(t.kind, &state.my_inventory, cost))
 	{
 		return Action::Harvest(troll.id);
 	}
 
-	if let Some(tree) = find_closest_tree_with_fruit(state, troll) {
+	if let Some(tree) = state
+		.tree_list
+		.iter()
+		.filter(|t| t.fruit > 0 && is_needed_resource(t.kind, &state.my_inventory, cost))
+		.min_by_key(|t| dist(troll.pos, t.pos))
+	{
 		return Action::Move(troll.id, tree.pos);
 	}
 
@@ -959,6 +979,7 @@ fn solve_troll_harvest_resource(
 	state: &TurnState,
 	troll: &Troll,
 	kind: ResourceKind,
+	cost: &PlayerInventory,
 ) -> Action {
 	if !troll.carry.is_empty() {
 		return drop_to_shack(troll, env);
@@ -974,10 +995,10 @@ fn solve_troll_harvest_resource(
 		return Action::Move(troll.id, tree.pos);
 	}
 
-	solve_troll_accumulate(env, state, troll)
+	solve_troll_accumulate(env, state, troll, cost)
 }
 
-fn solve_troll_mine_iron(env: &Env, state: &TurnState, troll: &Troll) -> Action {
+fn solve_troll_mine_iron(env: &Env, state: &TurnState, troll: &Troll, cost: &PlayerInventory) -> Action {
 	if !troll.carry.is_empty() {
 		return drop_to_shack(troll, env);
 	}
@@ -990,7 +1011,7 @@ fn solve_troll_mine_iron(env: &Env, state: &TurnState, troll: &Troll) -> Action 
 		return Action::Move(troll.id, grass_pos);
 	}
 
-	solve_troll_accumulate(env, state, troll)
+	solve_troll_accumulate(env, state, troll, cost)
 }
 
 fn solve_goal_gather_point(env: &Env, state: &TurnState) -> Vec<Action> {
