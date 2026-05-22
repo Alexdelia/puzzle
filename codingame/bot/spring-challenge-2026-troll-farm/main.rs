@@ -121,6 +121,7 @@ struct Env {
 }
 
 struct TurnState {
+	turn: Turn,
 	my_inventory: PlayerInventory,
 	#[allow(dead_code)]
 	op_inventory: PlayerInventory,
@@ -486,7 +487,7 @@ impl Troll {
 }
 
 impl TurnState {
-	fn read(env: &Env) -> Self {
+	fn read(env: &Env, turn: Turn) -> Self {
 		let mut s = String::new();
 
 		let my_inventory = PlayerInventory::read();
@@ -517,6 +518,7 @@ impl TurnState {
 		}
 
 		Self {
+			turn,
 			my_inventory,
 			op_inventory,
 			my_troll_list,
@@ -554,13 +556,32 @@ fn is_valid_plant_spot(env: &Env, state: &TurnState, pos: Coord) -> bool {
 	env.grid.is_grass(pos) && state.tree_list.iter().all(|t| t.pos != pos)
 }
 
-fn get_plant_spot_list_near_shack(
+fn plant_spot_score(env: &Env, pos: Coord, troll: &Troll, turn: Turn) -> u16 {
+	let remaining = MAX_TURN.saturating_sub(turn);
+	if remaining == 0 {
+		return 0;
+	}
+	let cooldown = if env.grid.is_water_next_to(pos) {
+		3u16
+	} else {
+		8u16
+	};
+	let growth = 5 * cooldown;
+	let dist = env.dist_to_my_shack(pos) as u16;
+	let harvest_cycle = 2 * dist / troll.move_speed.max(1) as u16 + 2;
+	let bottleneck = cooldown.max(harvest_cycle);
+	let producing = (remaining as u16).saturating_sub(growth);
+	producing / bottleneck.max(1)
+}
+
+fn find_best_plant_spot(
 	env: &Env,
 	state: &TurnState,
 	troll: &Troll,
 	max_dist: u8,
-) -> Vec<Coord> {
-	let mut spot_list = Vec::new();
+) -> Option<Coord> {
+	let mut best: Option<Coord> = None;
+	let mut best_score = 0u16;
 
 	for y in 0..env.grid.h {
 		for x in 0..env.grid.w {
@@ -569,25 +590,21 @@ fn get_plant_spot_list_near_shack(
 				continue;
 			}
 			let d = env.dist_to_my_shack(pos);
-			if d <= max_dist && is_valid_plant_spot(env, state, pos) {
-				spot_list.push(pos);
+			if d > max_dist || !is_valid_plant_spot(env, state, pos) {
+				continue;
+			}
+			let score = plant_spot_score(env, pos, troll, state.turn);
+			if score > best_score
+				|| (score == best_score
+					&& best.is_some_and(|b| env.dist(troll.pos, pos) < env.dist(troll.pos, b)))
+			{
+				best = Some(pos);
+				best_score = score;
 			}
 		}
 	}
 
-	spot_list.sort_by(|a, b| {
-		env.dist_to_my_shack(*a)
-			.cmp(&env.dist_to_my_shack(*b))
-			.then_with(|| env.dist(troll.pos, *a).cmp(&env.dist(troll.pos, *b)))
-			.then_with(|| env.dist_to_op_shack(*b).cmp(&env.dist_to_op_shack(*a)))
-			.then_with(|| {
-				let wa = env.grid.is_water_next_to(*a);
-				let wb = env.grid.is_water_next_to(*b);
-				wb.cmp(&wa)
-			})
-	});
-
-	spot_list
+	best
 }
 
 fn count_tree_near_shack(env: &Env, state: &TurnState, kind: ResourceKind, max_dist: u8) -> u8 {
@@ -699,8 +716,8 @@ fn find_closest_grass_near_iron(env: &Env, troll: &Troll) -> Option<Coord> {
 	best
 }
 
-fn determine_goal(state: &TurnState, turn: Turn) -> Goal {
-	if turn >= MAX_TURN - 20 {
+fn determine_goal(state: &TurnState) -> Goal {
+	if state.turn >= MAX_TURN - 20 {
 		return Goal::Endgame;
 	}
 
@@ -895,8 +912,7 @@ fn solve_troll_plant_for_goal(
 		};
 
 		if let Some(kind) = plant_kind {
-			let spot_list = get_plant_spot_list_near_shack(env, state, troll, 3);
-			if let Some(&spot) = spot_list.first() {
+			if let Some(spot) = find_best_plant_spot(env, state, troll, 3) {
 				return move_or_do(troll, spot, Action::Plant(troll.id, kind));
 			}
 		}
@@ -1039,8 +1055,7 @@ fn solve_goal_gather_point(env: &Env, state: &TurnState) -> Vec<Action> {
 fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
 		if troll.carry.able_to_plant().is_some() {
-			let spot_list = get_plant_spot_list_near_shack(env, state, troll, 5);
-			if let Some(&spot) = spot_list.first() {
+			if let Some(spot) = find_best_plant_spot(env, state, troll, 5) {
 				return move_or_do(
 					troll,
 					spot,
@@ -1155,8 +1170,8 @@ fn solve_troll_gather(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	Action::Move(troll.id, env.op_shack)
 }
 
-fn solve(env: &Env, state: &TurnState, turn: Turn) -> Vec<Action> {
-	let goal = determine_goal(state, turn);
+fn solve(env: &Env, state: &TurnState) -> Vec<Action> {
+	let goal = determine_goal(state);
 	dbg!(&goal);
 
 	match goal {
@@ -1174,10 +1189,10 @@ fn main() {
 	let mut turn: Turn = 0;
 
 	loop {
-		let state = TurnState::read(&env);
 		turn += 1;
+		let state = TurnState::read(&env, turn);
 
-		let action_list = solve(&env, &state, turn);
+		let action_list = solve(&env, &state);
 		println!(
 			"{}",
 			action_list
