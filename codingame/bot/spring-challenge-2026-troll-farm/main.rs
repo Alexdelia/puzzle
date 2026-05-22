@@ -862,7 +862,7 @@ fn solve_goal_train(env: &Env, state: &TurnState, role: TrollRole) -> Vec<Action
 					iron_assigned = true;
 					solve_troll_mine_iron(env, state, troll, &cost)
 				}
-				_ if need_iron && !iron_assigned && !has_miner => {
+				_ if need_iron && !iron_assigned && !has_miner && troll.chop_power > 0 => {
 					iron_assigned = true;
 					solve_troll_mine_iron(env, state, troll, &cost)
 				}
