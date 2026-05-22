@@ -1,4 +1,4 @@
-use std::{fmt::Display, io, str::FromStr};
+use std::{collections::VecDeque, fmt::Display, io, str::FromStr};
 
 macro_rules! parse_input {
 	($x:expr, $t:ident) => {
@@ -8,6 +8,12 @@ macro_rules! parse_input {
 
 type Axis = u8;
 const MAX_H: Axis = 11;
+const MAX_W: Axis = MAX_H * 2;
+
+type Turn = u16;
+const MAX_TURN: Turn = 300;
+const FIRST_TURN_MS_LIMIT: u64 = 1000;
+const TURN_MS_LIMIT: u64 = 50;
 
 type Coord = (Axis, Axis);
 type TrollId = u8;
@@ -25,8 +31,6 @@ type TreeHealth = u8;
 type TreeFruit = u8;
 /// 0..=9
 type TreeCooldown = u8;
-
-type Turn = u16;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ResourceKind {
@@ -109,10 +113,11 @@ struct Env {
 	grid: Grid,
 	my_shack: Coord,
 	op_shack: Coord,
-	grass_next_to_water_list: Vec<Coord>,
-	water_list: Vec<Coord>,
-	rock_list: Vec<Coord>,
 	iron_list: Vec<Coord>,
+	bfs_dist: Vec<u8>,
+	bfs_n: usize,
+	my_shack_dist: Vec<u8>,
+	op_shack_dist: Vec<u8>,
 }
 
 struct TurnState {
@@ -153,29 +158,18 @@ impl Display for Action {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum TrollRole {
-	/// Initial troll with stats (1,1,1,1)
 	Initial,
-	/// Harvester with stats (2,2,2,0)
 	Harvester,
-	/// Carrier with stats (3,4,1,2)
 	Carrier,
-	/// Woodcutter with stats (2,4,0,3)
 	Woodcutter,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Goal {
-	/// train harvester (2,2,2,0)
-	/// plant to have 2 lemon, 4 plum
 	TrainHarvester,
-	/// train carrier (3,4,1,2)
-	/// plan to have 4 lemon, 4 plum
 	TrainCarrier,
-	/// train woodcutter (2,4,0,3)
 	TrainWoodcutter,
-	/// ghather banana and chop tree
 	GatherPoint,
-	/// turn >= 280: final push
 	Endgame,
 }
 
@@ -185,15 +179,7 @@ impl Grid {
 	const IRON: u64 = 0b10;
 	const ROCK: u64 = 0b11;
 
-	fn read() -> (
-		Self,
-		Coord,
-		Coord,
-		Vec<Coord>,
-		Vec<Coord>,
-		Vec<Coord>,
-		Vec<Coord>,
-	) {
+	fn read() -> (Self, Coord, Coord, Vec<Coord>) {
 		let mut s = String::new();
 		io::stdin().read_line(&mut s).unwrap();
 		let input = s.split(" ").collect::<Vec<_>>();
@@ -206,9 +192,6 @@ impl Grid {
 
 		let mut my_shack = Coord::default();
 		let mut op_shack = Coord::default();
-
-		let mut water_list = Vec::new();
-		let mut rock_list = Vec::new();
 		let mut iron_list = Vec::new();
 
 		for y in 0..grid.h as usize {
@@ -218,65 +201,22 @@ impl Grid {
 			for (x, c) in s.trim_matches('\n').chars().enumerate() {
 				let pos = (x as Axis, y as Axis);
 				match c {
-					'.' => {
-						grid.set_cell(pos, Self::GRASS);
-					}
-					'~' => {
-						grid.set_cell(pos, Self::WATER);
-						water_list.push(pos);
-					}
-					'#' => {
-						grid.set_cell(pos, Self::ROCK);
-						rock_list.push(pos);
-					}
+					'.' => grid.set_cell(pos, Self::GRASS),
+					'~' => grid.set_cell(pos, Self::WATER),
+					'#' => grid.set_cell(pos, Self::ROCK),
 					'+' => {
 						grid.set_cell(pos, Self::IRON);
 						iron_list.push(pos);
 					}
-					'0' => {
-						my_shack = pos;
-					}
-					'1' => {
-						op_shack = pos;
-					}
+					'0' => my_shack = pos,
+					'1' => op_shack = pos,
 					_ => panic!("invalid grid character '{c}' at ({x}, {y})"),
 				}
 			}
 		}
 
-		water_list.shrink_to_fit();
-		rock_list.shrink_to_fit();
 		iron_list.shrink_to_fit();
-
-		let mut grass_next_to_water_list = Vec::new();
-		for (x, y) in &water_list {
-			for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
-				let x = *x as i8 + dx;
-				if x < 0 || x >= grid.w as i8 {
-					continue;
-				}
-				let y = *y as i8 + dy;
-				if y < 0 || y >= grid.h as i8 {
-					continue;
-				}
-
-				let pos = (x as Axis, y as Axis);
-				if grid.is_grass(pos) {
-					grass_next_to_water_list.push(pos);
-				}
-			}
-		}
-		grass_next_to_water_list.shrink_to_fit();
-
-		(
-			grid,
-			my_shack,
-			op_shack,
-			grass_next_to_water_list,
-			water_list,
-			rock_list,
-			iron_list,
-		)
+		(grid, my_shack, op_shack, iron_list)
 	}
 
 	fn set_cell(&mut self, (x, y): Coord, cell: u64) {
@@ -292,39 +232,152 @@ impl Grid {
 		if x > 0 && (self.g[y as usize] >> ((x - 1) as usize * 2)) & Self::WATER != 0 {
 			return true;
 		}
-
 		let right = x + 1;
 		if right < self.w && (self.g[y as usize] >> (right as usize * 2)) & Self::WATER != 0 {
 			return true;
 		}
-
 		if y > 0 && (self.g[(y - 1) as usize] >> (x as usize * 2)) & Self::WATER != 0 {
 			return true;
 		}
-
 		let down = y + 1;
 		if down < self.h && (self.g[down as usize] >> (x as usize * 2)) & Self::WATER != 0 {
 			return true;
 		}
-
 		false
 	}
 }
 
+fn bfs_from(grid: &Grid, start: Coord, out: &mut [u8]) {
+	let w = grid.w as usize;
+	let si = start.1 as usize * w + start.0 as usize;
+	out[si] = 0;
+	let mut queue = VecDeque::new();
+	queue.push_back(start);
+
+	while let Some((x, y)) = queue.pop_front() {
+		let d = out[y as usize * w + x as usize];
+		for (dx, dy) in [(0i8, 1i8), (0, -1), (1, 0), (-1, 0)] {
+			let nx = x as i8 + dx;
+			let ny = y as i8 + dy;
+			if nx < 0 || nx >= grid.w as i8 || ny < 0 || ny >= grid.h as i8 {
+				continue;
+			}
+			let npos = (nx as Axis, ny as Axis);
+			if !grid.is_grass(npos) {
+				continue;
+			}
+			let ni = ny as usize * w + nx as usize;
+			if out[ni] != u8::MAX {
+				continue;
+			}
+			out[ni] = d + 1;
+			queue.push_back(npos);
+		}
+	}
+}
+
+fn compute_all_bfs(grid: &Grid) -> (Vec<u8>, usize) {
+	let w = grid.w as usize;
+	let h = grid.h as usize;
+	let n = w * h;
+	let mut dist_map = vec![u8::MAX; n * n];
+
+	for y in 0..h {
+		for x in 0..w {
+			let pos = (x as Axis, y as Axis);
+			if !grid.is_grass(pos) {
+				continue;
+			}
+			let offset = (y * w + x) * n;
+			bfs_from(grid, pos, &mut dist_map[offset..offset + n]);
+		}
+	}
+
+	(dist_map, n)
+}
+
+fn compute_shack_dist(grid: &Grid, shack: Coord) -> Vec<u8> {
+	let w = grid.w as usize;
+	let h = grid.h as usize;
+	let n = w * h;
+	let mut dist_arr = vec![u8::MAX; n];
+	let mut queue = VecDeque::new();
+
+	for (dx, dy) in [(0i8, 1i8), (0, -1), (1, 0), (-1, 0)] {
+		let x = shack.0 as i8 + dx;
+		let y = shack.1 as i8 + dy;
+		if x < 0 || x >= grid.w as i8 || y < 0 || y >= grid.h as i8 {
+			continue;
+		}
+		let pos = (x as Axis, y as Axis);
+		if !grid.is_grass(pos) {
+			continue;
+		}
+		let i = y as usize * w + x as usize;
+		if dist_arr[i] == u8::MAX {
+			dist_arr[i] = 0;
+			queue.push_back(pos);
+		}
+	}
+
+	while let Some((x, y)) = queue.pop_front() {
+		let d = dist_arr[y as usize * w + x as usize];
+		for (dx, dy) in [(0i8, 1i8), (0, -1), (1, 0), (-1, 0)] {
+			let nx = x as i8 + dx;
+			let ny = y as i8 + dy;
+			if nx < 0 || nx >= grid.w as i8 || ny < 0 || ny >= grid.h as i8 {
+				continue;
+			}
+			let npos = (nx as Axis, ny as Axis);
+			if !grid.is_grass(npos) {
+				continue;
+			}
+			let ni = ny as usize * w + nx as usize;
+			if dist_arr[ni] != u8::MAX {
+				continue;
+			}
+			dist_arr[ni] = d + 1;
+			queue.push_back(npos);
+		}
+	}
+
+	dist_arr
+}
+
 impl Env {
 	fn read() -> Self {
-		let (grid, my_shack, op_shack, grass_next_to_water_list, water_list, rock_list, iron_list) =
-			Grid::read();
+		let (grid, my_shack, op_shack, iron_list) = Grid::read();
+		let (bfs_dist, bfs_n) = compute_all_bfs(&grid);
+		let my_shack_dist = compute_shack_dist(&grid, my_shack);
+		let op_shack_dist = compute_shack_dist(&grid, op_shack);
 
 		Self {
 			grid,
 			my_shack,
 			op_shack,
-			grass_next_to_water_list,
-			water_list,
-			rock_list,
 			iron_list,
+			bfs_dist,
+			bfs_n,
+			my_shack_dist,
+			op_shack_dist,
 		}
+	}
+
+	fn dist(&self, a: Coord, b: Coord) -> u8 {
+		let w = self.grid.w as usize;
+		let ai = a.1 as usize * w + a.0 as usize;
+		let bi = b.1 as usize * w + b.0 as usize;
+		self.bfs_dist[ai * self.bfs_n + bi]
+	}
+
+	fn dist_to_my_shack(&self, pos: Coord) -> u8 {
+		let w = self.grid.w as usize;
+		self.my_shack_dist[pos.1 as usize * w + pos.0 as usize]
+	}
+
+	fn dist_to_op_shack(&self, pos: Coord) -> u8 {
+		let w = self.grid.w as usize;
+		self.op_shack_dist[pos.1 as usize * w + pos.0 as usize]
 	}
 }
 
@@ -353,7 +406,6 @@ impl PlayerInventory {
 		let mut s = String::new();
 		io::stdin().read_line(&mut s).unwrap();
 		let input = s.split(" ").collect::<Vec<_>>();
-
 		Self::parse(&input)
 	}
 
@@ -377,17 +429,6 @@ impl PlayerInventory {
 			&& self.wood == 0
 	}
 
-	fn get(&self, kind: ResourceKind) -> Resource {
-		match kind {
-			ResourceKind::Plum => self.plum,
-			ResourceKind::Lemon => self.lemon,
-			ResourceKind::Apple => self.apple,
-			ResourceKind::Banana => self.banana,
-			ResourceKind::Iron => self.iron,
-			ResourceKind::Wood => self.wood,
-		}
-	}
-
 	fn total(&self) -> Resource {
 		self.plum + self.lemon + self.apple + self.banana + self.iron + self.wood
 	}
@@ -403,29 +444,6 @@ impl PlayerInventory {
 			Some(ResourceKind::Apple)
 		} else {
 			None
-		}
-	}
-
-	fn able_to_plant_for_training(&self) -> Option<ResourceKind> {
-		if self.plum > 0 {
-			Some(ResourceKind::Plum)
-		} else if self.lemon > 0 {
-			Some(ResourceKind::Lemon)
-		} else if self.apple > 0 {
-			Some(ResourceKind::Apple)
-		} else {
-			None
-		}
-	}
-
-	fn surplus_above(&self, cost: &PlayerInventory) -> PlayerInventory {
-		PlayerInventory {
-			plum: self.plum.saturating_sub(cost.plum),
-			lemon: self.lemon.saturating_sub(cost.lemon),
-			apple: self.apple.saturating_sub(cost.apple),
-			banana: self.banana,
-			iron: 0,
-			wood: 0,
 		}
 	}
 
@@ -506,16 +524,12 @@ impl TurnState {
 	}
 }
 
-fn dist(a: Coord, b: Coord) -> u8 {
+fn manhattan_dist(a: Coord, b: Coord) -> u8 {
 	(a.0 as i8 - b.0 as i8).abs() as u8 + (a.1 as i8 - b.1 as i8).abs() as u8
 }
 
-fn is_adjacent(a: Coord, b: Coord) -> bool {
-	dist(a, b) == 1
-}
-
 fn is_next_to_shack(troll: &Troll, env: &Env) -> bool {
-	dist(troll.pos, env.my_shack) <= 1
+	manhattan_dist(troll.pos, env.my_shack) <= 1
 }
 
 fn move_or_do(troll: &Troll, target: Coord, action: Action) -> Action {
@@ -538,42 +552,26 @@ fn is_valid_plant_spot(env: &Env, state: &TurnState, pos: Coord) -> bool {
 	env.grid.is_grass(pos) && state.tree_list.iter().all(|t| t.pos != pos)
 }
 
-/// Find grass spots within `max_dist` of shack, sorted by distance to shack (closest first),
-/// tie-broken by distance to op_shack (farthest first).
 fn get_plant_spot_list_near_shack(env: &Env, state: &TurnState, max_dist: u8) -> Vec<Coord> {
 	let mut spot_list = Vec::new();
-	let (sx, sy) = env.my_shack;
 
-	for dy in -(max_dist as i8)..=(max_dist as i8) {
-		let y = sy as i8 + dy;
-		if y < 0 || y >= env.grid.h as i8 {
-			continue;
-		}
-		let remaining = max_dist as i8 - dy.abs();
-		for dx in -remaining..=remaining {
-			let x = sx as i8 + dx;
-			if x < 0 || x >= env.grid.w as i8 {
-				continue;
-			}
-			let pos = (x as Axis, y as Axis);
+	for y in 0..env.grid.h {
+		for x in 0..env.grid.w {
+			let pos = (x, y);
 			if pos == env.my_shack {
 				continue;
 			}
-			if is_valid_plant_spot(env, state, pos) {
+			let d = env.dist_to_my_shack(pos);
+			if d <= max_dist && is_valid_plant_spot(env, state, pos) {
 				spot_list.push(pos);
 			}
 		}
 	}
 
 	spot_list.sort_by(|a, b| {
-		let da = dist(*a, env.my_shack);
-		let db = dist(*b, env.my_shack);
-		da.cmp(&db)
-			.then_with(|| {
-				let oa = dist(*a, env.op_shack);
-				let ob = dist(*b, env.op_shack);
-				ob.cmp(&oa)
-			})
+		env.dist_to_my_shack(*a)
+			.cmp(&env.dist_to_my_shack(*b))
+			.then_with(|| env.dist_to_op_shack(*b).cmp(&env.dist_to_op_shack(*a)))
 			.then_with(|| {
 				let wa = env.grid.is_water_next_to(*a);
 				let wb = env.grid.is_water_next_to(*b);
@@ -588,19 +586,24 @@ fn count_tree_near_shack(env: &Env, state: &TurnState, kind: ResourceKind, max_d
 	state
 		.tree_list
 		.iter()
-		.filter(|t| t.kind == kind && dist(t.pos, env.my_shack) <= max_dist)
+		.filter(|t| t.kind == kind && env.dist_to_my_shack(t.pos) <= max_dist)
 		.count() as u8
 }
 
-fn find_closest_tree_with_fruit<'a>(state: &'a TurnState, troll: &Troll) -> Option<&'a Tree> {
+fn find_closest_tree_with_fruit<'a>(
+	env: &Env,
+	state: &'a TurnState,
+	troll: &Troll,
+) -> Option<&'a Tree> {
 	state
 		.tree_list
 		.iter()
 		.filter(|t| t.fruit > 0)
-		.min_by_key(|t| dist(troll.pos, t.pos))
+		.min_by_key(|t| env.dist(troll.pos, t.pos))
 }
 
 fn find_closest_tree_of_kind<'a>(
+	env: &Env,
 	state: &'a TurnState,
 	troll: &Troll,
 	kind: ResourceKind,
@@ -609,7 +612,7 @@ fn find_closest_tree_of_kind<'a>(
 		.tree_list
 		.iter()
 		.filter(|t| t.kind == kind && t.fruit > 0)
-		.min_by_key(|t| dist(troll.pos, t.pos))
+		.min_by_key(|t| env.dist(troll.pos, t.pos))
 }
 
 fn chop_cost_per_wood(tree: &Tree, troll: &Troll, env: &Env) -> u32 {
@@ -618,7 +621,7 @@ fn chop_cost_per_wood(tree: &Tree, troll: &Troll, env: &Env) -> u32 {
 		return u32::MAX;
 	}
 	let chop_turns = (tree.health as u16 + troll.chop_power - 1) / troll.chop_power;
-	let travel = dist(troll.pos, tree.pos) as u16 + dist(tree.pos, env.my_shack) as u16;
+	let travel = env.dist(troll.pos, tree.pos) as u16 + env.dist_to_my_shack(tree.pos) as u16;
 	(chop_turns + travel + 1) as u32 * 10 / wood as u32
 }
 
@@ -650,14 +653,16 @@ fn find_best_tree_to_chop_near_shack<'a>(
 		.iter()
 		.filter(|t| t.size > 0)
 		.min_by_key(|t| {
-			let d_shack = dist(t.pos, env.my_shack) as u32;
+			let d_shack = env.dist_to_my_shack(t.pos) as u32;
 			let cost = chop_cost_per_wood(t, troll, env);
 			(d_shack, cost)
 		})
 }
 
 fn is_adjacent_to_iron(env: &Env, pos: Coord) -> bool {
-	env.iron_list.iter().any(|&iron| dist(pos, iron) == 1)
+	env.iron_list
+		.iter()
+		.any(|&iron| manhattan_dist(pos, iron) == 1)
 }
 
 fn find_closest_grass_near_iron(env: &Env, troll: &Troll) -> Option<Coord> {
@@ -675,7 +680,7 @@ fn find_closest_grass_near_iron(env: &Env, troll: &Troll) -> Option<Coord> {
 			if !env.grid.is_grass(pos) {
 				continue;
 			}
-			let d = dist(troll.pos, pos);
+			let d = env.dist(troll.pos, pos);
 			if d < best_dist {
 				best = Some(pos);
 				best_dist = d;
@@ -686,23 +691,8 @@ fn find_closest_grass_near_iron(env: &Env, troll: &Troll) -> Option<Coord> {
 	best
 }
 
-fn best_stat_train(troll_count: usize, resource_available: Resource) -> Resource {
-	let base_cost = troll_count as Resource;
-
-	let mut best: Resource = 0;
-	for i in 1..=resource_available {
-		let cost = base_cost + (i * i);
-		if cost > resource_available {
-			break;
-		}
-		best = i;
-	}
-
-	best
-}
-
 fn determine_goal(state: &TurnState, turn: Turn) -> Goal {
-	if turn >= 280 {
+	if turn >= MAX_TURN - 20 {
 		return Goal::Endgame;
 	}
 
@@ -922,12 +912,12 @@ fn solve_troll_plant_for_goal(
 	}
 
 	if need_plum {
-		if let Some(tree) = find_closest_tree_of_kind(state, troll, ResourceKind::Plum) {
+		if let Some(tree) = find_closest_tree_of_kind(env, state, troll, ResourceKind::Plum) {
 			return move_or_do(troll, tree.pos, Action::Harvest(troll.id));
 		}
 	}
 	if need_lemon {
-		if let Some(tree) = find_closest_tree_of_kind(state, troll, ResourceKind::Lemon) {
+		if let Some(tree) = find_closest_tree_of_kind(env, state, troll, ResourceKind::Lemon) {
 			return move_or_do(troll, tree.pos, Action::Harvest(troll.id));
 		}
 	}
@@ -935,7 +925,11 @@ fn solve_troll_plant_for_goal(
 	solve_troll_accumulate(env, state, troll, cost)
 }
 
-fn is_needed_resource(kind: ResourceKind, inventory: &PlayerInventory, cost: &PlayerInventory) -> bool {
+fn is_needed_resource(
+	kind: ResourceKind,
+	inventory: &PlayerInventory,
+	cost: &PlayerInventory,
+) -> bool {
 	match kind {
 		ResourceKind::Plum => inventory.plum < cost.plum,
 		ResourceKind::Lemon => inventory.lemon < cost.lemon,
@@ -954,11 +948,9 @@ fn solve_troll_accumulate(
 		return drop_to_shack(troll, env);
 	}
 
-	if state
-		.tree_list
-		.iter()
-		.any(|t| t.pos == troll.pos && t.fruit > 0 && is_needed_resource(t.kind, &state.my_inventory, cost))
-	{
+	if state.tree_list.iter().any(|t| {
+		t.pos == troll.pos && t.fruit > 0 && is_needed_resource(t.kind, &state.my_inventory, cost)
+	}) {
 		return Action::Harvest(troll.id);
 	}
 
@@ -966,7 +958,7 @@ fn solve_troll_accumulate(
 		.tree_list
 		.iter()
 		.filter(|t| t.fruit > 0 && is_needed_resource(t.kind, &state.my_inventory, cost))
-		.min_by_key(|t| dist(troll.pos, t.pos))
+		.min_by_key(|t| env.dist(troll.pos, t.pos))
 	{
 		return Action::Move(troll.id, tree.pos);
 	}
@@ -991,14 +983,19 @@ fn solve_troll_harvest_resource(
 		}
 	}
 
-	if let Some(tree) = find_closest_tree_of_kind(state, troll, kind) {
+	if let Some(tree) = find_closest_tree_of_kind(env, state, troll, kind) {
 		return Action::Move(troll.id, tree.pos);
 	}
 
 	solve_troll_accumulate(env, state, troll, cost)
 }
 
-fn solve_troll_mine_iron(env: &Env, state: &TurnState, troll: &Troll, cost: &PlayerInventory) -> Action {
+fn solve_troll_mine_iron(
+	env: &Env,
+	state: &TurnState,
+	troll: &Troll,
+	cost: &PlayerInventory,
+) -> Action {
 	if !troll.carry.is_empty() {
 		return drop_to_shack(troll, env);
 	}
@@ -1018,8 +1015,7 @@ fn solve_goal_gather_point(env: &Env, state: &TurnState) -> Vec<Action> {
 	let mut action_list = Vec::new();
 
 	for troll in &state.my_troll_list {
-		let role = troll.role();
-		match role {
+		match troll.role() {
 			TrollRole::Initial | TrollRole::Harvester => {
 				action_list.push(solve_troll_banana_planter(env, state, troll));
 			}
@@ -1047,15 +1043,15 @@ fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Ac
 		return drop_to_shack(troll, env);
 	}
 
-	if let Some(_tree) = state
+	if state
 		.tree_list
 		.iter()
-		.find(|t| t.pos == troll.pos && t.fruit > 0)
+		.any(|t| t.pos == troll.pos && t.fruit > 0)
 	{
 		return Action::Harvest(troll.id);
 	}
 
-	if let Some(tree) = find_closest_tree_of_kind(state, troll, ResourceKind::Banana) {
+	if let Some(tree) = find_closest_tree_of_kind(env, state, troll, ResourceKind::Banana) {
 		return Action::Move(troll.id, tree.pos);
 	}
 
@@ -1073,7 +1069,7 @@ fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Ac
 		return Action::Move(troll.id, env.my_shack);
 	}
 
-	if let Some(tree) = find_closest_tree_with_fruit(state, troll) {
+	if let Some(tree) = find_closest_tree_with_fruit(env, state, troll) {
 		return Action::Move(troll.id, tree.pos);
 	}
 
@@ -1102,8 +1098,7 @@ fn solve_goal_endgame(env: &Env, state: &TurnState) -> Vec<Action> {
 	let mut action_list = Vec::new();
 
 	for troll in &state.my_troll_list {
-		let role = troll.role();
-		match role {
+		match troll.role() {
 			TrollRole::Harvester => {
 				action_list.push(solve_troll_banana_planter(env, state, troll));
 			}
@@ -1139,7 +1134,7 @@ fn solve_troll_gather(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 		return drop_to_shack(troll, env);
 	}
 
-	if let Some(tree) = find_closest_tree_with_fruit(state, troll) {
+	if let Some(tree) = find_closest_tree_with_fruit(env, state, troll) {
 		return move_or_do(troll, tree.pos, Action::Harvest(troll.id));
 	}
 
@@ -1183,5 +1178,59 @@ fn main() {
 				.collect::<Vec<_>>()
 				.join(";")
 		);
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::time::Instant;
+
+	fn make_max_grid() -> Grid {
+		let w: Axis = MAX_W;
+		let h: Axis = MAX_H;
+		let mut grid = Grid {
+			g: [u64::MAX; MAX_H as usize],
+			w,
+			h,
+		};
+		for y in 0..h {
+			for x in 0..w {
+				let cell = match (x as usize * 7 + y as usize * 13) % 30 {
+					0 => Grid::ROCK,
+					1 => Grid::WATER,
+					2 => Grid::IRON,
+					_ => Grid::GRASS,
+				};
+				grid.set_cell((x, y), cell);
+			}
+		}
+		grid
+	}
+
+	#[test]
+	fn bfs_all_cells_timing() {
+		let grid = make_max_grid();
+
+		let grass_count = (0..grid.h)
+			.flat_map(|y| (0..grid.w).map(move |x| (x, y)))
+			.filter(|&pos| grid.is_grass(pos))
+			.count();
+
+		let start = Instant::now();
+		let (_dist_map, n) = compute_all_bfs(&grid);
+		let elapsed = start.elapsed();
+
+		assert_eq!(n, MAX_W as usize * MAX_H as usize);
+		assert!(grass_count < n);
+
+		eprintln!(
+			"grid: {}x{}, cells: {n}, grass: {grass_count} ({:.0}%)",
+			grid.w,
+			grid.h,
+			grass_count as f64 / n as f64 * 100.0
+		);
+		eprintln!("bfs time: {elapsed:?}");
+		assert!(elapsed.as_millis() < FIRST_TURN_MS_LIMIT as u128);
 	}
 }
