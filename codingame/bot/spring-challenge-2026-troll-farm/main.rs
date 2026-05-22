@@ -554,7 +554,12 @@ fn is_valid_plant_spot(env: &Env, state: &TurnState, pos: Coord) -> bool {
 	env.grid.is_grass(pos) && state.tree_list.iter().all(|t| t.pos != pos)
 }
 
-fn get_plant_spot_list_near_shack(env: &Env, state: &TurnState, max_dist: u8) -> Vec<Coord> {
+fn get_plant_spot_list_near_shack(
+	env: &Env,
+	state: &TurnState,
+	troll: &Troll,
+	max_dist: u8,
+) -> Vec<Coord> {
 	let mut spot_list = Vec::new();
 
 	for y in 0..env.grid.h {
@@ -573,6 +578,7 @@ fn get_plant_spot_list_near_shack(env: &Env, state: &TurnState, max_dist: u8) ->
 	spot_list.sort_by(|a, b| {
 		env.dist_to_my_shack(*a)
 			.cmp(&env.dist_to_my_shack(*b))
+			.then_with(|| env.dist(troll.pos, *a).cmp(&env.dist(troll.pos, *b)))
 			.then_with(|| env.dist_to_op_shack(*b).cmp(&env.dist_to_op_shack(*a)))
 			.then_with(|| {
 				let wa = env.grid.is_water_next_to(*a);
@@ -889,7 +895,7 @@ fn solve_troll_plant_for_goal(
 		};
 
 		if let Some(kind) = plant_kind {
-			let spot_list = get_plant_spot_list_near_shack(env, state, 3);
+			let spot_list = get_plant_spot_list_near_shack(env, state, troll, 3);
 			if let Some(&spot) = spot_list.first() {
 				return move_or_do(troll, spot, Action::Plant(troll.id, kind));
 			}
@@ -1033,7 +1039,7 @@ fn solve_goal_gather_point(env: &Env, state: &TurnState) -> Vec<Action> {
 fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
 		if troll.carry.able_to_plant().is_some() {
-			let spot_list = get_plant_spot_list_near_shack(env, state, 5);
+			let spot_list = get_plant_spot_list_near_shack(env, state, troll, 5);
 			if let Some(&spot) = spot_list.first() {
 				return move_or_do(
 					troll,
