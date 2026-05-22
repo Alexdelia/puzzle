@@ -347,9 +347,11 @@ fn compute_shack_dist(grid: &Grid, shack: Coord) -> Vec<u8> {
 impl Env {
 	fn read() -> Self {
 		let (grid, my_shack, op_shack, iron_list) = Grid::read();
+		let t0 = std::time::Instant::now();
 		let (bfs_dist, bfs_n) = compute_all_bfs(&grid);
 		let my_shack_dist = compute_shack_dist(&grid, my_shack);
 		let op_shack_dist = compute_shack_dist(&grid, op_shack);
+		dbg!(t0.elapsed());
 
 		Self {
 			grid,
