@@ -602,11 +602,34 @@ fn find_best_tree_to_chop_near_shack<'a>(
 	})
 }
 
-fn find_closest_iron<'a>(env: &'a Env, troll: &Troll) -> Option<Coord> {
-	env.iron_list
-		.iter()
-		.copied()
-		.min_by_key(|&pos| dist(troll.pos, pos))
+fn is_adjacent_to_iron(env: &Env, pos: Coord) -> bool {
+	env.iron_list.iter().any(|&iron| dist(pos, iron) == 1)
+}
+
+fn find_closest_grass_near_iron(env: &Env, troll: &Troll) -> Option<Coord> {
+	let mut best: Option<Coord> = None;
+	let mut best_dist = u8::MAX;
+
+	for &iron_pos in &env.iron_list {
+		for (dx, dy) in [(0i8, 1i8), (0, -1), (1, 0), (-1, 0)] {
+			let x = iron_pos.0 as i8 + dx;
+			let y = iron_pos.1 as i8 + dy;
+			if x < 0 || x >= env.grid.w as i8 || y < 0 || y >= env.grid.h as i8 {
+				continue;
+			}
+			let pos = (x as Axis, y as Axis);
+			if !env.grid.is_grass(pos) {
+				continue;
+			}
+			let d = dist(troll.pos, pos);
+			if d < best_dist {
+				best = Some(pos);
+				best_dist = d;
+			}
+		}
+	}
+
+	best
 }
 
 fn best_stat_train(troll_count: usize, resource_available: Resource) -> Resource {
@@ -739,15 +762,34 @@ fn solve_goal_train(env: &Env, state: &TurnState, role: TrollRole) -> Vec<Action
 	}
 
 	let cost = target.cost(troll_count);
+	let need_apple = state.my_inventory.apple < cost.apple;
+	let need_iron = state.my_inventory.iron < cost.iron;
+	let has_harvester = state.my_troll_list.iter().any(|t| t.role() == TrollRole::Harvester);
+	let has_carrier_or_woodcutter = state
+		.my_troll_list
+		.iter()
+		.any(|t| matches!(t.role(), TrollRole::Carrier | TrollRole::Woodcutter));
+
+	let mut iron_assigned = false;
+	let mut apple_assigned = false;
 
 	for troll in &state.my_troll_list {
-		let troll_role = troll.role();
-		let action = match troll_role {
-			TrollRole::Harvester if state.my_inventory.apple < cost.apple => {
+		let action = match troll.role() {
+			TrollRole::Harvester if need_apple && !apple_assigned => {
+				apple_assigned = true;
 				solve_troll_harvest_resource(env, state, troll, ResourceKind::Apple)
 			}
-			TrollRole::Carrier if state.my_inventory.iron < cost.iron => {
+			TrollRole::Carrier | TrollRole::Woodcutter if need_iron && !iron_assigned => {
+				iron_assigned = true;
 				solve_troll_mine_iron(env, state, troll)
+			}
+			_ if need_iron && !iron_assigned && !has_carrier_or_woodcutter => {
+				iron_assigned = true;
+				solve_troll_mine_iron(env, state, troll)
+			}
+			_ if need_apple && !apple_assigned && !has_harvester => {
+				apple_assigned = true;
+				solve_troll_harvest_resource(env, state, troll, ResourceKind::Apple)
 			}
 			_ => solve_troll_for_training(env, state, troll),
 		};
@@ -820,12 +862,12 @@ fn solve_troll_mine_iron(env: &Env, state: &TurnState, troll: &Troll) -> Action 
 		return drop_to_shack(troll, env);
 	}
 
-	if env.iron_list.iter().any(|&pos| pos == troll.pos) {
+	if is_adjacent_to_iron(env, troll.pos) {
 		return Action::Mine(troll.id);
 	}
 
-	if let Some(iron_pos) = find_closest_iron(env, troll) {
-		return Action::Move(troll.id, iron_pos);
+	if let Some(grass_pos) = find_closest_grass_near_iron(env, troll) {
+		return Action::Move(troll.id, grass_pos);
 	}
 
 	solve_troll_for_training(env, state, troll)
