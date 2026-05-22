@@ -684,6 +684,25 @@ fn find_best_tree_to_chop_near_shack<'a>(
 		})
 }
 
+fn find_best_tree_to_chop_near_op_shack<'a>(
+	env: &'a Env,
+	state: &'a TurnState,
+	troll: &'a Troll,
+) -> Option<&'a Tree> {
+	if troll.chop_power == 0 {
+		return None;
+	}
+	state
+		.tree_list
+		.iter()
+		.filter(|t| t.size > 0)
+		.min_by_key(|t| {
+			let d_op = env.dist_to_op_shack(t.pos) as u32;
+			let cost = chop_cost_per_wood(t, troll, env);
+			(d_op, cost)
+		})
+}
+
 fn is_adjacent_to_iron(env: &Env, pos: Coord) -> bool {
 	env.iron_list
 		.iter()
@@ -1043,6 +1062,9 @@ fn solve_goal_gather_point(env: &Env, state: &TurnState) -> Vec<Action> {
 			TrollRole::Initial | TrollRole::Harvester => {
 				action_list.push(solve_troll_banana_planter(env, state, troll));
 			}
+			TrollRole::Woodcutter => {
+				action_list.push(solve_troll_chopper_near_op_shack(env, state, troll));
+			}
 			_ => {
 				action_list.push(solve_troll_chopper(env, state, troll));
 			}
@@ -1050,6 +1072,24 @@ fn solve_goal_gather_point(env: &Env, state: &TurnState) -> Vec<Action> {
 	}
 
 	action_list
+}
+
+fn solve_troll_chopper_near_op_shack(env: &Env, state: &TurnState, troll: &Troll) -> Action {
+	if !troll.carry.is_empty() {
+		return drop_to_shack(troll, env);
+	}
+
+	if troll.chop_power > 0 {
+		if state.tree_list.iter().any(|t| t.pos == troll.pos) {
+			return Action::Chop(troll.id);
+		}
+
+		if let Some(tree) = find_best_tree_to_chop_near_op_shack(env, state, troll) {
+			return Action::Move(troll.id, tree.pos);
+		}
+	}
+
+	Action::Move(troll.id, env.op_shack)
 }
 
 fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Action {
