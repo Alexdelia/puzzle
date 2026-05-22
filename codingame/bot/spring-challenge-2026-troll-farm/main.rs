@@ -534,7 +534,7 @@ impl TurnState {
 }
 
 fn manhattan_dist(a: Coord, b: Coord) -> u8 {
-	(a.0 as i8 - b.0 as i8).abs() as u8 + (a.1 as i8 - b.1 as i8).abs() as u8
+	(a.0 as i8 - b.0 as i8).unsigned_abs() + (a.1 as i8 - b.1 as i8).unsigned_abs()
 }
 
 fn is_next_to_shack(troll: &Troll, env: &Env) -> bool {
@@ -575,7 +575,7 @@ fn plant_spot_score(env: &Env, pos: Coord, troll: &Troll, turn: Turn) -> u16 {
 	let dist = env.dist_to_my_shack(pos) as u16;
 	let harvest_cycle = 2 * dist / troll.move_speed.max(1) as u16 + 2;
 	let bottleneck = cooldown.max(harvest_cycle);
-	let producing = (remaining as u16).saturating_sub(growth);
+	let producing = remaining.saturating_sub(growth);
 	producing / bottleneck.max(1)
 }
 
@@ -650,7 +650,7 @@ fn chop_cost_per_wood(tree: &Tree, troll: &Troll, env: &Env) -> u32 {
 	if wood == 0 || troll.chop_power == 0 {
 		return u32::MAX;
 	}
-	let chop_turns = (tree.health as u16 + troll.chop_power - 1) / troll.chop_power;
+	let chop_turns = (tree.health as u16).div_ceil(troll.chop_power);
 	let travel = env.dist(troll.pos, tree.pos) as u16 + env.dist_to_my_shack(tree.pos) as u16;
 	(chop_turns + travel + 1) as u32 * 10 / wood as u32
 }
@@ -935,10 +935,10 @@ fn solve_troll_plant_for_goal(
 			None
 		};
 
-		if let Some(kind) = plant_kind {
-			if let Some(spot) = find_best_plant_spot(env, state, troll, 3) {
-				return move_or_do(troll, spot, Action::Plant(troll.id, kind));
-			}
+		if let Some(kind) = plant_kind
+			&& let Some(spot) = find_best_plant_spot(env, state, troll, 3)
+		{
+			return move_or_do(troll, spot, Action::Plant(troll.id, kind));
 		}
 
 		return drop_to_shack(troll, env);
@@ -959,15 +959,15 @@ fn solve_troll_plant_for_goal(
 		return Action::Move(troll.id, env.my_shack);
 	}
 
-	if need_plum {
-		if let Some(tree) = find_closest_tree_of_kind(env, state, troll, ResourceKind::Plum) {
-			return move_or_do(troll, tree.pos, Action::Harvest(troll.id));
-		}
+	if need_plum
+		&& let Some(tree) = find_closest_tree_of_kind(env, state, troll, ResourceKind::Plum)
+	{
+		return move_or_do(troll, tree.pos, Action::Harvest(troll.id));
 	}
-	if need_lemon {
-		if let Some(tree) = find_closest_tree_of_kind(env, state, troll, ResourceKind::Lemon) {
-			return move_or_do(troll, tree.pos, Action::Harvest(troll.id));
-		}
+	if need_lemon
+		&& let Some(tree) = find_closest_tree_of_kind(env, state, troll, ResourceKind::Lemon)
+	{
+		return move_or_do(troll, tree.pos, Action::Harvest(troll.id));
 	}
 
 	solve_troll_accumulate(env, state, troll, cost)
@@ -1025,10 +1025,11 @@ fn solve_troll_harvest_resource(
 		return drop_to_shack(troll, env);
 	}
 
-	if let Some(tree) = state.tree_list.iter().find(|t| t.pos == troll.pos) {
-		if tree.kind == kind && tree.fruit > 0 {
-			return Action::Harvest(troll.id);
-		}
+	if let Some(tree) = state.tree_list.iter().find(|t| t.pos == troll.pos)
+		&& tree.kind == kind
+		&& tree.fruit > 0
+	{
+		return Action::Harvest(troll.id);
 	}
 
 	if let Some(tree) = find_closest_tree_of_kind(env, state, troll, kind) {
@@ -1099,14 +1100,14 @@ fn solve_troll_chopper_near_op_shack(env: &Env, state: &TurnState, troll: &Troll
 
 fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
-		if troll.carry.able_to_plant().is_some() {
-			if let Some(spot) = find_best_plant_spot(env, state, troll, 5) {
-				return move_or_do(
-					troll,
-					spot,
-					Action::Plant(troll.id, troll.carry.able_to_plant().unwrap()),
-				);
-			}
+		if troll.carry.able_to_plant().is_some()
+			&& let Some(spot) = find_best_plant_spot(env, state, troll, 5)
+		{
+			return move_or_do(
+				troll,
+				spot,
+				Action::Plant(troll.id, troll.carry.able_to_plant().unwrap()),
+			);
 		}
 		return drop_to_shack(troll, env);
 	}
@@ -1206,10 +1207,10 @@ fn solve_troll_gather(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 		return move_or_do(troll, tree.pos, Action::Harvest(troll.id));
 	}
 
-	if troll.chop_power > 0 {
-		if let Some(tree) = find_best_tree_to_chop(env, state, troll) {
-			return move_or_do(troll, tree.pos, Action::Chop(troll.id));
-		}
+	if troll.chop_power > 0
+		&& let Some(tree) = find_best_tree_to_chop(env, state, troll)
+	{
+		return move_or_do(troll, tree.pos, Action::Chop(troll.id));
 	}
 
 	Action::Move(troll.id, env.op_shack)
