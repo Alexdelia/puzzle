@@ -961,9 +961,14 @@ fn solve_goal_train(env: &Env, state: &TurnState, role: TrollRole) -> Vec<Action
 
 	let plum_near = count_tree_near_shack(env, state, ResourceKind::Plum, 3);
 	let lemon_near = count_tree_near_shack(env, state, ResourceKind::Lemon, 3);
+	let op_near_shack = state
+		.op_troll_list
+		.iter()
+		.any(|t| env.dist_to_my_shack(t.pos) <= 5);
+
 	let need_plant_plum = plum_near < target_plum;
 	let need_plant_lemon = lemon_near < target_lemon;
-	let need_planting = need_plant_plum || need_plant_lemon;
+	let need_planting = !op_near_shack && (need_plant_plum || need_plant_lemon);
 
 	let miner_id = if need_iron {
 		state
