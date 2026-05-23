@@ -441,6 +441,7 @@ impl PlayerInventory {
 		self.plum + self.lemon + self.apple + self.banana + self.iron + self.wood
 	}
 
+	#[allow(dead_code)]
 	fn able_to_plant(&self) -> Option<ResourceKind> {
 		if self.banana > 0 {
 			Some(ResourceKind::Banana)
@@ -605,6 +606,38 @@ fn find_best_plant_spot(
 			{
 				best = Some(pos);
 				best_score = score;
+			}
+		}
+	}
+
+	best
+}
+
+fn find_closest_plant_spot(
+	env: &Env,
+	state: &TurnState,
+	troll: &Troll,
+	max_dist: u8,
+) -> Option<Coord> {
+	let mut best: Option<Coord> = None;
+	let mut best_key = (u8::MAX, 0u8);
+
+	for y in 0..env.grid.h {
+		for x in 0..env.grid.w {
+			let pos = (x, y);
+			if pos == env.my_shack {
+				continue;
+			}
+			let d = env.dist_to_my_shack(pos);
+			if d > max_dist || !is_valid_plant_spot(env, state, pos) {
+				continue;
+			}
+			let td = env.dist(troll.pos, pos);
+			let op_dist = env.dist_to_op_shack(pos);
+			let key = (td, u8::MAX - op_dist);
+			if key < best_key {
+				best = Some(pos);
+				best_key = key;
 			}
 		}
 	}
@@ -1100,14 +1133,10 @@ fn solve_troll_chopper_near_op_shack(env: &Env, state: &TurnState, troll: &Troll
 
 fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
-		if troll.carry.able_to_plant().is_some()
-			&& let Some(spot) = find_best_plant_spot(env, state, troll, 5)
+		if troll.carry.banana > 0
+			&& let Some(spot) = find_closest_plant_spot(env, state, troll, 5)
 		{
-			return move_or_do(
-				troll,
-				spot,
-				Action::Plant(troll.id, troll.carry.able_to_plant().unwrap()),
-			);
+			return move_or_do(troll, spot, Action::Plant(troll.id, ResourceKind::Banana));
 		}
 		return drop_to_shack(troll, env);
 	}
@@ -1128,13 +1157,6 @@ fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Ac
 		return Action::Pick(troll.id, ResourceKind::Banana);
 	}
 	if state.my_inventory.banana > 0 {
-		return Action::Move(troll.id, env.my_shack);
-	}
-
-	if let Some(kind) = state.my_inventory.able_to_plant() {
-		if is_next_to_shack(troll, env) {
-			return Action::Pick(troll.id, kind);
-		}
 		return Action::Move(troll.id, env.my_shack);
 	}
 
