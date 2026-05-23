@@ -727,8 +727,11 @@ fn chop_cost_per_wood(tree: &Tree, troll: &Troll, env: &Env) -> u32 {
 	if wood == 0 || troll.chop_power == 0 {
 		return u32::MAX;
 	}
+	let speed = troll.move_speed.max(1) as u16;
 	let chop_turns = (tree.health as u16).div_ceil(troll.chop_power);
-	let travel = env.dist(troll.pos, tree.pos) as u16 + env.dist_to_my_shack(tree.pos) as u16;
+	let dist_to = env.dist(troll.pos, tree.pos) as u16;
+	let dist_back = env.dist_to_my_shack(tree.pos) as u16;
+	let travel = (dist_to + dist_back).div_ceil(speed);
 	(chop_turns + travel + 1) as u32 * 10 / wood as u32
 }
 
@@ -793,9 +796,11 @@ fn find_best_tree_to_chop_near_op_shack<'a>(
 		.iter()
 		.filter(|t| t.size > 0 && !state.reserved.contains(&t.pos))
 		.min_by_key(|t| {
-			let d_op = env.dist_to_op_shack(t.pos) as u32;
 			let cost = chop_cost_per_wood(t, troll, env) + chop_banana_penalty(env, state, t);
-			(d_op, cost)
+			let d_op = env.dist_to_op_shack(t.pos) as u32;
+			let d_my = env.dist_to_my_shack(t.pos) as u32;
+			let grief_bonus = d_my.saturating_sub(d_op);
+			cost.saturating_sub(grief_bonus * 5)
 		})
 }
 
@@ -1229,6 +1234,17 @@ fn solve_goal_gather_point(env: &Env, state: &mut TurnState) -> Vec<Action> {
 
 fn solve_troll_chopper_near_op_shack(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
+		let free = troll.carry.free_capacity(troll.carry_capacity);
+		if free > 0 {
+			if let Some(tree) = state
+				.tree_list
+				.iter()
+				.find(|t| t.pos == troll.pos && t.size > 0 && (t.size as u16) <= free)
+			{
+				let _ = tree;
+				return Action::Chop(troll.id);
+			}
+		}
 		return drop_to_shack(env, state, troll);
 	}
 
