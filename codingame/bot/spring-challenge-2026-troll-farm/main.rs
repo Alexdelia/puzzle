@@ -1313,12 +1313,16 @@ fn solve_goal_endgame(env: &Env, state: &mut TurnState) -> Vec<Action> {
 	let mut action_list = Vec::new();
 
 	for i in 0..state.my_troll_list.len() {
-		let role = state.my_troll_list[i].role();
 		let troll_pos = state.my_troll_list[i].pos;
+		let chop = state.my_troll_list[i].chop_power;
+		let remaining = MAX_TURN.saturating_sub(state.turn);
 		state.reserved.retain(|&p| p != troll_pos);
-		let action = match role {
-			TrollRole::Harvester => solve_troll_banana_planter(env, state, &state.my_troll_list[i]),
-			_ => solve_troll_chopper_near_shack(env, state, &state.my_troll_list[i]),
+		let action = if chop > 0 {
+			solve_troll_chopper_near_shack(env, state, &state.my_troll_list[i])
+		} else if remaining >= 10 {
+			solve_troll_banana_planter(env, state, &state.my_troll_list[i])
+		} else {
+			solve_troll_harvest_and_store(env, state, &state.my_troll_list[i])
 		};
 		state
 			.reserved
