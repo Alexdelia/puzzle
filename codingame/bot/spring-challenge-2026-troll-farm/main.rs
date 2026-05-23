@@ -832,8 +832,6 @@ struct TrainTarget {
 	carry_capacity: Resource,
 	harvest_power: Resource,
 	chop_power: Resource,
-	plant_plum: u8,
-	plant_lemon: u8,
 }
 
 impl TrainTarget {
@@ -875,32 +873,24 @@ impl TrollRole {
 				carry_capacity: 2,
 				harvest_power: 2,
 				chop_power: 0,
-				plant_plum: 2,
-				plant_lemon: 2,
 			},
 			TrollRole::Carrier => TrainTarget {
 				move_speed: 3,
 				carry_capacity: 4,
 				harvest_power: 1,
 				chop_power: 2,
-				plant_plum: 4,
-				plant_lemon: 4,
 			},
 			TrollRole::Woodcutter => TrainTarget {
 				move_speed: 2,
 				carry_capacity: 4,
 				harvest_power: 0,
 				chop_power: 3,
-				plant_plum: 4,
-				plant_lemon: 4,
 			},
 			TrollRole::Initial => TrainTarget {
 				move_speed: 0,
 				carry_capacity: 0,
 				harvest_power: 0,
 				chop_power: 0,
-				plant_plum: 0,
-				plant_lemon: 0,
 			},
 		}
 	}
@@ -923,10 +913,15 @@ fn solve_goal_train(env: &Env, state: &TurnState, role: TrollRole) -> Vec<Action
 	let need_apple = state.my_inventory.apple < cost.apple;
 	let need_iron = state.my_inventory.iron < cost.iron;
 
+	let plum_remaining = cost.plum.saturating_sub(state.my_inventory.plum);
+	let lemon_remaining = cost.lemon.saturating_sub(state.my_inventory.lemon);
+	let target_plum = (plum_remaining / 5).max(2) as u8;
+	let target_lemon = (lemon_remaining / 5).max(2) as u8;
+
 	let plum_near = count_tree_near_shack(env, state, ResourceKind::Plum, 3);
 	let lemon_near = count_tree_near_shack(env, state, ResourceKind::Lemon, 3);
-	let need_plant_plum = plum_near < target.plant_plum;
-	let need_plant_lemon = lemon_near < target.plant_lemon;
+	let need_plant_plum = plum_near < target_plum;
+	let need_plant_lemon = lemon_near < target_lemon;
 	let need_planting = need_plant_plum || need_plant_lemon;
 
 	let miner_id = if need_iron {
