@@ -1048,11 +1048,11 @@ fn solve_troll_accumulate(
 		return drop_to_shack(troll, env);
 	}
 
-	if state
-		.tree_list
-		.iter()
-		.any(|t| t.pos == troll.pos && t.fruit > 0)
-	{
+	let on_needed_tree = state.tree_list.iter().any(|t| {
+		t.pos == troll.pos && t.fruit > 0 && is_needed_resource(t.kind, &state.my_inventory, cost)
+	});
+
+	if on_needed_tree {
 		return Action::Harvest(troll.id);
 	}
 
@@ -1063,6 +1063,14 @@ fn solve_troll_accumulate(
 		.min_by_key(|t| harvest_trip_score(env, t, troll))
 	{
 		return Action::Move(troll.id, tree.pos);
+	}
+
+	if state
+		.tree_list
+		.iter()
+		.any(|t| t.pos == troll.pos && t.fruit > 0)
+	{
+		return Action::Harvest(troll.id);
 	}
 
 	if let Some(tree) = state
