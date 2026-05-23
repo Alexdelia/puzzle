@@ -1017,7 +1017,7 @@ fn harvest_trip_score(env: &Env, tree: &Tree, troll: &Troll) -> u32 {
 	let speed = troll.move_speed.max(1) as u16;
 	let dist_to = env.dist(troll.pos, tree.pos) as u16;
 	let dist_back = env.dist_to_my_shack(tree.pos) as u16;
-	let trip_turns = (dist_to + dist_back + speed - 1) / speed + 2;
+	let trip_turns = (dist_to + dist_back).div_ceil(speed) + 2;
 	trip_turns as u32 * 10 / fruit as u32
 }
 
