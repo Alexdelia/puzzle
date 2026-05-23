@@ -620,7 +620,7 @@ fn find_closest_plant_spot(
 	max_dist: u8,
 ) -> Option<Coord> {
 	let mut best: Option<Coord> = None;
-	let mut best_key = (u8::MAX, 0u8);
+	let mut best_score = i16::MAX;
 
 	for y in 0..env.grid.h {
 		for x in 0..env.grid.w {
@@ -632,12 +632,12 @@ fn find_closest_plant_spot(
 			if d > max_dist || !is_valid_plant_spot(env, state, pos) {
 				continue;
 			}
-			let td = env.dist(troll.pos, pos);
-			let op_dist = env.dist_to_op_shack(pos);
-			let key = (td, u8::MAX - op_dist);
-			if key < best_key {
+			let td = env.dist(troll.pos, pos) as i16;
+			let op = env.dist_to_op_shack(pos) as i16;
+			let score = d as i16 * 3 + td - op;
+			if score < best_score {
 				best = Some(pos);
-				best_key = key;
+				best_score = score;
 			}
 		}
 	}
