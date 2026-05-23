@@ -1212,7 +1212,7 @@ fn solve_goal_gather_point(env: &Env, state: &mut TurnState) -> Vec<Action> {
 			TrollRole::Initial if !enough_banana_to_stop_planting => {
 				solve_troll_banana_planter(env, state, &state.my_troll_list[i])
 			}
-			_ if chop > 0 && role == TrollRole::Woodcutter => {
+			_ if chop > 0 && role == TrollRole::Carrier => {
 				solve_troll_chopper_near_op_shack(env, state, &state.my_troll_list[i])
 			}
 			_ if chop > 0 => solve_troll_chopper(env, state, &state.my_troll_list[i]),
