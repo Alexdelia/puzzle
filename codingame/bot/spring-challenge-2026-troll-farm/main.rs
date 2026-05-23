@@ -541,6 +541,8 @@ impl TurnState {
 			}
 		}
 
+		my_troll_list.sort_by(|a, b| b.id.cmp(&a.id));
+
 		let reserved = my_troll_list.iter().map(|t| t.pos).collect();
 
 		Self {
