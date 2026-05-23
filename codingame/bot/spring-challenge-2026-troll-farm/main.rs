@@ -800,7 +800,7 @@ fn find_best_tree_to_chop_near_op_shack<'a>(
 			let d_op = env.dist_to_op_shack(t.pos) as u32;
 			let d_my = env.dist_to_my_shack(t.pos) as u32;
 			let grief_bonus = d_my.saturating_sub(d_op);
-			cost.saturating_sub(grief_bonus * 5)
+			cost.saturating_sub(grief_bonus * 3)
 		})
 }
 
