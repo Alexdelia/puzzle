@@ -1208,7 +1208,10 @@ fn solve_goal_gather_point(env: &Env, state: &mut TurnState) -> Vec<Action> {
 		let troll_pos = state.my_troll_list[i].pos;
 		state.reserved.retain(|&p| p != troll_pos);
 		let action = match role {
-			TrollRole::Initial | TrollRole::Harvester if !enough_banana => {
+			TrollRole::Harvester => {
+				solve_troll_banana_planter(env, state, &state.my_troll_list[i])
+			}
+			TrollRole::Initial if !enough_banana => {
 				solve_troll_banana_planter(env, state, &state.my_troll_list[i])
 			}
 			_ if chop > 0 && role == TrollRole::Woodcutter => {
