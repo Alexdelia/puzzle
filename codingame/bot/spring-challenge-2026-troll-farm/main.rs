@@ -96,6 +96,14 @@ struct Tree {
 	cooldown: TreeCooldown,
 }
 
+impl Tree {
+	const MAX_SIZE: TreeSize = 4;
+
+	fn is_max_size(&self) -> bool {
+		self.size >= Self::MAX_SIZE
+	}
+}
+
 struct Troll {
 	id: TrollId,
 	my_troll: bool,
@@ -688,6 +696,20 @@ fn chop_cost_per_wood(tree: &Tree, troll: &Troll, env: &Env) -> u32 {
 	(chop_turns + travel + 1) as u32 * 10 / wood as u32
 }
 
+fn chop_banana_penalty(env: &Env, state: &TurnState, tree: &Tree) -> u32 {
+	if tree.kind != ResourceKind::Banana || env.dist_to_my_shack(tree.pos) > 5 {
+		return 0;
+	}
+	let mature_banana_near = state
+		.tree_list
+		.iter()
+		.filter(|t| {
+			t.kind == ResourceKind::Banana && t.is_max_size() && env.dist_to_my_shack(t.pos) <= 5
+		})
+		.count();
+	if mature_banana_near >= 4 { 0 } else { 1000 }
+}
+
 fn find_best_tree_to_chop<'a>(
 	env: &'a Env,
 	state: &'a TurnState,
@@ -700,7 +722,7 @@ fn find_best_tree_to_chop<'a>(
 		.tree_list
 		.iter()
 		.filter(|t| t.size > 0)
-		.min_by_key(|t| chop_cost_per_wood(t, troll, env))
+		.min_by_key(|t| chop_cost_per_wood(t, troll, env) + chop_banana_penalty(env, state, t))
 }
 
 fn find_best_tree_to_chop_near_shack<'a>(
@@ -1132,12 +1154,13 @@ fn solve_troll_chopper_near_op_shack(env: &Env, state: &TurnState, troll: &Troll
 	}
 
 	if troll.chop_power > 0
-		&& let Some(best) = find_best_tree_to_chop_near_op_shack(env, state, troll) {
-			if best.pos == troll.pos {
-				return Action::Chop(troll.id);
-			}
-			return Action::Move(troll.id, best.pos);
+		&& let Some(best) = find_best_tree_to_chop_near_op_shack(env, state, troll)
+	{
+		if best.pos == troll.pos {
+			return Action::Chop(troll.id);
 		}
+		return Action::Move(troll.id, best.pos);
+	}
 
 	Action::Move(troll.id, env.op_shack)
 }
@@ -1155,7 +1178,7 @@ fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Ac
 	if state
 		.tree_list
 		.iter()
-		.any(|t| t.pos == troll.pos && t.fruit > 0)
+		.any(|t| t.pos == troll.pos && t.kind == ResourceKind::Banana && t.fruit > 0)
 	{
 		return Action::Harvest(troll.id);
 	}
