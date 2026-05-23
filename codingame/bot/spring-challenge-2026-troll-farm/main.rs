@@ -739,7 +739,7 @@ fn find_best_tree_to_chop_near_shack<'a>(
 		.filter(|t| t.size > 0)
 		.min_by_key(|t| {
 			let d_shack = env.dist_to_my_shack(t.pos) as u32;
-			let cost = chop_cost_per_wood(t, troll, env);
+			let cost = chop_cost_per_wood(t, troll, env) + chop_banana_penalty(env, state, t);
 			(d_shack, cost)
 		})
 }
@@ -758,7 +758,7 @@ fn find_best_tree_to_chop_near_op_shack<'a>(
 		.filter(|t| t.size > 0)
 		.min_by_key(|t| {
 			let d_op = env.dist_to_op_shack(t.pos) as u32;
-			let cost = chop_cost_per_wood(t, troll, env);
+			let cost = chop_cost_per_wood(t, troll, env) + chop_banana_penalty(env, state, t);
 			(d_op, cost)
 		})
 }
@@ -1206,14 +1206,13 @@ fn solve_troll_chopper(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 		return drop_to_shack(troll, env);
 	}
 
-	if troll.chop_power > 0 {
-		if state.tree_list.iter().any(|t| t.pos == troll.pos) {
+	if troll.chop_power > 0
+		&& let Some(best) = find_best_tree_to_chop(env, state, troll)
+	{
+		if best.pos == troll.pos {
 			return Action::Chop(troll.id);
 		}
-
-		if let Some(tree) = find_best_tree_to_chop(env, state, troll) {
-			return Action::Move(troll.id, tree.pos);
-		}
+		return Action::Move(troll.id, best.pos);
 	}
 
 	Action::Move(troll.id, env.op_shack)
@@ -1241,14 +1240,13 @@ fn solve_troll_chopper_near_shack(env: &Env, state: &TurnState, troll: &Troll) -
 		return drop_to_shack(troll, env);
 	}
 
-	if troll.chop_power > 0 {
-		if state.tree_list.iter().any(|t| t.pos == troll.pos) {
+	if troll.chop_power > 0
+		&& let Some(best) = find_best_tree_to_chop_near_shack(env, state, troll)
+	{
+		if best.pos == troll.pos {
 			return Action::Chop(troll.id);
 		}
-
-		if let Some(tree) = find_best_tree_to_chop_near_shack(env, state, troll) {
-			return Action::Move(troll.id, tree.pos);
-		}
+		return Action::Move(troll.id, best.pos);
 	}
 
 	Action::Move(troll.id, env.op_shack)
