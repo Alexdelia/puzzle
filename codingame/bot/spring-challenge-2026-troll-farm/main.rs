@@ -1235,15 +1235,14 @@ fn solve_goal_gather_point(env: &Env, state: &mut TurnState) -> Vec<Action> {
 fn solve_troll_chopper_near_op_shack(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
 		let free = troll.carry.free_capacity(troll.carry_capacity);
-		if free > 0 {
-			if let Some(tree) = state
+		if free > 0
+			&& let Some(tree) = state
 				.tree_list
 				.iter()
 				.find(|t| t.pos == troll.pos && t.size > 0 && (t.size as u16) <= free)
-			{
-				let _ = tree;
-				return Action::Chop(troll.id);
-			}
+		{
+			let _ = tree;
+			return Action::Chop(troll.id);
 		}
 		return drop_to_shack(env, state, troll);
 	}
