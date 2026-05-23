@@ -1131,15 +1131,13 @@ fn solve_troll_chopper_near_op_shack(env: &Env, state: &TurnState, troll: &Troll
 		return drop_to_shack(troll, env);
 	}
 
-	if troll.chop_power > 0 {
-		if state.tree_list.iter().any(|t| t.pos == troll.pos) {
-			return Action::Chop(troll.id);
+	if troll.chop_power > 0
+		&& let Some(best) = find_best_tree_to_chop_near_op_shack(env, state, troll) {
+			if best.pos == troll.pos {
+				return Action::Chop(troll.id);
+			}
+			return Action::Move(troll.id, best.pos);
 		}
-
-		if let Some(tree) = find_best_tree_to_chop_near_op_shack(env, state, troll) {
-			return Action::Move(troll.id, tree.pos);
-		}
-	}
 
 	Action::Move(troll.id, env.op_shack)
 }
