@@ -142,6 +142,7 @@ struct TurnState {
 	#[allow(dead_code)]
 	op_troll_list: Vec<Troll>,
 	tree_list: Vec<Tree>,
+	reserved: Vec<Coord>,
 }
 
 enum Action {
@@ -153,6 +154,15 @@ enum Action {
 	Train(MoveSpeed, CarryCapacity, HarvestPower, ChopPower),
 	Chop(TrollId),
 	Mine(TrollId),
+}
+
+impl Action {
+	fn target_pos(&self, troll: &Troll) -> Coord {
+		match self {
+			Action::Move(_, pos) => *pos,
+			_ => troll.pos,
+		}
+	}
 }
 
 impl Display for Action {
@@ -531,6 +541,8 @@ impl TurnState {
 			}
 		}
 
+		let reserved = my_troll_list.iter().map(|t| t.pos).collect();
+
 		Self {
 			turn,
 			my_inventory,
@@ -538,6 +550,7 @@ impl TurnState {
 			my_troll_list,
 			op_troll_list,
 			tree_list,
+			reserved,
 		}
 	}
 }
@@ -558,12 +571,33 @@ fn move_or_do(troll: &Troll, target: Coord, action: Action) -> Action {
 	}
 }
 
-fn drop_to_shack(troll: &Troll, env: &Env) -> Action {
+fn drop_to_shack(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if is_next_to_shack(troll, env) {
-		Action::Drop(troll.id)
-	} else {
-		Action::Move(troll.id, env.my_shack)
+		return Action::Drop(troll.id);
 	}
+
+	let shack = env.my_shack;
+	let mut best = shack;
+	let mut best_dist = u8::MAX;
+
+	for (dx, dy) in [(0i8, 1i8), (0, -1), (1, 0), (-1, 0)] {
+		let x = shack.0 as i8 + dx;
+		let y = shack.1 as i8 + dy;
+		if x < 0 || x >= env.grid.w as i8 || y < 0 || y >= env.grid.h as i8 {
+			continue;
+		}
+		let pos = (x as Axis, y as Axis);
+		if !env.grid.is_grass(pos) || state.reserved.contains(&pos) {
+			continue;
+		}
+		let d = env.dist(troll.pos, pos);
+		if d < best_dist {
+			best = pos;
+			best_dist = d;
+		}
+	}
+
+	Action::Move(troll.id, best)
 }
 
 fn is_valid_plant_spot(env: &Env, state: &TurnState, pos: Coord) -> bool {
@@ -721,7 +755,7 @@ fn find_best_tree_to_chop<'a>(
 	state
 		.tree_list
 		.iter()
-		.filter(|t| t.size > 0)
+		.filter(|t| t.size > 0 && !state.reserved.contains(&t.pos))
 		.min_by_key(|t| chop_cost_per_wood(t, troll, env) + chop_banana_penalty(env, state, t))
 }
 
@@ -736,7 +770,7 @@ fn find_best_tree_to_chop_near_shack<'a>(
 	state
 		.tree_list
 		.iter()
-		.filter(|t| t.size > 0)
+		.filter(|t| t.size > 0 && !state.reserved.contains(&t.pos))
 		.min_by_key(|t| {
 			let d_shack = env.dist_to_my_shack(t.pos) as u32;
 			let cost = chop_cost_per_wood(t, troll, env) + chop_banana_penalty(env, state, t);
@@ -755,7 +789,7 @@ fn find_best_tree_to_chop_near_op_shack<'a>(
 	state
 		.tree_list
 		.iter()
-		.filter(|t| t.size > 0)
+		.filter(|t| t.size > 0 && !state.reserved.contains(&t.pos))
 		.min_by_key(|t| {
 			let d_op = env.dist_to_op_shack(t.pos) as u32;
 			let cost = chop_cost_per_wood(t, troll, env) + chop_banana_penalty(env, state, t);
@@ -979,7 +1013,7 @@ fn solve_troll_plant_for_goal(
 			return move_or_do(troll, spot, Action::Plant(troll.id, kind));
 		}
 
-		return drop_to_shack(troll, env);
+		return drop_to_shack(env, state, troll);
 	}
 
 	let pick_kind = if need_plum && state.my_inventory.plum > 0 {
@@ -1045,7 +1079,7 @@ fn solve_troll_accumulate(
 	cost: &PlayerInventory,
 ) -> Action {
 	if !troll.carry.is_empty() {
-		return drop_to_shack(troll, env);
+		return drop_to_shack(env, state, troll);
 	}
 
 	let on_needed_tree = state.tree_list.iter().any(|t| {
@@ -1093,7 +1127,7 @@ fn solve_troll_harvest_resource(
 	cost: &PlayerInventory,
 ) -> Action {
 	if !troll.carry.is_empty() {
-		return drop_to_shack(troll, env);
+		return drop_to_shack(env, state, troll);
 	}
 
 	if let Some(tree) = state.tree_list.iter().find(|t| t.pos == troll.pos)
@@ -1117,7 +1151,7 @@ fn solve_troll_mine_iron(
 	cost: &PlayerInventory,
 ) -> Action {
 	if !troll.carry.is_empty() {
-		return drop_to_shack(troll, env);
+		return drop_to_shack(env, state, troll);
 	}
 
 	if is_adjacent_to_iron(env, troll.pos) {
@@ -1133,7 +1167,7 @@ fn solve_troll_mine_iron(
 
 fn solve_troll_harvest_and_store(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
-		return drop_to_shack(troll, env);
+		return drop_to_shack(env, state, troll);
 	}
 
 	if state
@@ -1147,7 +1181,7 @@ fn solve_troll_harvest_and_store(env: &Env, state: &TurnState, troll: &Troll) ->
 	if let Some(tree) = state
 		.tree_list
 		.iter()
-		.filter(|t| t.fruit > 0)
+		.filter(|t| t.fruit > 0 && !state.reserved.contains(&t.pos))
 		.min_by_key(|t| harvest_trip_score(env, t, troll))
 	{
 		return Action::Move(troll.id, tree.pos);
@@ -1156,7 +1190,7 @@ fn solve_troll_harvest_and_store(env: &Env, state: &TurnState, troll: &Troll) ->
 	Action::Move(troll.id, env.op_shack)
 }
 
-fn solve_goal_gather_point(env: &Env, state: &TurnState) -> Vec<Action> {
+fn solve_goal_gather_point(env: &Env, state: &mut TurnState) -> Vec<Action> {
 	let mut action_list = Vec::new();
 
 	let banana_near = state
@@ -1166,17 +1200,24 @@ fn solve_goal_gather_point(env: &Env, state: &TurnState) -> Vec<Action> {
 		.count();
 	let enough_banana = banana_near >= 6;
 
-	for troll in &state.my_troll_list {
-		let action = match troll.role() {
+	for i in 0..state.my_troll_list.len() {
+		let role = state.my_troll_list[i].role();
+		let chop = state.my_troll_list[i].chop_power;
+		let troll_pos = state.my_troll_list[i].pos;
+		state.reserved.retain(|&p| p != troll_pos);
+		let action = match role {
 			TrollRole::Initial | TrollRole::Harvester if !enough_banana => {
-				solve_troll_banana_planter(env, state, troll)
+				solve_troll_banana_planter(env, state, &state.my_troll_list[i])
 			}
-			_ if troll.chop_power > 0 && troll.role() == TrollRole::Woodcutter => {
-				solve_troll_chopper_near_op_shack(env, state, troll)
+			_ if chop > 0 && role == TrollRole::Woodcutter => {
+				solve_troll_chopper_near_op_shack(env, state, &state.my_troll_list[i])
 			}
-			_ if troll.chop_power > 0 => solve_troll_chopper(env, state, troll),
-			_ => solve_troll_harvest_and_store(env, state, troll),
+			_ if chop > 0 => solve_troll_chopper(env, state, &state.my_troll_list[i]),
+			_ => solve_troll_harvest_and_store(env, state, &state.my_troll_list[i]),
 		};
+		state
+			.reserved
+			.push(action.target_pos(&state.my_troll_list[i]));
 		action_list.push(action);
 	}
 
@@ -1185,7 +1226,7 @@ fn solve_goal_gather_point(env: &Env, state: &TurnState) -> Vec<Action> {
 
 fn solve_troll_chopper_near_op_shack(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
-		return drop_to_shack(troll, env);
+		return drop_to_shack(env, state, troll);
 	}
 
 	if troll.chop_power > 0
@@ -1207,7 +1248,7 @@ fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Ac
 		{
 			return move_or_do(troll, spot, Action::Plant(troll.id, ResourceKind::Banana));
 		}
-		return drop_to_shack(troll, env);
+		return drop_to_shack(env, state, troll);
 	}
 
 	if state
@@ -1218,7 +1259,14 @@ fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Ac
 		return Action::Harvest(troll.id);
 	}
 
-	if let Some(tree) = find_closest_tree_of_kind(env, state, troll, ResourceKind::Banana) {
+	if let Some(tree) = state
+		.tree_list
+		.iter()
+		.filter(|t| {
+			t.kind == ResourceKind::Banana && t.fruit > 0 && !state.reserved.contains(&t.pos)
+		})
+		.min_by_key(|t| env.dist(troll.pos, t.pos))
+	{
 		return Action::Move(troll.id, tree.pos);
 	}
 
@@ -1229,7 +1277,12 @@ fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Ac
 		return Action::Move(troll.id, env.my_shack);
 	}
 
-	if let Some(tree) = find_closest_tree_with_fruit(env, state, troll) {
+	if let Some(tree) = state
+		.tree_list
+		.iter()
+		.filter(|t| t.fruit > 0 && !state.reserved.contains(&t.pos))
+		.min_by_key(|t| env.dist(troll.pos, t.pos))
+	{
 		return Action::Move(troll.id, tree.pos);
 	}
 
@@ -1238,7 +1291,7 @@ fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Ac
 
 fn solve_troll_chopper(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
-		return drop_to_shack(troll, env);
+		return drop_to_shack(env, state, troll);
 	}
 
 	if troll.chop_power > 0
@@ -1253,18 +1306,21 @@ fn solve_troll_chopper(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	Action::Move(troll.id, env.op_shack)
 }
 
-fn solve_goal_endgame(env: &Env, state: &TurnState) -> Vec<Action> {
+fn solve_goal_endgame(env: &Env, state: &mut TurnState) -> Vec<Action> {
 	let mut action_list = Vec::new();
 
-	for troll in &state.my_troll_list {
-		match troll.role() {
-			TrollRole::Harvester => {
-				action_list.push(solve_troll_banana_planter(env, state, troll));
-			}
-			_ => {
-				action_list.push(solve_troll_chopper_near_shack(env, state, troll));
-			}
-		}
+	for i in 0..state.my_troll_list.len() {
+		let role = state.my_troll_list[i].role();
+		let troll_pos = state.my_troll_list[i].pos;
+		state.reserved.retain(|&p| p != troll_pos);
+		let action = match role {
+			TrollRole::Harvester => solve_troll_banana_planter(env, state, &state.my_troll_list[i]),
+			_ => solve_troll_chopper_near_shack(env, state, &state.my_troll_list[i]),
+		};
+		state
+			.reserved
+			.push(action.target_pos(&state.my_troll_list[i]));
+		action_list.push(action);
 	}
 
 	action_list
@@ -1272,7 +1328,7 @@ fn solve_goal_endgame(env: &Env, state: &TurnState) -> Vec<Action> {
 
 fn solve_troll_chopper_near_shack(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
-		return drop_to_shack(troll, env);
+		return drop_to_shack(env, state, troll);
 	}
 
 	if troll.chop_power > 0
@@ -1289,7 +1345,7 @@ fn solve_troll_chopper_near_shack(env: &Env, state: &TurnState, troll: &Troll) -
 
 fn solve_troll_gather(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
-		return drop_to_shack(troll, env);
+		return drop_to_shack(env, state, troll);
 	}
 
 	if let Some(tree) = find_closest_tree_with_fruit(env, state, troll) {
@@ -1305,7 +1361,7 @@ fn solve_troll_gather(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	Action::Move(troll.id, env.op_shack)
 }
 
-fn solve(env: &Env, state: &TurnState) -> Vec<Action> {
+fn solve(env: &Env, state: &mut TurnState) -> Vec<Action> {
 	let goal = determine_goal(state);
 	dbg!(&goal);
 
@@ -1325,9 +1381,9 @@ fn main() {
 
 	loop {
 		turn += 1;
-		let state = TurnState::read(&env, turn);
+		let mut state = TurnState::read(&env, turn);
 
-		let action_list = solve(&env, &state);
+		let action_list = solve(&env, &mut state);
 		println!(
 			"{}",
 			action_list
