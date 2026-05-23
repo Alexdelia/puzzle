@@ -1200,7 +1200,7 @@ fn solve_goal_gather_point(env: &Env, state: &mut TurnState) -> Vec<Action> {
 		.iter()
 		.filter(|t| t.kind == ResourceKind::Banana && env.dist_to_my_shack(t.pos) <= 5)
 		.count();
-	let enough_banana = banana_near >= 6;
+	let enough_banana_to_stop_planting = banana_near >= 8;
 
 	for i in 0..state.my_troll_list.len() {
 		let role = state.my_troll_list[i].role();
@@ -1209,7 +1209,7 @@ fn solve_goal_gather_point(env: &Env, state: &mut TurnState) -> Vec<Action> {
 		state.reserved.retain(|&p| p != troll_pos);
 		let action = match role {
 			TrollRole::Harvester => solve_troll_banana_planter(env, state, &state.my_troll_list[i]),
-			TrollRole::Initial if !enough_banana => {
+			TrollRole::Initial if !enough_banana_to_stop_planting => {
 				solve_troll_banana_planter(env, state, &state.my_troll_list[i])
 			}
 			_ if chop > 0 && role == TrollRole::Woodcutter => {
