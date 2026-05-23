@@ -907,43 +907,31 @@ fn solve_goal_train(env: &Env, state: &TurnState, role: TrollRole) -> Vec<Action
 	let need_plant_lemon = lemon_near < target.plant_lemon;
 	let need_planting = need_plant_plum || need_plant_lemon;
 
-	let has_harvester = state
-		.my_troll_list
-		.iter()
-		.any(|t| t.role() == TrollRole::Harvester);
-	let has_miner = state
-		.my_troll_list
-		.iter()
-		.any(|t| matches!(t.role(), TrollRole::Carrier | TrollRole::Woodcutter));
+	let miner_id = if need_iron {
+		state
+			.my_troll_list
+			.iter()
+			.filter(|t| t.chop_power > 0)
+			.max_by_key(|t| (t.chop_power, t.move_speed))
+			.map(|t| t.id)
+	} else {
+		None
+	};
 
 	let mut planter_assigned = false;
-	let mut iron_assigned = false;
 	let mut apple_assigned = false;
 
 	for troll in &state.my_troll_list {
-		let action = if need_planting && !planter_assigned {
+		let action = if miner_id == Some(troll.id) {
+			solve_troll_mine_iron(env, state, troll, &cost)
+		} else if need_planting && !planter_assigned {
 			planter_assigned = true;
 			solve_troll_plant_for_goal(env, state, troll, need_plant_plum, need_plant_lemon, &cost)
+		} else if need_apple && !apple_assigned {
+			apple_assigned = true;
+			solve_troll_harvest_resource(env, state, troll, ResourceKind::Apple, &cost)
 		} else {
-			match troll.role() {
-				TrollRole::Harvester if need_apple && !apple_assigned => {
-					apple_assigned = true;
-					solve_troll_harvest_resource(env, state, troll, ResourceKind::Apple, &cost)
-				}
-				TrollRole::Carrier | TrollRole::Woodcutter if need_iron && !iron_assigned => {
-					iron_assigned = true;
-					solve_troll_mine_iron(env, state, troll, &cost)
-				}
-				_ if need_iron && !iron_assigned && !has_miner && troll.chop_power > 0 => {
-					iron_assigned = true;
-					solve_troll_mine_iron(env, state, troll, &cost)
-				}
-				_ if need_apple && !apple_assigned && !has_harvester => {
-					apple_assigned = true;
-					solve_troll_harvest_resource(env, state, troll, ResourceKind::Apple, &cost)
-				}
-				_ => solve_troll_accumulate(env, state, troll, &cost),
-			}
+			solve_troll_accumulate(env, state, troll, &cost)
 		};
 		action_list.push(action);
 	}
@@ -1019,6 +1007,20 @@ fn is_needed_resource(
 	}
 }
 
+fn harvest_trip_score(env: &Env, tree: &Tree, troll: &Troll) -> u32 {
+	let fruit = (tree.fruit as u16)
+		.min(troll.harvest_power)
+		.min(troll.carry.free_capacity(troll.carry_capacity));
+	if fruit == 0 {
+		return u32::MAX;
+	}
+	let speed = troll.move_speed.max(1) as u16;
+	let dist_to = env.dist(troll.pos, tree.pos) as u16;
+	let dist_back = env.dist_to_my_shack(tree.pos) as u16;
+	let trip_turns = (dist_to + dist_back + speed - 1) / speed + 2;
+	trip_turns as u32 * 10 / fruit as u32
+}
+
 fn solve_troll_accumulate(
 	env: &Env,
 	state: &TurnState,
@@ -1029,9 +1031,11 @@ fn solve_troll_accumulate(
 		return drop_to_shack(troll, env);
 	}
 
-	if state.tree_list.iter().any(|t| {
-		t.pos == troll.pos && t.fruit > 0 && is_needed_resource(t.kind, &state.my_inventory, cost)
-	}) {
+	if state
+		.tree_list
+		.iter()
+		.any(|t| t.pos == troll.pos && t.fruit > 0)
+	{
 		return Action::Harvest(troll.id);
 	}
 
@@ -1039,7 +1043,16 @@ fn solve_troll_accumulate(
 		.tree_list
 		.iter()
 		.filter(|t| t.fruit > 0 && is_needed_resource(t.kind, &state.my_inventory, cost))
-		.min_by_key(|t| env.dist(troll.pos, t.pos))
+		.min_by_key(|t| harvest_trip_score(env, t, troll))
+	{
+		return Action::Move(troll.id, tree.pos);
+	}
+
+	if let Some(tree) = state
+		.tree_list
+		.iter()
+		.filter(|t| t.fruit > 0)
+		.min_by_key(|t| harvest_trip_score(env, t, troll))
 	{
 		return Action::Move(troll.id, tree.pos);
 	}
