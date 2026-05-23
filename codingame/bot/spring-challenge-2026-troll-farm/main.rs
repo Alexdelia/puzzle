@@ -1131,21 +1131,53 @@ fn solve_troll_mine_iron(
 	solve_troll_accumulate(env, state, troll, cost)
 }
 
+fn solve_troll_harvest_and_store(env: &Env, state: &TurnState, troll: &Troll) -> Action {
+	if !troll.carry.is_empty() {
+		return drop_to_shack(troll, env);
+	}
+
+	if state
+		.tree_list
+		.iter()
+		.any(|t| t.pos == troll.pos && t.fruit > 0)
+	{
+		return Action::Harvest(troll.id);
+	}
+
+	if let Some(tree) = state
+		.tree_list
+		.iter()
+		.filter(|t| t.fruit > 0)
+		.min_by_key(|t| harvest_trip_score(env, t, troll))
+	{
+		return Action::Move(troll.id, tree.pos);
+	}
+
+	Action::Move(troll.id, env.op_shack)
+}
+
 fn solve_goal_gather_point(env: &Env, state: &TurnState) -> Vec<Action> {
 	let mut action_list = Vec::new();
 
+	let banana_near = state
+		.tree_list
+		.iter()
+		.filter(|t| t.kind == ResourceKind::Banana && env.dist_to_my_shack(t.pos) <= 5)
+		.count();
+	let enough_banana = banana_near >= 6;
+
 	for troll in &state.my_troll_list {
-		match troll.role() {
-			TrollRole::Initial | TrollRole::Harvester => {
-				action_list.push(solve_troll_banana_planter(env, state, troll));
+		let action = match troll.role() {
+			TrollRole::Initial | TrollRole::Harvester if !enough_banana => {
+				solve_troll_banana_planter(env, state, troll)
 			}
-			TrollRole::Woodcutter => {
-				action_list.push(solve_troll_chopper_near_op_shack(env, state, troll));
+			_ if troll.chop_power > 0 && troll.role() == TrollRole::Woodcutter => {
+				solve_troll_chopper_near_op_shack(env, state, troll)
 			}
-			_ => {
-				action_list.push(solve_troll_chopper(env, state, troll));
-			}
-		}
+			_ if troll.chop_power > 0 => solve_troll_chopper(env, state, troll),
+			_ => solve_troll_harvest_and_store(env, state, troll),
+		};
+		action_list.push(action);
 	}
 
 	action_list
