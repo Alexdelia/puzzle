@@ -13,6 +13,7 @@ const MAX_W: Axis = MAX_H * 2;
 
 type Turn = u16;
 const MAX_TURN: Turn = 300;
+const MAX_TURN_TO_TRAIN: Turn = 200;
 #[allow(dead_code)]
 const FIRST_TURN_MS_LIMIT: u64 = 1000;
 #[allow(dead_code)]
@@ -840,6 +841,9 @@ fn determine_goal(state: &TurnState) -> Goal {
 	if state.turn >= MAX_TURN - 20 {
 		return Goal::Endgame;
 	}
+	if state.turn >= MAX_TURN_TO_TRAIN {
+		return Goal::GatherPoint;
+	}
 
 	let has_harvester = state
 		.my_troll_list
@@ -1202,8 +1206,39 @@ fn solve_troll_harvest_and_store(env: &Env, state: &TurnState, troll: &Troll) ->
 	Action::Move(troll.id, env.op_shack)
 }
 
+fn best_affordable_stat(available: Resource, troll_count: usize) -> Resource {
+	let base = troll_count as Resource;
+	let mut s: Resource = 0;
+	while base + (s + 1) * (s + 1) <= available {
+		s += 1;
+	}
+	s
+}
+
+fn try_best_effort_train(state: &TurnState) -> Option<Action> {
+	if state.my_troll_list.len() >= 4 {
+		return None;
+	}
+	let n = state.my_troll_list.len();
+	let inv = &state.my_inventory;
+	let ms = best_affordable_stat(inv.plum, n) as MoveSpeed;
+	if ms < 1 {
+		return None;
+	}
+	let cc = best_affordable_stat(inv.lemon, n);
+	let hp = best_affordable_stat(inv.apple, n);
+	let cp = best_affordable_stat(inv.iron, n);
+	Some(Action::Train(ms, cc, hp, cp))
+}
+
 fn solve_goal_gather_point(env: &Env, state: &mut TurnState) -> Vec<Action> {
 	let mut action_list = Vec::new();
+
+	if state.turn == MAX_TURN_TO_TRAIN
+		&& let Some(train) = try_best_effort_train(state)
+	{
+		action_list.push(train);
+	}
 
 	let banana_near = state
 		.tree_list
