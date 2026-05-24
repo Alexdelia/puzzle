@@ -1821,7 +1821,9 @@ fn main() {
 			eprintln!("trained! duration={train_duration} trolls={last_troll_count}");
 		}
 
+		let t0 = std::time::Instant::now();
 		let action_list = solve(&env, &mut state, train_duration);
+		eprintln!("solve: {:?}", t0.elapsed());
 		println!(
 			"{}",
 			action_list
