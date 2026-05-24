@@ -775,6 +775,10 @@ fn chop_banana_penalty(env: &Env, state: &TurnState, tree: &Tree) -> u32 {
 	if mature_banana_near >= 4 { 0 } else { 1000 }
 }
 
+fn chop_score(env: &Env, state: &TurnState, tree: &Tree, troll: &Troll) -> u32 {
+	chop_cost_per_wood(tree, troll, env) + chop_banana_penalty(env, state, tree)
+}
+
 fn find_best_tree_to_chop<'a>(
 	env: &'a Env,
 	state: &'a TurnState,
@@ -787,7 +791,7 @@ fn find_best_tree_to_chop<'a>(
 		.tree_list
 		.iter()
 		.filter(|t| t.size > 0 && !state.reserved.contains(&t.pos))
-		.min_by_key(|t| chop_cost_per_wood(t, troll, env) + chop_banana_penalty(env, state, t))
+		.min_by_key(|t| chop_score(env, state, t, troll))
 }
 
 fn find_best_tree_to_chop_near_shack<'a>(
@@ -804,8 +808,7 @@ fn find_best_tree_to_chop_near_shack<'a>(
 		.filter(|t| t.size > 0 && !state.reserved.contains(&t.pos))
 		.min_by_key(|t| {
 			let d_shack = env.dist_to_my_shack(t.pos) as u32;
-			let cost = chop_cost_per_wood(t, troll, env) + chop_banana_penalty(env, state, t);
-			(d_shack, cost)
+			(d_shack, chop_score(env, state, t, troll))
 		})
 }
 
@@ -822,7 +825,7 @@ fn find_best_tree_to_chop_near_op_shack<'a>(
 		.iter()
 		.filter(|t| t.size > 0 && !state.reserved.contains(&t.pos))
 		.min_by_key(|t| {
-			let cost = chop_cost_per_wood(t, troll, env) + chop_banana_penalty(env, state, t);
+			let cost = chop_score(env, state, t, troll);
 			let d_op = env.dist_to_op_shack(t.pos) as u32;
 			let d_my = env.dist_to_my_shack(t.pos) as u32;
 			let grief_bonus = if state.my_troll_list.len() > state.op_troll_list.len() {
@@ -1323,11 +1326,15 @@ fn solve_troll_accumulate(
 		return Action::Harvest(troll.id);
 	}
 
-	eprintln!("accumulate troll {} - any trees:", troll.id);
+	let training = cost.total() > 0;
+	eprintln!(
+		"accumulate troll {} - any trees (training={}):",
+		troll.id, training
+	);
 	if let Some(tree) = state
 		.tree_list
 		.iter()
-		.filter(|t| t.fruit > 0)
+		.filter(|t| t.fruit > 0 && (!training || t.kind != ResourceKind::Banana))
 		.min_by_key(|t| harvest_trip_score(env, t, troll))
 	{
 		eprintln!(
