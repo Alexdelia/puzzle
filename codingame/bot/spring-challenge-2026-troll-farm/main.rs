@@ -801,7 +801,11 @@ fn find_best_tree_to_chop_near_op_shack<'a>(
 			let cost = chop_cost_per_wood(t, troll, env) + chop_banana_penalty(env, state, t);
 			let d_op = env.dist_to_op_shack(t.pos) as u32;
 			let d_my = env.dist_to_my_shack(t.pos) as u32;
-			let grief_bonus = d_my.saturating_sub(d_op);
+			let grief_bonus = if state.my_troll_list.len() > state.op_troll_list.len() {
+				0
+			} else {
+				d_my.saturating_sub(d_op)
+			};
 			cost.saturating_sub(grief_bonus * 3)
 		})
 }
@@ -961,8 +965,8 @@ fn solve_goal_train(env: &Env, state: &TurnState, role: TrollRole) -> Vec<Action
 
 	let plum_remaining = cost.plum.saturating_sub(state.my_inventory.plum);
 	let lemon_remaining = cost.lemon.saturating_sub(state.my_inventory.lemon);
-	let target_plum = (plum_remaining / 5).max(2) as u8;
-	let target_lemon = (lemon_remaining / 5).max(2) as u8;
+	let target_plum = if plum_remaining > 0 { (plum_remaining / 5).max(2) } else { 0 } as u8;
+	let target_lemon = if lemon_remaining > 0 { (lemon_remaining / 5).max(2) } else { 0 } as u8;
 
 	let plum_near = count_tree_near_shack(env, state, ResourceKind::Plum, 3);
 	let lemon_near = count_tree_near_shack(env, state, ResourceKind::Lemon, 3);
@@ -1033,9 +1037,20 @@ fn solve_troll_plant_for_goal(
 		return drop_to_shack(env, state, troll);
 	}
 
-	let pick_kind = if need_plum && state.my_inventory.plum > 0 {
+	let can_pick_to_plant = |kind: ResourceKind| {
+		state.my_troll_list.len() < 2
+			|| !state
+				.tree_list
+				.iter()
+				.any(|t| t.kind == kind && t.fruit > 0)
+	};
+	let pick_kind = if need_plum && state.my_inventory.plum > 0 && can_pick_to_plant(ResourceKind::Plum)
+	{
 		Some(ResourceKind::Plum)
-	} else if need_lemon && state.my_inventory.lemon > 0 {
+	} else if need_lemon
+		&& state.my_inventory.lemon > 0
+		&& can_pick_to_plant(ResourceKind::Lemon)
+	{
 		Some(ResourceKind::Lemon)
 	} else {
 		None
@@ -1275,15 +1290,8 @@ fn solve_goal_gather_point(env: &Env, state: &mut TurnState) -> Vec<Action> {
 
 fn solve_troll_chopper_near_op_shack(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
-		let free = troll.carry.free_capacity(troll.carry_capacity);
-		if free > 0
-			&& let Some(tree) = state
-				.tree_list
-				.iter()
-				.find(|t| t.pos == troll.pos && t.size > 0 && (t.size as u16) <= free)
-		{
-			let _ = tree;
-			return Action::Chop(troll.id);
+		if let Some(action) = try_continue_chopping(env, state, troll) {
+			return action;
 		}
 		return drop_to_shack(env, state, troll);
 	}
@@ -1348,8 +1356,29 @@ fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Ac
 	solve_troll_chopper(env, state, troll)
 }
 
+fn try_continue_chopping(env: &Env, state: &TurnState, troll: &Troll) -> Option<Action> {
+	let free = troll.carry.free_capacity(troll.carry_capacity);
+	if free == 0 || troll.chop_power == 0 {
+		return None;
+	}
+	let best = find_best_tree_to_chop(env, state, troll)?;
+	let dist_tree = env.dist(troll.pos, best.pos);
+	let dist_shack = env.dist_to_my_shack(troll.pos);
+	if dist_tree >= dist_shack {
+		return None;
+	}
+	if best.pos == troll.pos {
+		Some(Action::Chop(troll.id))
+	} else {
+		Some(Action::Move(troll.id, best.pos))
+	}
+}
+
 fn solve_troll_chopper(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
+		if let Some(action) = try_continue_chopping(env, state, troll) {
+			return action;
+		}
 		return drop_to_shack(env, state, troll);
 	}
 
@@ -1391,6 +1420,9 @@ fn solve_goal_endgame(env: &Env, state: &mut TurnState) -> Vec<Action> {
 
 fn solve_troll_chopper_near_shack(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
+		if let Some(action) = try_continue_chopping(env, state, troll) {
+			return action;
+		}
 		return drop_to_shack(env, state, troll);
 	}
 
