@@ -777,19 +777,6 @@ fn find_closest_tree_with_fruit<'a>(
 		.min_by_key(|t| env.dist(troll.pos, t.pos))
 }
 
-fn find_closest_tree_of_kind<'a>(
-	env: &Env,
-	state: &'a TurnState,
-	troll: &Troll,
-	kind: ResourceKind,
-) -> Option<&'a Tree> {
-	state
-		.tree_list
-		.iter()
-		.filter(|t| t.kind == kind && t.fruit > 0)
-		.min_by_key(|t| env.dist(troll.pos, t.pos))
-}
-
 fn chop_cost_per_wood(tree: &Tree, troll: &Troll, env: &Env) -> u32 {
 	let wood = (tree.size as u16).min(troll.carry.free_capacity(troll.carry_capacity));
 	if wood == 0 || troll.chop_power == 0 {
@@ -1152,25 +1139,7 @@ fn solve_goal_train(env: &Env, state: &mut TurnState, role: TrollRole) -> Vec<Ac
 					&cost,
 				),
 			)
-		}
-		/* else if need_apple
-			&& !apple_assigned
-			&& !threatened_fruit
-			&& state.my_troll_list[i].role() == TrollRole::Harvester
-		{
-			apple_assigned = true;
-			(
-				"harvest_apple",
-				solve_troll_harvest_resource(
-					env,
-					state,
-					&state.my_troll_list[i],
-					ResourceKind::Apple,
-					&cost,
-				),
-			)
-		}*/
-		else {
+		} else {
 			(
 				"accumulate",
 				solve_troll_accumulate(env, state, &state.my_troll_list[i], &cost),
@@ -1446,34 +1415,6 @@ fn solve_troll_accumulate(
 	}
 
 	Action::Move(troll.id, env.op_shack)
-}
-
-fn solve_troll_harvest_resource(
-	env: &Env,
-	state: &TurnState,
-	troll: &Troll,
-	kind: ResourceKind,
-	cost: &PlayerInventory,
-) -> Action {
-	if !troll.carry.is_empty() {
-		if let Some(action) = try_continue_harvesting(env, state, troll) {
-			return action;
-		}
-		return drop_to_shack(env, state, troll);
-	}
-
-	if let Some(tree) = state.tree_list.iter().find(|t| t.pos == troll.pos)
-		&& tree.kind == kind
-		&& tree.fruit > 0
-	{
-		return Action::Harvest(troll.id);
-	}
-
-	if let Some(tree) = find_closest_tree_of_kind(env, state, troll, kind) {
-		return Action::Move(troll.id, tree.pos);
-	}
-
-	solve_troll_accumulate(env, state, troll, cost)
 }
 
 fn solve_troll_mine_iron(
