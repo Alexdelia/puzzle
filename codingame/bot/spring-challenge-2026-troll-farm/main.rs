@@ -132,6 +132,19 @@ impl Tree {
 	fn is_max_size(&self) -> bool {
 		self.size >= Self::MAX_SIZE
 	}
+
+	fn max_health(&self) -> TreeHealth {
+		match self.kind {
+			ResourceKind::Plum | ResourceKind::Lemon => self.size as TreeHealth * 2 + 4,
+			ResourceKind::Apple => self.size as TreeHealth * 3 + 8,
+			ResourceKind::Banana => self.size as TreeHealth + 2,
+			_ => 0,
+		}
+	}
+
+	fn is_damaged(&self) -> bool {
+		self.health < self.max_health()
+	}
 }
 
 struct Troll {
@@ -806,6 +819,14 @@ fn chop_banana_penalty(env: &Env, state: &TurnState, tree: &Tree) -> u32 {
 
 fn chop_score(env: &Env, state: &TurnState, tree: &Tree, troll: &Troll) -> u32 {
 	chop_cost_per_wood(tree, troll, env) + chop_banana_penalty(env, state, tree)
+}
+
+fn is_op_chopping(state: &TurnState, tree: &Tree) -> bool {
+	tree.is_damaged()
+		&& state
+			.op_troll_list
+			.iter()
+			.any(|t| t.pos == tree.pos && t.chop_power > 0)
 }
 
 fn find_best_tree_to_chop<'a>(
