@@ -46,6 +46,35 @@ enum ResourceKind {
 	Wood = 5,
 }
 
+impl ResourceKind {
+	const fn cooldown(self, water: bool) -> u16 {
+		match self {
+			Self::Plum | Self::Lemon => {
+				if water {
+					3
+				} else {
+					8
+				}
+			}
+			Self::Apple => {
+				if water {
+					2
+				} else {
+					9
+				}
+			}
+			Self::Banana => {
+				if water {
+					4
+				} else {
+					6
+				}
+			}
+			_ => 8,
+		}
+	}
+}
+
 impl FromStr for ResourceKind {
 	type Err = ();
 
@@ -1065,7 +1094,7 @@ fn solve_goal_train(env: &Env, state: &mut TurnState, role: TrollRole) -> Vec<Ac
 	};
 
 	let mut planter_assigned = false;
-	let mut apple_assigned = false;
+	// let mut apple_assigned = false;
 
 	eprintln!(
 		"=== solve_goal_train: need_planting={} need_apple={} need_iron={} miner_id={:?} threatened={}",
@@ -1075,11 +1104,15 @@ fn solve_goal_train(env: &Env, state: &mut TurnState, role: TrollRole) -> Vec<Ac
 		"  plum_near={} target_plum={} lemon_near={} target_lemon={}",
 		plum_near, target_plum, lemon_near, target_lemon
 	);
+	/*
 	let has_harvester = state
 		.my_troll_list
 		.iter()
 		.any(|t| t.role() == TrollRole::Harvester);
+	*/
 	for i in 0..state.my_troll_list.len() {
+		let troll_pos = state.my_troll_list[i].pos;
+		state.reserved.retain(|&p| p != troll_pos);
 		let (path, action) = if miner_id == Some(state.my_troll_list[i].id) {
 			(
 				"mine_iron",
@@ -1098,10 +1131,11 @@ fn solve_goal_train(env: &Env, state: &mut TurnState, role: TrollRole) -> Vec<Ac
 					&cost,
 				),
 			)
-		} else if need_apple
+		}
+		/* else if need_apple
 			&& !apple_assigned
 			&& !threatened_fruit
-			&& (state.my_troll_list[i].role() == TrollRole::Harvester || !has_harvester)
+			&& state.my_troll_list[i].role() == TrollRole::Harvester
 		{
 			apple_assigned = true;
 			(
@@ -1114,7 +1148,8 @@ fn solve_goal_train(env: &Env, state: &mut TurnState, role: TrollRole) -> Vec<Ac
 					&cost,
 				),
 			)
-		} else {
+		}*/
+		else {
 			(
 				"accumulate",
 				solve_troll_accumulate(env, state, &state.my_troll_list[i], &cost),
@@ -1149,6 +1184,9 @@ fn solve_goal_train(env: &Env, state: &mut TurnState, role: TrollRole) -> Vec<Ac
 			_ => {}
 		}
 
+		state
+			.reserved
+			.push(action.target_pos(&state.my_troll_list[i]));
 		action_list.push(action);
 	}
 
@@ -1248,6 +1286,29 @@ fn solve_troll_plant_for_goal(
 	solve_troll_accumulate(env, state, troll, cost)
 }
 
+fn harvest_or_wait_score(env: &Env, tree: &Tree, troll: &Troll) -> u32 {
+	if tree.fruit > 0 {
+		return harvest_trip_score(env, tree, troll);
+	}
+	let fruit = 1u16
+		.min(troll.harvest_power)
+		.min(troll.carry.free_capacity(troll.carry_capacity));
+	if fruit == 0 {
+		return u32::MAX;
+	}
+	let water = env.grid.is_water_next_to(tree.pos);
+	let cd = tree.kind.cooldown(water);
+	let remaining_growth = (Tree::MAX_SIZE as u16).saturating_sub(tree.size as u16);
+	let turns_to_fruit = tree.cooldown as u16 + remaining_growth * cd;
+	let speed = troll.move_speed.max(1) as u16;
+	let dist_to = env.dist(troll.pos, tree.pos) as u16;
+	let travel_to = dist_to.div_ceil(speed);
+	let wait = turns_to_fruit.saturating_sub(travel_to);
+	let dist_back = env.dist_to_my_shack(tree.pos) as u16;
+	let trip = travel_to + wait + dist_back.div_ceil(speed) + 2;
+	trip as u32 * 10 / fruit as u32
+}
+
 fn is_needed_resource(
 	kind: ResourceKind,
 	inventory: &PlayerInventory,
@@ -1308,14 +1369,21 @@ fn solve_troll_accumulate(
 	if let Some(tree) = state
 		.tree_list
 		.iter()
-		.filter(|t| t.fruit > 0 && is_needed_resource(t.kind, &state.my_inventory, cost))
-		.min_by_key(|t| harvest_trip_score(env, t, troll))
+		.filter(|t| {
+			(t.fruit > 0 || t.size > 0)
+				&& is_needed_resource(t.kind, &state.my_inventory, cost)
+				&& !state.reserved.contains(&t.pos)
+		})
+		.min_by_key(|t| harvest_or_wait_score(env, t, troll))
 	{
-		eprintln!(
-			"  -> best needed: {} at ({},{})",
-			tree.kind, tree.pos.0, tree.pos.1
-		);
-		return Action::Move(troll.id, tree.pos);
+		let score = harvest_or_wait_score(env, tree, troll);
+		if score < u32::MAX {
+			eprintln!(
+				"  -> best needed: {} at ({},{}) fruit={} cd={} sz={} score={}",
+				tree.kind, tree.pos.0, tree.pos.1, tree.fruit, tree.cooldown, tree.size, score
+			);
+			return Action::Move(troll.id, tree.pos);
+		}
 	}
 
 	if state
