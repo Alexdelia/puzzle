@@ -8,16 +8,14 @@ macro_rules! parse_input {
 
 type Axis = u8;
 const MAX_H: Axis = 11;
-#[allow(dead_code)]
+#[cfg(test)]
 const MAX_W: Axis = MAX_H * 2;
 
 type Turn = u16;
 const MAX_TURN: Turn = 300;
 const ENDGAME_TURN: Turn = MAX_TURN - 20;
-#[allow(dead_code)]
-const FIRST_TURN_MS_LIMIT: u64 = 1000;
-#[allow(dead_code)]
-const TURN_MS_LIMIT: u64 = 50;
+// const FIRST_TURN_MS_LIMIT: u64 = 1000;
+// const TURN_MS_LIMIT: u64 = 50;
 
 type Coord = (Axis, Axis);
 type TrollId = u8;
@@ -117,12 +115,10 @@ struct PlayerInventory {
 struct Tree {
 	kind: ResourceKind,
 	pos: Coord,
-	#[allow(dead_code)]
 	is_next_to_water: bool,
 	size: TreeSize,
 	health: TreeHealth,
 	fruit: TreeFruit,
-	#[allow(dead_code)]
 	cooldown: TreeCooldown,
 }
 
@@ -182,7 +178,6 @@ struct TurnState {
 	#[allow(dead_code)]
 	op_inventory: PlayerInventory,
 	my_troll_list: Vec<Troll>,
-	#[allow(dead_code)]
 	op_troll_list: Vec<Troll>,
 	tree_list: Vec<Tree>,
 	reserved: Vec<Coord>,
@@ -524,21 +519,6 @@ impl PlayerInventory {
 
 	fn total(&self) -> Resource {
 		self.plum + self.lemon + self.apple + self.banana + self.iron + self.wood
-	}
-
-	#[allow(dead_code)]
-	fn able_to_plant(&self) -> Option<ResourceKind> {
-		if self.banana > 0 {
-			Some(ResourceKind::Banana)
-		} else if self.plum > 0 {
-			Some(ResourceKind::Plum)
-		} else if self.lemon > 0 {
-			Some(ResourceKind::Lemon)
-		} else if self.apple > 0 {
-			Some(ResourceKind::Apple)
-		} else {
-			None
-		}
 	}
 
 	fn free_capacity(&self, carry_capacity: CarryCapacity) -> Resource {
