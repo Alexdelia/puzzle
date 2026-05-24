@@ -969,7 +969,7 @@ fn solve_goal_train(env: &Env, state: &TurnState, role: TrollRole) -> Vec<Action
 	let op_near_shack = state
 		.op_troll_list
 		.iter()
-		.any(|t| env.dist_to_my_shack(t.pos) <= 5);
+		.any(|t| env.dist_to_my_shack(t.pos) <= 2);
 
 	let need_plant_plum = plum_near < target_plum;
 	let need_plant_lemon = lemon_near < target_lemon;
