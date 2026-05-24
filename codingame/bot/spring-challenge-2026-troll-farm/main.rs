@@ -1800,14 +1800,14 @@ fn main() {
 
 		let t0 = std::time::Instant::now();
 		let action_list = solve(&env, &mut state, train_duration);
-		eprintln!("solve: {:?}", t0.elapsed());
 		println!(
-			"{}",
+			"{};MSG {:?}",
 			action_list
 				.into_iter()
 				.map(|a| a.to_string())
 				.collect::<Vec<_>>()
-				.join(";")
+				.join(";"),
+			t0.elapsed()
 		);
 	}
 }
