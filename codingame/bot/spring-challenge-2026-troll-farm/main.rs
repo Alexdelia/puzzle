@@ -394,7 +394,11 @@ impl Env {
 		let w = self.grid.w as usize;
 		let ai = a.1 as usize * w + a.0 as usize;
 		let bi = b.1 as usize * w + b.0 as usize;
-		self.bfs_dist[ai * self.bfs_n + bi]
+		let d = self.bfs_dist[ai * self.bfs_n + bi];
+		if d == u8::MAX && a == self.my_shack {
+			return self.dist_to_my_shack(b).saturating_add(1);
+		}
+		d
 	}
 
 	fn dist_to_my_shack(&self, pos: Coord) -> u8 {
@@ -946,15 +950,32 @@ impl TrollRole {
 	}
 }
 
-fn solve_goal_train(env: &Env, state: &TurnState, role: TrollRole) -> Vec<Action> {
+fn solve_goal_train(env: &Env, state: &mut TurnState, role: TrollRole) -> Vec<Action> {
 	let mut action_list = Vec::new();
 	let target = role.target();
 	let troll_count = state.my_troll_list.len();
 
 	if target.can_afford(&state.my_inventory, troll_count) {
 		action_list.push(target.train_action());
-		for troll in &state.my_troll_list {
-			action_list.push(solve_troll_gather(env, state, troll));
+
+		let cost = target.cost(troll_count);
+		state.my_inventory.plum = state.my_inventory.plum.saturating_sub(cost.plum);
+		state.my_inventory.lemon = state.my_inventory.lemon.saturating_sub(cost.lemon);
+		state.my_inventory.apple = state.my_inventory.apple.saturating_sub(cost.apple);
+		state.my_inventory.iron = state.my_inventory.iron.saturating_sub(cost.iron);
+
+		let next_role = match role {
+			TrollRole::Harvester => Some(TrollRole::Carrier),
+			TrollRole::Carrier => Some(TrollRole::Woodcutter),
+			_ => None,
+		};
+
+		if let Some(next) = next_role {
+			action_list.extend(solve_goal_train(env, state, next));
+		} else {
+			for troll in &state.my_troll_list {
+				action_list.push(solve_troll_gather(env, state, troll));
+			}
 		}
 		return action_list;
 	}
@@ -1068,8 +1089,15 @@ fn solve_troll_plant_for_goal(
 	{
 		return move_or_do(troll, tree.pos, Action::Harvest(troll.id));
 	}
-	if need_lemon
-		&& let Some(tree) = find_closest_tree_of_kind(env, state, troll, ResourceKind::Lemon)
+	if let Some(tree) = state
+		.tree_list
+		.iter()
+		.filter(|t| {
+			t.fruit > 0
+				&& ((need_plum && t.kind == ResourceKind::Plum)
+					|| (need_lemon && t.kind == ResourceKind::Lemon))
+		})
+		.min_by_key(|t| env.dist(troll.pos, t.pos))
 	{
 		return move_or_do(troll, tree.pos, Action::Harvest(troll.id));
 	}
@@ -1111,6 +1139,9 @@ fn solve_troll_accumulate(
 	cost: &PlayerInventory,
 ) -> Action {
 	if !troll.carry.is_empty() {
+		if let Some(action) = try_continue_harvesting(env, state, troll) {
+			return action;
+		}
 		return drop_to_shack(env, state, troll);
 	}
 
@@ -1159,6 +1190,9 @@ fn solve_troll_harvest_resource(
 	cost: &PlayerInventory,
 ) -> Action {
 	if !troll.carry.is_empty() {
+		if let Some(action) = try_continue_harvesting(env, state, troll) {
+			return action;
+		}
 		return drop_to_shack(env, state, troll);
 	}
 
@@ -1183,6 +1217,9 @@ fn solve_troll_mine_iron(
 	cost: &PlayerInventory,
 ) -> Action {
 	if !troll.carry.is_empty() {
+		if let Some(action) = try_continue_mining(env, troll) {
+			return action;
+		}
 		return drop_to_shack(env, state, troll);
 	}
 
@@ -1199,6 +1236,9 @@ fn solve_troll_mine_iron(
 
 fn solve_troll_harvest_and_store(env: &Env, state: &TurnState, troll: &Troll) -> Action {
 	if !troll.carry.is_empty() {
+		if let Some(action) = try_continue_harvesting(env, state, troll) {
+			return action;
+		}
 		return drop_to_shack(env, state, troll);
 	}
 
@@ -1354,6 +1394,41 @@ fn solve_troll_banana_planter(env: &Env, state: &TurnState, troll: &Troll) -> Ac
 	}
 
 	solve_troll_chopper(env, state, troll)
+}
+
+fn try_continue_harvesting(env: &Env, state: &TurnState, troll: &Troll) -> Option<Action> {
+	let free = troll.carry.free_capacity(troll.carry_capacity);
+	if free == 0 || troll.harvest_power == 0 {
+		return None;
+	}
+	if state
+		.tree_list
+		.iter()
+		.any(|t| t.pos == troll.pos && t.fruit > 0)
+	{
+		return Some(Action::Harvest(troll.id));
+	}
+	let dist_shack = env.dist_to_my_shack(troll.pos);
+	state
+		.tree_list
+		.iter()
+		.filter(|t| t.fruit > 0 && env.dist(troll.pos, t.pos) < dist_shack)
+		.min_by_key(|t| env.dist(troll.pos, t.pos))
+		.map(|t| Action::Move(troll.id, t.pos))
+}
+
+fn try_continue_mining(env: &Env, troll: &Troll) -> Option<Action> {
+	let free = troll.carry.free_capacity(troll.carry_capacity);
+	if free == 0 || troll.chop_power == 0 {
+		return None;
+	}
+	if is_adjacent_to_iron(env, troll.pos) {
+		return Some(Action::Mine(troll.id));
+	}
+	let dist_shack = env.dist_to_my_shack(troll.pos);
+	find_closest_grass_near_iron(env, troll)
+		.filter(|&pos| env.dist(troll.pos, pos) < dist_shack)
+		.map(|pos| Action::Move(troll.id, pos))
 }
 
 fn try_continue_chopping(env: &Env, state: &TurnState, troll: &Troll) -> Option<Action> {
