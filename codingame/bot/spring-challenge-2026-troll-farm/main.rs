@@ -132,6 +132,19 @@ impl Tree {
 	fn is_max_size(&self) -> bool {
 		self.size >= Self::MAX_SIZE
 	}
+
+	fn max_health(&self) -> TreeHealth {
+		match self.kind {
+			ResourceKind::Plum | ResourceKind::Lemon => self.size as TreeHealth * 2 + 4,
+			ResourceKind::Apple => self.size as TreeHealth * 3 + 8,
+			ResourceKind::Banana => self.size as TreeHealth + 2,
+			_ => 0,
+		}
+	}
+
+	fn is_damaged(&self) -> bool {
+		self.health < self.max_health()
+	}
 }
 
 struct Troll {
@@ -804,8 +817,39 @@ fn chop_banana_penalty(env: &Env, state: &TurnState, tree: &Tree) -> u32 {
 	if mature_banana_near >= 4 { 0 } else { 1000 }
 }
 
+fn is_op_chopping(state: &TurnState, tree: &Tree) -> bool {
+	tree.is_damaged()
+		&& state
+			.op_troll_list
+			.iter()
+			.any(|t| t.pos == tree.pos && t.chop_power > 0)
+}
+
+fn contested_chop_bonus(env: &Env, state: &TurnState, tree: &Tree, troll: &Troll) -> u32 {
+	if troll.chop_power == 0 || troll.carry.free_capacity(troll.carry_capacity) == 0 {
+		return 0;
+	}
+	if !is_op_chopping(state, tree) {
+		return 0;
+	}
+	let op = state
+		.op_troll_list
+		.iter()
+		.find(|t| t.pos == tree.pos && t.chop_power > 0)
+		.unwrap();
+	let speed = troll.move_speed.max(1) as u16;
+	let arrival = (env.dist(troll.pos, tree.pos) as u16).div_ceil(speed);
+	let health_at_arrival = (tree.health as u16).saturating_sub(arrival * op.chop_power);
+	if health_at_arrival == 0 {
+		return 0;
+	}
+	100
+}
+
 fn chop_score(env: &Env, state: &TurnState, tree: &Tree, troll: &Troll) -> u32 {
-	chop_cost_per_wood(tree, troll, env) + chop_banana_penalty(env, state, tree)
+	let bonus = contested_chop_bonus(env, state, tree, troll);
+	let penalty = if bonus > 0 { 0 } else { chop_banana_penalty(env, state, tree) };
+	(chop_cost_per_wood(tree, troll, env) + penalty).saturating_sub(bonus)
 }
 
 fn find_best_tree_to_chop<'a>(
