@@ -1330,7 +1330,7 @@ fn solve_troll_plant_for_goal(
 	solve_troll_accumulate(env, state, troll, cost)
 }
 
-fn harvest_or_wait_score(env: &Env, tree: &Tree, troll: &Troll) -> u32 {
+fn harvest_or_wait_score(env: &Env, state: &TurnState, tree: &Tree, troll: &Troll) -> u32 {
 	if tree.fruit > 0 {
 		return harvest_trip_score(env, tree, troll);
 	}
@@ -1344,6 +1344,18 @@ fn harvest_or_wait_score(env: &Env, tree: &Tree, troll: &Troll) -> u32 {
 	let cd = tree.kind.cooldown(water);
 	let remaining_growth = (Tree::MAX_SIZE as u16).saturating_sub(tree.size as u16);
 	let turns_to_fruit = tree.cooldown as u16 + remaining_growth * cd;
+	if is_op_chopping(state, tree) {
+		let op_chop = state
+			.op_troll_list
+			.iter()
+			.find(|t| t.pos == tree.pos && t.chop_power > 0)
+			.unwrap()
+			.chop_power;
+		let turns_to_death = (tree.health as u16).div_ceil(op_chop);
+		if turns_to_fruit >= turns_to_death {
+			return u32::MAX;
+		}
+	}
 	let speed = troll.move_speed.max(1) as u16;
 	let dist_to = env.dist(troll.pos, tree.pos) as u16;
 	let travel_to = dist_to.div_ceil(speed);
@@ -1418,9 +1430,9 @@ fn solve_troll_accumulate(
 				&& is_needed_resource(t.kind, &state.my_inventory, cost)
 				&& !state.reserved.contains(&t.pos)
 		})
-		.min_by_key(|t| harvest_or_wait_score(env, t, troll))
+		.min_by_key(|t| harvest_or_wait_score(env, state, t, troll))
 	{
-		let score = harvest_or_wait_score(env, tree, troll);
+		let score = harvest_or_wait_score(env, state, tree, troll);
 		if score < u32::MAX {
 			eprintln!(
 				"  -> best needed: {} at ({},{}) fruit={} cd={} sz={} score={}",
