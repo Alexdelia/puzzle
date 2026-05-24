@@ -254,18 +254,18 @@ impl Grid {
 	}
 
 	fn is_water_next_to(&self, (x, y): Coord) -> bool {
-		if x > 0 && (self.g[y as usize] >> ((x - 1) as usize * 2)) & Self::WATER != 0 {
+		if x > 0 && (self.g[y as usize] >> ((x - 1) as usize * 2)) & 0b11 == Self::WATER {
 			return true;
 		}
 		let right = x + 1;
-		if right < self.w && (self.g[y as usize] >> (right as usize * 2)) & Self::WATER != 0 {
+		if right < self.w && (self.g[y as usize] >> (right as usize * 2)) & 0b11 == Self::WATER {
 			return true;
 		}
-		if y > 0 && (self.g[(y - 1) as usize] >> (x as usize * 2)) & Self::WATER != 0 {
+		if y > 0 && (self.g[(y - 1) as usize] >> (x as usize * 2)) & 0b11 == Self::WATER {
 			return true;
 		}
 		let down = y + 1;
-		if down < self.h && (self.g[down as usize] >> (x as usize * 2)) & Self::WATER != 0 {
+		if down < self.h && (self.g[down as usize] >> (x as usize * 2)) & 0b11 == Self::WATER {
 			return true;
 		}
 		false
@@ -677,9 +677,10 @@ fn find_closest_plant_spot(
 			if d > max_dist || !is_valid_plant_spot(env, state, pos) {
 				continue;
 			}
-			let td = env.dist(troll.pos, pos) as i16;
+			let td = env.dist(troll.pos, pos).div_ceil(troll.move_speed.max(1)) as i16;
 			let op = env.dist_to_op_shack(pos) as i16;
-			let score = d as i16 * 3 + td - op;
+			let water_bonus = if env.grid.is_water_next_to(pos) { 4 } else { 0 };
+			let score = d as i16 * 3 + td - op - water_bonus;
 			if score < best_score {
 				best = Some(pos);
 				best_score = score;
