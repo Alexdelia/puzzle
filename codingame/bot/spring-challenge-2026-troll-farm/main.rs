@@ -1072,9 +1072,16 @@ fn solve_goal_train(env: &Env, state: &mut TurnState, role: TrollRole) -> Vec<Ac
 		"  plum_near={} target_plum={} lemon_near={} target_lemon={}",
 		plum_near, target_plum, lemon_near, target_lemon
 	);
-	for troll in &state.my_troll_list {
-		let (path, action) = if miner_id == Some(troll.id) {
-			("mine_iron", solve_troll_mine_iron(env, state, troll, &cost))
+	let has_harvester = state
+		.my_troll_list
+		.iter()
+		.any(|t| t.role() == TrollRole::Harvester);
+	for i in 0..state.my_troll_list.len() {
+		let (path, action) = if miner_id == Some(state.my_troll_list[i].id) {
+			(
+				"mine_iron",
+				solve_troll_mine_iron(env, state, &state.my_troll_list[i], &cost),
+			)
 		} else if need_planting && !planter_assigned {
 			planter_assigned = true;
 			(
@@ -1082,7 +1089,7 @@ fn solve_goal_train(env: &Env, state: &mut TurnState, role: TrollRole) -> Vec<Ac
 				solve_troll_plant_for_goal(
 					env,
 					state,
-					troll,
+					&state.my_troll_list[i],
 					need_plant_plum,
 					need_plant_lemon,
 					&cost,
@@ -1091,27 +1098,54 @@ fn solve_goal_train(env: &Env, state: &mut TurnState, role: TrollRole) -> Vec<Ac
 		} else if need_apple
 			&& !apple_assigned
 			&& !threatened_fruit
-			&& (troll.role() == TrollRole::Harvester
-				|| !state
-					.my_troll_list
-					.iter()
-					.any(|t| t.role() == TrollRole::Harvester))
+			&& (state.my_troll_list[i].role() == TrollRole::Harvester || !has_harvester)
 		{
 			apple_assigned = true;
 			(
 				"harvest_apple",
-				solve_troll_harvest_resource(env, state, troll, ResourceKind::Apple, &cost),
+				solve_troll_harvest_resource(
+					env,
+					state,
+					&state.my_troll_list[i],
+					ResourceKind::Apple,
+					&cost,
+				),
 			)
 		} else {
 			(
 				"accumulate",
-				solve_troll_accumulate(env, state, troll, &cost),
+				solve_troll_accumulate(env, state, &state.my_troll_list[i], &cost),
 			)
 		};
 		eprintln!(
 			"  troll {} at ({},{}) -> {} -> {}",
-			troll.id, troll.pos.0, troll.pos.1, path, action
+			state.my_troll_list[i].id,
+			state.my_troll_list[i].pos.0,
+			state.my_troll_list[i].pos.1,
+			path,
+			action
 		);
+
+		let troll_pos = state.my_troll_list[i].pos;
+		let hp = state.my_troll_list[i].harvest_power;
+		let free = state.my_troll_list[i]
+			.carry
+			.free_capacity(state.my_troll_list[i].carry_capacity);
+		match &action {
+			Action::Harvest(_) => {
+				if let Some(tree) = state.tree_list.iter_mut().find(|t| t.pos == troll_pos) {
+					let taken = (tree.fruit as u16).min(hp).min(free);
+					tree.fruit = tree.fruit.saturating_sub(taken as u8);
+				}
+			}
+			Action::Chop(_) => {
+				if let Some(tree) = state.tree_list.iter_mut().find(|t| t.pos == troll_pos) {
+					tree.fruit = 0;
+				}
+			}
+			_ => {}
+		}
+
 		action_list.push(action);
 	}
 
