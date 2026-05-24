@@ -115,7 +115,6 @@ struct PlayerInventory {
 struct Tree {
 	kind: ResourceKind,
 	pos: Coord,
-	is_next_to_water: bool,
 	size: TreeSize,
 	health: TreeHealth,
 	fruit: TreeFruit,
@@ -170,6 +169,7 @@ struct Env {
 	bfs_n: usize,
 	my_shack_dist: Vec<u8>,
 	op_shack_dist: Vec<u8>,
+	next_to_water_cache: Vec<bool>,
 }
 
 struct TurnState {
@@ -435,6 +435,15 @@ impl Env {
 			eprintln!("{row}");
 		}
 
+		let w = grid.w as usize;
+		let h = grid.h as usize;
+		let mut next_to_water_cache = vec![false; w * h];
+		for y in 0..h {
+			for x in 0..w {
+				next_to_water_cache[y * w + x] = grid.is_water_next_to((x as Axis, y as Axis));
+			}
+		}
+
 		Self {
 			grid,
 			my_shack,
@@ -444,7 +453,13 @@ impl Env {
 			bfs_n,
 			my_shack_dist,
 			op_shack_dist,
+			next_to_water_cache,
 		}
+	}
+
+	#[inline]
+	fn is_next_to_water(&self, (x, y): Coord) -> bool {
+		self.next_to_water_cache[y as usize * self.grid.w as usize + x as usize]
 	}
 
 	fn dist(&self, a: Coord, b: Coord) -> u8 {
@@ -470,7 +485,7 @@ impl Env {
 }
 
 impl Tree {
-	fn read(env: &Env) -> Self {
+	fn read() -> Self {
 		let mut s = String::new();
 		io::stdin().read_line(&mut s).unwrap();
 		let input = s.split(" ").collect::<Vec<_>>();
@@ -480,7 +495,6 @@ impl Tree {
 		Self {
 			kind: parse_input!(input[0], ResourceKind),
 			pos,
-			is_next_to_water: env.grid.is_water_next_to(pos),
 			size: parse_input!(input[3], TreeSize),
 			health: parse_input!(input[4], TreeHealth),
 			fruit: parse_input!(input[5], TreeFruit),
@@ -558,7 +572,7 @@ impl Troll {
 }
 
 impl TurnState {
-	fn read(env: &Env, turn: Turn) -> Self {
+	fn read(turn: Turn) -> Self {
 		let mut s = String::new();
 
 		let my_inventory = PlayerInventory::read();
@@ -569,7 +583,7 @@ impl TurnState {
 
 		let mut tree_list = Vec::with_capacity(tree_count);
 		for _ in 0..tree_count {
-			tree_list.push(Tree::read(env));
+			tree_list.push(Tree::read());
 		}
 
 		s.clear();
@@ -658,7 +672,7 @@ fn plant_spot_score(env: &Env, pos: Coord, troll: &Troll, turn: Turn) -> u16 {
 	if remaining == 0 {
 		return 0;
 	}
-	let cooldown = if env.grid.is_water_next_to(pos) {
+	let cooldown = if env.is_next_to_water(pos) {
 		3u16
 	} else {
 		8u16
@@ -725,7 +739,7 @@ fn find_closest_plant_spot(
 			}
 			let td = env.dist(troll.pos, pos).div_ceil(troll.move_speed.max(1)) as i16;
 			let op = env.dist_to_op_shack(pos) as i16;
-			let water_bonus = if env.grid.is_water_next_to(pos) { 4 } else { 0 };
+			let water_bonus = if env.is_next_to_water(pos) { 4 } else { 0 };
 			let score = d as i16 * 3 + td - op - water_bonus;
 			if score < best_score {
 				best = Some(pos);
@@ -1266,7 +1280,7 @@ fn harvest_or_wait_score(env: &Env, state: &TurnState, tree: &Tree, troll: &Trol
 	if fruit == 0 {
 		return u32::MAX;
 	}
-	let water = env.grid.is_water_next_to(tree.pos);
+	let water = env.is_next_to_water(tree.pos);
 	let cd = tree.kind.cooldown(water);
 	let remaining_growth = (Tree::MAX_SIZE as u16).saturating_sub(tree.size as u16);
 	let turns_to_fruit = tree.cooldown as u16 + remaining_growth * cd;
@@ -1710,7 +1724,7 @@ fn main() {
 
 	loop {
 		turn += 1;
-		let mut state = TurnState::read(&env, turn);
+		let mut state = TurnState::read(turn);
 
 		if state.my_troll_list.len() > last_troll_count {
 			train_duration = turn.saturating_sub(last_train_turn);
@@ -1777,10 +1791,10 @@ mod tests {
 		assert!(grass_count < n);
 
 		eprintln!(
-			"grid: {}x{}, cells: {n}, grass: {grass_count} ({:.0}%)",
-			grid.w,
-			grid.h,
-			grass_count as f64 / n as f64 * 100.0
+			"grid: {w}x{h}, cells: {n}, grass: {grass_count} ({ratio:.0}%)",
+			w = grid.w,
+			h = grid.h,
+			ratio = grass_count as f64 / n as f64 * 100.0
 		);
 		eprintln!("bfs time: {elapsed:?}");
 		assert!(elapsed.as_millis() < FIRST_TURN_MS_LIMIT as u128);
