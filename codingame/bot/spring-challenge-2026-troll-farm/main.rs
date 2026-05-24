@@ -848,7 +848,11 @@ fn contested_chop_bonus(env: &Env, state: &TurnState, tree: &Tree, troll: &Troll
 
 fn chop_score(env: &Env, state: &TurnState, tree: &Tree, troll: &Troll) -> u32 {
 	let bonus = contested_chop_bonus(env, state, tree, troll);
-	let penalty = if bonus > 0 { 0 } else { chop_banana_penalty(env, state, tree) };
+	let penalty = if bonus > 0 {
+		0
+	} else {
+		chop_banana_penalty(env, state, tree)
+	};
 	(chop_cost_per_wood(tree, troll, env) + penalty).saturating_sub(bonus)
 }
 
