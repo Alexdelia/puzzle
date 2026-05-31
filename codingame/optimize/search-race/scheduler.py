@@ -91,11 +91,16 @@ def sort(validator_list: ValidatorList) -> ValidatorList:
 
 
 def human_readable_time(seconds: int) -> str:
+	_sc = "\033[34m"
+	_mc = "\033[36m"
+	_hc = "\033[38;2;50;168;125m"
+	_uc = "\033[2m"
+
 	if seconds < 60:
-		return f"{seconds}s"
+		return f"{_sc}{seconds}{_uc}s\033[0m"
 	if seconds < 3600:
-		return f"{seconds // 60}m {seconds % 60}s"
-	return f"{seconds // 3600}h {(seconds % 3600) // 60}m {seconds % 60}s"
+		return f"{_mc}{seconds // 60}{_uc}m {_sc}{seconds % 60}{_uc}s\033[0m"
+	return f"{_hc}{seconds // 3600}{_uc}h {_mc}{(seconds % 3600) // 60}{_uc}m\033[0m"
 
 
 binary = build()
@@ -124,9 +129,9 @@ for vn, _, vt, vtf in vl:
 	vtf_str = str(vtf) if vtf is not None else ""
 
 	print(
-		f"  {success_mark} \033[32m{vn:>5}"
+		f"  {success_mark} \033[32m{vn:<6}"
 		f" \033[0;1m{vtf_str:>3}"
-		f"\033[0;36m{human_readable_time(vt)}\033[0m"
+		f" \033[0m{human_readable_time(vt)}"
 	)
 print()
 
@@ -144,10 +149,7 @@ while True:
 	elapsed = int(end - start)
 	vt += elapsed
 
-	print(
-		f"\033[36m{human_readable_time(elapsed)}\033[0m"
-		f" (\033[36m{human_readable_time(vt)}\033[0m)\n"
-	)
+	print(f"{human_readable_time(elapsed)} ({human_readable_time(vt)})\n")
 
 	update_time(vn, vt)
 
