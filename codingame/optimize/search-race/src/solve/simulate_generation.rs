@@ -3,17 +3,14 @@ use std::sync::mpsc;
 use crate::{
 	dist::dist,
 	output_repr::Solution,
-	referee::{
-		car::Car,
-		env::Coord,
-		intersect,
-		process_step::process_step,
-	},
+	referee::{car::Car, env::Coord, intersect, process_step::process_step},
 	segment::Segment,
 	solve::get_score::get_score,
 };
 
 use super::{FrozenPrefix, ProcessOutput};
+
+const MAX_STEP_TO_CHECKPOINT: usize = 64;
 
 pub fn simulate_generation(
 	pool: &rayon::ThreadPool,
@@ -58,7 +55,7 @@ pub fn simulate_generation(
 					#[cfg(feature = "visualize")]
 					path.push(traveled.b);
 
-					if reached_at_step + 64 < step_index {
+					if reached_at_step + MAX_STEP_TO_CHECKPOINT < step_index {
 						break;
 					}
 
