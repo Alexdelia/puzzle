@@ -127,7 +127,7 @@ pub fn solve(
 
 #[inline]
 fn log_generation(generation: usize, best: &(Score, BestSolution)) {
-	eprintln!(
+	eprint!(
 		"\r{generation} {best_score:.2} {best_step_count}",
 		generation = generation,
 		best_score = best.0,
