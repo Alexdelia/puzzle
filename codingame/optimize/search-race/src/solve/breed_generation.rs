@@ -51,7 +51,7 @@ pub fn breed_generation(
 		.map(|s| s.len())
 		.max()
 		.expect("no solutions to breed");
-	let max_solution_size = max_solution_size.min(300);
+	let max_solution_size = max_solution_size.min(600);
 
 	let mut rng = rand::rng();
 
