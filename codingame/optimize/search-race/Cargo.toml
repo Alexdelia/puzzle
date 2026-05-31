@@ -2,11 +2,6 @@
 name = "search-race"
 version = "0.1.0"
 edition = "2024"
-default-run = "naive-genetic-algorithm"
-
-[[bin]]
-name = "naive-genetic-algorithm"
-path = "src/main_naive_genetic_algorithm.rs"
 
 [[bin]]
 name = "radiate"

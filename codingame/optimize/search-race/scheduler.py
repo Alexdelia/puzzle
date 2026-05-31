@@ -25,8 +25,6 @@ def build() -> Path:
 		[  # noqa: S607
 			"cargo",
 			"build",
-			"--bin",
-			"naive-genetic-algorithm",
 			"--release",
 			"--no-default-features",
 		],
@@ -35,7 +33,7 @@ def build() -> Path:
 		check=True,
 	)
 
-	return Path(SCRIPT_DIR) / "target/release/naive-genetic-algorithm"
+	return Path(SCRIPT_DIR) / "target/release/search-race"
 
 
 def execute(binary: Path, validator_path: Path) -> bool:
