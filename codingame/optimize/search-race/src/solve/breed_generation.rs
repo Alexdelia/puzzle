@@ -32,6 +32,7 @@ pub fn breed_generation(
 	step_count_list: [usize; SOLUTION_PER_GENERATION],
 	frozen_list: [FrozenPrefix; SOLUTION_PER_GENERATION],
 	car_init_state: &Car,
+	best_finished_step_count: Option<usize>,
 ) -> (
 	[Solution; SOLUTION_PER_GENERATION],
 	[FrozenPrefix; SOLUTION_PER_GENERATION],
@@ -46,12 +47,14 @@ pub fn breed_generation(
 	let keep_count = (SOLUTION_PER_GENERATION as f32 * KEEP_RATE).ceil() as usize;
 	let random_count = (SOLUTION_PER_GENERATION as f32 * RANDOM_RATE).ceil() as usize;
 
-	let max_solution_size = ordered_solution_list[0..keep_count]
-		.iter()
-		.map(|s| s.len())
-		.max()
-		.expect("no solutions to breed");
-	let max_solution_size = max_solution_size.min(600);
+	let max_solution_size = best_finished_step_count.unwrap_or_else(|| {
+		ordered_solution_list[0..keep_count]
+			.iter()
+			.map(|s| s.len())
+			.max()
+			.expect("no solutions to breed")
+			.min(600)
+	});
 
 	let mut rng = rand::rng();
 

@@ -143,12 +143,18 @@ pub fn solve(
 			visualize::write_doc(validator_name, &doc, generation);
 		}
 
+		let best_finished_step_count = if best.1.finished {
+			Some(best.1.step_count)
+		} else {
+			None
+		};
 		(solution_list, frozen_list) = breed_generation(
 			solution_list,
 			score_list,
 			step_count_list,
 			frozen_list,
 			car_init_state,
+			best_finished_step_count,
 		);
 
 		if generation.is_multiple_of(128) {
