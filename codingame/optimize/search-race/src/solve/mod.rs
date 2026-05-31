@@ -14,7 +14,7 @@ use crate::visualize;
 
 use crate::{
 	output_repr::Solution,
-	output_solution::output_solution,
+	output_solution::{output_solution, output_turn_to_finish},
 	parse::get_iteration,
 	referee::{car::Car, env::Coord},
 };
@@ -125,6 +125,9 @@ pub fn solve(
 				);
 
 				output_solution(&best.1.solution, validator_name)?;
+				if best.1.finished {
+					output_turn_to_finish(best.1.step_count, validator_name)?;
+				}
 			}
 
 			#[cfg(feature = "visualize")]
