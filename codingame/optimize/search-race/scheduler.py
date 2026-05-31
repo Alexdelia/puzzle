@@ -38,7 +38,7 @@ def build() -> Path:
 	return Path(SCRIPT_DIR) / "target/release/naive-genetic-algorithm"
 
 
-def exexcute(binary: Path, validator_path: Path) -> bool:
+def execute(binary: Path, validator_path: Path) -> bool:
 	try:
 		subprocess.run(  # noqa: S603
 			[str(binary), str(validator_path)],
@@ -135,7 +135,7 @@ while True:
 
 	start = time.perf_counter()
 
-	success = exexcute(binary, vp)
+	success = execute(binary, vp)
 	if success:
 		vs = True
 		mark_success(vn)
