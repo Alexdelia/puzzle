@@ -36,6 +36,7 @@ pub fn simulate_generation(
 				let mut checkpoint_index = 0;
 				let mut reached_at_step = MAX_STEP;
 				let mut closest_to_checkpoint = f64::INFINITY;
+				let mut pre_last_checkpoint_step: usize = 0;
 
 				for (step_index, step) in solution.iter().enumerate() {
 					let from = Coord { x: car.x, y: car.y };
@@ -61,6 +62,9 @@ pub fn simulate_generation(
 					}
 
 					if intersect(current_checkpoint, traveled.a, traveled.b) {
+						if checkpoint_index >= 1 {
+							pre_last_checkpoint_step = reached_at_step;
+						}
 						checkpoint_index += 1;
 						reached_at_step = step_index;
 						closest_to_checkpoint = f64::INFINITY;
@@ -78,6 +82,7 @@ pub fn simulate_generation(
 									step_count,
 								),
 								step_count,
+								pre_last_checkpoint_step,
 								#[cfg(feature = "visualize")]
 								path,
 							})
@@ -93,6 +98,7 @@ pub fn simulate_generation(
 					index: i,
 					finished: false,
 					step_count,
+					pre_last_checkpoint_step,
 					score: get_score(
 						checkpoint_list,
 						checkpoint_index,
