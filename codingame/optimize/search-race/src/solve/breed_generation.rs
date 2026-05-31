@@ -126,7 +126,7 @@ fn breed(
 		if let (Some(step_a), Some(step_b)) = (parent_a.get(i), parent_b.get(i)) {
 			let mut step = Step {
 				tilt: (step_a.tilt + step_b.tilt) / 2,
-				thrust: (step_a.thrust + step_b.thrust) / 2,
+				thrust: ((step_a.thrust as u16 + step_b.thrust as u16) / 2) as u8,
 			};
 
 			mutate(rng, mutation_rate, &mut step);
