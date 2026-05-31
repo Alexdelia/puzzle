@@ -152,6 +152,7 @@ pub fn solve(
 	}
 
 	log_generation(generation, &best);
+	println!();
 
 	let mut solution = best.1.solution;
 	solution.truncate(best.1.step_count);
