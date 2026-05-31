@@ -106,7 +106,11 @@ pub fn solve(
 		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
 			score_list[r.index] = r.score;
 			step_count_list[r.index] = r.step_count;
-			frozen_list[r.index] = r.frozen;
+			frozen_list[r.index] = if r.finished {
+				FrozenPrefix::from_scratch(car_init_state)
+			} else {
+				r.frozen
+			};
 
 			if r.score < best.0 {
 				best = (
