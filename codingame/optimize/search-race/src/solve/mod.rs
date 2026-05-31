@@ -172,6 +172,10 @@ pub fn solve(
 	Ok(solution)
 }
 
+// TODO: prettier log
+// TODO: also show elapsed
+// TODO: also show elapsed of current generation
+// TODO: also show average time per solution of the generation
 #[inline]
 fn log_generation(generation: usize, best: &(Score, BestSolution)) {
 	eprint!(
