@@ -24,7 +24,7 @@ use crate::{
 		process_step::process_step,
 	},
 	segment::Segment,
-	solve::{SOLUTION_PER_GENERATION, Score, get_score::get_score},
+	solve::{SOLUTION_PER_GENERATION, get_score::get_score},
 };
 
 type GeneTiltChange = StepGene;
