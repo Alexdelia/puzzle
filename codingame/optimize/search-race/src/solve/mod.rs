@@ -23,12 +23,29 @@ pub const SOLUTION_PER_GENERATION: usize = 512;
 
 pub type Score = f32;
 
+#[derive(Clone, Copy, Debug)]
+struct FrozenPrefix {
+	resume_from_step: usize,
+	car: Car,
+	checkpoint_index: usize,
+}
+
+impl FrozenPrefix {
+	fn from_scratch(car: &Car) -> Self {
+		Self {
+			resume_from_step: 0,
+			car: *car,
+			checkpoint_index: 0,
+		}
+	}
+}
+
 struct ProcessOutput {
 	index: usize,
 	finished: bool,
 	score: Score,
 	step_count: usize,
-	pre_last_checkpoint_step: usize,
+	frozen: FrozenPrefix,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
 }
@@ -55,7 +72,7 @@ pub fn solve(
 	let mut solution_list = first_generation::init_first_generation(validator_name)?;
 	let mut score_list = [Score::default(); SOLUTION_PER_GENERATION];
 	let mut step_count_list = [usize::default(); SOLUTION_PER_GENERATION];
-	let mut pre_last_checkpoint_step_list = [0usize; SOLUTION_PER_GENERATION];
+	let mut frozen_list = [FrozenPrefix::from_scratch(car_init_state); SOLUTION_PER_GENERATION];
 	#[cfg(feature = "visualize")]
 	let mut path_list: [Vec<Coord>; SOLUTION_PER_GENERATION] = (0..SOLUTION_PER_GENERATION)
 		.map(|_| Vec::new())
@@ -70,7 +87,14 @@ pub fn solve(
 	while !best.1.finished || generation < max_iteration {
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
 
-		simulate_generation(&pool, tx, checkpoint_list, car_init_state, &solution_list);
+		simulate_generation(
+			&pool,
+			tx,
+			checkpoint_list,
+			car_init_state,
+			&solution_list,
+			&frozen_list,
+		);
 
 		#[cfg(feature = "visualize")]
 		let mut doc = base_doc.clone();
@@ -82,7 +106,7 @@ pub fn solve(
 		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
 			score_list[r.index] = r.score;
 			step_count_list[r.index] = r.step_count;
-			pre_last_checkpoint_step_list[r.index] = r.pre_last_checkpoint_step;
+			frozen_list[r.index] = r.frozen;
 
 			if r.score < best.0 {
 				best = (
@@ -112,11 +136,12 @@ pub fn solve(
 			visualize::write_doc(validator_name, &doc, generation);
 		}
 
-		solution_list = breed_generation(
+		(solution_list, frozen_list) = breed_generation(
 			solution_list,
 			score_list,
 			step_count_list,
-			pre_last_checkpoint_step_list,
+			frozen_list,
+			car_init_state,
 		);
 
 		if generation.is_multiple_of(128) {

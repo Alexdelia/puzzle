@@ -1,7 +1,10 @@
 use rand::RngExt;
 
-use super::{SOLUTION_PER_GENERATION, Score};
-use crate::output_repr::{Solution, Step};
+use super::{FrozenPrefix, SOLUTION_PER_GENERATION, Score};
+use crate::{
+	output_repr::{Solution, Step},
+	referee::car::Car,
+};
 
 const KEEP_RATE: f32 = 0.1;
 const RANDOM_RATE: f32 = 0.1;
@@ -27,14 +30,18 @@ pub fn breed_generation(
 	mut solution_list: [Solution; SOLUTION_PER_GENERATION],
 	score_list: [Score; SOLUTION_PER_GENERATION],
 	step_count_list: [usize; SOLUTION_PER_GENERATION],
-	pre_last_checkpoint_step_list: [usize; SOLUTION_PER_GENERATION],
-) -> [Solution; SOLUTION_PER_GENERATION] {
+	frozen_list: [FrozenPrefix; SOLUTION_PER_GENERATION],
+	car_init_state: &Car,
+) -> (
+	[Solution; SOLUTION_PER_GENERATION],
+	[FrozenPrefix; SOLUTION_PER_GENERATION],
+) {
 	for i in 0..SOLUTION_PER_GENERATION {
 		solution_list[i].truncate(step_count_list[i]);
 	}
 
-	let (mut ordered_solution_list, ordered_freeze_list) =
-		sort(solution_list, score_list, pre_last_checkpoint_step_list);
+	let (mut ordered_solution_list, mut ordered_frozen_list) =
+		sort(solution_list, score_list, frozen_list);
 
 	let keep_count = (SOLUTION_PER_GENERATION as f32 * KEEP_RATE).ceil() as usize;
 	let random_count = (SOLUTION_PER_GENERATION as f32 * RANDOM_RATE).ceil() as usize;
@@ -53,8 +60,7 @@ pub fn breed_generation(
 	for i in keep_count..(SOLUTION_PER_GENERATION - random_count) {
 		let parent_a = &ordered_solution_list[parent_a_index];
 		let parent_b = &ordered_solution_list[parent_b_index];
-		let freeze_until =
-			ordered_freeze_list[parent_a_index].min(ordered_freeze_list[parent_b_index]);
+		let freeze_until = ordered_frozen_list[parent_a_index].resume_from_step;
 		ordered_solution_list[i] = breed(
 			&mut rng,
 			MUTATION_RATE[i],
@@ -63,6 +69,7 @@ pub fn breed_generation(
 			max_solution_size,
 			freeze_until,
 		);
+		ordered_frozen_list[i] = ordered_frozen_list[parent_a_index];
 
 		parent_b_index += 1;
 		if parent_b_index >= keep_count {
@@ -77,38 +84,36 @@ pub fn breed_generation(
 		.skip(1)
 		.enumerate()
 	{
-		let freeze_until = ordered_freeze_list[i + 1];
+		let freeze_until = ordered_frozen_list[i + 1].resume_from_step;
 		for step in solution.iter_mut().skip(freeze_until) {
 			mutate(&mut rng, MUTATION_RATE[i], step);
 		}
 	}
 
-	for solution in ordered_solution_list
-		.iter_mut()
-		.take(SOLUTION_PER_GENERATION)
-		.skip(SOLUTION_PER_GENERATION - random_count)
-	{
-		for step in solution.iter_mut().take(max_solution_size) {
+	let from_scratch = FrozenPrefix::from_scratch(car_init_state);
+	for i in (SOLUTION_PER_GENERATION - random_count)..SOLUTION_PER_GENERATION {
+		for step in ordered_solution_list[i].iter_mut().take(max_solution_size) {
 			*step = Step::random(&mut rng);
 		}
+		ordered_frozen_list[i] = from_scratch;
 	}
 
-	ordered_solution_list
+	(ordered_solution_list, ordered_frozen_list)
 }
 
 fn sort(
 	solution_list: [Solution; SOLUTION_PER_GENERATION],
 	score_list: [Score; SOLUTION_PER_GENERATION],
-	pre_last_checkpoint_step_list: [usize; SOLUTION_PER_GENERATION],
+	frozen_list: [FrozenPrefix; SOLUTION_PER_GENERATION],
 ) -> (
 	[Solution; SOLUTION_PER_GENERATION],
-	[usize; SOLUTION_PER_GENERATION],
+	[FrozenPrefix; SOLUTION_PER_GENERATION],
 ) {
-	let mut paired_list: [(Solution, Score, usize); SOLUTION_PER_GENERATION] = solution_list
+	let mut paired_list: [(Solution, Score, FrozenPrefix); SOLUTION_PER_GENERATION] = solution_list
 		.into_iter()
 		.zip(score_list)
-		.zip(pre_last_checkpoint_step_list)
-		.map(|((sol, score), freeze)| (sol, score, freeze))
+		.zip(frozen_list)
+		.map(|((sol, score), frozen)| (sol, score, frozen))
 		.collect::<Vec<_>>()
 		.try_into()
 		.expect("paired list size mismatch");
@@ -116,19 +121,19 @@ fn sort(
 	paired_list.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
 	let mut ordered_solution_list: Vec<Solution> = Vec::with_capacity(SOLUTION_PER_GENERATION);
-	let mut ordered_freeze_list: Vec<usize> = Vec::with_capacity(SOLUTION_PER_GENERATION);
-	for (sol, _, freeze) in paired_list {
+	let mut ordered_frozen_list: Vec<FrozenPrefix> = Vec::with_capacity(SOLUTION_PER_GENERATION);
+	for (sol, _, frozen) in paired_list {
 		ordered_solution_list.push(sol);
-		ordered_freeze_list.push(freeze);
+		ordered_frozen_list.push(frozen);
 	}
 
 	(
 		ordered_solution_list
 			.try_into()
 			.expect("ordered solution list size mismatch"),
-		ordered_freeze_list
+		ordered_frozen_list
 			.try_into()
-			.expect("ordered freeze list size mismatch"),
+			.expect("ordered frozen list size mismatch"),
 	)
 }
 
@@ -143,15 +148,18 @@ fn breed(
 	let mut child = Vec::with_capacity(solution_size);
 
 	for i in 0..solution_size {
-		if let (Some(step_a), Some(step_b)) = (parent_a.get(i), parent_b.get(i)) {
+		if i < freeze_until {
+			if let Some(&step) = parent_a.get(i) {
+				child.push(step);
+			} else {
+				child.push(Step::random(rng));
+			}
+		} else if let (Some(step_a), Some(step_b)) = (parent_a.get(i), parent_b.get(i)) {
 			let mut step = Step {
 				tilt: (step_a.tilt + step_b.tilt) / 2,
 				thrust: ((step_a.thrust as u16 + step_b.thrust as u16) / 2) as u8,
 			};
-
-			if i >= freeze_until {
-				mutate(rng, mutation_rate, &mut step);
-			}
+			mutate(rng, mutation_rate, &mut step);
 			child.push(step);
 		} else {
 			child.push(Step::random(rng));

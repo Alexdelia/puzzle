@@ -13,7 +13,7 @@ use crate::{
 	solve::get_score::get_score,
 };
 
-use super::ProcessOutput;
+use super::{FrozenPrefix, ProcessOutput};
 
 pub fn simulate_generation(
 	pool: &rayon::ThreadPool,
@@ -21,11 +21,17 @@ pub fn simulate_generation(
 	checkpoint_list: &[Coord],
 	car_init_state: &Car,
 	solution_list: &[Solution],
+	frozen_list: &[FrozenPrefix],
 ) {
 	pool.scope(|s| {
-		for (i, solution) in solution_list.iter().enumerate() {
+		for (i, (solution, frozen)) in solution_list.iter().zip(frozen_list.iter()).enumerate() {
 			let tx = tx.clone();
-			let mut car = *car_init_state;
+
+			let (mut car, mut checkpoint_index) = if frozen.resume_from_step > 0 {
+				(frozen.car, frozen.checkpoint_index)
+			} else {
+				(*car_init_state, 0)
+			};
 
 			s.spawn(move |_| {
 				#[cfg(feature = "visualize")]
@@ -33,12 +39,14 @@ pub fn simulate_generation(
 				#[cfg(feature = "visualize")]
 				path.push(Coord { x: car.x, y: car.y });
 
-				let mut checkpoint_index = 0;
 				let mut reached_at_step = MAX_STEP;
 				let mut closest_to_checkpoint = f64::INFINITY;
-				let mut pre_last_checkpoint_step: usize = 0;
 
-				for (step_index, step) in solution.iter().enumerate() {
+				let mut last_crossing: Option<FrozenPrefix> = None;
+				let mut pre_last_crossing: Option<FrozenPrefix> = None;
+
+				for (step_index, step) in solution.iter().enumerate().skip(frozen.resume_from_step)
+				{
 					let from = Coord { x: car.x, y: car.y };
 
 					process_step(&mut car, step);
@@ -62,9 +70,13 @@ pub fn simulate_generation(
 					}
 
 					if intersect(current_checkpoint, traveled.a, traveled.b) {
-						if checkpoint_index >= 1 {
-							pre_last_checkpoint_step = reached_at_step;
-						}
+						pre_last_crossing = last_crossing;
+						last_crossing = Some(FrozenPrefix {
+							resume_from_step: step_index + 1,
+							car,
+							checkpoint_index: checkpoint_index + 1,
+						});
+
 						checkpoint_index += 1;
 						reached_at_step = step_index;
 						closest_to_checkpoint = f64::INFINITY;
@@ -82,7 +94,7 @@ pub fn simulate_generation(
 									step_count,
 								),
 								step_count,
-								pre_last_checkpoint_step,
+								frozen: pre_last_crossing.unwrap_or(*frozen),
 								#[cfg(feature = "visualize")]
 								path,
 							})
@@ -98,7 +110,7 @@ pub fn simulate_generation(
 					index: i,
 					finished: false,
 					step_count,
-					pre_last_checkpoint_step,
+					frozen: pre_last_crossing.unwrap_or(*frozen),
 					score: get_score(
 						checkpoint_list,
 						checkpoint_index,
