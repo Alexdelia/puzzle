@@ -21,6 +21,14 @@ pub fn get_iteration() -> Result<usize, String> {
 	})
 }
 
+pub fn get_validator_name(path: &str) -> String {
+	std::path::Path::new(path)
+		.file_stem()
+		.expect("invalid path")
+		.to_string_lossy()
+		.to_string()
+}
+
 pub fn parse(path: &str) -> Result<(Car, Vec<Coord>), String> {
 	let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
 

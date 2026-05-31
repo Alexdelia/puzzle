@@ -3,6 +3,15 @@ name = "search-race"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "naive-genetic-algorithm"
+path = "src/main_naive_genetic_algorithm.rs"
+
+[[bin]]
+name = "radiate"
+path = "src/main_radiate.rs"
+required-features = ["radiate"]
+
 [profile.release]
 lto = true
 codegen-units = 1
@@ -11,6 +20,7 @@ panic = "abort"
 [features]
 default = ["visualize"]
 visualize = ["dep:svg"]
+radiate = ["dep:radiate"]
 
 [dependencies]
 rand = "0.10"
@@ -18,3 +28,4 @@ rayon = "1"
 ron = "0.12"
 serde = { version = "1", features = ["derive"] }
 svg = { version = "0.18", optional = true }
+radiate = { version = "1.2", optional = true, features = ["gp", "serde", "rayon", "ui"] }

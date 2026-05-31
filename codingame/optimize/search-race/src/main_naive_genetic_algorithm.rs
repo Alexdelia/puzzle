@@ -10,7 +10,7 @@ mod visualize;
 
 fn main() -> Result<(), String> {
 	let path = parse::get_path()?;
-	let validator_name = get_validator_name(&path);
+	let validator_name = parse::get_validator_name(&path);
 
 	let (car_init_state, checkpoint_list) = parse::parse(&path)?;
 
@@ -28,12 +28,4 @@ fn main() -> Result<(), String> {
 	)?;
 
 	output_solution::output_solution(&solution, &validator_name)
-}
-
-fn get_validator_name(path: &str) -> String {
-	std::path::Path::new(path)
-		.file_stem()
-		.expect("invalid path")
-		.to_string_lossy()
-		.to_string()
 }

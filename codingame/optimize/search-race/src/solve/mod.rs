@@ -2,7 +2,7 @@ mod first_generation;
 mod simulate_generation;
 use simulate_generation::simulate_generation;
 mod breed_generation;
-mod get_score;
+pub mod get_score;
 use breed_generation::breed_generation;
 
 use std::sync::mpsc;

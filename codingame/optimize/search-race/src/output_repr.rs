@@ -9,14 +9,14 @@ pub struct Step {
 }
 
 /// titl change in degrees (-18 to 18)
-type TiltChange = i8;
-const MIN_TILT_CHANGE: TiltChange = -18;
-const MAX_TILT_CHANGE: TiltChange = 18;
+pub type TiltChange = i8;
+pub const MIN_TILT_CHANGE: TiltChange = -18;
+pub const MAX_TILT_CHANGE: TiltChange = 18;
 
 /// thrust (0 to 200)
-type Thrust = u8;
-const MIN_THRUST: Thrust = 0;
-const MAX_THRUST: Thrust = 200;
+pub type Thrust = u8;
+pub const MIN_THRUST: Thrust = 0;
+pub const MAX_THRUST: Thrust = 200;
 
 pub type Solution = Vec<Step>;
 
