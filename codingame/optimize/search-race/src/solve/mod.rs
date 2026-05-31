@@ -28,6 +28,7 @@ struct ProcessOutput {
 	finished: bool,
 	score: Score,
 	step_count: usize,
+	pre_last_checkpoint_step: usize,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
 }
@@ -54,6 +55,7 @@ pub fn solve(
 	let mut solution_list = first_generation::init_first_generation(validator_name)?;
 	let mut score_list = [Score::default(); SOLUTION_PER_GENERATION];
 	let mut step_count_list = [usize::default(); SOLUTION_PER_GENERATION];
+	let mut pre_last_checkpoint_step_list = [0usize; SOLUTION_PER_GENERATION];
 	#[cfg(feature = "visualize")]
 	let mut path_list: [Vec<Coord>; SOLUTION_PER_GENERATION] = (0..SOLUTION_PER_GENERATION)
 		.map(|_| Vec::new())
@@ -80,6 +82,7 @@ pub fn solve(
 		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
 			score_list[r.index] = r.score;
 			step_count_list[r.index] = r.step_count;
+			pre_last_checkpoint_step_list[r.index] = r.pre_last_checkpoint_step;
 
 			if r.score < best.0 {
 				best = (
@@ -109,7 +112,12 @@ pub fn solve(
 			visualize::write_doc(validator_name, &doc, generation);
 		}
 
-		solution_list = breed_generation(solution_list, score_list, step_count_list);
+		solution_list = breed_generation(
+			solution_list,
+			score_list,
+			step_count_list,
+			pre_last_checkpoint_step_list,
+		);
 
 		if generation.is_multiple_of(128) {
 			eprint!(
