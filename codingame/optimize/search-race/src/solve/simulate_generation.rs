@@ -5,7 +5,7 @@ use crate::{
 	output_repr::Solution,
 	referee::{
 		car::Car,
-		env::{Coord, MAX_STEP},
+		env::Coord,
 		intersect,
 		process_step::process_step,
 	},
@@ -39,7 +39,7 @@ pub fn simulate_generation(
 				#[cfg(feature = "visualize")]
 				path.push(Coord { x: car.x, y: car.y });
 
-				let mut reached_at_step = MAX_STEP;
+				let mut reached_at_step = frozen.resume_from_step.saturating_sub(1);
 				let mut closest_to_checkpoint = f64::INFINITY;
 
 				let mut last_crossing: Option<FrozenPrefix> = None;
