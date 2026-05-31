@@ -120,23 +120,25 @@ pub fn solve(
 		);
 
 		if generation.is_multiple_of(128) {
-			eprint!(
-				"\r{generation} {best_score} {best_step_count}",
-				best_score = best.0,
-				best_step_count = best.1.step_count
-			);
+			log_generation(generation, &best);
 		}
 
 		generation += 1;
 	}
 
-	eprintln!(
-		"\r{generation} {best_score} {best_step_count}",
-		best_score = best.0,
-		best_step_count = best.1.step_count
-	);
+	log_generation(generation, &best);
 
 	let mut solution = best.1.solution;
 	solution.truncate(best.1.step_count);
 	Ok(solution)
+}
+
+#[inline]
+fn log_generation(generation: usize, best: &(Score, BestSolution)) {
+	eprintln!(
+		"\r{generation} {best_score:.2} {best_step_count}",
+		generation = generation,
+		best_score = best.0,
+		best_step_count = best.1.step_count,
+	);
 }
