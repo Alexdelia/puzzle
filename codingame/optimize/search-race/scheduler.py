@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 import os
 import subprocess
 import time
@@ -14,18 +15,27 @@ SUCCESS_FILE_NAME = "success.flag"
 
 ITERATION = 100_000
 
+start_with_validator = sys.argv[1] if len(sys.argv) > 1 else None
+
 type ValidatorList = list[tuple[str, Path, int, bool]]
 
 
 def build() -> Path:
 	subprocess.run(
-		["cargo", "build", "--release", "--no-default-features"],  # noqa: S607
+		[  # noqa: S607
+			"cargo",
+			"build",
+			"--bin",
+			"naive-genetic-algorithm",
+			"--release",
+			"--no-default-features",
+		],
 		env={**dict(os.environ), "ITERATION": str(ITERATION)},
 		cwd=SCRIPT_DIR,
 		check=True,
 	)
 
-	return Path(SCRIPT_DIR) / "target/release/search-race"
+	return Path(SCRIPT_DIR) / "target/release/naive-genetic-algorithm"
 
 
 def exexcute(binary: Path, validator_path: Path) -> bool:
@@ -93,6 +103,19 @@ binary = build()
 
 vl = get_validator_list()
 vl = sort(vl)
+
+if start_with_validator:
+	for i, (vn, *_) in enumerate(vl):
+		if vn == start_with_validator:
+			vl.insert(0, vl.pop(i))
+			break
+	else:
+		print(
+			f"\033[1;31merror\033[0m: validator '{start_with_validator}' not found\n"
+			"available validators:"
+			+ "".join(f"\n  - \033[1;32m{vn}\033[0m" for vn, _, _, _ in vl)
+		)
+		sys.exit(64)  # EX_USAGE
 
 
 print()
