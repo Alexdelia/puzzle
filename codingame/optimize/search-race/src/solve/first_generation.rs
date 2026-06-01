@@ -11,12 +11,17 @@ const INITIAL_SOLUTION_STEP_SIZE: usize = MAX_STEP;
 
 pub fn init_first_generation(
 	validator_name: &str,
+	fresh: bool,
 ) -> Result<([Solution; SOLUTION_PER_GENERATION], bool), String> {
 	let mut generation = Vec::with_capacity(SOLUTION_PER_GENERATION);
 
 	let mut rng = rand::rng();
 
-	let stored_solution = read_stored_solution(validator_name)?;
+	let stored_solution = if fresh {
+		None
+	} else {
+		read_stored_solution(validator_name)?
+	};
 	let loaded = stored_solution.is_some();
 	if let Some(solution) = stored_solution {
 		generation.push(solution);

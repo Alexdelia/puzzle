@@ -14,7 +14,7 @@ use crate::visualize;
 
 use crate::{
 	output_repr::Solution,
-	output_solution::{output_solution, output_turn_to_finish},
+	output_solution::{output_solution, output_turn_to_finish, read_turn_to_finish},
 	parse::get_iteration,
 	referee::{
 		car::Car,
@@ -82,7 +82,10 @@ pub fn solve(
 		.build()
 		.map_err(|e| format!("failed to build thread pool: {e}"))?;
 
-	let (mut solution_list, loaded) = first_generation::init_first_generation(validator_name)?;
+	let fresh = crate::parse::is_fresh();
+	let mut best_disk_ttf = read_turn_to_finish(validator_name);
+	let (mut solution_list, loaded) =
+		first_generation::init_first_generation(validator_name, fresh)?;
 	let mut score_list = [Score::default(); SOLUTION_PER_GENERATION];
 	let mut step_count_list = [usize::default(); SOLUTION_PER_GENERATION];
 	let mut frozen_list = [FrozenPrefix::from_scratch(car_init_state); SOLUTION_PER_GENERATION];
@@ -162,9 +165,14 @@ pub fn solve(
 					},
 				);
 
-				output_solution(&best.1.solution, validator_name)?;
-				if let Some(ttf) = best.1.turn_to_finish {
-					output_turn_to_finish(ttf, validator_name)?;
+				let is_disk_best = best
+					.1
+					.turn_to_finish
+					.is_some_and(|ttf| best_disk_ttf.is_none_or(|disk| ttf < disk));
+				if is_disk_best {
+					best_disk_ttf = best.1.turn_to_finish;
+					output_solution(&best.1.solution, validator_name)?;
+					output_turn_to_finish(best.1.turn_to_finish.unwrap(), validator_name)?;
 				}
 			}
 
