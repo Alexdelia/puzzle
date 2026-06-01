@@ -17,13 +17,11 @@ for validator in "$OUTPUT_DIR"/*; do
 
 	if [[ -f "$solution_file" ]]; then
 		flag="$(head -n 1 "$VALIDATOR_DIR/$validator_name$VALIDATOR_FILE_EXTENSION")"
-		solution="$(cat "$solution_file")"
-		solution="${solution//$'\n'/';'}"
-		S+="(
-\"$flag\",
-r#\"$solution\"#
-),
-"
+		compressed="$(while IFS=' ' read -r a b; do
+			[[ -z "$a" ]] && continue
+			printf "\\$(printf '%03o' $((a + 18)))\\$(printf '%03o' "$b")"
+		done < "$solution_file" | base64 -w 0)"
+		S+="(\"$flag\",\"$compressed\"),"
 	fi
 done
 
