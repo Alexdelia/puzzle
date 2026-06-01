@@ -15,6 +15,10 @@ pub fn get_path() -> Result<String, String> {
 	Ok(args[1].clone())
 }
 
+pub fn is_fresh() -> bool {
+	std::env::var("FRESH").is_ok_and(|v| !v.is_empty())
+}
+
 pub fn get_iteration() -> Result<usize, String> {
 	option_env!("ITERATION").map_or(Ok(DEFAULT_ITERATION), |s| {
 		s.parse::<usize>().map_err(|e| e.to_string())

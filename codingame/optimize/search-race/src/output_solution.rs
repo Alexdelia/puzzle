@@ -36,6 +36,15 @@ pub fn output_solution(solution_repr: &Solution, validator_name: &str) -> Result
 	Ok(())
 }
 
+pub fn read_turn_to_finish(validator_name: &str) -> Option<f64> {
+	let path = std::path::Path::new(OUTPUT_DIR)
+		.join(validator_name)
+		.join(OUTPUT_TURN_TO_FINISH_FILE);
+	std::fs::read_to_string(path)
+		.ok()
+		.and_then(|s| s.trim().parse().ok())
+}
+
 pub fn output_turn_to_finish(turn_to_finish: f64, validator_name: &str) -> Result<(), String> {
 	let path = std::path::Path::new(OUTPUT_DIR)
 		.join(validator_name)
