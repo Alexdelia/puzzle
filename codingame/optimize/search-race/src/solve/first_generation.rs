@@ -11,12 +11,13 @@ const INITIAL_SOLUTION_STEP_SIZE: usize = MAX_STEP;
 
 pub fn init_first_generation(
 	validator_name: &str,
-) -> Result<[Solution; SOLUTION_PER_GENERATION], String> {
+) -> Result<([Solution; SOLUTION_PER_GENERATION], bool), String> {
 	let mut generation = Vec::with_capacity(SOLUTION_PER_GENERATION);
 
 	let mut rng = rand::rng();
 
 	let stored_solution = read_stored_solution(validator_name)?;
+	let loaded = stored_solution.is_some();
 	if let Some(solution) = stored_solution {
 		generation.push(solution);
 	}
@@ -30,7 +31,10 @@ pub fn init_first_generation(
 		generation.push(solution);
 	}
 
-	Ok(generation.try_into().expect("generation size mismatch"))
+	Ok((
+		generation.try_into().expect("generation size mismatch"),
+		loaded,
+	))
 }
 
 fn read_stored_solution(validator_name: &str) -> Result<Option<Solution>, String> {
