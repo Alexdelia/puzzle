@@ -25,7 +25,7 @@ use crate::{
 pub const SOLUTION_PER_GENERATION: usize = 512;
 
 const INITIAL_STEP_TO_CHECKPOINT_LIMIT: usize = 3;
-const FINISHED_STEP_TO_CHECKPOINT_LIMIT: usize = 64;
+const MAX_STEP_TO_CHECKPOINT_LIMIT: usize = 64;
 const STAGNANT_GENERATIONS_BEFORE_WIDENING: usize = 10;
 
 pub type Score = f32;
@@ -109,7 +109,7 @@ pub fn solve(
 		);
 		best_frontier = loaded_run.reached_checkpoint_count;
 		if loaded_run.finished {
-			step_to_checkpoint_limit = FINISHED_STEP_TO_CHECKPOINT_LIMIT;
+			step_to_checkpoint_limit = MAX_STEP_TO_CHECKPOINT_LIMIT;
 		} else {
 			frozen_list[0] = loaded_run.frozen;
 		}
@@ -178,6 +178,25 @@ pub fn solve(
 			visualize::write_doc(validator_name, &doc, generation);
 		}
 
+		if best.1.finished {
+			step_to_checkpoint_limit = MAX_STEP_TO_CHECKPOINT_LIMIT;
+			stagnant_generation_count = 0;
+		} else if best.1.reached_checkpoint_count > best_frontier {
+			step_to_checkpoint_limit = INITIAL_STEP_TO_CHECKPOINT_LIMIT;
+			stagnant_generation_count = 0;
+		} else if best.0 < previous_best_score {
+			stagnant_generation_count = 0;
+		} else {
+			stagnant_generation_count += 1;
+			if stagnant_generation_count >= STAGNANT_GENERATIONS_BEFORE_WIDENING {
+				step_to_checkpoint_limit =
+					(step_to_checkpoint_limit + 1).min(MAX_STEP_TO_CHECKPOINT_LIMIT);
+				stagnant_generation_count = 0;
+			}
+		}
+		best_frontier = best.1.reached_checkpoint_count;
+		previous_best_score = best.0;
+
 		let best_finished_step_count = if best.1.finished {
 			Some(best.1.step_count)
 		} else {
@@ -190,25 +209,8 @@ pub fn solve(
 			frozen_list,
 			car_init_state,
 			best_finished_step_count,
+			step_to_checkpoint_limit,
 		);
-
-		if best.1.finished {
-			step_to_checkpoint_limit = FINISHED_STEP_TO_CHECKPOINT_LIMIT;
-			stagnant_generation_count = 0;
-		} else if best.1.reached_checkpoint_count > best_frontier {
-			step_to_checkpoint_limit = INITIAL_STEP_TO_CHECKPOINT_LIMIT;
-			stagnant_generation_count = 0;
-		} else if best.0 < previous_best_score {
-			stagnant_generation_count = 0;
-		} else {
-			stagnant_generation_count += 1;
-			if stagnant_generation_count >= STAGNANT_GENERATIONS_BEFORE_WIDENING {
-				step_to_checkpoint_limit += 1;
-				stagnant_generation_count = 0;
-			}
-		}
-		best_frontier = best.1.reached_checkpoint_count;
-		previous_best_score = best.0;
 
 		if generation.is_multiple_of(128) {
 			log_generation(generation, &best, step_to_checkpoint_limit);
