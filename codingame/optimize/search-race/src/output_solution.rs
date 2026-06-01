@@ -3,6 +3,7 @@ use crate::{output_repr::Solution, referee::solution_into_real_output};
 pub const OUTPUT_DIR: &str = "output";
 pub const OUTPUT_SOLUTION_REPR_FILE: &str = "solution_repr.ron";
 const OUTPUT_SOLUTION_REAL_FILE: &str = "solution.txt";
+const OUTPUT_TURN_TO_FINISH_FILE: &str = "turn_to_finish.txt";
 
 pub fn output_solution(solution_repr: &Solution, validator_name: &str) -> Result<(), String> {
 	let output_dir = std::path::Path::new(OUTPUT_DIR).join(validator_name);
@@ -33,4 +34,12 @@ pub fn output_solution(solution_repr: &Solution, validator_name: &str) -> Result
 	}
 
 	Ok(())
+}
+
+pub fn output_turn_to_finish(step_count: usize, validator_name: &str) -> Result<(), String> {
+	let path = std::path::Path::new(OUTPUT_DIR)
+		.join(validator_name)
+		.join(OUTPUT_TURN_TO_FINISH_FILE);
+	std::fs::write(&path, step_count.to_string())
+		.map_err(|e| format!("failed to write turn_to_finish file {path:?}: {e}"))
 }
