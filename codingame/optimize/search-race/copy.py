@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import base64, os, sys
+import base64
+from pathlib import Path
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
+script_dir = Path(__file__).resolve().parent
 
-validator_dir = os.path.join(script_dir, "validator")
-output_dir = os.path.join(script_dir, "output")
+validator_dir = script_dir / "validator"
+output_dir = script_dir / "output"
 
 SOLUTION_FILE_NAME = "solution.txt"
 VALIDATOR_FILE_EXTENSION = ".txt"
@@ -13,23 +14,23 @@ VALIDATOR_FILE_EXTENSION = ".txt"
 TILT_OFFSET = 18
 
 parts = []
-for name in sorted(os.listdir(output_dir)):
-    sol_path = os.path.join(output_dir, name, SOLUTION_FILE_NAME)
-    flag_path = os.path.join(validator_dir, name + VALIDATOR_FILE_EXTENSION)
-    if not os.path.isfile(sol_path):
-        continue
-    with open(flag_path) as f:
-        flag = f.readline().rstrip("\n")
-    buf = bytearray()
-    with open(sol_path) as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            a, b = line.split()
-            buf.append(int(a) + TILT_OFFSET)
-            buf.append(int(b))
-    compressed = base64.b64encode(buf).decode()
-    parts.append('("' + flag + '","' + compressed + '"),')
+for entry in sorted(output_dir.iterdir()):
+	sol_path = entry / SOLUTION_FILE_NAME
+	flag_path = validator_dir / (entry.name + VALIDATOR_FILE_EXTENSION)
+	if not sol_path.is_file():
+		continue
+	with flag_path.open() as f:
+		flag = f.readline().rstrip("\n")
+	buf = bytearray()
+	with sol_path.open() as f:
+		for raw_line in f:
+			stripped = raw_line.strip()
+			if not stripped:
+				continue
+			a, b = stripped.split()
+			buf.append(int(a) + TILT_OFFSET)
+			buf.append(int(b))
+	compressed = base64.b64encode(buf).decode()
+	parts.append('("' + flag + '","' + compressed + '"),')
 
 print("".join(parts), end="")
