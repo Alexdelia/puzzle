@@ -26,7 +26,7 @@ pub const SOLUTION_PER_GENERATION: usize = 512;
 
 const INITIAL_STEP_TO_CHECKPOINT_LIMIT: usize = 3;
 const MAX_STEP_TO_CHECKPOINT_LIMIT: usize = 64;
-const STAGNANT_GENERATIONS_BEFORE_WIDENING: usize = 10;
+const STAGNANT_GENERATIONS_BEFORE_WIDENING: usize = 512;
 
 pub type Score = f32;
 
@@ -96,7 +96,6 @@ pub fn solve(
 	let mut best = (Score::MAX, BestSolution::default());
 
 	let mut step_to_checkpoint_limit = INITIAL_STEP_TO_CHECKPOINT_LIMIT;
-	let mut previous_best_score = Score::MAX;
 	let mut best_frontier = 0;
 	let mut stagnant_generation_count = 0;
 
@@ -187,8 +186,6 @@ pub fn solve(
 		} else if best.1.reached_checkpoint_count > best_frontier {
 			step_to_checkpoint_limit = INITIAL_STEP_TO_CHECKPOINT_LIMIT;
 			stagnant_generation_count = 0;
-		} else if best.0 < previous_best_score {
-			stagnant_generation_count = 0;
 		} else {
 			stagnant_generation_count += 1;
 			if stagnant_generation_count >= STAGNANT_GENERATIONS_BEFORE_WIDENING {
@@ -198,8 +195,6 @@ pub fn solve(
 			}
 		}
 		best_frontier = best.1.reached_checkpoint_count;
-		previous_best_score = best.0;
-
 		let best_finished_step_count = if best.1.finished {
 			Some(best.1.step_count)
 		} else {
