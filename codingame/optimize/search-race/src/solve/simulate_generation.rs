@@ -3,7 +3,12 @@ use std::sync::mpsc;
 use crate::{
 	dist::dist,
 	output_repr::Solution,
-	referee::{car::Car, env::Coord, intersect, process_step::process_step},
+	referee::{
+		car::Car,
+		env::{CHECKPOINT_RADIUS, Coord},
+		intersect,
+		process_step::process_step,
+	},
 	segment::Segment,
 	solve::get_score::get_score,
 };
@@ -122,6 +127,8 @@ pub fn simulate_solution(
 
 			if checkpoint_index == checkpoint_list.len() {
 				let step_count = step_index + 1;
+				let entry_t = checkpoint_entry_fraction(traveled.a, traveled.b, current_checkpoint);
+				let turn_to_finish = step_index as f64 + entry_t;
 				return ProcessOutput {
 					index,
 					finished: true,
@@ -130,8 +137,10 @@ pub fn simulate_solution(
 						checkpoint_index,
 						closest_to_checkpoint,
 						step_count,
+						Some(turn_to_finish),
 					),
 					step_count,
+					turn_to_finish: Some(turn_to_finish),
 					reached_checkpoint_count: checkpoint_index,
 					frozen: pre_last_crossing.unwrap_or(*frozen),
 					#[cfg(feature = "visualize")]
@@ -152,6 +161,7 @@ pub fn simulate_solution(
 		index,
 		finished: false,
 		step_count,
+		turn_to_finish: None,
 		reached_checkpoint_count: checkpoint_index,
 		frozen: pre_last_crossing.unwrap_or(*frozen),
 		score: get_score(
@@ -159,8 +169,33 @@ pub fn simulate_solution(
 			checkpoint_index,
 			closest_to_checkpoint,
 			step_count,
+			None,
 		),
 		#[cfg(feature = "visualize")]
 		path,
 	}
+}
+
+/// Compute the parametric `t` (0..1) at which the segment from→to first enters the checkpoint circle.
+fn checkpoint_entry_fraction(from: Coord, to: Coord, checkpoint: Coord) -> f64 {
+	let dx = to.x - from.x;
+	let dy = to.y - from.y;
+	let fx = from.x - checkpoint.x;
+	let fy = from.y - checkpoint.y;
+
+	let a = dx * dx + dy * dy;
+	if a == 0.0 {
+		return 0.0;
+	}
+
+	let b = 2.0 * (fx * dx + fy * dy);
+	let c = fx * fx + fy * fy - CHECKPOINT_RADIUS * CHECKPOINT_RADIUS;
+
+	let discriminant = b * b - 4.0 * a * c;
+	if discriminant < 0.0 {
+		return 1.0;
+	}
+
+	let t = (-b - discriminant.sqrt()) / (2.0 * a);
+	t.clamp(0.0, 1.0)
 }

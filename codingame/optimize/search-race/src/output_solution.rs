@@ -36,10 +36,10 @@ pub fn output_solution(solution_repr: &Solution, validator_name: &str) -> Result
 	Ok(())
 }
 
-pub fn output_turn_to_finish(step_count: usize, validator_name: &str) -> Result<(), String> {
+pub fn output_turn_to_finish(turn_to_finish: f64, validator_name: &str) -> Result<(), String> {
 	let path = std::path::Path::new(OUTPUT_DIR)
 		.join(validator_name)
 		.join(OUTPUT_TURN_TO_FINISH_FILE);
-	std::fs::write(&path, step_count.to_string())
+	std::fs::write(&path, turn_to_finish.to_string())
 		.map_err(|e| format!("failed to write turn_to_finish file {path:?}: {e}"))
 }

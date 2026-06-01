@@ -12,10 +12,11 @@ pub fn get_score(
 	current_checkpoint_index: usize,
 	closest_to_checkpoint: f64,
 	step_count: usize,
+	turn_to_finish: Option<f64>,
 ) -> Score {
 	if current_checkpoint_index == checkpoint_list.len() {
-		// TODO: calculate at what % of the turn it was finished
-		return (step_count as Score) - (MAX_STEP as Score);
+		let ttf = turn_to_finish.unwrap_or(step_count as f64);
+		return (ttf as Score) - (MAX_STEP as Score);
 	}
 
 	let remaining_checkpoint_count = checkpoint_list.len() - current_checkpoint_index - 1;
