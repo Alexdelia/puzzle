@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import base64
+import sys
 from pathlib import Path
 
 script_dir = Path(__file__).resolve().parent
@@ -33,4 +34,9 @@ for entry in sorted(output_dir.iterdir()):
 	compressed = base64.b64encode(buf).decode()
 	parts.append('("' + flag + '","' + compressed + '"),')
 
+total = 0.0
+for ttf_path in output_dir.glob("*/turn_to_finish.txt"):
+	total += float(ttf_path.read_text().strip())
+
+print(f"\033[1;32m{total:.3f}\033[0m", file=sys.stderr)
 print("".join(parts), end="")
