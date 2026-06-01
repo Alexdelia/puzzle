@@ -119,7 +119,7 @@ pub fn solve(
 
 	let mut generation: usize = 0;
 	let max_iteration = get_iteration()?;
-	while !best.1.finished || generation < max_iteration {
+	while !best.1.finished || optimize_end || generation < max_iteration {
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
 
 		simulate_generation(
