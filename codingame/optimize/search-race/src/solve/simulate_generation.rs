@@ -143,6 +143,11 @@ pub fn simulate_solution(
 
 	let step_count = solution.len();
 
+	if closest_to_checkpoint.is_infinite() {
+		let current_checkpoint = checkpoint_list[checkpoint_index];
+		closest_to_checkpoint = dist(car.x, car.y, current_checkpoint.x, current_checkpoint.y);
+	}
+
 	ProcessOutput {
 		index,
 		finished: false,

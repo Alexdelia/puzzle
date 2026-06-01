@@ -3,7 +3,7 @@ use rand::RngExt;
 use super::{FrozenPrefix, SOLUTION_PER_GENERATION, Score};
 use crate::{
 	output_repr::{Solution, Step},
-	referee::car::Car,
+	referee::{car::Car, env::MAX_STEP},
 };
 
 const KEEP_RATE: f32 = 0.1;
@@ -26,6 +26,18 @@ const fn gen_mutation_rate() -> [MutationRate; SOLUTION_PER_GENERATION] {
 
 const MUTATION_RATE: [MutationRate; SOLUTION_PER_GENERATION] = gen_mutation_rate();
 
+fn computed_solution_size(
+	frozen: &FrozenPrefix,
+	best_finished_step_count: Option<usize>,
+	step_to_checkpoint_limit: usize,
+) -> usize {
+	match best_finished_step_count {
+		Some(finished_step_count) => finished_step_count,
+		None => (frozen.resume_from_step + frozen.reentry_step_count + step_to_checkpoint_limit)
+			.min(MAX_STEP),
+	}
+}
+
 pub fn breed_generation(
 	mut solution_list: [Solution; SOLUTION_PER_GENERATION],
 	score_list: [Score; SOLUTION_PER_GENERATION],
@@ -33,6 +45,7 @@ pub fn breed_generation(
 	frozen_list: [FrozenPrefix; SOLUTION_PER_GENERATION],
 	car_init_state: &Car,
 	best_finished_step_count: Option<usize>,
+	step_to_checkpoint_limit: usize,
 ) -> (
 	[Solution; SOLUTION_PER_GENERATION],
 	[FrozenPrefix; SOLUTION_PER_GENERATION],
@@ -47,29 +60,23 @@ pub fn breed_generation(
 	let keep_count = (SOLUTION_PER_GENERATION as f32 * KEEP_RATE).ceil() as usize;
 	let random_count = (SOLUTION_PER_GENERATION as f32 * RANDOM_RATE).ceil() as usize;
 
-	let max_solution_size = best_finished_step_count.unwrap_or_else(|| {
-		ordered_solution_list[0..keep_count]
-			.iter()
-			.map(|s| s.len())
-			.max()
-			.expect("no solutions to breed")
-			.min(600)
-	});
-
 	let mut rng = rand::rng();
 
 	let mut parent_a_index = 0;
 	let mut parent_b_index = 1;
 	for i in keep_count..(SOLUTION_PER_GENERATION - random_count) {
-		let parent_a = &ordered_solution_list[parent_a_index];
-		let parent_b = &ordered_solution_list[parent_b_index];
 		let freeze_until = ordered_frozen_list[parent_a_index].resume_from_step;
+		let solution_size = computed_solution_size(
+			&ordered_frozen_list[parent_a_index],
+			best_finished_step_count,
+			step_to_checkpoint_limit,
+		);
 		ordered_solution_list[i] = breed(
 			&mut rng,
 			MUTATION_RATE[i],
-			parent_a,
-			parent_b,
-			max_solution_size,
+			&ordered_solution_list[parent_a_index],
+			&ordered_solution_list[parent_b_index],
+			solution_size,
 			freeze_until,
 		);
 		ordered_frozen_list[i] = ordered_frozen_list[parent_a_index];
@@ -81,27 +88,40 @@ pub fn breed_generation(
 		}
 	}
 
-	for (i, solution) in ordered_solution_list
-		.iter_mut()
-		.take(keep_count)
-		.skip(1)
-		.enumerate()
-	{
-		let freeze_until = ordered_frozen_list[i + 1].resume_from_step;
-		for step in solution.iter_mut().skip(freeze_until) {
-			mutate(&mut rng, MUTATION_RATE[i], step);
+	for i in 1..keep_count {
+		let frozen = ordered_frozen_list[i];
+		let solution_size =
+			computed_solution_size(&frozen, best_finished_step_count, step_to_checkpoint_limit);
+		let solution = &mut ordered_solution_list[i];
+		resize_with_random(&mut rng, solution, solution_size);
+		for step in solution.iter_mut().skip(frozen.resume_from_step) {
+			mutate(&mut rng, MUTATION_RATE[i - 1], step);
 		}
 	}
 
 	let from_scratch = FrozenPrefix::from_scratch(car_init_state);
+	let random_size = computed_solution_size(
+		&from_scratch,
+		best_finished_step_count,
+		step_to_checkpoint_limit,
+	);
 	for i in (SOLUTION_PER_GENERATION - random_count)..SOLUTION_PER_GENERATION {
-		for step in ordered_solution_list[i].iter_mut().take(max_solution_size) {
-			*step = Step::random(&mut rng);
+		let solution = &mut ordered_solution_list[i];
+		solution.clear();
+		for _ in 0..random_size {
+			solution.push(Step::random(&mut rng));
 		}
 		ordered_frozen_list[i] = from_scratch;
 	}
 
 	(ordered_solution_list, ordered_frozen_list)
+}
+
+fn resize_with_random(rng: &mut impl rand::Rng, solution: &mut Solution, solution_size: usize) {
+	for _ in solution.len()..solution_size {
+		solution.push(Step::random(rng));
+	}
+	solution.truncate(solution_size);
 }
 
 fn sort(
