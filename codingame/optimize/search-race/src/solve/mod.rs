@@ -54,6 +54,7 @@ struct ProcessOutput {
 	finished: bool,
 	score: Score,
 	step_count: usize,
+	turn_to_finish: Option<f64>,
 	reached_checkpoint_count: usize,
 	frozen: FrozenPrefix,
 	#[cfg(feature = "visualize")]
@@ -65,6 +66,7 @@ struct BestSolution {
 	finished: bool,
 	solution: Solution,
 	step_count: usize,
+	turn_to_finish: Option<f64>,
 	reached_checkpoint_count: usize,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
@@ -153,6 +155,7 @@ pub fn solve(
 						finished: r.finished,
 						solution: solution_list[r.index].clone(),
 						step_count: r.step_count,
+						turn_to_finish: r.turn_to_finish,
 						reached_checkpoint_count: r.reached_checkpoint_count,
 						#[cfg(feature = "visualize")]
 						path: r.path.clone(),
@@ -160,8 +163,8 @@ pub fn solve(
 				);
 
 				output_solution(&best.1.solution, validator_name)?;
-				if best.1.finished {
-					output_turn_to_finish(best.1.step_count, validator_name)?;
+				if let Some(ttf) = best.1.turn_to_finish {
+					output_turn_to_finish(ttf, validator_name)?;
 				}
 			}
 

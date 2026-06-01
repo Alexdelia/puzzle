@@ -17,7 +17,7 @@ ITERATION = 100_000
 
 start_with_validator = sys.argv[1] if len(sys.argv) > 1 else None
 
-type ValidatorList = list[tuple[str, Path, int, int | None]]
+type ValidatorList = list[tuple[str, Path, int, float | None]]
 
 
 def build() -> Path:
@@ -67,7 +67,7 @@ def get_validator_list() -> ValidatorList:
 			turn_to_finish_file = OUTPUT_DIR / name / TURN_TO_FINISH_FILE_NAME
 			if turn_to_finish_file.exists():
 				with turn_to_finish_file.open() as f:
-					turn_to_finish = int(f.read().strip())
+					turn_to_finish = float(f.read().strip())
 			else:
 				turn_to_finish = None
 
@@ -126,11 +126,11 @@ print()
 for vn, _, vt, vtf in vl:
 	success_mark = "\033[1;32m✓\033[0m" if vtf is not None else "-"
 
-	vtf_str = str(vtf) if vtf is not None else ""
+	vtf_str = f"{vtf:.2f}" if vtf is not None else ""
 
 	print(
 		f"  {success_mark} \033[32m{vn:<6}"
-		f" \033[0;1m{vtf_str:>3}"
+		f" \033[0;1m{vtf_str:>6}"
 		f" \033[0m{human_readable_time(vt)}"
 	)
 print()
@@ -159,7 +159,7 @@ while True:
 	turn_to_finish_file = OUTPUT_DIR / vn / TURN_TO_FINISH_FILE_NAME
 	if turn_to_finish_file.exists():
 		with turn_to_finish_file.open() as f:
-			vtf = int(f.read().strip())
+			vtf = float(f.read().strip())
 
 	vl.append((vn, vp, vt, vtf))
 	vl = sort(vl)

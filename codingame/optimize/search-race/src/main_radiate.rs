@@ -137,25 +137,24 @@ fn solve(
 					reached_at_step = step_index;
 					closest_to_checkpoint = f64::INFINITY;
 
-					let step_count = step_index + 1;
-
 					if checkpoint_index == checkpoint_list.len() {
 						return get_score(
 							&checkpoint_list,
 							checkpoint_index,
 							closest_to_checkpoint,
-							step_count,
+							step_index + 1,
+							None,
 						);
 					}
 				}
 			}
 
-			let step_count = solution.len();
 			get_score(
 				&checkpoint_list,
 				checkpoint_index,
 				closest_to_checkpoint,
-				step_count,
+				solution.len(),
+				None,
 			)
 		})
 		.minimizing()
