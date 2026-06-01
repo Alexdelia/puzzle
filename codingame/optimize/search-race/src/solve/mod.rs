@@ -111,10 +111,9 @@ pub fn solve(
 			MAX_STEP,
 		);
 		best_frontier = loaded_run.reached_checkpoint_count;
+		frozen_list[0] = loaded_run.frozen;
 		if loaded_run.finished {
 			optimize_end = true;
-		} else {
-			frozen_list[0] = loaded_run.frozen;
 		}
 	}
 
