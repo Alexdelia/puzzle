@@ -98,6 +98,8 @@ pub fn solve(
 	let mut step_to_checkpoint_limit = INITIAL_STEP_TO_CHECKPOINT_LIMIT;
 	let mut best_frontier = 0;
 	let mut stagnant_generation_count = 0;
+	let mut optimize_end = false;
+	let mut previous_best_score = Score::MAX;
 
 	if loaded {
 		let loaded_run = simulate_solution(
@@ -110,7 +112,7 @@ pub fn solve(
 		);
 		best_frontier = loaded_run.reached_checkpoint_count;
 		if loaded_run.finished {
-			step_to_checkpoint_limit = MAX_STEP_TO_CHECKPOINT_LIMIT;
+			optimize_end = true;
 		} else {
 			frozen_list[0] = loaded_run.frozen;
 		}
@@ -141,7 +143,7 @@ pub fn solve(
 		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
 			score_list[r.index] = r.score;
 			step_count_list[r.index] = r.step_count;
-			frozen_list[r.index] = if r.finished {
+			frozen_list[r.index] = if r.finished && !optimize_end {
 				FrozenPrefix::from_scratch(car_init_state)
 			} else {
 				r.frozen
@@ -181,8 +183,26 @@ pub fn solve(
 		}
 
 		if best.1.finished {
-			step_to_checkpoint_limit = MAX_STEP_TO_CHECKPOINT_LIMIT;
-			stagnant_generation_count = 0;
+			if !optimize_end && best_frontier < checkpoint_list.len() {
+				optimize_end = true;
+				step_to_checkpoint_limit = INITIAL_STEP_TO_CHECKPOINT_LIMIT;
+				stagnant_generation_count = 0;
+			} else if optimize_end {
+				if best.0 < previous_best_score {
+					stagnant_generation_count = 0;
+				} else {
+					stagnant_generation_count += 1;
+					if stagnant_generation_count >= STAGNANT_GENERATIONS_BEFORE_WIDENING {
+						optimize_end = false;
+						step_to_checkpoint_limit = MAX_STEP_TO_CHECKPOINT_LIMIT;
+						stagnant_generation_count = 0;
+					}
+				}
+			} else if best.0 < previous_best_score {
+				optimize_end = true;
+				step_to_checkpoint_limit = INITIAL_STEP_TO_CHECKPOINT_LIMIT;
+				stagnant_generation_count = 0;
+			}
 		} else if best.1.reached_checkpoint_count > best_frontier {
 			step_to_checkpoint_limit = INITIAL_STEP_TO_CHECKPOINT_LIMIT;
 			stagnant_generation_count = 0;
@@ -195,7 +215,8 @@ pub fn solve(
 			}
 		}
 		best_frontier = best.1.reached_checkpoint_count;
-		let best_finished_step_count = if best.1.finished {
+		previous_best_score = best.0;
+		let best_finished_step_count = if best.1.finished && !optimize_end {
 			Some(best.1.step_count)
 		} else {
 			None
