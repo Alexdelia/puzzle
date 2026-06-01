@@ -1,6 +1,6 @@
 mod first_generation;
 mod simulate_generation;
-use simulate_generation::simulate_generation;
+use simulate_generation::{simulate_generation, simulate_solution};
 mod breed_generation;
 pub mod get_score;
 use breed_generation::breed_generation;
@@ -16,10 +16,17 @@ use crate::{
 	output_repr::Solution,
 	output_solution::{output_solution, output_turn_to_finish},
 	parse::get_iteration,
-	referee::{car::Car, env::Coord},
+	referee::{
+		car::Car,
+		env::{Coord, MAX_STEP},
+	},
 };
 
 pub const SOLUTION_PER_GENERATION: usize = 512;
+
+const INITIAL_STEP_TO_CHECKPOINT_LIMIT: usize = 3;
+const FINISHED_STEP_TO_CHECKPOINT_LIMIT: usize = 64;
+const STAGNANT_GENERATIONS_BEFORE_WIDENING: usize = 10;
 
 pub type Score = f32;
 
@@ -28,6 +35,7 @@ struct FrozenPrefix {
 	resume_from_step: usize,
 	car: Car,
 	checkpoint_index: usize,
+	reentry_step_count: usize,
 }
 
 impl FrozenPrefix {
@@ -36,6 +44,7 @@ impl FrozenPrefix {
 			resume_from_step: 0,
 			car: *car,
 			checkpoint_index: 0,
+			reentry_step_count: 0,
 		}
 	}
 }
@@ -45,6 +54,7 @@ struct ProcessOutput {
 	finished: bool,
 	score: Score,
 	step_count: usize,
+	reached_checkpoint_count: usize,
 	frozen: FrozenPrefix,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
@@ -55,6 +65,7 @@ struct BestSolution {
 	finished: bool,
 	solution: Solution,
 	step_count: usize,
+	reached_checkpoint_count: usize,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
 }
@@ -69,7 +80,7 @@ pub fn solve(
 		.build()
 		.map_err(|e| format!("failed to build thread pool: {e}"))?;
 
-	let mut solution_list = first_generation::init_first_generation(validator_name)?;
+	let (mut solution_list, loaded) = first_generation::init_first_generation(validator_name)?;
 	let mut score_list = [Score::default(); SOLUTION_PER_GENERATION];
 	let mut step_count_list = [usize::default(); SOLUTION_PER_GENERATION];
 	let mut frozen_list = [FrozenPrefix::from_scratch(car_init_state); SOLUTION_PER_GENERATION];
@@ -81,6 +92,28 @@ pub fn solve(
 		.expect("path list size mismatch");
 
 	let mut best = (Score::MAX, BestSolution::default());
+
+	let mut step_to_checkpoint_limit = INITIAL_STEP_TO_CHECKPOINT_LIMIT;
+	let mut previous_best_score = Score::MAX;
+	let mut best_frontier = 0;
+	let mut stagnant_generation_count = 0;
+
+	if loaded {
+		let loaded_run = simulate_solution(
+			0,
+			checkpoint_list,
+			car_init_state,
+			&solution_list[0],
+			&FrozenPrefix::from_scratch(car_init_state),
+			MAX_STEP,
+		);
+		best_frontier = loaded_run.reached_checkpoint_count;
+		if loaded_run.finished {
+			step_to_checkpoint_limit = FINISHED_STEP_TO_CHECKPOINT_LIMIT;
+		} else {
+			frozen_list[0] = loaded_run.frozen;
+		}
+	}
 
 	let mut generation: usize = 0;
 	let max_iteration = get_iteration()?;
@@ -94,6 +127,7 @@ pub fn solve(
 			car_init_state,
 			&solution_list,
 			&frozen_list,
+			step_to_checkpoint_limit,
 		);
 
 		#[cfg(feature = "visualize")]
@@ -119,6 +153,7 @@ pub fn solve(
 						finished: r.finished,
 						solution: solution_list[r.index].clone(),
 						step_count: r.step_count,
+						reached_checkpoint_count: r.reached_checkpoint_count,
 						#[cfg(feature = "visualize")]
 						path: r.path.clone(),
 					},
@@ -157,14 +192,32 @@ pub fn solve(
 			best_finished_step_count,
 		);
 
+		if best.1.finished {
+			step_to_checkpoint_limit = FINISHED_STEP_TO_CHECKPOINT_LIMIT;
+			stagnant_generation_count = 0;
+		} else if best.1.reached_checkpoint_count > best_frontier {
+			step_to_checkpoint_limit = INITIAL_STEP_TO_CHECKPOINT_LIMIT;
+			stagnant_generation_count = 0;
+		} else if best.0 < previous_best_score {
+			stagnant_generation_count = 0;
+		} else {
+			stagnant_generation_count += 1;
+			if stagnant_generation_count >= STAGNANT_GENERATIONS_BEFORE_WIDENING {
+				step_to_checkpoint_limit += 1;
+				stagnant_generation_count = 0;
+			}
+		}
+		best_frontier = best.1.reached_checkpoint_count;
+		previous_best_score = best.0;
+
 		if generation.is_multiple_of(128) {
-			log_generation(generation, &best);
+			log_generation(generation, &best, step_to_checkpoint_limit);
 		}
 
 		generation += 1;
 	}
 
-	log_generation(generation, &best);
+	log_generation(generation, &best, step_to_checkpoint_limit);
 	println!();
 
 	let mut solution = best.1.solution;
@@ -177,11 +230,16 @@ pub fn solve(
 // TODO: also show elapsed of current generation
 // TODO: also show average time per solution of the generation
 #[inline]
-fn log_generation(generation: usize, best: &(Score, BestSolution)) {
+fn log_generation(
+	generation: usize,
+	best: &(Score, BestSolution),
+	step_to_checkpoint_limit: usize,
+) {
 	eprint!(
-		"\r{generation} {best_score:.2} {best_step_count}",
+		"\r{generation} {best_score:.2} {best_step_count} {step_to_checkpoint_limit}",
 		generation = generation,
 		best_score = best.0,
 		best_step_count = best.1.step_count,
+		step_to_checkpoint_limit = step_to_checkpoint_limit,
 	);
 }
