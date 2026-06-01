@@ -4,36 +4,29 @@ use crate::{
 };
 
 /// based on https://github.com/Illedan/CGSearchRace/blob/master/SearchRace/src/main/java/com/codingame/game/Unit.java#L36
-pub fn intersect(checkpoint: Coord, _from: Coord, to: Coord) -> bool {
-	dist(to.x, to.y, checkpoint.x, checkpoint.y) <= CHECKPOINT_RADIUS
-	// TODO: check segment intersection with checkpoint circle, not just the end point
-
-	/*
+pub fn intersect(checkpoint: Coord, from: Coord, to: Coord) -> bool {
 	if dist(from.x, from.y, checkpoint.x, checkpoint.y) <= CHECKPOINT_RADIUS {
 		return true;
 	}
 
-	let d = Coord {
-		x: to.x - from.x,
-		y: to.y - from.y,
-	};
-	let f = Coord {
-		x: from.x - checkpoint.x,
-		y: from.y - checkpoint.y,
-	};
+	let vx = to.x - from.x;
+	let vy = to.y - from.y;
+	let fx = from.x - checkpoint.x;
+	let fy = from.y - checkpoint.y;
 
-	let a = d.x * d.x + d.y * d.y;
-	let b = 2.0 * (f.x * d.x + f.y * d.y);
-	let c = f.x * f.x + f.y * f.y - CHECKPOINT_RADIUS * CHECKPOINT_RADIUS;
+	let a = vx * vx + vy * vy;
+	if a <= 0.0 {
+		return false;
+	}
 
+	let b = 2.0 * (fx * vx + fy * vy);
+	let c = fx * fx + fy * fy - CHECKPOINT_RADIUS * CHECKPOINT_RADIUS;
 	let discriminant = b * b - 4.0 * a * c;
+
 	if discriminant < 0.0 {
 		return false;
 	}
 
-	let sqrt_discriminant = discriminant.sqrt();
-	let t = (-b - sqrt_discriminant) / (2.0 * a);
-
-	t > 0.0
-	*/
+	let t = (-b - discriminant.sqrt()) / (2.0 * a);
+	t > 0.0 && t <= 1.0
 }
