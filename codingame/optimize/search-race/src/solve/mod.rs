@@ -120,6 +120,8 @@ pub fn solve(
 		}
 	}
 
+	eprint!("\n\n\n");
+
 	let mut generation: usize = 0;
 	let max_iteration = get_iteration()?;
 	while !best.1.finished || optimize_end || generation < max_iteration {
@@ -263,11 +265,16 @@ fn log_generation(
 	best: &(Score, BestSolution),
 	step_to_checkpoint_limit: usize,
 ) {
+	let (progress, progress_color) = if best.1.finished {
+		(600.0 + best.0, "\x1b[1;32m")
+	} else {
+		(best.0, "\x1b[1;35m")
+	};
+
 	eprint!(
-		"\r{generation} {best_score:.2} {best_step_count} {step_to_checkpoint_limit}",
-		generation = generation,
-		best_score = best.0,
+		"\r\x1b[2A{progress_color}{progress:>10.2} \x1b[0;2m{best_step_count}\x1b[0;33m+{step_to_checkpoint_limit}\x1b[0m
+TODO: average per solution of the generation, elapsed of the generation, elapsed total
+\x1b[0;1m{generation}\x1b[0m",
 		best_step_count = best.1.step_count,
-		step_to_checkpoint_limit = step_to_checkpoint_limit,
 	);
 }
