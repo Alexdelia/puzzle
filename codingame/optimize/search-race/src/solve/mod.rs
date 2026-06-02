@@ -288,16 +288,16 @@ fn log_generation(
 	let elapsed_sec = total_elapsed.as_secs();
 	let elapsed_str = if elapsed_sec >= 60 {
 		format!(
-			"\x1b[0;34m{min}\x1b[2mm \x1b[0;36m{sec}\x1b[0ms",
+			"\x1b[0;34m{min}\x1b[2mm \x1b[0;36m{sec:>2}\x1b[2ms",
 			min = elapsed_sec / 60,
 			sec = elapsed_sec % 60
 		)
 	} else {
-		format!("{elapsed_sec}s")
+		format!("\x1b[0;36m{elapsed_sec}\x1b[2ms")
 	};
 
 	eprint!(
-		"\r\x1b[2A{progress_color}{progress:>11.3} \x1b[0;2m{best_step_count}\x1b[0;33m+{step_to_checkpoint_limit}
+		"\r\x1b[2A{progress_color}{progress:>11.3} \x1b[0;2m{best_step_count:>3}\x1b[0;33m+{step_to_checkpoint_limit:<2}
 \x1b[0;38;2;52;235;198m{average_nano:>5.2}\x1b[2mμ \x1b[0;96m{generation_ms:>6.3}\x1b[2mms {elapsed_str}
 \x1b[0;1m{generation}\x1b[0m",
 		best_step_count = best.1.step_count,
