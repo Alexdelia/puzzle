@@ -6,6 +6,7 @@ pub mod get_score;
 use breed_generation::breed_generation;
 
 use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 use rayon::ThreadPoolBuilder;
 
@@ -122,9 +123,11 @@ pub fn solve(
 
 	eprint!("\n\n\n");
 
+	let start_time = Instant::now();
 	let mut generation: usize = 0;
 	let max_iteration = get_iteration()?;
 	while !best.1.finished || optimize_end || generation < max_iteration {
+		let generation_start = Instant::now();
 		let (tx, rx) = mpsc::channel::<ProcessOutput>();
 
 		simulate_generation(
@@ -240,14 +243,27 @@ pub fn solve(
 			step_to_checkpoint_limit,
 		);
 
+		let generation_elapsed = generation_start.elapsed();
 		if generation.is_multiple_of(128) {
-			log_generation(generation, &best, step_to_checkpoint_limit);
+			log_generation(
+				generation,
+				&best,
+				step_to_checkpoint_limit,
+				generation_elapsed,
+				start_time.elapsed(),
+			);
 		}
 
 		generation += 1;
 	}
 
-	log_generation(generation, &best, step_to_checkpoint_limit);
+	log_generation(
+		generation,
+		&best,
+		step_to_checkpoint_limit,
+		Duration::ZERO,
+		start_time.elapsed(),
+	);
 	println!();
 
 	let mut solution = best.1.solution;
@@ -255,15 +271,13 @@ pub fn solve(
 	Ok(solution)
 }
 
-// TODO: prettier log
-// TODO: also show elapsed
-// TODO: also show elapsed of current generation
-// TODO: also show average time per solution of the generation
 #[inline]
 fn log_generation(
 	generation: usize,
 	best: &(Score, BestSolution),
 	step_to_checkpoint_limit: usize,
+	generation_elapsed: Duration,
+	total_elapsed: Duration,
 ) {
 	let (progress, progress_color) = if best.1.finished {
 		(600.0 + best.0, "\x1b[1;32m")
@@ -271,10 +285,23 @@ fn log_generation(
 		(best.0, "\x1b[1;35m")
 	};
 
+	let elapsed_sec = total_elapsed.as_secs();
+	let elapsed_str = if elapsed_sec >= 60 {
+		format!(
+			"\x1b[0;34m{min}\x1b[2mm \x1b[0;36m{sec}\x1b[0ms",
+			min = elapsed_sec / 60,
+			sec = elapsed_sec % 60
+		)
+	} else {
+		format!("{elapsed_sec}s")
+	};
+
 	eprint!(
-		"\r\x1b[2A{progress_color}{progress:>10.2} \x1b[0;2m{best_step_count}\x1b[0;33m+{step_to_checkpoint_limit}\x1b[0m
-TODO: average per solution of the generation, elapsed of the generation, elapsed total
+		"\r\x1b[2A{progress_color}{progress:>11.3} \x1b[0;2m{best_step_count}\x1b[0;33m+{step_to_checkpoint_limit}
+\x1b[0;38;2;52;235;198m{average_nano:>5.2}\x1b[2mμ \x1b[0;96m{generation_ms:>6.3}\x1b[2mms {elapsed_str}
 \x1b[0;1m{generation}\x1b[0m",
 		best_step_count = best.1.step_count,
+		average_nano = (generation_elapsed / SOLUTION_PER_GENERATION as u32).as_nanos() as f32 / 1_000.0,
+		generation_ms = generation_elapsed.as_micros() as f32 / 1_000.0,
 	);
 }
