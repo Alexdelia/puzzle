@@ -91,9 +91,9 @@ def sort(validator_list: ValidatorList) -> ValidatorList:
 
 
 def human_readable_time(seconds: int) -> str:
-	_sc = "\033[0;34m"
+	_sc = "\033[0;96m"
 	_mc = "\033[0;36m"
-	_hc = "\033[0;38;2;50;168;125m"
+	_hc = "\033[0;34m"
 	_uc = "\033[2m"
 
 	if seconds < 60:
