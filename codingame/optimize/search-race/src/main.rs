@@ -19,13 +19,11 @@ fn main() -> Result<(), String> {
 	#[cfg(feature = "visualize")]
 	let base_doc = visualize::checkpoint_list(&checkpoint_list);
 
-	let solution = solve::solve(
+	solve::solve(
 		&validator_name,
 		&checkpoint_list,
 		&car_init_state,
 		#[cfg(feature = "visualize")]
 		base_doc,
-	)?;
-
-	output_solution::output_solution(&solution, &validator_name)
+	)
 }

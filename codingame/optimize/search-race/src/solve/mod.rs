@@ -78,7 +78,7 @@ pub fn solve(
 	checkpoint_list: &[Coord],
 	car_init_state: &Car,
 	#[cfg(feature = "visualize")] base_doc: svg::Document,
-) -> Result<Solution, String> {
+) -> Result<(), String> {
 	let pool = ThreadPoolBuilder::new()
 		.build()
 		.map_err(|e| format!("failed to build thread pool: {e}"))?;
@@ -266,9 +266,7 @@ pub fn solve(
 	);
 	println!();
 
-	let mut solution = best.1.solution;
-	solution.truncate(best.1.step_count);
-	Ok(solution)
+	Ok(())
 }
 
 #[inline]
