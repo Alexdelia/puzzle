@@ -18,6 +18,8 @@ pub const MAX_WIDTH: Axis = 16000.0;
 #[cfg(feature = "visualize")]
 pub const MAX_HEIGHT: Axis = 9000.0;
 
-pub const CHECKPOINT_RADIUS: Axis = 600.0;
+pub const REFEREE_EPSILON: Axis = 0.00001;
+
+pub const CHECKPOINT_RADIUS: Axis = 600.0 - REFEREE_EPSILON;
 
 pub const MAX_STEP: usize = 600;
