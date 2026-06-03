@@ -8,8 +8,7 @@ pub struct Coord {
 
 pub type Speed = f64;
 
-/// angle in degrees (0 to 360)
-pub type Degree = i16;
+pub type Degree = f64;
 
 pub const FRICTION: f64 = 0.85;
 
@@ -18,8 +17,18 @@ pub const MAX_WIDTH: Axis = 16000.0;
 #[cfg(feature = "visualize")]
 pub const MAX_HEIGHT: Axis = 9000.0;
 
-// pub const REFEREE_EPSILON: Axis = 0.00001;
+const EPSILON: f64 = 0.00001;
 
-pub const CHECKPOINT_RADIUS: Axis = 600.0 - 0.1;
+#[inline]
+pub fn truncate(x: f64) -> f64 {
+	let rounded = x.round();
+	if (rounded - x).abs() < EPSILON {
+		rounded
+	} else {
+		x.trunc()
+	}
+}
+
+pub const CHECKPOINT_RADIUS: Axis = 600.0;
 
 pub const MAX_STEP: usize = 600;
