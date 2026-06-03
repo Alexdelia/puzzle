@@ -27,7 +27,7 @@ for d in sorted(Path("output.bak").iterdir()):
 
 	diff = val_cur - val_bak
 	color = GREEN if val_cur <= val_bak else RED
-	print(f"{color}{name:<6} {val_bak:7.3f} > {val_cur:7.3f}  {diff:+8.3f}{RESET}")
+	print(f"{color}{name:<2} {val_bak:7.3f} > {val_cur:7.3f}  {diff:+8.3f}{RESET}")
 
 diff_total = sum_cur - sum_bak
 print(f"{sum_bak:.3f} > {sum_cur:.3f}  {diff_total:+.3f}")

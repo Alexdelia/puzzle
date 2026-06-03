@@ -129,7 +129,7 @@ for vn, _, vt, vtf in vl:
 	vtf_str = f"{vtf:.2f}" if vtf is not None else ""
 
 	print(
-		f"  {success_mark} \033[32m{vn:<6}"
+		f"  {success_mark} \033[32m{vn:<2}"
 		f" \033[0;1m{vtf_str:>6}"
 		f" \033[0m{human_readable_time(vt)}"
 	)
