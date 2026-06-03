@@ -2,7 +2,7 @@ use rand::RngExt;
 
 use super::{FrozenPrefix, SOLUTION_PER_GENERATION, Score};
 use crate::{
-	output_repr::{Solution, Step},
+	output_repr::{MAX_THRUST, MAX_TILT_CHANGE, MIN_THRUST, MIN_TILT_CHANGE, Solution, Step},
 	referee::{car::Car, env::MAX_STEP},
 };
 
@@ -194,9 +194,30 @@ fn breed(
 
 pub fn mutate(rng: &mut impl rand::Rng, mutation_rate: f64, step: &mut Step) {
 	if rng.random_bool(mutation_rate) {
-		step.thrust = Step::random_thrust(rng);
+		let bias = step.thrust as f32 / MAX_THRUST as f32;
+		let r: f32 = rng.random();
+		let p_max = bias * bias;
+		let p_min = (1.0 - bias) * (1.0 - bias);
+		if r < p_max {
+			step.thrust = MAX_THRUST;
+		} else if r < p_max + p_min {
+			step.thrust = MIN_THRUST;
+		} else {
+			step.thrust = Step::random_thrust(rng);
+		}
 	}
 	if rng.random_bool(mutation_rate) {
-		step.tilt = Step::random_titl(rng);
+		let bias =
+			(step.tilt - MIN_TILT_CHANGE) as f32 / (MAX_TILT_CHANGE - MIN_TILT_CHANGE) as f32;
+		let r: f32 = rng.random();
+		let p_max = bias * bias;
+		let p_min = (1.0 - bias) * (1.0 - bias);
+		if r < p_max {
+			step.tilt = MAX_TILT_CHANGE;
+		} else if r < p_max + p_min {
+			step.tilt = MIN_TILT_CHANGE;
+		} else {
+			step.tilt = Step::random_titl(rng);
+		}
 	}
 }
