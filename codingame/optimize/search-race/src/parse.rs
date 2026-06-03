@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::referee::{
 	car::Car,
-	env::{Axis, Coord, Degree},
+	env::{Axis, Coord},
 };
 
 const DEFAULT_ITERATION: usize = 128;
@@ -64,7 +64,7 @@ fn parse_car(line: &str) -> Result<Car, String> {
 		y: parse_n::<Axis>("y coordinate", split.next())?,
 		sx: parse_n::<Axis>("horizontal speed", split.next())?,
 		sy: parse_n::<Axis>("vertical speed", split.next())?,
-		angle: parse_n::<Degree>("angle", split.next())?,
+		angle: parse_n::<i16>("angle", split.next()).map(|d| (d as f64).to_radians())?,
 	})
 }
 
