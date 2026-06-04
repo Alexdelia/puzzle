@@ -82,14 +82,14 @@ pub fn simulate_solution(
 	for (step_index, step) in solution.iter().enumerate().skip(frozen.resume_from_step) {
 		let from = Coord { x: car.x, y: car.y };
 
-		process_step(&mut car, step);
+		let moved_to = process_step(&mut car, step);
 
 		let traveled = Segment {
 			a: from,
-			b: Coord { x: car.x, y: car.y },
+			b: moved_to,
 		};
 		#[cfg(feature = "visualize")]
-		path.push(traveled.b);
+		path.push(Coord { x: car.x, y: car.y });
 
 		if window_start + window_len < step_index {
 			break;
