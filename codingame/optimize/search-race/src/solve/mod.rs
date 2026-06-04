@@ -83,6 +83,8 @@ pub fn solve(
 		.build()
 		.map_err(|e| format!("failed to build thread pool: {e}"))?;
 
+	let checkpoint_count = checkpoint_list.len();
+
 	let fresh = crate::parse::is_fresh();
 	let mut best_disk_ttf = read_turn_to_finish(validator_name);
 	let (mut solution_list, loaded) =
@@ -248,6 +250,7 @@ pub fn solve(
 			log_generation(
 				generation,
 				&best,
+				checkpoint_count,
 				step_to_checkpoint_limit,
 				generation_elapsed,
 				start_time.elapsed(),
@@ -260,6 +263,7 @@ pub fn solve(
 	log_generation(
 		generation,
 		&best,
+		checkpoint_count,
 		step_to_checkpoint_limit,
 		Duration::ZERO,
 		start_time.elapsed(),
@@ -273,6 +277,7 @@ pub fn solve(
 fn log_generation(
 	generation: usize,
 	best: &(Score, BestSolution),
+	checkpoint_count: usize,
 	step_to_checkpoint_limit: usize,
 	generation_elapsed: Duration,
 	total_elapsed: Duration,
@@ -295,9 +300,10 @@ fn log_generation(
 	};
 
 	eprint!(
-		"\r\x1b[2A{progress_color}{progress:>11.3} \x1b[0;2m{best_step_count:>3}\x1b[0;33m+{step_to_checkpoint_limit:<2}
+		"\r\x1b[2A{progress_color}{progress:>11.3} \x1b[0;32m{best_checkpoint_reached:>2}\x1b[0;2m/{checkpoint_count} \x1b[0;2m{best_step_count:>3}\x1b[0;33m+{step_to_checkpoint_limit:<2}
 \x1b[0;38;2;52;235;198m{average_nano:>5.2}\x1b[2mμ \x1b[0;96m{generation_ms:>6.3}\x1b[2mms {elapsed_str}
 \x1b[0;1m{generation}\x1b[0m",
+		best_checkpoint_reached = best.1.reached_checkpoint_count,
 		best_step_count = best.1.step_count,
 		average_nano = (generation_elapsed / SOLUTION_PER_GENERATION as u32).as_nanos() as f32 / 1_000.0,
 		generation_ms = generation_elapsed.as_micros() as f32 / 1_000.0,
