@@ -8,15 +8,11 @@ mod solve;
 #[cfg(feature = "visualize")]
 mod visualize;
 
-use std::ops::Range;
-
 use radiate::*;
 
 use crate::{
 	dist::dist,
-	output_repr::{
-		MAX_THRUST, MAX_TILT_CHANGE, MIN_THRUST, MIN_TILT_CHANGE, Solution, Step, TiltChange,
-	},
+	output_repr::{MAX_THRUST, MAX_TILT_CHANGE, MIN_THRUST, MIN_TILT_CHANGE, Step},
 	referee::{
 		car::Car,
 		env::{Coord, MAX_STEP},
@@ -27,166 +23,149 @@ use crate::{
 	solve::{SOLUTION_PER_GENERATION, get_score::get_score},
 };
 
-type GeneTiltChange = StepGene;
-const GENE_OFFSET_TILT_CHANGE: TiltChange = -MIN_TILT_CHANGE;
-const GENE_MIN_TILT_CHANGE: GeneTiltChange =
-	(MIN_TILT_CHANGE + GENE_OFFSET_TILT_CHANGE) as GeneTiltChange;
-const GENE_MAX_TILT_CHANGE: GeneTiltChange =
-	(MAX_TILT_CHANGE + GENE_OFFSET_TILT_CHANGE) as GeneTiltChange;
+const INPUT_COUNT: usize = 8;
+const TREE_DEPTH: usize = 7;
+const STEPS_PER_CHECKPOINT: usize = 64;
 
-const CHROMOSOME_SIZE: usize = MAX_STEP / 2;
-
-const TILT_RANGE: Range<StepGene> = GENE_MIN_TILT_CHANGE..GENE_MAX_TILT_CHANGE + 1;
-const THRUST_RANGE: Range<StepGene> = MIN_THRUST..MAX_THRUST + 1;
-
-// impl Gene for Step {
-// type Allele = (GeneTiltChange, Thrust);
-// }
-//
-// type StepChromosome = [(GeneTiltChange, Thrust); CHROMOSOME_SIZE];
-
-type StepGene = u8;
-
-#[derive(Clone, PartialEq)]
-struct StepChromosome {
-	step: [IntGene<StepGene>; 2],
+fn build_input(car: &Car, checkpoint: Coord) -> [f32; INPUT_COUNT] {
+	let dx = checkpoint.x - car.x;
+	let dy = checkpoint.y - car.y;
+	let distance = (dx * dx + dy * dy).sqrt();
+	let angle_to = dy.atan2(dx);
+	let (sin, cos) = car.angle.sin_cos();
+	[
+		(dx / distance) as f32,
+		(dy / distance) as f32,
+		(distance / 1000.0) as f32,
+		(angle_to - car.angle) as f32,
+		car.sx as f32 / 100.0,
+		car.sy as f32 / 100.0,
+		sin as f32,
+		cos as f32,
+	]
 }
 
-impl Chromosome for StepChromosome {
-	type Gene = IntGene<StepGene>;
+fn simulate_with_trees(
+	trees: &[Tree<Op<f32>>],
+	checkpoint_list: &[Coord],
+	car_init_state: Car,
+) -> f32 {
+	let mut car = car_init_state;
+	let mut checkpoint_index = 0;
+	let mut reached_at_step = 0;
+	let mut closest_to_checkpoint = f64::INFINITY;
 
-	fn as_slice(&self) -> &[Self::Gene] {
-		&self.step
-	}
+	for step_index in 0..MAX_STEP {
+		let current_checkpoint = checkpoint_list[checkpoint_index];
+		let input = build_input(&car, current_checkpoint);
 
-	fn as_mut_slice(&mut self) -> &mut [Self::Gene] {
-		&mut self.step
-	}
-}
+		let tilt_raw = trees[0].eval(&input);
+		let thrust_raw = trees[1].eval(&input);
 
-impl Valid for StepChromosome {
-	fn is_valid(&self) -> bool {
-		self.step[0].is_valid() && self.step[1].is_valid()
-	}
-}
+		let tilt = (tilt_raw.round() as i8).clamp(MIN_TILT_CHANGE, MAX_TILT_CHANGE);
+		let thrust = thrust_raw
+			.round()
+			.clamp(MIN_THRUST as f32, MAX_THRUST as f32) as u8;
 
-impl StepChromosome {
-	fn new() -> Self {
-		StepChromosome {
-			step: [
-				IntGene::<StepGene>::from((TILT_RANGE, TILT_RANGE)),
-				IntGene::<StepGene>::from((THRUST_RANGE, THRUST_RANGE)),
-			],
+		let step = Step { tilt, thrust };
+
+		let from = Coord { x: car.x, y: car.y };
+		let moved_to = process_step(&mut car, &step);
+		let traveled = Segment {
+			a: from,
+			b: moved_to,
+		};
+
+		if step_index > reached_at_step + STEPS_PER_CHECKPOINT {
+			break;
+		}
+
+		let d = dist(car.x, car.y, current_checkpoint.x, current_checkpoint.y);
+		if d < closest_to_checkpoint {
+			closest_to_checkpoint = d;
+		}
+
+		if intersect(current_checkpoint, traveled.a, traveled.b) {
+			checkpoint_index += 1;
+			reached_at_step = step_index;
+			closest_to_checkpoint = f64::INFINITY;
+
+			if checkpoint_index == checkpoint_list.len() {
+				return get_score(
+					checkpoint_list,
+					checkpoint_index,
+					closest_to_checkpoint,
+					step_index + 1,
+					None,
+				);
+			}
 		}
 	}
+
+	get_score(
+		checkpoint_list,
+		checkpoint_index,
+		closest_to_checkpoint,
+		MAX_STEP,
+		None,
+	)
 }
 
-fn solve(
-	validator_name: &str,
-	checkpoint_list: Vec<Coord>,
-	car_init_state: Car,
-) -> Result<Solution, String> {
-	let codec: FnCodec<StepChromosome, Solution> = FnCodec::new()
-		.with_encoder(|| Genotype::from(vec![StepChromosome::new(); CHROMOSOME_SIZE]))
-		.with_decoder(|genotype| {
-			let mut solution = Vec::with_capacity(CHROMOSOME_SIZE);
-			for chromosome in genotype.iter() {
-				let tilt_change = (*chromosome.step[0].allele() as TiltChange)
-					- GENE_OFFSET_TILT_CHANGE as TiltChange;
-				let thrust = *chromosome.step[1].allele();
-				solution.push(Step {
-					tilt: tilt_change,
-					thrust,
-				});
-			}
-			solution
-		});
+fn main() -> Result<(), String> {
+	let path = parse::get_path()?;
+	let _validator_name = parse::get_validator_name(&path);
+	let (car_init_state, checkpoint_list) = parse::parse(&path)?;
+
+	let store = vec![
+		(
+			NodeType::Vertex,
+			vec![
+				Op::add(),
+				Op::sub(),
+				Op::mul(),
+				Op::div(),
+				Op::abs(),
+				Op::neg(),
+				Op::min(),
+				Op::max(),
+				Op::sin(),
+				Op::cos(),
+				Op::weight(),
+			],
+		),
+		(
+			NodeType::Leaf,
+			vec![
+				Op::var(0),
+				Op::var(1),
+				Op::var(2),
+				Op::var(3),
+				Op::var(4),
+				Op::var(5),
+				Op::var(6),
+				Op::var(7),
+				Op::constant(0.0_f32),
+				Op::constant(1.0_f32),
+			],
+		),
+	];
+
+	let codec = TreeCodec::multi_root(TREE_DEPTH, 2, store);
 
 	let engine = GeneticEngine::builder()
 		.codec(codec)
-		.fitness_fn(move |solution: Vec<Step>| {
-			let mut car = car_init_state;
-
-			let mut checkpoint_index = 0;
-			let mut reached_at_step = MAX_STEP;
-			let mut closest_to_checkpoint = f64::INFINITY;
-
-			for (step_index, step) in solution.iter().enumerate() {
-				let from = Coord { x: car.x, y: car.y };
-
-				process_step(&mut car, step);
-
-				let traveled = Segment {
-					a: from,
-					b: Coord { x: car.x, y: car.y },
-				};
-
-				if reached_at_step + 64 < step_index {
-					break;
-				}
-
-				let current_checkpoint = checkpoint_list[checkpoint_index];
-
-				let d = dist(car.x, car.y, current_checkpoint.x, current_checkpoint.y);
-				if d < closest_to_checkpoint {
-					closest_to_checkpoint = d;
-				}
-
-				if intersect(current_checkpoint, traveled.a, traveled.b) {
-					checkpoint_index += 1;
-					reached_at_step = step_index;
-					closest_to_checkpoint = f64::INFINITY;
-
-					if checkpoint_index == checkpoint_list.len() {
-						return get_score(
-							&checkpoint_list,
-							checkpoint_index,
-							closest_to_checkpoint,
-							step_index + 1,
-							None,
-						);
-					}
-				}
-			}
-
-			get_score(
-				&checkpoint_list,
-				checkpoint_index,
-				closest_to_checkpoint,
-				solution.len(),
-				None,
-			)
+		.fitness_fn(move |trees: Vec<Tree<Op<f32>>>| {
+			simulate_with_trees(&trees, &checkpoint_list, car_init_state)
 		})
 		.minimizing()
 		.population_size(SOLUTION_PER_GENERATION)
+		.alter(alters!(
+			TreeCrossover::new(0.5),
+			HoistMutator::new(0.02),
+			OperationMutator::new(0.05, 0.03)
+		))
 		.parallel()
 		.build();
-
-	/*
-	let mut best = (Score::MAX, Solution::default());
-
-	for generation in engine.iter() {
-		let score = generation.score().as_f32();
-		if score < best.0 {
-			best = (score, generation.value().clone());
-		}
-
-		if generation.index().is_multiple_of(128) {
-			eprint!(
-				"\r{index} {best_score} {best_step_count}",
-				index = generation.index(),
-				best_score = best.0,
-				best_step_count = best.1.len()
-			);
-		}
-
-		if generation.time().as_secs() >= 60 {
-			break;
-		}
-	}
-
-	Ok(best.1)
-	*/
 
 	engine
 		.iter()
@@ -195,24 +174,11 @@ fn solve(
 		.last()
 		.inspect(|generation| {
 			let score = generation.score().as_f32();
-			eprintln!(
-				"\r{index} {score} {step_count}",
-				index = generation.index(),
-				step_count = generation.value().len()
-			);
+			eprintln!("gen {} score {score:.3}", generation.index());
+			for (i, tree) in generation.value().iter().enumerate() {
+				eprintln!("  tree[{i}]: {}", tree.format());
+			}
 		});
 
-	Err("not implemented".to_string())
-}
-
-fn main() -> Result<(), String> {
-	let path = parse::get_path()?;
-	let validator_name = parse::get_validator_name(&path);
-
-	let (car_init_state, checkpoint_list) = parse::parse(&path)?;
-
-	let solution = solve(&validator_name, checkpoint_list, car_init_state)?;
-
-	// output_solution::output_solution(&solution, &validator_name)
 	Ok(())
 }
