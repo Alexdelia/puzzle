@@ -2,6 +2,8 @@ mod first_generation;
 mod simulate_generation;
 use simulate_generation::{simulate_generation, simulate_solution};
 mod breed_generation;
+#[cfg(feature = "extra-log")]
+mod extra_log;
 pub mod get_score;
 use breed_generation::breed_generation;
 
@@ -71,6 +73,8 @@ struct BestSolution {
 	reached_checkpoint_count: usize,
 	#[cfg(feature = "visualize")]
 	path: Vec<Coord>,
+	#[cfg(feature = "extra-log")]
+	max_step_gap: Option<usize>,
 }
 
 pub fn solve(
@@ -123,6 +127,9 @@ pub fn solve(
 		}
 	}
 
+	#[cfg(feature = "extra-log")]
+	eprint!("\n\n\n\n");
+	#[cfg(not(feature = "extra-log"))]
 	eprint!("\n\n\n");
 
 	let start_time = Instant::now();
@@ -169,6 +176,12 @@ pub fn solve(
 						reached_checkpoint_count: r.reached_checkpoint_count,
 						#[cfg(feature = "visualize")]
 						path: r.path.clone(),
+						#[cfg(feature = "extra-log")]
+						max_step_gap: extra_log::compute_max_step_gap(
+							checkpoint_list,
+							car_init_state,
+							&solution_list[r.index],
+						),
 					},
 				);
 
@@ -299,8 +312,17 @@ fn log_generation(
 		format!("\x1b[0;36m{elapsed_sec}\x1b[2ms")
 	};
 
+	#[cfg(feature = "extra-log")]
+	let extra_line = match best.1.max_step_gap {
+		Some(g) => format!("\nmax_step_between_checkpoints: \x1b[0;33m{g}\x1b[0m"),
+		None => "\nmax_step_between_checkpoints: \x1b[2m-\x1b[0m".to_string(),
+	};
+	#[cfg(not(feature = "extra-log"))]
+	let extra_line = "";
+	let cursor_up = if cfg!(feature = "extra-log") { 3 } else { 2 };
+
 	eprint!(
-		"\r\x1b[2A{progress_color}{progress:>11.3} \x1b[0;32m{best_checkpoint_reached:>2}\x1b[0;2m/{checkpoint_count} \x1b[0;2m{best_step_count:>3}\x1b[0;33m+{step_to_checkpoint_limit:<2}
+		"\r\x1b[{cursor_up}A{progress_color}{progress:>11.3} \x1b[0;32m{best_checkpoint_reached:>2}\x1b[0;2m/{checkpoint_count} \x1b[0;2m{best_step_count:>3}\x1b[0;33m+{step_to_checkpoint_limit:<2}{extra_line}
 \x1b[0;38;2;52;235;198m{average_nano:>5.2}\x1b[2mμ \x1b[0;96m{generation_ms:>6.3}\x1b[2mms {elapsed_str}
 \x1b[0;1m{generation}\x1b[0m",
 		best_checkpoint_reached = best.1.reached_checkpoint_count,

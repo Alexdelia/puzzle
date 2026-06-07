@@ -16,6 +16,7 @@ panic = "abort"
 [features]
 default = ["visualize"]
 visualize = ["dep:svg"]
+extra-log = []
 # radiate = ["dep:radiate"]
 
 [dependencies]
