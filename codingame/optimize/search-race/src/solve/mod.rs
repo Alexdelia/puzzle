@@ -28,7 +28,7 @@ use crate::{
 pub const SOLUTION_PER_GENERATION: usize = 512;
 
 const INITIAL_STEP_TO_CHECKPOINT_LIMIT: usize = 3;
-const MAX_STEP_TO_CHECKPOINT_LIMIT: usize = 64;
+const MAX_STEP_TO_CHECKPOINT_LIMIT: usize = 32;
 const STAGNANT_GENERATIONS_BEFORE_WIDENING: usize = 512;
 
 pub type Score = f32;
