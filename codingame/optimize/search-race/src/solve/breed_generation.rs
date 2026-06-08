@@ -9,6 +9,9 @@ use crate::{
 const KEEP_RATE: f32 = 0.1;
 const RANDOM_RATE: f32 = 0.1;
 
+const BURST_RATE: f32 = 0.2;
+const BURST_CHUNK_SIZE: usize = 16;
+
 type MutationRate = f64;
 
 const MUTATION_RATE_FACTOR: MutationRate = 0.1;
@@ -46,6 +49,7 @@ pub fn breed_generation(
 	car_init_state: &Car,
 	best_finished_step_count: Option<usize>,
 	step_to_checkpoint_limit: usize,
+	burst: bool,
 ) -> (
 	[Solution; SOLUTION_PER_GENERATION],
 	[FrozenPrefix; SOLUTION_PER_GENERATION],
@@ -88,6 +92,16 @@ pub fn breed_generation(
 		}
 	}
 
+	if burst {
+		let burst_count = (SOLUTION_PER_GENERATION as f32 * BURST_RATE).ceil() as usize;
+		let bred_section_end = SOLUTION_PER_GENERATION - random_count;
+		let burst_start = bred_section_end.saturating_sub(burst_count);
+		for i in burst_start..bred_section_end {
+			let freeze_until = ordered_frozen_list[i].resume_from_step;
+			apply_burst(&mut rng, &mut ordered_solution_list[i], freeze_until);
+		}
+	}
+
 	for i in 1..keep_count {
 		let frozen = ordered_frozen_list[i];
 		let solution_size =
@@ -122,6 +136,19 @@ fn resize_with_random(rng: &mut impl rand::Rng, solution: &mut Solution, solutio
 		solution.push(Step::random(rng));
 	}
 	solution.truncate(solution_size);
+}
+
+fn apply_burst(rng: &mut impl rand::Rng, solution: &mut Solution, freeze_until: usize) {
+	if solution.len() <= freeze_until {
+		return;
+	}
+	let mutable_len = solution.len() - freeze_until;
+	let chunk_size = BURST_CHUNK_SIZE.min(mutable_len);
+	let max_offset = mutable_len - chunk_size;
+	let start = freeze_until + rng.random_range(0..=max_offset);
+	for step in solution.iter_mut().skip(start).take(chunk_size) {
+		*step = Step::random(rng);
+	}
 }
 
 fn sort(

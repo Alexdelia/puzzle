@@ -214,6 +214,7 @@ pub fn solve(
 			visualize::write_doc(validator_name, &doc, generation);
 		}
 
+		let mut burst = false;
 		if best.1.finished {
 			if !optimize_end && best_frontier < checkpoint_list.len() {
 				optimize_end = true;
@@ -228,6 +229,7 @@ pub fn solve(
 						optimize_end = false;
 						step_to_checkpoint_limit = MAX_STEP_TO_CHECKPOINT_LIMIT;
 						stagnant_generation_count = 0;
+						burst = true;
 					}
 				}
 			} else if best.0 < previous_best_score {
@@ -244,6 +246,7 @@ pub fn solve(
 				step_to_checkpoint_limit =
 					(step_to_checkpoint_limit + 1).min(MAX_STEP_TO_CHECKPOINT_LIMIT);
 				stagnant_generation_count = 0;
+				burst = true;
 			}
 		}
 		best_frontier = best.1.reached_checkpoint_count;
@@ -261,6 +264,7 @@ pub fn solve(
 			car_init_state,
 			best_finished_step_count,
 			step_to_checkpoint_limit,
+			burst,
 		);
 
 		let generation_elapsed = generation_start.elapsed();
