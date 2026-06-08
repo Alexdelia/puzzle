@@ -31,6 +31,8 @@ const INITIAL_STEP_TO_CHECKPOINT_LIMIT: usize = 3;
 const MAX_STEP_TO_CHECKPOINT_LIMIT: usize = 32;
 const STAGNANT_GENERATIONS_BEFORE_WIDENING: usize = 512;
 
+const MAX_SEARCH_DURATION: Duration = Duration::from_secs(60 * 15);
+
 const CHECKPOINT_LOOKBACK: usize = 2;
 const _: () = assert!(CHECKPOINT_LOOKBACK >= 1);
 
@@ -263,6 +265,10 @@ pub fn solve(
 
 		let generation_elapsed = generation_start.elapsed();
 		if generation.is_multiple_of(128) {
+			if generation_elapsed > MAX_SEARCH_DURATION {
+				break;
+			}
+
 			log_generation(
 				generation,
 				&best,
