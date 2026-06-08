@@ -1,13 +1,12 @@
 mod first_generation;
 mod simulate_generation;
-use simulate_generation::{simulate_generation, simulate_solution};
+use simulate_generation::{SimOutput, simulate_generation, simulate_solution};
 mod breed_generation;
 #[cfg(feature = "extra-log")]
 mod extra_log;
 pub mod get_score;
 use breed_generation::breed_generation;
 
-use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use rayon::ThreadPoolBuilder;
@@ -28,7 +27,7 @@ use crate::{
 pub const SOLUTION_PER_GENERATION: usize = 512;
 
 const INITIAL_STEP_TO_CHECKPOINT_LIMIT: usize = 3;
-const MAX_STEP_TO_CHECKPOINT_LIMIT: usize = 32;
+const MAX_STEP_TO_CHECKPOINT_LIMIT: usize = 48;
 const STAGNANT_GENERATIONS_BEFORE_WIDENING: usize = 512;
 
 const MAX_SEARCH_DURATION: Duration = Duration::from_secs(60 * 15);
@@ -39,6 +38,7 @@ const _: () = assert!(CHECKPOINT_LOOKBACK >= 1);
 pub type Score = f32;
 
 #[derive(Clone, Copy, Debug)]
+#[repr(C)]
 struct FrozenPrefix {
 	resume_from_step: usize,
 	car: Car,
@@ -57,18 +57,6 @@ impl FrozenPrefix {
 	}
 }
 
-struct ProcessOutput {
-	index: usize,
-	finished: bool,
-	score: Score,
-	step_count: usize,
-	turn_to_finish: Option<f64>,
-	reached_checkpoint_count: usize,
-	frozen: FrozenPrefix,
-	#[cfg(feature = "visualize")]
-	path: Vec<Coord>,
-}
-
 #[derive(Default)]
 struct BestSolution {
 	finished: bool,
@@ -80,6 +68,10 @@ struct BestSolution {
 	path: Vec<Coord>,
 	#[cfg(feature = "extra-log")]
 	max_step_gap: Option<usize>,
+}
+
+fn boxed_filled<T: Clone>(value: T, n: usize) -> Box<[T]> {
+	vec![value; n].into_boxed_slice()
 }
 
 pub fn solve(
@@ -98,15 +90,12 @@ pub fn solve(
 	let mut best_disk_ttf = read_turn_to_finish(validator_name);
 	let (mut solution_list, loaded) =
 		first_generation::init_first_generation(validator_name, fresh)?;
-	let mut score_list = [Score::default(); SOLUTION_PER_GENERATION];
-	let mut step_count_list = [usize::default(); SOLUTION_PER_GENERATION];
-	let mut frozen_list = [FrozenPrefix::from_scratch(car_init_state); SOLUTION_PER_GENERATION];
-	#[cfg(feature = "visualize")]
-	let mut path_list: [Vec<Coord>; SOLUTION_PER_GENERATION] = (0..SOLUTION_PER_GENERATION)
-		.map(|_| Vec::new())
-		.collect::<Vec<_>>()
-		.try_into()
-		.expect("path list size mismatch");
+	let mut frozen_list: Box<[FrozenPrefix]> = boxed_filled(
+		FrozenPrefix::from_scratch(car_init_state),
+		SOLUTION_PER_GENERATION,
+	);
+	let mut sim_outputs: Box<[SimOutput]> =
+		boxed_filled(SimOutput::default(), SOLUTION_PER_GENERATION);
 
 	let mut best = (Score::MAX, BestSolution::default());
 
@@ -118,14 +107,13 @@ pub fn solve(
 
 	if loaded {
 		let loaded_run = simulate_solution(
-			0,
 			checkpoint_list,
 			car_init_state,
 			&solution_list[0],
 			&FrozenPrefix::from_scratch(car_init_state),
 			MAX_STEP,
 		);
-		best_frontier = loaded_run.reached_checkpoint_count;
+		best_frontier = loaded_run.reached_checkpoint_count as usize;
 		frozen_list[0] = loaded_run.frozen;
 		if loaded_run.finished {
 			optimize_end = true;
@@ -142,11 +130,20 @@ pub fn solve(
 	let max_iteration = get_iteration()?;
 	while !best.1.finished || optimize_end || generation < max_iteration {
 		let generation_start = Instant::now();
-		let (tx, rx) = mpsc::channel::<ProcessOutput>();
 
 		simulate_generation(
 			&pool,
-			tx,
+			&mut sim_outputs,
+			checkpoint_list,
+			car_init_state,
+			&solution_list,
+			&frozen_list,
+			step_to_checkpoint_limit,
+		);
+
+		#[cfg(feature = "visualize")]
+		let path_list = compute_paths_for_visualize(
+			&pool,
 			checkpoint_list,
 			car_init_state,
 			&solution_list,
@@ -161,10 +158,9 @@ pub fn solve(
 			doc = doc.add(visualize::generation_number(generation));
 		}
 
-		for r in rx.iter().take(SOLUTION_PER_GENERATION) {
-			score_list[r.index] = r.score;
-			step_count_list[r.index] = r.step_count;
-			frozen_list[r.index] = if r.finished && !optimize_end {
+		for i in 0..SOLUTION_PER_GENERATION {
+			let r = sim_outputs[i];
+			frozen_list[i] = if r.finished && !optimize_end {
 				FrozenPrefix::from_scratch(car_init_state)
 			} else {
 				r.frozen
@@ -175,17 +171,17 @@ pub fn solve(
 					r.score,
 					BestSolution {
 						finished: r.finished,
-						solution: solution_list[r.index].clone(),
-						step_count: r.step_count,
-						turn_to_finish: r.turn_to_finish,
-						reached_checkpoint_count: r.reached_checkpoint_count,
+						solution: solution_list[i],
+						step_count: r.step_count as usize,
+						turn_to_finish: r.turn_to_finish_opt(),
+						reached_checkpoint_count: r.reached_checkpoint_count as usize,
 						#[cfg(feature = "visualize")]
-						path: r.path.clone(),
+						path: path_list[i].clone(),
 						#[cfg(feature = "extra-log")]
 						max_step_gap: extra_log::compute_max_step_gap(
 							checkpoint_list,
 							car_init_state,
-							&solution_list[r.index],
+							&solution_list[i],
 						),
 					},
 				);
@@ -200,16 +196,13 @@ pub fn solve(
 					output_turn_to_finish(best.1.turn_to_finish.unwrap(), validator_name)?;
 				}
 			}
-
-			#[cfg(feature = "visualize")]
-			{
-				doc = doc.add(visualize::solution(&r.path, r.finished, false));
-				path_list[r.index] = r.path;
-			}
 		}
 
 		#[cfg(feature = "visualize")]
 		{
+			for (i, path) in path_list.iter().enumerate() {
+				doc = doc.add(visualize::solution(path, sim_outputs[i].finished, false));
+			}
 			doc = doc.add(visualize::solution(&best.1.path, best.1.finished, true));
 			visualize::write_doc(validator_name, &doc, generation);
 		}
@@ -256,10 +249,15 @@ pub fn solve(
 		} else {
 			None
 		};
+
+		let score_list: Box<[Score]> = sim_outputs.iter().map(|o| o.score).collect();
+		let step_count_list: Box<[usize]> =
+			sim_outputs.iter().map(|o| o.step_count as usize).collect();
+
 		(solution_list, frozen_list) = breed_generation(
 			solution_list,
-			score_list,
-			step_count_list,
+			&score_list,
+			&step_count_list,
 			frozen_list,
 			car_init_state,
 			best_finished_step_count,
@@ -297,6 +295,32 @@ pub fn solve(
 	println!();
 
 	Ok(())
+}
+
+#[cfg(feature = "visualize")]
+fn compute_paths_for_visualize(
+	pool: &rayon::ThreadPool,
+	checkpoint_list: &[Coord],
+	car_init_state: &Car,
+	solution_list: &[Solution],
+	frozen_list: &[FrozenPrefix],
+	step_to_checkpoint_limit: usize,
+) -> Box<[Vec<Coord>]> {
+	use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+
+	let mut paths: Box<[Vec<Coord>]> = vec![Vec::new(); SOLUTION_PER_GENERATION].into_boxed_slice();
+	pool.install(|| {
+		paths.par_iter_mut().enumerate().for_each(|(i, p)| {
+			*p = simulate_generation::compute_path(
+				checkpoint_list,
+				car_init_state,
+				&solution_list[i],
+				&frozen_list[i],
+				step_to_checkpoint_limit,
+			);
+		});
+	});
+	paths
 }
 
 #[inline]

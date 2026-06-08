@@ -1,6 +1,7 @@
 use crate::referee::env::{Axis, Degree, Speed};
 
 #[derive(Clone, Copy, Debug, Default)]
+#[repr(C)]
 pub struct Car {
 	pub x: Axis,
 	pub y: Axis,

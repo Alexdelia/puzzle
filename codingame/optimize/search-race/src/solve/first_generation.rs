@@ -12,8 +12,8 @@ const INITIAL_SOLUTION_STEP_SIZE: usize = MAX_STEP;
 pub fn init_first_generation(
 	validator_name: &str,
 	fresh: bool,
-) -> Result<([Solution; SOLUTION_PER_GENERATION], bool), String> {
-	let mut generation = Vec::with_capacity(SOLUTION_PER_GENERATION);
+) -> Result<(Box<[Solution]>, bool), String> {
+	let mut generation: Vec<Solution> = Vec::with_capacity(SOLUTION_PER_GENERATION);
 
 	let mut rng = rand::rng();
 
@@ -29,17 +29,15 @@ pub fn init_first_generation(
 
 	let i = generation.len();
 	for _ in i..SOLUTION_PER_GENERATION {
-		let mut solution = Vec::with_capacity(INITIAL_SOLUTION_STEP_SIZE);
+		let mut solution = Solution::new();
 		for _ in 0..INITIAL_SOLUTION_STEP_SIZE {
 			solution.push(Step::random(&mut rng));
 		}
 		generation.push(solution);
 	}
 
-	Ok((
-		generation.try_into().expect("generation size mismatch"),
-		loaded,
-	))
+	assert_eq!(generation.len(), SOLUTION_PER_GENERATION);
+	Ok((generation.into_boxed_slice(), loaded))
 }
 
 fn read_stored_solution(validator_name: &str) -> Result<Option<Solution>, String> {
