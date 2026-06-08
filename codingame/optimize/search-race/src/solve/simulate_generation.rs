@@ -1,4 +1,4 @@
-use std::sync::mpsc;
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::{
 	dist::dist,
@@ -13,58 +13,86 @@ use crate::{
 	solve::get_score::get_score,
 };
 
-use super::{CHECKPOINT_LOOKBACK, FrozenPrefix, ProcessOutput};
+use super::{CHECKPOINT_LOOKBACK, FrozenPrefix, Score};
 
 const CROSSING_LIST_SIZE: usize = CHECKPOINT_LOOKBACK + 1;
 
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+pub struct SimOutput {
+	pub finished: bool,
+	pub score: Score,
+	pub step_count: u32,
+	pub reached_checkpoint_count: u32,
+	/// NaN encodes `None`.
+	pub turn_to_finish: f64,
+	pub frozen: FrozenPrefix,
+}
+
+impl Default for SimOutput {
+	fn default() -> Self {
+		Self {
+			finished: false,
+			score: 0.0,
+			step_count: 0,
+			reached_checkpoint_count: 0,
+			turn_to_finish: f64::NAN,
+			frozen: FrozenPrefix {
+				resume_from_step: 0,
+				car: Car::default(),
+				checkpoint_index: 0,
+				reentry_step_count: 0,
+			},
+		}
+	}
+}
+
+impl SimOutput {
+	#[inline]
+	pub fn turn_to_finish_opt(&self) -> Option<f64> {
+		if self.turn_to_finish.is_nan() {
+			None
+		} else {
+			Some(self.turn_to_finish)
+		}
+	}
+}
+
 pub fn simulate_generation(
 	pool: &rayon::ThreadPool,
-	tx: mpsc::Sender<ProcessOutput>,
+	output_list: &mut [SimOutput],
 	checkpoint_list: &[Coord],
 	car_init_state: &Car,
 	solution_list: &[Solution],
 	frozen_list: &[FrozenPrefix],
 	step_to_checkpoint_limit: usize,
 ) {
-	pool.scope(|s| {
-		for (i, (solution, frozen)) in solution_list.iter().zip(frozen_list.iter()).enumerate() {
-			let tx = tx.clone();
-			let frozen = *frozen;
-
-			s.spawn(move |_| {
-				tx.send(simulate_solution(
-					i,
-					checkpoint_list,
-					car_init_state,
-					solution,
-					&frozen,
-					step_to_checkpoint_limit,
-				))
-				.expect("failed to send result");
-			});
-		}
+	pool.install(|| {
+		output_list.par_iter_mut().enumerate().for_each(|(i, out)| {
+			*out = simulate_solution(
+				checkpoint_list,
+				car_init_state,
+				&solution_list[i],
+				&frozen_list[i],
+				step_to_checkpoint_limit,
+			);
+		});
 	});
 }
 
 pub fn simulate_solution(
-	index: usize,
 	checkpoint_list: &[Coord],
 	car_init_state: &Car,
 	solution: &Solution,
 	frozen: &FrozenPrefix,
 	step_to_checkpoint_limit: usize,
-) -> ProcessOutput {
+) -> SimOutput {
 	let resuming = frozen.resume_from_step > 0;
 	let (mut car, mut checkpoint_index) = if resuming {
 		(frozen.car, frozen.checkpoint_index)
 	} else {
 		(*car_init_state, 0)
 	};
-
-	#[cfg(feature = "visualize")]
-	let mut path = Vec::with_capacity(solution.len() + 1);
-	#[cfg(feature = "visualize")]
-	path.push(Coord { x: car.x, y: car.y });
 
 	let mut reached_at_step = frozen.resume_from_step.saturating_sub(1);
 	let mut window_start = reached_at_step;
@@ -83,8 +111,6 @@ pub fn simulate_solution(
 			a: from,
 			b: moved_to,
 		};
-		#[cfg(feature = "visualize")]
-		path.push(Coord { x: car.x, y: car.y });
 
 		if window_start + window_len < step_index {
 			break;
@@ -121,8 +147,7 @@ pub fn simulate_solution(
 				let step_count = step_index + 1;
 				let entry_t = checkpoint_entry_fraction(traveled.a, traveled.b, current_checkpoint);
 				let turn_to_finish = step_index as f64 + entry_t;
-				return ProcessOutput {
-					index,
+				return SimOutput {
 					finished: true,
 					score: get_score(
 						checkpoint_list,
@@ -131,12 +156,10 @@ pub fn simulate_solution(
 						step_count,
 						Some(turn_to_finish),
 					),
-					step_count,
-					turn_to_finish: Some(turn_to_finish),
-					reached_checkpoint_count: checkpoint_index,
+					step_count: step_count as u32,
+					reached_checkpoint_count: checkpoint_index as u32,
+					turn_to_finish,
 					frozen: crossing_list[CROSSING_LIST_SIZE - 1].unwrap_or(*frozen),
-					#[cfg(feature = "visualize")]
-					path,
 				};
 			}
 		}
@@ -149,12 +172,11 @@ pub fn simulate_solution(
 		closest_to_checkpoint = dist(car.x, car.y, current_checkpoint.x, current_checkpoint.y);
 	}
 
-	ProcessOutput {
-		index,
+	SimOutput {
 		finished: false,
-		step_count,
-		turn_to_finish: None,
-		reached_checkpoint_count: checkpoint_index,
+		step_count: step_count as u32,
+		reached_checkpoint_count: checkpoint_index as u32,
+		turn_to_finish: f64::NAN,
 		frozen: crossing_list[CROSSING_LIST_SIZE - 1].unwrap_or(*frozen),
 		score: get_score(
 			checkpoint_list,
@@ -163,12 +185,60 @@ pub fn simulate_solution(
 			step_count,
 			None,
 		),
-		#[cfg(feature = "visualize")]
-		path,
 	}
 }
 
-/// Compute the parametric `t` (0..1) at which the segment from→to first enters the checkpoint circle.
+#[cfg(feature = "visualize")]
+pub fn compute_path(
+	checkpoint_list: &[Coord],
+	car_init_state: &Car,
+	solution: &Solution,
+	frozen: &FrozenPrefix,
+	step_to_checkpoint_limit: usize,
+) -> Vec<Coord> {
+	let resuming = frozen.resume_from_step > 0;
+	let (mut car, mut checkpoint_index) = if resuming {
+		(frozen.car, frozen.checkpoint_index)
+	} else {
+		(*car_init_state, 0)
+	};
+
+	let mut path = Vec::with_capacity(solution.len() + 1);
+	path.push(Coord { x: car.x, y: car.y });
+
+	let mut reached_at_step = frozen.resume_from_step.saturating_sub(1);
+	let mut window_start = reached_at_step;
+	let mut window_len = step_to_checkpoint_limit;
+
+	for (step_index, step) in solution.iter().enumerate().skip(frozen.resume_from_step) {
+		let from = Coord { x: car.x, y: car.y };
+		let moved_to = process_step(&mut car, step);
+		path.push(Coord { x: car.x, y: car.y });
+
+		if window_start + window_len < step_index {
+			break;
+		}
+
+		let current_checkpoint = checkpoint_list[checkpoint_index];
+		let traveled = Segment {
+			a: from,
+			b: moved_to,
+		};
+		if intersect(current_checkpoint, traveled.a, traveled.b) {
+			reached_at_step = step_index;
+			checkpoint_index += 1;
+			window_start = step_index;
+			window_len = step_to_checkpoint_limit;
+			if checkpoint_index == checkpoint_list.len() {
+				break;
+			}
+		}
+	}
+
+	let _ = reached_at_step;
+	path
+}
+
 fn checkpoint_entry_fraction(from: Coord, to: Coord, checkpoint: Coord) -> f64 {
 	let dx = to.x - from.x;
 	let dy = to.y - from.y;

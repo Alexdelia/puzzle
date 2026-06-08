@@ -42,18 +42,15 @@ fn computed_solution_size(
 }
 
 pub fn breed_generation(
-	mut solution_list: [Solution; SOLUTION_PER_GENERATION],
-	score_list: [Score; SOLUTION_PER_GENERATION],
-	step_count_list: [usize; SOLUTION_PER_GENERATION],
-	frozen_list: [FrozenPrefix; SOLUTION_PER_GENERATION],
+	mut solution_list: Box<[Solution]>,
+	score_list: &[Score],
+	step_count_list: &[usize],
+	frozen_list: Box<[FrozenPrefix]>,
 	car_init_state: &Car,
 	best_finished_step_count: Option<usize>,
 	step_to_checkpoint_limit: usize,
 	burst: bool,
-) -> (
-	[Solution; SOLUTION_PER_GENERATION],
-	[FrozenPrefix; SOLUTION_PER_GENERATION],
-) {
+) -> (Box<[Solution]>, Box<[FrozenPrefix]>) {
 	for i in 0..SOLUTION_PER_GENERATION {
 		solution_list[i].truncate(step_count_list[i]);
 	}
@@ -152,38 +149,31 @@ fn apply_burst(rng: &mut impl rand::Rng, solution: &mut Solution, freeze_until: 
 }
 
 fn sort(
-	solution_list: [Solution; SOLUTION_PER_GENERATION],
-	score_list: [Score; SOLUTION_PER_GENERATION],
-	frozen_list: [FrozenPrefix; SOLUTION_PER_GENERATION],
-) -> (
-	[Solution; SOLUTION_PER_GENERATION],
-	[FrozenPrefix; SOLUTION_PER_GENERATION],
-) {
-	let mut paired_list: [(Solution, Score, FrozenPrefix); SOLUTION_PER_GENERATION] = solution_list
-		.into_iter()
-		.zip(score_list)
-		.zip(frozen_list)
-		.map(|((sol, score), frozen)| (sol, score, frozen))
-		.collect::<Vec<_>>()
-		.try_into()
-		.expect("paired list size mismatch");
+	solution_list: Box<[Solution]>,
+	score_list: &[Score],
+	frozen_list: Box<[FrozenPrefix]>,
+) -> (Box<[Solution]>, Box<[FrozenPrefix]>) {
+	let mut indices: Vec<usize> = (0..SOLUTION_PER_GENERATION).collect();
+	indices.sort_by(|&a, &b| {
+		score_list[a]
+			.partial_cmp(&score_list[b])
+			.unwrap_or(std::cmp::Ordering::Equal)
+	});
 
-	paired_list.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+	let mut sol_in = solution_list.into_vec();
+	let frz_in = frozen_list.into_vec();
 
 	let mut ordered_solution_list: Vec<Solution> = Vec::with_capacity(SOLUTION_PER_GENERATION);
 	let mut ordered_frozen_list: Vec<FrozenPrefix> = Vec::with_capacity(SOLUTION_PER_GENERATION);
-	for (sol, _, frozen) in paired_list {
-		ordered_solution_list.push(sol);
-		ordered_frozen_list.push(frozen);
+
+	for &i in &indices {
+		ordered_solution_list.push(std::mem::take(&mut sol_in[i]));
+		ordered_frozen_list.push(frz_in[i]);
 	}
 
 	(
-		ordered_solution_list
-			.try_into()
-			.expect("ordered solution list size mismatch"),
-		ordered_frozen_list
-			.try_into()
-			.expect("ordered frozen list size mismatch"),
+		ordered_solution_list.into_boxed_slice(),
+		ordered_frozen_list.into_boxed_slice(),
 	)
 }
 
@@ -195,7 +185,7 @@ fn breed(
 	solution_size: usize,
 	freeze_until: usize,
 ) -> Solution {
-	let mut child = Vec::with_capacity(solution_size);
+	let mut child = Solution::new();
 
 	for i in 0..solution_size {
 		if i < freeze_until {
