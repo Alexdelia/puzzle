@@ -22,7 +22,7 @@ pub fn simulate_generation(
 	car_init_state: &Car,
 	solution_list: &[Solution],
 	frozen_list: &[FrozenPrefix],
-	step_to_new_checkpoint_limit: usize,
+	step_to_checkpoint_limit: usize,
 ) {
 	pool.scope(|s| {
 		for (i, (solution, frozen)) in solution_list.iter().zip(frozen_list.iter()).enumerate() {
@@ -36,7 +36,7 @@ pub fn simulate_generation(
 					car_init_state,
 					solution,
 					&frozen,
-					step_to_new_checkpoint_limit,
+					step_to_checkpoint_limit,
 				))
 				.expect("failed to send result");
 			});
@@ -50,19 +50,13 @@ pub fn simulate_solution(
 	car_init_state: &Car,
 	solution: &Solution,
 	frozen: &FrozenPrefix,
-	step_to_new_checkpoint_limit: usize,
+	step_to_checkpoint_limit: usize,
 ) -> ProcessOutput {
 	let resuming = frozen.resume_from_step > 0;
 	let (mut car, mut checkpoint_index) = if resuming {
 		(frozen.car, frozen.checkpoint_index)
 	} else {
 		(*car_init_state, 0)
-	};
-
-	let new_checkpoint = if resuming {
-		frozen.checkpoint_index + 1
-	} else {
-		0
 	};
 
 	#[cfg(feature = "visualize")]
@@ -72,7 +66,7 @@ pub fn simulate_solution(
 
 	let mut reached_at_step = frozen.resume_from_step.saturating_sub(1);
 	let mut window_start = reached_at_step;
-	let mut window_len = frozen.reentry_step_count + step_to_new_checkpoint_limit;
+	let mut window_len = step_to_checkpoint_limit;
 
 	let mut closest_to_checkpoint = f64::INFINITY;
 
@@ -116,14 +110,11 @@ pub fn simulate_solution(
 			});
 			reached_at_step = step_index;
 
-			let crossed_checkpoint = checkpoint_index;
 			checkpoint_index += 1;
 			closest_to_checkpoint = f64::INFINITY;
 
-			if crossed_checkpoint >= new_checkpoint {
-				window_start = step_index;
-				window_len = step_to_new_checkpoint_limit;
-			}
+			window_start = step_index;
+			window_len = step_to_checkpoint_limit;
 
 			if checkpoint_index == checkpoint_list.len() {
 				let step_count = step_index + 1;
