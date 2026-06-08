@@ -1,6 +1,6 @@
 mod first_generation;
 mod simulate_generation;
-use simulate_generation::{SimOutput, simulate_generation, simulate_solution};
+use simulate_generation::{GpuSim, SimOutput, simulate_solution};
 mod breed_generation;
 #[cfg(feature = "extra-log")]
 mod extra_log;
@@ -9,6 +9,7 @@ use breed_generation::breed_generation;
 
 use std::time::{Duration, Instant};
 
+#[cfg(feature = "visualize")]
 use rayon::ThreadPoolBuilder;
 
 #[cfg(feature = "visualize")]
@@ -80,9 +81,12 @@ pub fn solve(
 	car_init_state: &Car,
 	#[cfg(feature = "visualize")] base_doc: svg::Document,
 ) -> Result<(), String> {
+	#[cfg(feature = "visualize")]
 	let pool = ThreadPoolBuilder::new()
 		.build()
 		.map_err(|e| format!("failed to build thread pool: {e}"))?;
+
+	let mut gpu = GpuSim::new(SOLUTION_PER_GENERATION, checkpoint_list)?;
 
 	let checkpoint_count = checkpoint_list.len();
 
@@ -115,7 +119,7 @@ pub fn solve(
 		);
 		best_frontier = loaded_run.reached_checkpoint_count as usize;
 		frozen_list[0] = loaded_run.frozen;
-		if loaded_run.finished {
+		if loaded_run.is_finished() {
 			optimize_end = true;
 		}
 	}
@@ -131,15 +135,13 @@ pub fn solve(
 	while !best.1.finished || optimize_end || generation < max_iteration {
 		let generation_start = Instant::now();
 
-		simulate_generation(
-			&pool,
-			&mut sim_outputs,
-			checkpoint_list,
-			car_init_state,
+		gpu.run(
 			&solution_list,
 			&frozen_list,
+			car_init_state,
 			step_to_checkpoint_limit,
-		);
+			&mut sim_outputs,
+		)?;
 
 		#[cfg(feature = "visualize")]
 		let path_list = compute_paths_for_visualize(
@@ -160,7 +162,8 @@ pub fn solve(
 
 		for i in 0..SOLUTION_PER_GENERATION {
 			let r = sim_outputs[i];
-			frozen_list[i] = if r.finished && !optimize_end {
+			let r_finished = r.is_finished();
+			frozen_list[i] = if r_finished && !optimize_end {
 				FrozenPrefix::from_scratch(car_init_state)
 			} else {
 				r.frozen
@@ -170,7 +173,7 @@ pub fn solve(
 				best = (
 					r.score,
 					BestSolution {
-						finished: r.finished,
+						finished: r_finished,
 						solution: solution_list[i],
 						step_count: r.step_count as usize,
 						turn_to_finish: r.turn_to_finish_opt(),
@@ -201,7 +204,11 @@ pub fn solve(
 		#[cfg(feature = "visualize")]
 		{
 			for (i, path) in path_list.iter().enumerate() {
-				doc = doc.add(visualize::solution(path, sim_outputs[i].finished, false));
+				doc = doc.add(visualize::solution(
+					path,
+					sim_outputs[i].is_finished(),
+					false,
+				));
 			}
 			doc = doc.add(visualize::solution(&best.1.path, best.1.finished, true));
 			visualize::write_doc(validator_name, &doc, generation);

@@ -8,6 +8,8 @@ edition = "2024"
 # path = "src/main_radiate.rs"
 # required-features = ["radiate"]
 
+[workspace]
+
 [profile.release]
 lto = true
 codegen-units = 1
@@ -26,3 +28,7 @@ ron = "0.12"
 serde = { version = "1", features = ["derive"] }
 svg = { version = "0.18", optional = true }
 # radiate = { version = "1.2", optional = true, features = ["gp", "serde", "rayon", "ui"] }
+
+cuda-device = { git = "https://github.com/NVlabs/cuda-oxide.git" }
+cuda-host = { git = "https://github.com/NVlabs/cuda-oxide.git" }
+cuda-core = { git = "https://github.com/NVlabs/cuda-oxide.git" }
