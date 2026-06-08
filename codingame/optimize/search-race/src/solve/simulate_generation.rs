@@ -13,7 +13,9 @@ use crate::{
 	solve::get_score::get_score,
 };
 
-use super::{FrozenPrefix, ProcessOutput};
+use super::{CHECKPOINT_LOOKBACK, FrozenPrefix, ProcessOutput};
+
+const CROSSING_LIST_SIZE: usize = CHECKPOINT_LOOKBACK + 1;
 
 pub fn simulate_generation(
 	pool: &rayon::ThreadPool,
@@ -70,8 +72,7 @@ pub fn simulate_solution(
 
 	let mut closest_to_checkpoint = f64::INFINITY;
 
-	let mut last_crossing: Option<FrozenPrefix> = None;
-	let mut pre_last_crossing: Option<FrozenPrefix> = None;
+	let mut crossing_list: [Option<FrozenPrefix>; CROSSING_LIST_SIZE] = [None; CROSSING_LIST_SIZE];
 
 	for (step_index, step) in solution.iter().enumerate().skip(frozen.resume_from_step) {
 		let from = Coord { x: car.x, y: car.y };
@@ -98,11 +99,11 @@ pub fn simulate_solution(
 
 		if intersect(current_checkpoint, traveled.a, traveled.b) {
 			let crossed_segment_step_count = step_index - reached_at_step;
-			pre_last_crossing = last_crossing.map(|crossing| FrozenPrefix {
-				reentry_step_count: crossed_segment_step_count,
-				..crossing
-			});
-			last_crossing = Some(FrozenPrefix {
+			crossing_list.copy_within(0..CROSSING_LIST_SIZE - 1, 1);
+			if let Some(previous) = &mut crossing_list[1] {
+				previous.reentry_step_count = crossed_segment_step_count;
+			}
+			crossing_list[0] = Some(FrozenPrefix {
 				resume_from_step: step_index + 1,
 				car,
 				checkpoint_index: checkpoint_index + 1,
@@ -133,7 +134,7 @@ pub fn simulate_solution(
 					step_count,
 					turn_to_finish: Some(turn_to_finish),
 					reached_checkpoint_count: checkpoint_index,
-					frozen: pre_last_crossing.unwrap_or(*frozen),
+					frozen: crossing_list[CROSSING_LIST_SIZE - 1].unwrap_or(*frozen),
 					#[cfg(feature = "visualize")]
 					path,
 				};
@@ -154,7 +155,7 @@ pub fn simulate_solution(
 		step_count,
 		turn_to_finish: None,
 		reached_checkpoint_count: checkpoint_index,
-		frozen: pre_last_crossing.unwrap_or(*frozen),
+		frozen: crossing_list[CROSSING_LIST_SIZE - 1].unwrap_or(*frozen),
 		score: get_score(
 			checkpoint_list,
 			checkpoint_index,

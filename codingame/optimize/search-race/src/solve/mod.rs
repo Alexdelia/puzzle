@@ -31,6 +31,9 @@ const INITIAL_STEP_TO_CHECKPOINT_LIMIT: usize = 3;
 const MAX_STEP_TO_CHECKPOINT_LIMIT: usize = 32;
 const STAGNANT_GENERATIONS_BEFORE_WIDENING: usize = 512;
 
+const CHECKPOINT_LOOKBACK: usize = 2;
+const _: () = assert!(CHECKPOINT_LOOKBACK >= 1);
+
 pub type Score = f32;
 
 #[derive(Clone, Copy, Debug)]
