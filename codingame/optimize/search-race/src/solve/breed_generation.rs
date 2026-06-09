@@ -29,7 +29,7 @@ const fn gen_mutation_rate() -> [MutationRate; SOLUTION_PER_GENERATION] {
 	list
 }
 
-const MUTATION_RATE: [MutationRate; SOLUTION_PER_GENERATION] = gen_mutation_rate();
+static MUTATION_RATE: [MutationRate; SOLUTION_PER_GENERATION] = gen_mutation_rate();
 
 fn computed_solution_size(
 	frozen: &FrozenPrefix,
@@ -72,10 +72,42 @@ pub fn breed_generation(
 
 	let mut rng = SmallRng::from_rng(&mut rand::rng());
 
-	for i in 0..keep_count {
+	{
+		let src = sort_order[0];
+		let src_solution = &current_solution_list[src];
+		let len = src_solution.len();
+		next_solution_list[0].steps[..len].copy_from_slice(&src_solution.steps[..len]);
+		next_solution_list[0].len = src_solution.len;
+		next_frozen_list[0] = current_frozen_list[src];
+	}
+
+	for i in 1..keep_count {
 		let src = sort_order[i];
-		next_solution_list[i] = current_solution_list[src];
-		next_frozen_list[i] = current_frozen_list[src];
+		let src_solution = &current_solution_list[src];
+		let frozen = current_frozen_list[src];
+		let solution_size =
+			computed_solution_size(&frozen, best_finished_step_count, step_to_checkpoint_limit);
+		let resume = frozen
+			.resume_from_step
+			.min(src_solution.len())
+			.min(solution_size);
+		let copy_end = src_solution.len().min(solution_size);
+		let mutation_rate = MUTATION_RATE[i - 1];
+
+		let dst_solution = &mut next_solution_list[i];
+		dst_solution.steps[..resume].copy_from_slice(&src_solution.steps[..resume]);
+		for k in resume..copy_end {
+			let mut step = src_solution.steps[k];
+			mutate(&mut rng, mutation_rate, &mut step);
+			dst_solution.steps[k] = step;
+		}
+		for k in copy_end..solution_size {
+			let mut step = Step::random(&mut rng);
+			mutate(&mut rng, mutation_rate, &mut step);
+			dst_solution.steps[k] = step;
+		}
+		dst_solution.len = solution_size as u16;
+		next_frozen_list[i] = frozen;
 	}
 
 	let mut parent_a_pos = 0;
@@ -115,19 +147,6 @@ pub fn breed_generation(
 		for i in burst_start..bred_section_end {
 			let freeze_until = next_frozen_list[i].resume_from_step;
 			apply_burst(&mut rng, &mut next_solution_list[i], freeze_until);
-		}
-	}
-
-	for i in 1..keep_count {
-		let frozen = next_frozen_list[i];
-		let solution_size =
-			computed_solution_size(&frozen, best_finished_step_count, step_to_checkpoint_limit);
-		let solution = &mut next_solution_list[i];
-		resize_with_random(&mut rng, solution, solution_size);
-		let len = solution.len();
-		let start = frozen.resume_from_step.min(len);
-		for step in &mut solution.steps[start..len] {
-			mutate(&mut rng, MUTATION_RATE[i - 1], step);
 		}
 	}
 
@@ -182,14 +201,6 @@ fn random_into(dst: &mut Solution, rng: &mut impl rand::Rng, solution_size: usiz
 		dst.steps[k] = Step::random(rng);
 	}
 	dst.len = solution_size as u16;
-}
-
-fn resize_with_random(rng: &mut impl rand::Rng, solution: &mut Solution, solution_size: usize) {
-	let old_len = solution.len();
-	for k in old_len..solution_size {
-		solution.steps[k] = Step::random(rng);
-	}
-	solution.len = solution_size as u16;
 }
 
 fn apply_burst(rng: &mut impl rand::Rng, solution: &mut Solution, freeze_until: usize) {
