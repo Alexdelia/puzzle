@@ -3,6 +3,7 @@ use std::sync::Arc;
 use cudarc::driver::{
 	CudaContext, CudaFunction, CudaModule, CudaSlice, CudaStream, DeviceRepr, LaunchConfig,
 	PushKernelArg, ValidAsZeroBits,
+	result::{free_host, malloc_host},
 };
 use cudarc::nvrtc::{CompileOptions, compile_ptx_with_opts};
 
@@ -109,6 +110,67 @@ unsafe impl ValidAsZeroBits for Coord {}
 unsafe impl DeviceRepr for Car {}
 unsafe impl ValidAsZeroBits for Car {}
 
+pub struct PinnedBuf<T> {
+	ptr: *mut T,
+	len: usize,
+	_ctx: Arc<CudaContext>,
+}
+
+unsafe impl<T: Send> Send for PinnedBuf<T> {}
+unsafe impl<T: Sync> Sync for PinnedBuf<T> {}
+
+impl<T: ValidAsZeroBits> PinnedBuf<T> {
+	pub fn new(ctx: Arc<CudaContext>, len: usize) -> Result<Self, String> {
+		ctx.bind_to_thread().map_err(|e| format!("bind ctx: {e}"))?;
+		let bytes = len * std::mem::size_of::<T>();
+		let ptr =
+			unsafe { malloc_host(bytes, 0).map_err(|e| format!("malloc_host: {e}"))? } as *mut T;
+		unsafe {
+			std::ptr::write_bytes(ptr, 0, len);
+		}
+		Ok(Self {
+			ptr,
+			len,
+			_ctx: ctx,
+		})
+	}
+}
+
+impl<T> PinnedBuf<T> {
+	#[inline]
+	pub fn as_slice(&self) -> &[T] {
+		unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
+	}
+
+	#[inline]
+	pub fn as_mut_slice(&mut self) -> &mut [T] {
+		unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
+	}
+}
+
+impl<T> std::ops::Deref for PinnedBuf<T> {
+	type Target = [T];
+	#[inline]
+	fn deref(&self) -> &[T] {
+		self.as_slice()
+	}
+}
+
+impl<T> std::ops::DerefMut for PinnedBuf<T> {
+	#[inline]
+	fn deref_mut(&mut self) -> &mut [T] {
+		self.as_mut_slice()
+	}
+}
+
+impl<T> Drop for PinnedBuf<T> {
+	fn drop(&mut self) {
+		unsafe {
+			let _ = free_host(self.ptr as *mut _);
+		}
+	}
+}
+
 pub struct GpuSim {
 	#[allow(dead_code)]
 	ctx: Arc<CudaContext>,
@@ -195,6 +257,10 @@ impl GpuSim {
 	#[cfg(feature = "visualize")]
 	pub fn path_list(&self) -> &[PathBuf] {
 		&self.path_list_host
+	}
+
+	pub fn alloc_pinned<T: ValidAsZeroBits>(&self, len: usize) -> Result<PinnedBuf<T>, String> {
+		PinnedBuf::new(self.ctx.clone(), len)
 	}
 
 	pub fn run(

@@ -1,10 +1,11 @@
 use std::{fs, path::Path};
 
+use rand::{SeedableRng, rngs::SmallRng};
+
 use crate::{
 	output_repr::{Solution, Step},
 	output_solution::{OUTPUT_DIR, OUTPUT_SOLUTION_REPR_FILE},
 	referee::env::MAX_STEP,
-	solve::SOLUTION_PER_GENERATION,
 };
 
 const INITIAL_SOLUTION_STEP_SIZE: usize = MAX_STEP;
@@ -12,10 +13,9 @@ const INITIAL_SOLUTION_STEP_SIZE: usize = MAX_STEP;
 pub fn init_first_generation(
 	validator_name: &str,
 	fresh: bool,
-) -> Result<(Box<[Solution]>, bool), String> {
-	let mut generation: Vec<Solution> = Vec::with_capacity(SOLUTION_PER_GENERATION);
-
-	let mut rng = rand::rng();
+	solution_list: &mut [Solution],
+) -> Result<bool, String> {
+	let mut rng = SmallRng::from_rng(&mut rand::rng());
 
 	let stored_solution = if fresh {
 		None
@@ -23,21 +23,22 @@ pub fn init_first_generation(
 		read_stored_solution(validator_name)?
 	};
 	let loaded = stored_solution.is_some();
+
+	let mut start = 0;
 	if let Some(solution) = stored_solution {
-		generation.push(solution);
+		solution_list[0] = solution;
+		start = 1;
 	}
 
-	let i = generation.len();
-	for _ in i..SOLUTION_PER_GENERATION {
-		let mut solution = Solution::new();
-		for _ in 0..INITIAL_SOLUTION_STEP_SIZE {
-			solution.push(Step::random(&mut rng));
+	for i in start..solution_list.len() {
+		let dst = &mut solution_list[i];
+		for k in 0..INITIAL_SOLUTION_STEP_SIZE {
+			dst.steps[k] = Step::random(&mut rng);
 		}
-		generation.push(solution);
+		dst.len = INITIAL_SOLUTION_STEP_SIZE as u16;
 	}
 
-	assert_eq!(generation.len(), SOLUTION_PER_GENERATION);
-	Ok((generation.into_boxed_slice(), loaded))
+	Ok(loaded)
 }
 
 fn read_stored_solution(validator_name: &str) -> Result<Option<Solution>, String> {
