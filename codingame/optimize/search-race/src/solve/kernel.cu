@@ -5,6 +5,7 @@ typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
 
 #define MAX_STEP 600
+#define PATH_BUF_LEN (MAX_STEP + 1)
 #define CROSSING_LIST_SIZE 3
 #define CHECKPOINT_RADIUS 600.0
 #define MAX_DISTANCE 18357.6
@@ -58,6 +59,13 @@ struct Slot {
 	FrozenPrefix value;
 	int present;
 };
+
+#ifdef EMIT_PATHS
+struct PathBuf {
+	Coord coord_list[PATH_BUF_LEN];
+	uint32_t len;
+};
+#endif
 
 __device__ inline double truncate_(double x) {
 	double rounded = round(x);
@@ -155,17 +163,20 @@ __device__ float get_score(int checkpoint_count, int reached_count,
 
 __device__ SimOutput simulate_one(
 	const Solution* solution,
-	const FrozenPrefix* frozen_in,
-	const Coord* checkpoints,
+	const FrozenPrefix* frozen,
+	const Coord* checkpoint_list,
 	int checkpoint_count,
 	Car car_init,
 	int step_to_checkpoint_limit
+#ifdef EMIT_PATHS
+	, PathBuf* path
+#endif
 ) {
-	bool resuming = frozen_in->resume_from_step > 0;
-	Car car = resuming ? frozen_in->car : car_init;
-	uint64_t checkpoint_index = resuming ? frozen_in->checkpoint_index : 0;
+	bool resuming = frozen->resume_from_step > 0;
+	Car car = resuming ? frozen->car : car_init;
+	uint64_t checkpoint_index = resuming ? frozen->checkpoint_index : 0;
 
-	uint64_t reached_at_step = frozen_in->resume_from_step == 0 ? 0 : frozen_in->resume_from_step - 1;
+	uint64_t reached_at_step = frozen->resume_from_step == 0 ? 0 : frozen->resume_from_step - 1;
 	uint64_t window_start = reached_at_step;
 	int window_len = step_to_checkpoint_limit;
 
@@ -175,16 +186,29 @@ __device__ SimOutput simulate_one(
 	for (int k = 0; k < CROSSING_LIST_SIZE; ++k) crossing_list[k].present = 0;
 
 	uint64_t solution_len = (uint64_t)solution->len;
-	uint64_t start = frozen_in->resume_from_step;
+	uint64_t start = frozen->resume_from_step;
+
+#ifdef EMIT_PATHS
+	uint32_t path_len = 0;
+	path->coord_list[0].x = car.x;
+	path->coord_list[0].y = car.y;
+	path_len = 1;
+#endif
 
 	for (uint64_t step_index = start; step_index < solution_len; ++step_index) {
 		Step step = solution->steps[step_index];
 		Coord from = {car.x, car.y};
 		Coord moved_to = process_step(&car, step);
 
+#ifdef EMIT_PATHS
+		path->coord_list[path_len].x = car.x;
+		path->coord_list[path_len].y = car.y;
+		path_len++;
+#endif
+
 		if (window_start + (uint64_t)window_len < step_index) break;
 
-		Coord current_checkpoint = checkpoints[checkpoint_index];
+		Coord current_checkpoint = checkpoint_list[checkpoint_index];
 
 		double d = dist_(car.x, car.y, current_checkpoint.x, current_checkpoint.y);
 		if (d < closest_to_checkpoint) closest_to_checkpoint = d;
@@ -224,7 +248,10 @@ __device__ SimOutput simulate_one(
 				out.score = get_score(checkpoint_count, (int)checkpoint_index, closest_to_checkpoint, (int)step_count, true, ttf);
 				out.frozen = crossing_list[CROSSING_LIST_SIZE - 1].present
 					? crossing_list[CROSSING_LIST_SIZE - 1].value
-					: *frozen_in;
+					: *frozen;
+#ifdef EMIT_PATHS
+				path->len = path_len;
+#endif
 				return out;
 			}
 		}
@@ -232,7 +259,7 @@ __device__ SimOutput simulate_one(
 
 	uint64_t step_count = solution_len;
 	if (isinf(closest_to_checkpoint)) {
-		Coord current_checkpoint = checkpoints[checkpoint_index];
+		Coord current_checkpoint = checkpoint_list[checkpoint_index];
 		closest_to_checkpoint = dist_(car.x, car.y, current_checkpoint.x, current_checkpoint.y);
 	}
 
@@ -243,29 +270,38 @@ __device__ SimOutput simulate_one(
 	out.turn_to_finish = NAN_F64;
 	out.frozen = crossing_list[CROSSING_LIST_SIZE - 1].present
 		? crossing_list[CROSSING_LIST_SIZE - 1].value
-		: *frozen_in;
+		: *frozen;
 	out.score = get_score(checkpoint_count, (int)checkpoint_index, closest_to_checkpoint, (int)step_count, false, 0.0);
+#ifdef EMIT_PATHS
+	path->len = path_len;
+#endif
 	return out;
 }
 
-extern "C" __global__ void simulate(
-	const Solution* __restrict__ solutions,
-	const FrozenPrefix* __restrict__ frozens,
-	const Coord* __restrict__ checkpoints,
+extern "C" __global__ __launch_bounds__(256, 4) void simulate(
+	const Solution* __restrict__ solution_list,
+	const FrozenPrefix* __restrict__ frozen_list,
+	const Coord* __restrict__ checkpoint_list,
 	int checkpoint_count,
 	Car car_init,
 	int step_to_checkpoint_limit,
-	SimOutput* __restrict__ outputs,
+	SimOutput* __restrict__ output_list,
 	int n
+#ifdef EMIT_PATHS
+	, PathBuf* __restrict__ path_list
+#endif
 ) {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	if (i >= n) return;
-	outputs[i] = simulate_one(
-		&solutions[i],
-		&frozens[i],
-		checkpoints,
+	output_list[i] = simulate_one(
+		&solution_list[i],
+		&frozen_list[i],
+		checkpoint_list,
 		checkpoint_count,
 		car_init,
 		step_to_checkpoint_limit
+#ifdef EMIT_PATHS
+		, &path_list[i]
+#endif
 	);
 }

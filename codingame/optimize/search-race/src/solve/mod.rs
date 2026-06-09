@@ -10,9 +10,6 @@ use breed_generation::breed_generation;
 use std::time::{Duration, Instant};
 
 #[cfg(feature = "visualize")]
-use rayon::ThreadPoolBuilder;
-
-#[cfg(feature = "visualize")]
 use crate::visualize;
 
 use crate::{
@@ -25,7 +22,7 @@ use crate::{
 	},
 };
 
-pub const SOLUTION_PER_GENERATION: usize = 512;
+pub const SOLUTION_PER_GENERATION: usize = 2 << 11;
 
 const INITIAL_STEP_TO_CHECKPOINT_LIMIT: usize = 3;
 const MAX_STEP_TO_CHECKPOINT_LIMIT: usize = 48;
@@ -81,11 +78,6 @@ pub fn solve(
 	car_init_state: &Car,
 	#[cfg(feature = "visualize")] base_doc: svg::Document,
 ) -> Result<(), String> {
-	#[cfg(feature = "visualize")]
-	let pool = ThreadPoolBuilder::new()
-		.build()
-		.map_err(|e| format!("failed to build thread pool: {e}"))?;
-
 	let mut gpu = GpuSim::new(SOLUTION_PER_GENERATION, checkpoint_list)?;
 
 	let checkpoint_count = checkpoint_list.len();
@@ -144,14 +136,7 @@ pub fn solve(
 		)?;
 
 		#[cfg(feature = "visualize")]
-		let path_list = compute_paths_for_visualize(
-			&pool,
-			checkpoint_list,
-			car_init_state,
-			&solution_list,
-			&frozen_list,
-			step_to_checkpoint_limit,
-		);
+		let path_list = gpu.path_list();
 
 		#[cfg(feature = "visualize")]
 		let mut doc = base_doc.clone();
@@ -179,7 +164,7 @@ pub fn solve(
 						turn_to_finish: r.turn_to_finish_opt(),
 						reached_checkpoint_count: r.reached_checkpoint_count as usize,
 						#[cfg(feature = "visualize")]
-						path: path_list[i].clone(),
+						path: path_list[i].as_slice().to_vec(),
 						#[cfg(feature = "extra-log")]
 						max_step_gap: extra_log::compute_max_step_gap(
 							checkpoint_list,
@@ -205,7 +190,7 @@ pub fn solve(
 		{
 			for (i, path) in path_list.iter().enumerate() {
 				doc = doc.add(visualize::solution(
-					path,
+					path.as_slice(),
 					sim_outputs[i].is_finished(),
 					false,
 				));
@@ -302,32 +287,6 @@ pub fn solve(
 	println!();
 
 	Ok(())
-}
-
-#[cfg(feature = "visualize")]
-fn compute_paths_for_visualize(
-	pool: &rayon::ThreadPool,
-	checkpoint_list: &[Coord],
-	car_init_state: &Car,
-	solution_list: &[Solution],
-	frozen_list: &[FrozenPrefix],
-	step_to_checkpoint_limit: usize,
-) -> Box<[Vec<Coord>]> {
-	use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-
-	let mut paths: Box<[Vec<Coord>]> = vec![Vec::new(); SOLUTION_PER_GENERATION].into_boxed_slice();
-	pool.install(|| {
-		paths.par_iter_mut().enumerate().for_each(|(i, p)| {
-			*p = simulate_generation::compute_path(
-				checkpoint_list,
-				car_init_state,
-				&solution_list[i],
-				&frozen_list[i],
-				step_to_checkpoint_limit,
-			);
-		});
-	});
-	paths
 }
 
 #[inline]
