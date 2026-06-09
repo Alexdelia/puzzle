@@ -22,7 +22,7 @@ use crate::{
 	},
 };
 
-pub const SOLUTION_PER_GENERATION: usize = 2 << 14;
+pub const SOLUTION_PER_GENERATION: usize = 2 << 11;
 
 const INITIAL_STEP_TO_CHECKPOINT_LIMIT: usize = 3;
 const MAX_STEP_TO_CHECKPOINT_LIMIT: usize = 48;
