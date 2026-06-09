@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use rand::RngExt;
 
 use super::{FrozenPrefix, SOLUTION_PER_GENERATION, Score};
@@ -43,50 +45,66 @@ fn computed_solution_size(
 
 #[allow(clippy::too_many_arguments)]
 pub fn breed_generation(
-	mut solution_list: Box<[Solution]>,
+	current_solution_list: &mut [Solution],
+	next_solution_list: &mut [Solution],
 	score_list: &[Score],
 	step_count_list: &[usize],
-	frozen_list: Box<[FrozenPrefix]>,
+	current_frozen_list: &[FrozenPrefix],
+	next_frozen_list: &mut [FrozenPrefix],
 	car_init_state: &Car,
 	best_finished_step_count: Option<usize>,
 	step_to_checkpoint_limit: usize,
 	burst: bool,
-) -> (Box<[Solution]>, Box<[FrozenPrefix]>) {
+) {
 	for i in 0..SOLUTION_PER_GENERATION {
-		solution_list[i].truncate(step_count_list[i]);
+		current_solution_list[i].truncate(step_count_list[i]);
 	}
 
-	let (mut ordered_solution_list, mut ordered_frozen_list) =
-		sort(solution_list, score_list, frozen_list);
+	let mut sort_order: Vec<usize> = (0..SOLUTION_PER_GENERATION).collect();
+	sort_order.sort_by(|&a, &b| {
+		score_list[a]
+			.partial_cmp(&score_list[b])
+			.unwrap_or(Ordering::Equal)
+	});
 
 	let keep_count = (SOLUTION_PER_GENERATION as f32 * KEEP_RATE).ceil() as usize;
 	let random_count = (SOLUTION_PER_GENERATION as f32 * RANDOM_RATE).ceil() as usize;
 
 	let mut rng = rand::rng();
 
-	let mut parent_a_index = 0;
-	let mut parent_b_index = 1;
+	for i in 0..keep_count {
+		let src = sort_order[i];
+		next_solution_list[i] = current_solution_list[src];
+		next_frozen_list[i] = current_frozen_list[src];
+	}
+
+	let mut parent_a_pos = 0;
+	let mut parent_b_pos = 1;
 	for i in keep_count..(SOLUTION_PER_GENERATION - random_count) {
-		let freeze_until = ordered_frozen_list[parent_a_index].resume_from_step;
+		let parent_a_idx = sort_order[parent_a_pos];
+		let parent_b_idx = sort_order[parent_b_pos];
+		let parent_a_frozen = current_frozen_list[parent_a_idx];
+		let freeze_until = parent_a_frozen.resume_from_step;
 		let solution_size = computed_solution_size(
-			&ordered_frozen_list[parent_a_index],
+			&parent_a_frozen,
 			best_finished_step_count,
 			step_to_checkpoint_limit,
 		);
-		ordered_solution_list[i] = breed(
+		breed_into(
+			&mut next_solution_list[i],
 			&mut rng,
 			MUTATION_RATE[i],
-			&ordered_solution_list[parent_a_index],
-			&ordered_solution_list[parent_b_index],
+			&current_solution_list[parent_a_idx],
+			&current_solution_list[parent_b_idx],
 			solution_size,
 			freeze_until,
 		);
-		ordered_frozen_list[i] = ordered_frozen_list[parent_a_index];
+		next_frozen_list[i] = parent_a_frozen;
 
-		parent_b_index += 1;
-		if parent_b_index >= keep_count {
-			parent_a_index += 1;
-			parent_b_index = parent_a_index + 1;
+		parent_b_pos += 1;
+		if parent_b_pos >= keep_count {
+			parent_a_pos += 1;
+			parent_b_pos = parent_a_pos + 1;
 		}
 	}
 
@@ -95,18 +113,20 @@ pub fn breed_generation(
 		let bred_section_end = SOLUTION_PER_GENERATION - random_count;
 		let burst_start = bred_section_end.saturating_sub(burst_count);
 		for i in burst_start..bred_section_end {
-			let freeze_until = ordered_frozen_list[i].resume_from_step;
-			apply_burst(&mut rng, &mut ordered_solution_list[i], freeze_until);
+			let freeze_until = next_frozen_list[i].resume_from_step;
+			apply_burst(&mut rng, &mut next_solution_list[i], freeze_until);
 		}
 	}
 
 	for i in 1..keep_count {
-		let frozen = ordered_frozen_list[i];
+		let frozen = next_frozen_list[i];
 		let solution_size =
 			computed_solution_size(&frozen, best_finished_step_count, step_to_checkpoint_limit);
-		let solution = &mut ordered_solution_list[i];
+		let solution = &mut next_solution_list[i];
 		resize_with_random(&mut rng, solution, solution_size);
-		for step in solution.iter_mut().skip(frozen.resume_from_step) {
+		let len = solution.len();
+		let start = frozen.resume_from_step.min(len);
+		for step in &mut solution.steps[start..len] {
 			mutate(&mut rng, MUTATION_RATE[i - 1], step);
 		}
 	}
@@ -118,96 +138,72 @@ pub fn breed_generation(
 		step_to_checkpoint_limit,
 	);
 	for i in (SOLUTION_PER_GENERATION - random_count)..SOLUTION_PER_GENERATION {
-		let solution = &mut ordered_solution_list[i];
-		solution.clear();
-		for _ in 0..random_size {
-			solution.push(Step::random(&mut rng));
-		}
-		ordered_frozen_list[i] = from_scratch;
-	}
-
-	(ordered_solution_list, ordered_frozen_list)
-}
-
-fn resize_with_random(rng: &mut impl rand::Rng, solution: &mut Solution, solution_size: usize) {
-	for _ in solution.len()..solution_size {
-		solution.push(Step::random(rng));
-	}
-	solution.truncate(solution_size);
-}
-
-fn apply_burst(rng: &mut impl rand::Rng, solution: &mut Solution, freeze_until: usize) {
-	if solution.len() <= freeze_until {
-		return;
-	}
-	let mutable_len = solution.len() - freeze_until;
-	let chunk_size = BURST_CHUNK_SIZE.min(mutable_len);
-	let max_offset = mutable_len - chunk_size;
-	let start = freeze_until + rng.random_range(0..=max_offset);
-	for step in solution.iter_mut().skip(start).take(chunk_size) {
-		*step = Step::random(rng);
+		random_into(&mut next_solution_list[i], &mut rng, random_size);
+		next_frozen_list[i] = from_scratch;
 	}
 }
 
-fn sort(
-	solution_list: Box<[Solution]>,
-	score_list: &[Score],
-	frozen_list: Box<[FrozenPrefix]>,
-) -> (Box<[Solution]>, Box<[FrozenPrefix]>) {
-	let mut indices: Vec<usize> = (0..SOLUTION_PER_GENERATION).collect();
-	indices.sort_by(|&a, &b| {
-		score_list[a]
-			.partial_cmp(&score_list[b])
-			.unwrap_or(std::cmp::Ordering::Equal)
-	});
-
-	let mut sol_in = solution_list.into_vec();
-	let frz_in = frozen_list.into_vec();
-
-	let mut ordered_solution_list: Vec<Solution> = Vec::with_capacity(SOLUTION_PER_GENERATION);
-	let mut ordered_frozen_list: Vec<FrozenPrefix> = Vec::with_capacity(SOLUTION_PER_GENERATION);
-
-	for &i in &indices {
-		ordered_solution_list.push(std::mem::take(&mut sol_in[i]));
-		ordered_frozen_list.push(frz_in[i]);
-	}
-
-	(
-		ordered_solution_list.into_boxed_slice(),
-		ordered_frozen_list.into_boxed_slice(),
-	)
-}
-
-fn breed(
+fn breed_into(
+	dst: &mut Solution,
 	rng: &mut impl rand::Rng,
 	mutation_rate: f64,
 	parent_a: &Solution,
 	parent_b: &Solution,
 	solution_size: usize,
 	freeze_until: usize,
-) -> Solution {
-	let mut child = Solution::new();
+) {
+	let pa_len = parent_a.len();
+	let pb_len = parent_b.len();
+	let pa = &parent_a.steps;
+	let pb = &parent_b.steps;
 
-	for i in 0..solution_size {
-		if i < freeze_until {
-			if let Some(&step) = parent_a.get(i) {
-				child.push(step);
-			} else {
-				child.push(Step::random(rng));
-			}
-		} else if let (Some(step_a), Some(step_b)) = (parent_a.get(i), parent_b.get(i)) {
-			let mut step = Step {
-				tilt: (step_a.tilt + step_b.tilt) / 2,
-				thrust: ((step_a.thrust as u16 + step_b.thrust as u16) / 2) as u8,
+	for k in 0..solution_size {
+		let step = if k < freeze_until {
+			if k < pa_len { pa[k] } else { Step::random(rng) }
+		} else if k < pa_len && k < pb_len {
+			let sa = pa[k];
+			let sb = pb[k];
+			let mut s = Step {
+				tilt: (sa.tilt + sb.tilt) / 2,
+				thrust: ((sa.thrust as u16 + sb.thrust as u16) / 2) as u8,
 			};
-			mutate(rng, mutation_rate, &mut step);
-			child.push(step);
+			mutate(rng, mutation_rate, &mut s);
+			s
 		} else {
-			child.push(Step::random(rng));
+			Step::random(rng)
 		};
+		dst.steps[k] = step;
 	}
+	dst.len = solution_size as u16;
+}
 
-	child
+fn random_into(dst: &mut Solution, rng: &mut impl rand::Rng, solution_size: usize) {
+	for k in 0..solution_size {
+		dst.steps[k] = Step::random(rng);
+	}
+	dst.len = solution_size as u16;
+}
+
+fn resize_with_random(rng: &mut impl rand::Rng, solution: &mut Solution, solution_size: usize) {
+	let old_len = solution.len();
+	for k in old_len..solution_size {
+		solution.steps[k] = Step::random(rng);
+	}
+	solution.len = solution_size as u16;
+}
+
+fn apply_burst(rng: &mut impl rand::Rng, solution: &mut Solution, freeze_until: usize) {
+	let len = solution.len();
+	if len <= freeze_until {
+		return;
+	}
+	let mutable_len = len - freeze_until;
+	let chunk_size = BURST_CHUNK_SIZE.min(mutable_len);
+	let max_offset = mutable_len - chunk_size;
+	let start = freeze_until + rng.random_range(0..=max_offset);
+	for step in &mut solution.steps[start..start + chunk_size] {
+		*step = Step::random(rng);
+	}
 }
 
 pub fn mutate(rng: &mut impl rand::Rng, mutation_rate: f64, step: &mut Step) {

@@ -86,7 +86,13 @@ pub fn solve(
 	let mut best_disk_ttf = read_turn_to_finish(validator_name);
 	let (mut solution_list, loaded) =
 		first_generation::init_first_generation(validator_name, fresh)?;
+	let mut next_solution_list: Box<[Solution]> =
+		boxed_filled(Solution::default(), SOLUTION_PER_GENERATION);
 	let mut frozen_list: Box<[FrozenPrefix]> = boxed_filled(
+		FrozenPrefix::from_scratch(car_init_state),
+		SOLUTION_PER_GENERATION,
+	);
+	let mut next_frozen_list: Box<[FrozenPrefix]> = boxed_filled(
 		FrozenPrefix::from_scratch(car_init_state),
 		SOLUTION_PER_GENERATION,
 	);
@@ -246,16 +252,20 @@ pub fn solve(
 		let step_count_list: Box<[usize]> =
 			sim_outputs.iter().map(|o| o.step_count as usize).collect();
 
-		(solution_list, frozen_list) = breed_generation(
-			solution_list,
+		breed_generation(
+			&mut solution_list,
+			&mut next_solution_list,
 			&score_list,
 			&step_count_list,
-			frozen_list,
+			&frozen_list,
+			&mut next_frozen_list,
 			car_init_state,
 			best_finished_step_count,
 			step_to_checkpoint_limit,
 			burst,
 		);
+		std::mem::swap(&mut solution_list, &mut next_solution_list);
+		std::mem::swap(&mut frozen_list, &mut next_frozen_list);
 
 		let generation_elapsed = generation_start.elapsed();
 		if generation.is_multiple_of(128) {

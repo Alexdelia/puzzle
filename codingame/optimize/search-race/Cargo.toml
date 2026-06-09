@@ -29,4 +29,4 @@ serde = { version = "1", features = ["derive"] }
 svg = { version = "0.18", optional = true }
 # radiate = { version = "1.2", optional = true, features = ["gp", "serde", "rayon", "ui"] }
 
-cudarc = { version = "0.19", default-features = false, features = ["std", "driver", "nvrtc", "cuda-12080", "dynamic-loading"] }
+cudarc = { version = "0.19", default-features = false, features = ["std", "driver", "nvrtc", "cuda-12080", "dynamic-linking"] }
