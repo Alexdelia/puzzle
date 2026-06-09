@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use cuda_core::{
-	CudaContext, DeviceBuffer, DeviceCopy, LaunchConfig, memory::memcpy_htod_async,
-	stream::CudaStream,
+use cudarc::driver::{
+	CudaContext, CudaFunction, CudaModule, CudaSlice, CudaStream, DeviceRepr, LaunchConfig,
+	PushKernelArg, ValidAsZeroBits,
 };
-use cuda_device::{DisjointSlice, kernel, thread};
-use cuda_host::cuda_module;
+use cudarc::nvrtc::compile_ptx;
 
 use crate::{
 	dist::dist,
@@ -23,6 +22,8 @@ use crate::{
 use super::{CHECKPOINT_LOOKBACK, FrozenPrefix, Score};
 
 const CROSSING_LIST_SIZE: usize = CHECKPOINT_LOOKBACK + 1;
+
+const KERNEL_SOURCE: &str = include_str!("kernel.cu");
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
@@ -59,9 +60,7 @@ impl SimOutput {
 	pub fn is_finished(&self) -> bool {
 		self.finished != 0
 	}
-}
 
-impl SimOutput {
 	#[inline]
 	pub fn turn_to_finish_opt(self) -> Option<f64> {
 		if self.turn_to_finish.is_nan() {
@@ -72,73 +71,67 @@ impl SimOutput {
 	}
 }
 
-unsafe impl DeviceCopy for SimOutput {}
-unsafe impl DeviceCopy for FrozenPrefix {}
-unsafe impl DeviceCopy for Solution {}
-unsafe impl DeviceCopy for Coord {}
-
-#[cuda_module]
-pub mod kernels {
-	use super::*;
-
-	#[kernel]
-	pub fn simulate(
-		solutions: &[Solution],
-		frozens: &[FrozenPrefix],
-		checkpoints: &[Coord],
-		car_init: Car,
-		step_to_checkpoint_limit: u32,
-		mut outputs: DisjointSlice<SimOutput>,
-	) {
-		let idx = thread::index_1d();
-		let i = idx.get();
-		if let Some(out) = outputs.get_mut(idx) {
-			*out = simulate_solution(
-				checkpoints,
-				&car_init,
-				&solutions[i],
-				&frozens[i],
-				step_to_checkpoint_limit as usize,
-			);
-		}
-	}
-}
+unsafe impl DeviceRepr for SimOutput {}
+unsafe impl ValidAsZeroBits for SimOutput {}
+unsafe impl DeviceRepr for FrozenPrefix {}
+unsafe impl ValidAsZeroBits for FrozenPrefix {}
+unsafe impl DeviceRepr for Solution {}
+unsafe impl ValidAsZeroBits for Solution {}
+unsafe impl DeviceRepr for Coord {}
+unsafe impl ValidAsZeroBits for Coord {}
+unsafe impl DeviceRepr for Car {}
+unsafe impl ValidAsZeroBits for Car {}
 
 pub struct GpuSim {
 	#[allow(dead_code)]
 	ctx: Arc<CudaContext>,
 	stream: Arc<CudaStream>,
-	module: kernels::LoadedModule,
-	solutions_buf: DeviceBuffer<Solution>,
-	frozens_buf: DeviceBuffer<FrozenPrefix>,
-	checkpoints_buf: DeviceBuffer<Coord>,
-	outputs_buf: DeviceBuffer<SimOutput>,
+	#[allow(dead_code)]
+	module: Arc<CudaModule>,
+	func: CudaFunction,
+	solutions_buf: CudaSlice<Solution>,
+	frozens_buf: CudaSlice<FrozenPrefix>,
+	checkpoints_buf: CudaSlice<Coord>,
+	outputs_buf: CudaSlice<SimOutput>,
+	checkpoint_count: i32,
 	capacity: usize,
 }
 
 impl GpuSim {
 	pub fn new(capacity: usize, checkpoint_list: &[Coord]) -> Result<Self, String> {
-		let ctx = CudaContext::new(0).map_err(|e| format!("CudaContext::new failed: {e}"))?;
+		let ctx = CudaContext::new(0).map_err(|e| format!("CudaContext::new: {e}"))?;
 		let stream = ctx.default_stream();
-		let module = kernels::load(&ctx).map_err(|e| format!("failed to load cuda module: {e}"))?;
+		let ptx = compile_ptx(KERNEL_SOURCE).map_err(|e| format!("nvrtc compile: {e}"))?;
+		let module = ctx
+			.load_module(ptx)
+			.map_err(|e| format!("load_module: {e}"))?;
+		let func = module
+			.load_function("simulate")
+			.map_err(|e| format!("load_function: {e}"))?;
 
-		let solutions_buf = DeviceBuffer::<Solution>::zeroed(&stream, capacity)
+		let solutions_buf = stream
+			.alloc_zeros::<Solution>(capacity)
 			.map_err(|e| format!("alloc solutions: {e}"))?;
-		let frozens_buf = DeviceBuffer::<FrozenPrefix>::zeroed(&stream, capacity)
+		let frozens_buf = stream
+			.alloc_zeros::<FrozenPrefix>(capacity)
 			.map_err(|e| format!("alloc frozens: {e}"))?;
-		let outputs_buf = DeviceBuffer::<SimOutput>::zeroed(&stream, capacity)
+		let outputs_buf = stream
+			.alloc_zeros::<SimOutput>(capacity)
 			.map_err(|e| format!("alloc outputs: {e}"))?;
-		let checkpoints_buf = DeviceBuffer::from_host(&stream, checkpoint_list)
-			.map_err(|e| format!("alloc checkpoints: {e}"))?;
+		let checkpoints_buf = stream
+			.clone_htod(checkpoint_list)
+			.map_err(|e| format!("upload checkpoints: {e}"))?;
 
 		Ok(Self {
 			ctx,
 			stream,
 			module,
+			func,
 			solutions_buf,
 			frozens_buf,
 			checkpoints_buf,
 			outputs_buf,
+			checkpoint_count: checkpoint_list.len() as i32,
 			capacity,
 		})
 	}
@@ -156,40 +149,40 @@ impl GpuSim {
 		assert_eq!(n, outputs.len());
 		assert!(n <= self.capacity);
 
-		unsafe {
-			memcpy_htod_async(
-				self.solutions_buf.cu_deviceptr(),
-				solutions.as_ptr(),
-				std::mem::size_of_val(solutions),
-				self.stream.cu_stream(),
-			)
+		self.stream
+			.memcpy_htod(solutions, &mut self.solutions_buf)
 			.map_err(|e| format!("upload solutions: {e}"))?;
-			memcpy_htod_async(
-				self.frozens_buf.cu_deviceptr(),
-				frozens.as_ptr(),
-				std::mem::size_of_val(frozens),
-				self.stream.cu_stream(),
-			)
+		self.stream
+			.memcpy_htod(frozens, &mut self.frozens_buf)
 			.map_err(|e| format!("upload frozens: {e}"))?;
-		}
 
-		self.module
-			.simulate(
-				&self.stream,
-				LaunchConfig::for_num_elems(n as u32),
-				&self.solutions_buf,
-				&self.frozens_buf,
-				&self.checkpoints_buf,
-				*car_init,
-				step_to_checkpoint_limit as u32,
-				&mut self.outputs_buf,
-			)
-			.map_err(|e| format!("kernel launch: {e}"))?;
+		let n_i32: i32 = n as i32;
+		let step_limit_i32: i32 = step_to_checkpoint_limit as i32;
+		let car = *car_init;
+		let cp_count = self.checkpoint_count;
 
-		self.outputs_buf
-			.copy_to_host(&self.stream, outputs)
+		let mut builder = self.stream.launch_builder(&self.func);
+		builder.arg(&self.solutions_buf);
+		builder.arg(&self.frozens_buf);
+		builder.arg(&self.checkpoints_buf);
+		builder.arg(&cp_count);
+		builder.arg(&car);
+		builder.arg(&step_limit_i32);
+		builder.arg(&mut self.outputs_buf);
+		builder.arg(&n_i32);
+
+		const BLOCK: u32 = 128;
+		let n_u32 = n as u32;
+		let cfg = LaunchConfig {
+			grid_dim: (n_u32.div_ceil(BLOCK), 1, 1),
+			block_dim: (BLOCK, 1, 1),
+			shared_mem_bytes: 0,
+		};
+		unsafe { builder.launch(cfg) }.map_err(|e| format!("kernel launch: {e}"))?;
+
+		self.stream
+			.memcpy_dtoh(&self.outputs_buf, outputs)
 			.map_err(|e| format!("download outputs: {e}"))?;
-
 		self.stream
 			.synchronize()
 			.map_err(|e| format!("stream sync: {e}"))?;
@@ -220,12 +213,10 @@ pub fn simulate_solution(
 
 	let mut crossing_list: [Option<FrozenPrefix>; CROSSING_LIST_SIZE] = [None; CROSSING_LIST_SIZE];
 
-	let solution_len = solution.len();
-	for step_index in frozen.resume_from_step..solution_len {
-		let step = solution.steps[step_index];
+	for (step_index, step) in solution.iter().enumerate().skip(frozen.resume_from_step) {
 		let from = Coord { x: car.x, y: car.y };
 
-		let moved_to = process_step(&mut car, &step);
+		let moved_to = process_step(&mut car, step);
 
 		let traveled = Segment {
 			a: from,
@@ -245,15 +236,9 @@ pub fn simulate_solution(
 
 		if intersect(current_checkpoint, traveled.a, traveled.b) {
 			let crossed_segment_step_count = step_index - reached_at_step;
-			let mut i = CROSSING_LIST_SIZE - 1;
-			while i > 0 {
-				crossing_list[i] = crossing_list[i - 1];
-				i -= 1;
-			}
-			let prev_slot = crossing_list[1];
-			if let Some(mut previous) = prev_slot {
+			crossing_list.copy_within(0..CROSSING_LIST_SIZE - 1, 1);
+			if let Some(previous) = &mut crossing_list[1] {
 				previous.reentry_step_count = crossed_segment_step_count;
-				crossing_list[1] = Some(previous);
 			}
 			crossing_list[0] = Some(FrozenPrefix {
 				resume_from_step: step_index + 1,
@@ -285,16 +270,13 @@ pub fn simulate_solution(
 					step_count: step_count as u32,
 					reached_checkpoint_count: checkpoint_index as u32,
 					turn_to_finish,
-					frozen: {
-						let last_slot = crossing_list[CROSSING_LIST_SIZE - 1];
-						last_slot.unwrap_or(*frozen)
-					},
+					frozen: crossing_list[CROSSING_LIST_SIZE - 1].unwrap_or(*frozen),
 				};
 			}
 		}
 	}
 
-	let step_count = solution_len;
+	let step_count = solution.len();
 
 	if closest_to_checkpoint.is_infinite() {
 		let current_checkpoint = checkpoint_list[checkpoint_index];
@@ -388,5 +370,5 @@ fn checkpoint_entry_fraction(from: Coord, to: Coord, checkpoint: Coord) -> f64 {
 	}
 
 	let t = (-b - discriminant.sqrt()) / (2.0 * a);
-	t.max(0.0).min(1.0)
+	t.clamp(0.0, 1.0)
 }
