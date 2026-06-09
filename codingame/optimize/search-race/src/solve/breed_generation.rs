@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use rand::RngExt;
+use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
 use super::{FrozenPrefix, SOLUTION_PER_GENERATION, Score};
 use crate::{
@@ -70,7 +70,7 @@ pub fn breed_generation(
 	let keep_count = (SOLUTION_PER_GENERATION as f32 * KEEP_RATE).ceil() as usize;
 	let random_count = (SOLUTION_PER_GENERATION as f32 * RANDOM_RATE).ceil() as usize;
 
-	let mut rng = rand::rng();
+	let mut rng = SmallRng::from_rng(&mut rand::rng());
 
 	for i in 0..keep_count {
 		let src = sort_order[i];
