@@ -22,7 +22,7 @@ use crate::{
 	},
 };
 
-pub const SOLUTION_PER_GENERATION: usize = 2 << 11;
+pub const SOLUTION_PER_GENERATION: usize = 2 << 14;
 
 const INITIAL_STEP_TO_CHECKPOINT_LIMIT: usize = 3;
 const MAX_STEP_TO_CHECKPOINT_LIMIT: usize = 48;
@@ -100,8 +100,10 @@ pub fn solve(
 	)?;
 
 	let mut sim_outputs: PinnedBuf<SimOutput> = gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
-	let mut prev_outputs: Box<[SimOutput]> =
-		vec![SimOutput::default(); SOLUTION_PER_GENERATION].into_boxed_slice();
+	let mut prev_outputs: PinnedBuf<SimOutput> = gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
+
+	let mut score_list: Box<[Score]> = vec![0.0; SOLUTION_PER_GENERATION].into_boxed_slice();
+	let mut step_count_list: Box<[usize]> = vec![0; SOLUTION_PER_GENERATION].into_boxed_slice();
 
 	let mut best = (Score::MAX, BestSolution::default());
 
@@ -148,9 +150,10 @@ pub fn solve(
 	while !best.1.finished || optimize_end || generation < max_iteration {
 		let overlap_breed = generation >= 1;
 		if overlap_breed {
-			let score_list: Box<[Score]> = prev_outputs.iter().map(|o| o.score).collect();
-			let step_count_list: Box<[usize]> =
-				prev_outputs.iter().map(|o| o.step_count as usize).collect();
+			for (k, o) in prev_outputs.iter().enumerate() {
+				score_list[k] = o.score;
+				step_count_list[k] = o.step_count as usize;
+			}
 			breed_generation(
 				&mut solution_processed,
 				&mut solution_breed,
@@ -274,12 +277,11 @@ pub fn solve(
 			None
 		};
 
-		prev_outputs.copy_from_slice(&sim_outputs);
-
 		if !overlap_breed {
-			let score_list: Box<[Score]> = sim_outputs.iter().map(|o| o.score).collect();
-			let step_count_list: Box<[usize]> =
-				sim_outputs.iter().map(|o| o.step_count as usize).collect();
+			for (k, o) in sim_outputs.iter().enumerate() {
+				score_list[k] = o.score;
+				step_count_list[k] = o.step_count as usize;
+			}
 			breed_generation(
 				&mut solution_inflight,
 				&mut solution_breed,
@@ -293,6 +295,8 @@ pub fn solve(
 				burst,
 			);
 		}
+
+		std::mem::swap(&mut sim_outputs, &mut prev_outputs);
 
 		gpu.submit_async(
 			&solution_breed,
