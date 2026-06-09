@@ -30,8 +30,7 @@ pub fn init_first_generation(
 		start = 1;
 	}
 
-	for i in start..solution_list.len() {
-		let dst = &mut solution_list[i];
+	for dst in solution_list.iter_mut().skip(start) {
 		for k in 0..INITIAL_SOLUTION_STEP_SIZE {
 			dst.steps[k] = Step::random(&mut rng);
 		}
