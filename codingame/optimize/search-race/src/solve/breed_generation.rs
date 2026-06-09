@@ -14,22 +14,20 @@ const RANDOM_RATE: f32 = 0.1;
 const BURST_RATE: f32 = 0.2;
 const BURST_CHUNK_SIZE: usize = 16;
 
-type MutationRate = f64;
+const MUTATION_RATE_FACTOR: f64 = 0.1;
 
-const MUTATION_RATE_FACTOR: MutationRate = 0.1;
-
-const fn gen_mutation_rate() -> [MutationRate; SOLUTION_PER_GENERATION] {
-	let mut list = [0.0; SOLUTION_PER_GENERATION];
+const fn gen_mutation_threshold() -> [u64; SOLUTION_PER_GENERATION] {
+	let mut list = [0u64; SOLUTION_PER_GENERATION];
 	let mut i = 0;
 	while i < SOLUTION_PER_GENERATION {
-		list[i] =
-			i as MutationRate / SOLUTION_PER_GENERATION as MutationRate * MUTATION_RATE_FACTOR;
+		let rate = i as f64 / SOLUTION_PER_GENERATION as f64 * MUTATION_RATE_FACTOR;
+		list[i] = (rate * u64::MAX as f64) as u64;
 		i += 1;
 	}
 	list
 }
 
-static MUTATION_RATE: [MutationRate; SOLUTION_PER_GENERATION] = gen_mutation_rate();
+static MUTATION_THRESHOLD: [u64; SOLUTION_PER_GENERATION] = gen_mutation_threshold();
 
 fn computed_solution_size(
 	frozen: &FrozenPrefix,
@@ -92,18 +90,18 @@ pub fn breed_generation(
 			.min(src_solution.len())
 			.min(solution_size);
 		let copy_end = src_solution.len().min(solution_size);
-		let mutation_rate = MUTATION_RATE[i - 1];
+		let threshold = MUTATION_THRESHOLD[i - 1];
 
 		let dst_solution = &mut next_solution_list[i];
 		dst_solution.steps[..resume].copy_from_slice(&src_solution.steps[..resume]);
 		for k in resume..copy_end {
 			let mut step = src_solution.steps[k];
-			mutate(&mut rng, mutation_rate, &mut step);
+			mutate(&mut rng, threshold, &mut step);
 			dst_solution.steps[k] = step;
 		}
 		for k in copy_end..solution_size {
 			let mut step = Step::random(&mut rng);
-			mutate(&mut rng, mutation_rate, &mut step);
+			mutate(&mut rng, threshold, &mut step);
 			dst_solution.steps[k] = step;
 		}
 		dst_solution.len = solution_size as u16;
@@ -125,7 +123,7 @@ pub fn breed_generation(
 		breed_into(
 			&mut next_solution_list[i],
 			&mut rng,
-			MUTATION_RATE[i],
+			MUTATION_THRESHOLD[i],
 			&current_solution_list[parent_a_idx],
 			&current_solution_list[parent_b_idx],
 			solution_size,
@@ -165,7 +163,7 @@ pub fn breed_generation(
 fn breed_into(
 	dst: &mut Solution,
 	rng: &mut impl rand::Rng,
-	mutation_rate: f64,
+	threshold: u64,
 	parent_a: &Solution,
 	parent_b: &Solution,
 	solution_size: usize,
@@ -186,7 +184,7 @@ fn breed_into(
 				tilt: (sa.tilt + sb.tilt) / 2,
 				thrust: ((sa.thrust as u16 + sb.thrust as u16) / 2) as u8,
 			};
-			mutate(rng, mutation_rate, &mut s);
+			mutate(rng, threshold, &mut s);
 			s
 		} else {
 			Step::random(rng)
@@ -217,8 +215,8 @@ fn apply_burst(rng: &mut impl rand::Rng, solution: &mut Solution, freeze_until: 
 	}
 }
 
-pub fn mutate(rng: &mut impl rand::Rng, mutation_rate: f64, step: &mut Step) {
-	if rng.random_bool(mutation_rate) {
+pub fn mutate(rng: &mut impl rand::Rng, threshold: u64, step: &mut Step) {
+	if rng.next_u64() < threshold {
 		let bias = step.thrust as f32 / MAX_THRUST as f32;
 		let r: f32 = rng.random();
 		let p_max = bias * bias;
@@ -231,7 +229,7 @@ pub fn mutate(rng: &mut impl rand::Rng, mutation_rate: f64, step: &mut Step) {
 			step.thrust = Step::random_thrust(rng);
 		}
 	}
-	if rng.random_bool(mutation_rate) {
+	if rng.next_u64() < threshold {
 		let bias =
 			(step.tilt - MIN_TILT_CHANGE) as f32 / (MAX_TILT_CHANGE - MIN_TILT_CHANGE) as f32;
 		let r: f32 = rng.random();
