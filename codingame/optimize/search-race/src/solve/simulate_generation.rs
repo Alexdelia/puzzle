@@ -263,7 +263,7 @@ impl GpuSim {
 		PinnedBuf::new(self.ctx.clone(), len)
 	}
 
-	pub fn run(
+	pub fn submit_async(
 		&mut self,
 		solution_list: &[Solution],
 		frozen_list: &[FrozenPrefix],
@@ -316,11 +316,14 @@ impl GpuSim {
 		self.stream
 			.memcpy_dtoh(&self.path_list_buf, &mut self.path_list_host[..n])
 			.map_err(|e| format!("download path list: {e}"))?;
-		self.stream
-			.synchronize()
-			.map_err(|e| format!("stream sync: {e}"))?;
 
 		Ok(())
+	}
+
+	pub fn wait(&self) -> Result<(), String> {
+		self.stream
+			.synchronize()
+			.map_err(|e| format!("stream sync: {e}"))
 	}
 }
 
