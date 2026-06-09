@@ -1,28 +1,45 @@
 {
-  description = "search-race dev shell (cuda-oxide toolchain)";
+  description = "search-race dev shell (cudarc + CUDA toolkit)";
 
   inputs = {
-    cuda-oxide.url = "github:NVlabs/cuda-oxide";
-    nixpkgs.follows = "cuda-oxide/nixpkgs";
-    flake-utils.follows = "cuda-oxide/flake-utils";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs = {
-    cuda-oxide,
     nixpkgs,
     flake-utils,
     ...
   }:
     flake-utils.lib.eachSystem ["x86_64-linux" "aarch64-linux"] (
       system: let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
+        cudaPkgs = pkgs.cudaPackages_12;
+        cuda = pkgs.symlinkJoin {
+          name = "cuda";
+          paths = with cudaPkgs; [
+            cuda_nvcc
+            cuda_nvrtc
+            cuda_nvrtc.lib
+            cuda_cudart
+            cuda_cccl
+          ];
+        };
       in {
         devShells.default = pkgs.mkShell {
-          inputsFrom = [cuda-oxide.devShells.${system}.default];
-
           packages = with pkgs; [
-            python3
+            cargo
+            rustc
+            rust-analyzer
+            clippy
+            rustfmt
 
+            cuda
+
+            python3
             ruff
             ty
 
@@ -34,6 +51,17 @@
             imagemagick
             bc
           ];
+
+          shellHook = ''
+            export CUDA_HOME="${cuda}"
+            export CUDA_PATH="${cuda}"
+
+            if [ -d /run/opengl-driver/lib ]; then
+            	export LD_LIBRARY_PATH="/run/opengl-driver/lib:${cuda}/lib:$LD_LIBRARY_PATH"
+            else
+            	export LD_LIBRARY_PATH="${cuda}/lib:$LD_LIBRARY_PATH"
+            fi
+          '';
         };
       }
     );

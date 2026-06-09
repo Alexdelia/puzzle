@@ -29,6 +29,4 @@ serde = { version = "1", features = ["derive"] }
 svg = { version = "0.18", optional = true }
 # radiate = { version = "1.2", optional = true, features = ["gp", "serde", "rayon", "ui"] }
 
-cuda-device = { git = "https://github.com/NVlabs/cuda-oxide.git" }
-cuda-host = { git = "https://github.com/NVlabs/cuda-oxide.git" }
-cuda-core = { git = "https://github.com/NVlabs/cuda-oxide.git" }
+cudarc = { version = "0.19", default-features = false, features = ["std", "driver", "nvrtc", "cuda-12080", "dynamic-loading"] }
