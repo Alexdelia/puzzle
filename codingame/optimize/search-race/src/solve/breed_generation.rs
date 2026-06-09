@@ -61,7 +61,7 @@ pub fn breed_generation(
 	}
 
 	let mut sort_order: Vec<usize> = (0..SOLUTION_PER_GENERATION).collect();
-	sort_order.sort_by(|&a, &b| {
+	sort_order.sort_unstable_by(|&a, &b| {
 		score_list[a]
 			.partial_cmp(&score_list[b])
 			.unwrap_or(Ordering::Equal)
