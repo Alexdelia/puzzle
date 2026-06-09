@@ -4,7 +4,7 @@ use cudarc::driver::{
 	CudaContext, CudaFunction, CudaModule, CudaSlice, CudaStream, DeviceRepr, LaunchConfig,
 	PushKernelArg, ValidAsZeroBits,
 };
-use cudarc::nvrtc::compile_ptx;
+use cudarc::nvrtc::{CompileOptions, compile_ptx_with_opts};
 
 use crate::{
 	dist::dist,
@@ -21,9 +21,36 @@ use crate::{
 
 use super::{CHECKPOINT_LOOKBACK, FrozenPrefix, Score};
 
+#[cfg(feature = "visualize")]
+use crate::referee::env::MAX_STEP;
+
 const CROSSING_LIST_SIZE: usize = CHECKPOINT_LOOKBACK + 1;
 
+#[cfg(feature = "visualize")]
+const PATH_BUF_LEN: usize = MAX_STEP + 1;
+
 const KERNEL_SOURCE: &str = include_str!("kernel.cu");
+
+#[cfg(feature = "visualize")]
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct PathBuf {
+	pub coord_list: [Coord; PATH_BUF_LEN],
+	pub len: u32,
+}
+
+#[cfg(feature = "visualize")]
+impl PathBuf {
+	#[inline]
+	pub fn as_slice(&self) -> &[Coord] {
+		&self.coord_list[..self.len as usize]
+	}
+}
+
+#[cfg(feature = "visualize")]
+unsafe impl DeviceRepr for PathBuf {}
+#[cfg(feature = "visualize")]
+unsafe impl ValidAsZeroBits for PathBuf {}
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
@@ -89,10 +116,14 @@ pub struct GpuSim {
 	#[allow(dead_code)]
 	module: Arc<CudaModule>,
 	func: CudaFunction,
-	solutions_buf: CudaSlice<Solution>,
-	frozens_buf: CudaSlice<FrozenPrefix>,
-	checkpoints_buf: CudaSlice<Coord>,
-	outputs_buf: CudaSlice<SimOutput>,
+	solution_list_buf: CudaSlice<Solution>,
+	frozen_list_buf: CudaSlice<FrozenPrefix>,
+	checkpoint_list_buf: CudaSlice<Coord>,
+	output_list_buf: CudaSlice<SimOutput>,
+	#[cfg(feature = "visualize")]
+	path_list_buf: CudaSlice<PathBuf>,
+	#[cfg(feature = "visualize")]
+	path_list_host: Box<[PathBuf]>,
 	checkpoint_count: i32,
 	capacity: usize,
 }
@@ -101,7 +132,15 @@ impl GpuSim {
 	pub fn new(capacity: usize, checkpoint_list: &[Coord]) -> Result<Self, String> {
 		let ctx = CudaContext::new(0).map_err(|e| format!("CudaContext::new: {e}"))?;
 		let stream = ctx.default_stream();
-		let ptx = compile_ptx(KERNEL_SOURCE).map_err(|e| format!("nvrtc compile: {e}"))?;
+		let opts = CompileOptions {
+			arch: Some("compute_75"),
+			maxrregcount: Some(64),
+			#[cfg(feature = "visualize")]
+			options: vec!["-DEMIT_PATHS".into()],
+			..Default::default()
+		};
+		let ptx = compile_ptx_with_opts(KERNEL_SOURCE, opts)
+			.map_err(|e| format!("nvrtc compile: {e}"))?;
 		let module = ctx
 			.load_module(ptx)
 			.map_err(|e| format!("load_module: {e}"))?;
@@ -109,52 +148,74 @@ impl GpuSim {
 			.load_function("simulate")
 			.map_err(|e| format!("load_function: {e}"))?;
 
-		let solutions_buf = stream
+		let solution_list_buf = stream
 			.alloc_zeros::<Solution>(capacity)
-			.map_err(|e| format!("alloc solutions: {e}"))?;
-		let frozens_buf = stream
+			.map_err(|e| format!("alloc solution list: {e}"))?;
+		let frozen_list_buf = stream
 			.alloc_zeros::<FrozenPrefix>(capacity)
-			.map_err(|e| format!("alloc frozens: {e}"))?;
-		let outputs_buf = stream
+			.map_err(|e| format!("alloc frozen list: {e}"))?;
+		let output_list_buf = stream
 			.alloc_zeros::<SimOutput>(capacity)
-			.map_err(|e| format!("alloc outputs: {e}"))?;
-		let checkpoints_buf = stream
+			.map_err(|e| format!("alloc output list: {e}"))?;
+		let checkpoint_list_buf = stream
 			.clone_htod(checkpoint_list)
-			.map_err(|e| format!("upload checkpoints: {e}"))?;
+			.map_err(|e| format!("upload checkpoint list: {e}"))?;
+
+		#[cfg(feature = "visualize")]
+		let path_list_buf = stream
+			.alloc_zeros::<PathBuf>(capacity)
+			.map_err(|e| format!("alloc path list: {e}"))?;
+		#[cfg(feature = "visualize")]
+		let path_list_host: Box<[PathBuf]> = {
+			let mut v: Vec<PathBuf> = Vec::with_capacity(capacity);
+			for _ in 0..capacity {
+				v.push(unsafe { std::mem::zeroed() });
+			}
+			v.into_boxed_slice()
+		};
 
 		Ok(Self {
 			ctx,
 			stream,
 			module,
 			func,
-			solutions_buf,
-			frozens_buf,
-			checkpoints_buf,
-			outputs_buf,
+			solution_list_buf,
+			frozen_list_buf,
+			checkpoint_list_buf,
+			output_list_buf,
+			#[cfg(feature = "visualize")]
+			path_list_buf,
+			#[cfg(feature = "visualize")]
+			path_list_host,
 			checkpoint_count: checkpoint_list.len() as i32,
 			capacity,
 		})
 	}
 
+	#[cfg(feature = "visualize")]
+	pub fn path_list(&self) -> &[PathBuf] {
+		&self.path_list_host
+	}
+
 	pub fn run(
 		&mut self,
-		solutions: &[Solution],
-		frozens: &[FrozenPrefix],
+		solution_list: &[Solution],
+		frozen_list: &[FrozenPrefix],
 		car_init: &Car,
 		step_to_checkpoint_limit: usize,
-		outputs: &mut [SimOutput],
+		output_list: &mut [SimOutput],
 	) -> Result<(), String> {
-		let n = solutions.len();
-		assert_eq!(n, frozens.len());
-		assert_eq!(n, outputs.len());
+		let n = solution_list.len();
+		assert_eq!(n, frozen_list.len());
+		assert_eq!(n, output_list.len());
 		assert!(n <= self.capacity);
 
 		self.stream
-			.memcpy_htod(solutions, &mut self.solutions_buf)
-			.map_err(|e| format!("upload solutions: {e}"))?;
+			.memcpy_htod(solution_list, &mut self.solution_list_buf)
+			.map_err(|e| format!("upload solution list: {e}"))?;
 		self.stream
-			.memcpy_htod(frozens, &mut self.frozens_buf)
-			.map_err(|e| format!("upload frozens: {e}"))?;
+			.memcpy_htod(frozen_list, &mut self.frozen_list_buf)
+			.map_err(|e| format!("upload frozen list: {e}"))?;
 
 		let n_i32: i32 = n as i32;
 		let step_limit_i32: i32 = step_to_checkpoint_limit as i32;
@@ -162,16 +223,18 @@ impl GpuSim {
 		let cp_count = self.checkpoint_count;
 
 		let mut builder = self.stream.launch_builder(&self.func);
-		builder.arg(&self.solutions_buf);
-		builder.arg(&self.frozens_buf);
-		builder.arg(&self.checkpoints_buf);
+		builder.arg(&self.solution_list_buf);
+		builder.arg(&self.frozen_list_buf);
+		builder.arg(&self.checkpoint_list_buf);
 		builder.arg(&cp_count);
 		builder.arg(&car);
 		builder.arg(&step_limit_i32);
-		builder.arg(&mut self.outputs_buf);
+		builder.arg(&mut self.output_list_buf);
 		builder.arg(&n_i32);
+		#[cfg(feature = "visualize")]
+		builder.arg(&mut self.path_list_buf);
 
-		const BLOCK: u32 = 128;
+		const BLOCK: u32 = 256;
 		let n_u32 = n as u32;
 		let cfg = LaunchConfig {
 			grid_dim: (n_u32.div_ceil(BLOCK), 1, 1),
@@ -181,8 +244,12 @@ impl GpuSim {
 		unsafe { builder.launch(cfg) }.map_err(|e| format!("kernel launch: {e}"))?;
 
 		self.stream
-			.memcpy_dtoh(&self.outputs_buf, outputs)
-			.map_err(|e| format!("download outputs: {e}"))?;
+			.memcpy_dtoh(&self.output_list_buf, output_list)
+			.map_err(|e| format!("download output list: {e}"))?;
+		#[cfg(feature = "visualize")]
+		self.stream
+			.memcpy_dtoh(&self.path_list_buf, &mut self.path_list_host[..n])
+			.map_err(|e| format!("download path list: {e}"))?;
 		self.stream
 			.synchronize()
 			.map_err(|e| format!("stream sync: {e}"))?;
@@ -297,57 +364,6 @@ pub fn simulate_solution(
 			None,
 		),
 	}
-}
-
-#[cfg(feature = "visualize")]
-pub fn compute_path(
-	checkpoint_list: &[Coord],
-	car_init_state: &Car,
-	solution: &Solution,
-	frozen: &FrozenPrefix,
-	step_to_checkpoint_limit: usize,
-) -> Vec<Coord> {
-	let resuming = frozen.resume_from_step > 0;
-	let (mut car, mut checkpoint_index) = if resuming {
-		(frozen.car, frozen.checkpoint_index)
-	} else {
-		(*car_init_state, 0)
-	};
-
-	let mut path = Vec::with_capacity(solution.len() + 1);
-	path.push(Coord { x: car.x, y: car.y });
-
-	let mut reached_at_step = frozen.resume_from_step.saturating_sub(1);
-	let mut window_start = reached_at_step;
-	let mut window_len = step_to_checkpoint_limit;
-
-	for (step_index, step) in solution.iter().enumerate().skip(frozen.resume_from_step) {
-		let from = Coord { x: car.x, y: car.y };
-		let moved_to = process_step(&mut car, step);
-		path.push(Coord { x: car.x, y: car.y });
-
-		if window_start + window_len < step_index {
-			break;
-		}
-
-		let current_checkpoint = checkpoint_list[checkpoint_index];
-		let traveled = Segment {
-			a: from,
-			b: moved_to,
-		};
-		if intersect(current_checkpoint, traveled.a, traveled.b) {
-			reached_at_step = step_index;
-			checkpoint_index += 1;
-			window_start = step_index;
-			window_len = step_to_checkpoint_limit;
-			if checkpoint_index == checkpoint_list.len() {
-				break;
-			}
-		}
-	}
-
-	let _ = reached_at_step;
-	path
 }
 
 fn checkpoint_entry_fraction(from: Coord, to: Coord, checkpoint: Coord) -> f64 {
