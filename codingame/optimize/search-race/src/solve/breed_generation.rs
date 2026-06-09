@@ -41,7 +41,7 @@ fn computed_solution_size(
 	}
 }
 
-#[warn(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 pub fn breed_generation(
 	mut solution_list: Box<[Solution]>,
 	score_list: &[Score],
