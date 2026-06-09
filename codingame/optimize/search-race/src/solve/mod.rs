@@ -83,21 +83,25 @@ pub fn solve(
 	let fresh = crate::parse::is_fresh();
 	let mut best_disk_ttf = read_turn_to_finish(validator_name);
 
-	let mut solution_list: PinnedBuf<Solution> = gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
-	let mut next_solution_list: PinnedBuf<Solution> = gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
-	let mut frozen_list: PinnedBuf<FrozenPrefix> = gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
-	let mut next_frozen_list: PinnedBuf<FrozenPrefix> =
+	let mut solution_inflight: PinnedBuf<Solution> = gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
+	let mut solution_processed: PinnedBuf<Solution> = gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
+	let mut solution_breed: PinnedBuf<Solution> = gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
+	let mut frozen_inflight: PinnedBuf<FrozenPrefix> = gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
+	let mut frozen_processed: PinnedBuf<FrozenPrefix> =
 		gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
-	for slot in frozen_list.as_mut_slice() {
+	let mut frozen_breed: PinnedBuf<FrozenPrefix> = gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
+	for slot in frozen_inflight.as_mut_slice() {
 		*slot = FrozenPrefix::from_scratch(car_init_state);
 	}
 	let loaded = first_generation::init_first_generation(
 		validator_name,
 		fresh,
-		solution_list.as_mut_slice(),
+		solution_inflight.as_mut_slice(),
 	)?;
 
 	let mut sim_outputs: PinnedBuf<SimOutput> = gpu.alloc_pinned(SOLUTION_PER_GENERATION)?;
+	let mut prev_outputs: Box<[SimOutput]> =
+		vec![SimOutput::default(); SOLUTION_PER_GENERATION].into_boxed_slice();
 
 	let mut best = (Score::MAX, BestSolution::default());
 
@@ -111,12 +115,12 @@ pub fn solve(
 		let loaded_run = simulate_solution(
 			checkpoint_list,
 			car_init_state,
-			&solution_list.as_slice()[0],
+			&solution_inflight.as_slice()[0],
 			&FrozenPrefix::from_scratch(car_init_state),
 			MAX_STEP,
 		);
 		best_frontier = loaded_run.reached_checkpoint_count as usize;
-		frozen_list.as_mut_slice()[0] = loaded_run.frozen;
+		frozen_inflight.as_mut_slice()[0] = loaded_run.frozen;
 		if loaded_run.is_finished() {
 			optimize_end = true;
 		}
@@ -127,18 +131,41 @@ pub fn solve(
 	#[cfg(not(feature = "extra-log"))]
 	eprint!("\n\n\n\n");
 
+	gpu.submit_async(
+		&solution_inflight,
+		&frozen_inflight,
+		car_init_state,
+		step_to_checkpoint_limit,
+		&mut sim_outputs,
+	)?;
+
 	let start_time = Instant::now();
 	let mut last_log_time = start_time;
 	let mut generation: usize = 0;
 	let max_iteration = get_iteration()?;
+	let mut burst = false;
+	let mut best_finished_step_count: Option<usize> = None;
 	while !best.1.finished || optimize_end || generation < max_iteration {
-		gpu.run(
-			&solution_list,
-			&frozen_list,
-			car_init_state,
-			step_to_checkpoint_limit,
-			&mut sim_outputs,
-		)?;
+		let overlap_breed = generation >= 1;
+		if overlap_breed {
+			let score_list: Box<[Score]> = prev_outputs.iter().map(|o| o.score).collect();
+			let step_count_list: Box<[usize]> =
+				prev_outputs.iter().map(|o| o.step_count as usize).collect();
+			breed_generation(
+				&mut solution_processed,
+				&mut solution_breed,
+				&score_list,
+				&step_count_list,
+				&frozen_processed,
+				&mut frozen_breed,
+				car_init_state,
+				best_finished_step_count,
+				step_to_checkpoint_limit,
+				burst,
+			);
+		}
+
+		gpu.wait()?;
 
 		#[cfg(feature = "visualize")]
 		let path_list = gpu.path_list();
@@ -153,7 +180,7 @@ pub fn solve(
 		for i in 0..SOLUTION_PER_GENERATION {
 			let r = sim_outputs[i];
 			let r_finished = r.is_finished();
-			frozen_list[i] = if r_finished && !optimize_end {
+			frozen_inflight[i] = if r_finished && !optimize_end {
 				FrozenPrefix::from_scratch(car_init_state)
 			} else {
 				r.frozen
@@ -164,7 +191,7 @@ pub fn solve(
 					r.score,
 					BestSolution {
 						finished: r_finished,
-						solution: solution_list[i],
+						solution: solution_inflight[i],
 						step_count: r.step_count as usize,
 						turn_to_finish: r.turn_to_finish_opt(),
 						reached_checkpoint_count: r.reached_checkpoint_count as usize,
@@ -174,7 +201,7 @@ pub fn solve(
 						max_step_gap: extra_log::compute_max_step_gap(
 							checkpoint_list,
 							car_init_state,
-							&solution_list[i],
+							&solution_inflight[i],
 						),
 					},
 				);
@@ -204,7 +231,7 @@ pub fn solve(
 			visualize::write_doc(validator_name, &doc, generation);
 		}
 
-		let mut burst = false;
+		burst = false;
 		if best.1.finished {
 			if !optimize_end && best_frontier < checkpoint_list.len() {
 				optimize_end = true;
@@ -241,30 +268,44 @@ pub fn solve(
 		}
 		best_frontier = best.1.reached_checkpoint_count;
 		previous_best_score = best.0;
-		let best_finished_step_count = if best.1.finished && !optimize_end {
+		best_finished_step_count = if best.1.finished && !optimize_end {
 			Some(best.1.step_count)
 		} else {
 			None
 		};
 
-		let score_list: Box<[Score]> = sim_outputs.iter().map(|o| o.score).collect();
-		let step_count_list: Box<[usize]> =
-			sim_outputs.iter().map(|o| o.step_count as usize).collect();
+		prev_outputs.copy_from_slice(&sim_outputs);
 
-		breed_generation(
-			&mut solution_list,
-			&mut next_solution_list,
-			&score_list,
-			&step_count_list,
-			&frozen_list,
-			&mut next_frozen_list,
+		if !overlap_breed {
+			let score_list: Box<[Score]> = sim_outputs.iter().map(|o| o.score).collect();
+			let step_count_list: Box<[usize]> =
+				sim_outputs.iter().map(|o| o.step_count as usize).collect();
+			breed_generation(
+				&mut solution_inflight,
+				&mut solution_breed,
+				&score_list,
+				&step_count_list,
+				&frozen_inflight,
+				&mut frozen_breed,
+				car_init_state,
+				best_finished_step_count,
+				step_to_checkpoint_limit,
+				burst,
+			);
+		}
+
+		gpu.submit_async(
+			&solution_breed,
+			&frozen_breed,
 			car_init_state,
-			best_finished_step_count,
 			step_to_checkpoint_limit,
-			burst,
-		);
-		std::mem::swap(&mut solution_list, &mut next_solution_list);
-		std::mem::swap(&mut frozen_list, &mut next_frozen_list);
+			&mut sim_outputs,
+		)?;
+
+		std::mem::swap(&mut solution_inflight, &mut solution_breed);
+		std::mem::swap(&mut solution_processed, &mut solution_breed);
+		std::mem::swap(&mut frozen_inflight, &mut frozen_breed);
+		std::mem::swap(&mut frozen_processed, &mut frozen_breed);
 
 		if generation > 0 && generation.is_multiple_of(GENERATION_BETWEEN_LOG) {
 			let now = Instant::now();
@@ -286,6 +327,8 @@ pub fn solve(
 
 		generation += 1;
 	}
+
+	gpu.wait()?;
 
 	let now = Instant::now();
 	let batch_elapsed = now - last_log_time;
