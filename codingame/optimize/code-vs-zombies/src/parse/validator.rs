@@ -4,26 +4,42 @@ use std::path::Path;
 use crate::InitialState;
 use crate::parse::coord::{parse_coord, parse_coord_list};
 
-pub fn parse_validator(path: &Path) -> Result<InitialState, String> {
+pub fn parse_validator_packs(path: &Path) -> Result<Vec<InitialState>, String> {
 	let content = fs::read_to_string(path).map_err(|e| format!("failed to read {path:?}: {e}"))?;
 	let mut iter = content.lines();
 	let _flip = iter.next().unwrap_or("").trim().to_string();
 
+	let mut packs: Vec<InitialState> = Vec::new();
 	let mut pack_line_list: Vec<&str> = Vec::new();
 	for line in iter {
 		let trimmed = line.trim();
 		if trimmed.is_empty() {
 			if !pack_line_list.is_empty() {
-				break;
+				packs.push(build_pack(&pack_line_list, path)?);
+				pack_line_list.clear();
 			}
 			continue;
 		}
 		pack_line_list.push(trimmed);
 	}
+	if !pack_line_list.is_empty() {
+		packs.push(build_pack(&pack_line_list, path)?);
+	}
 
+	if packs.is_empty() {
+		return Err(format!("no packs found in {path:?}"));
+	}
+	Ok(packs)
+}
+
+pub fn parse_validator(path: &Path) -> Result<InitialState, String> {
+	Ok(parse_validator_packs(path)?.swap_remove(0))
+}
+
+fn build_pack(pack_line_list: &[&str], path: &Path) -> Result<InitialState, String> {
 	if pack_line_list.len() < 3 {
 		return Err(format!(
-			"expected at least 3 lines in first pack of {path:?}, got {}",
+			"expected at least 3 lines in pack of {path:?}, got {}",
 			pack_line_list.len()
 		));
 	}

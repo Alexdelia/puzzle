@@ -32,13 +32,13 @@ def read_validator(path: Path) -> tuple[Pt, list[Pt], list[Pt]]:
 	with path.open() as f:
 		f.readline()
 		rest = f.read()
-	packs = [p.strip() for p in rest.strip().split("\n\n")]
+	packs = [p.strip() for p in rest.strip().split("\n\n") if p.strip()]
 	if not packs:
 		raise ValueError(f"{path}: expected at least one pack after op line")
-	test = packs[0].splitlines()
-	if len(test) < 3:
-		raise ValueError(f"{path}: test pack must have 3 lines")
-	return parse_line(test[0])[0], parse_line(test[1]), parse_line(test[2])
+	val = packs[-1].splitlines()
+	if len(val) < 3:
+		raise ValueError(f"{path}: validator pack must have 3 lines")
+	return parse_line(val[0])[0], parse_line(val[1]), parse_line(val[2])
 
 
 def read_solution(path: Path) -> list[Pt]:
