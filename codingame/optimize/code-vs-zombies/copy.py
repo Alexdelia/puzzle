@@ -14,9 +14,23 @@ VALIDATOR_FILE_EXTENSION = ".txt"
 SCORE_FILE_NAME = "score.txt"
 
 
-def read_validator(path: Path) -> tuple[str, str]:
+Pt = tuple[int, int]
+
+
+def parse_line(s: str) -> list[Pt]:
+	s = s.strip()
+	if not s:
+		return []
+	pts: list[Pt] = []
+	for token in s.split(";"):
+		a, b = token.split()
+		pts.append((int(a), int(b)))
+	return pts
+
+
+def read_validator(path: Path) -> tuple[Pt, list[Pt], list[Pt]]:
 	with path.open() as f:
-		op = f.readline().strip()
+		f.readline()
 		rest = f.read()
 	packs = [p.strip() for p in rest.strip().split("\n\n")]
 	if not packs:
@@ -24,19 +38,27 @@ def read_validator(path: Path) -> tuple[str, str]:
 	test = packs[0].splitlines()
 	if len(test) < 3:
 		raise ValueError(f"{path}: test pack must have 3 lines")
-	return op, "|".join(test[:3])
+	return parse_line(test[0])[0], parse_line(test[1]), parse_line(test[2])
 
 
-def read_solution(path: Path) -> str:
-	moves: list[str] = []
+def read_solution(path: Path) -> list[Pt]:
+	moves: list[Pt] = []
 	with path.open() as f:
 		for raw in f:
 			s = raw.strip()
 			if not s:
 				continue
 			a, b = s.split()
-			moves.append(f"{int(a)} {int(b)}")
-	return ";".join(moves)
+			moves.append((int(a), int(b)))
+	return moves
+
+
+def fmt_pt(p: Pt) -> str:
+	return f"({p[0]},{p[1]})"
+
+
+def fmt_pts(pts: list[Pt]) -> str:
+	return "vec![" + ",".join(fmt_pt(p) for p in pts) + "]"
 
 
 parts: list[str] = []
@@ -49,10 +71,11 @@ for entry in sorted(output_dir.iterdir()):
 		print(f"missing validator for {entry.name}", file=sys.stderr)
 		continue
 
-	op, flag = read_validator(val_path)
-	sol = read_solution(sol_path)
+	player, humans, zombies = read_validator(val_path)
+	moves = read_solution(sol_path)
 
-	parts.append('("' + flag + '","' + op + '","' + sol + '"),')
+	flag = f"({fmt_pt(player)},{fmt_pts(humans)},{fmt_pts(zombies)})"
+	parts.append(f"({flag},{fmt_pts(moves)}),")
 
 total = 0.0
 for ttf_path in output_dir.glob("*/" + SCORE_FILE_NAME):
