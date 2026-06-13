@@ -1,12 +1,12 @@
-use code_vs_zombies::{InitialState, Referee};
+use code_vs_zombies::{Coord, InitialState, Referee};
 
-const FINAL_SCORE: i64 = 6460;
+const FINAL_SCORE: u32 = 6460;
 
-const INIT_PLAYER: (i32, i32) = (3989, 3259);
+const INIT_PLAYER: Coord = (3989, 3259);
 
-const INIT_HUMAN_LIST: &[(i32, i32)] = &[(3647, 384), (60, 3262), (2391, 1601), (2363, 3422)];
+const INIT_HUMAN_LIST: &[Coord] = &[(3647, 384), (60, 3262), (2391, 1601), (2363, 3422)];
 
-const INIT_ZOMBIE_LIST: &[(i32, i32)] = &[
+const INIT_ZOMBIE_LIST: &[Coord] = &[
 	(6485, 499),
 	(7822, 446),
 	(9202, 826),
@@ -39,7 +39,7 @@ const INIT_ZOMBIE_LIST: &[(i32, i32)] = &[
 	(9550, 6847),
 ];
 
-const SOLUTION: &[(i32, i32)] = &[
+const SOLUTION: &[Coord] = &[
 	(2402, 5512),
 	(641, 4882),
 	(39, 5598),
@@ -57,7 +57,7 @@ const SOLUTION: &[(i32, i32)] = &[
 	(8261, 1331),
 ];
 
-const EXPECTED_PLAYER: &[(i32, i32)] = &[
+const EXPECTED_PLAYER: &[Coord] = &[
 	(3989, 3259),
 	(3413, 4076),
 	(2452, 4355),
@@ -113,7 +113,7 @@ const EXPECTED_ALIVE_ZOMBIE_LIST: &[&[usize]] = &[
 	&[5, 15],
 ];
 
-const EXPECTED_ZOMBIE_POSITIONS: &[&[(i32, i32)]] = &[
+const EXPECTED_ZOMBIE_POSITION_LIST: &[&[Coord]] = &[
 	&[
 		(6485, 499),
 		(7822, 446),
@@ -418,7 +418,7 @@ fn build_initial() -> InitialState {
 	}
 }
 
-fn build_actions() -> Vec<Vec<(i32, i32)>> {
+fn build_actions() -> Vec<Vec<Coord>> {
 	vec![SOLUTION.to_vec()]
 }
 
@@ -451,23 +451,23 @@ fn debug_kernel_score_and_state_match_expected() {
 		"debug kernel score mismatch: got {got_score}, expected {FINAL_SCORE}"
 	);
 
-	let n_turns = SOLUTION.len();
-	assert_eq!(EXPECTED_PLAYER.len(), n_turns);
-	assert_eq!(EXPECTED_ALIVE_ZOMBIE_LIST.len(), n_turns);
-	assert_eq!(EXPECTED_ZOMBIE_POSITIONS.len(), n_turns);
-	assert_eq!(EXPECTED_ALIVE_HUMAN_LIST.len(), n_turns);
+	let turn_count = SOLUTION.len();
+	assert_eq!(EXPECTED_PLAYER.len(), turn_count);
+	assert_eq!(EXPECTED_ALIVE_ZOMBIE_LIST.len(), turn_count);
+	assert_eq!(EXPECTED_ZOMBIE_POSITION_LIST.len(), turn_count);
+	assert_eq!(EXPECTED_ALIVE_HUMAN_LIST.len(), turn_count);
 
-	for t in 0..n_turns {
+	for t in 0..turn_count {
 		let (ax, ay) = log.player_pos(t, 0);
 		let (ex, ey) = EXPECTED_PLAYER[t];
 		assert_eq!(
 			(ax as i32, ay as i32),
-			(ex, ey),
+			(ex as i32, ey as i32),
 			"player position mismatch at turn {t}: got ({ax}, {ay}), expected ({ex}, {ey})"
 		);
 
 		let alive_z = EXPECTED_ALIVE_ZOMBIE_LIST[t];
-		let pos_z = EXPECTED_ZOMBIE_POSITIONS[t];
+		let pos_z = EXPECTED_ZOMBIE_POSITION_LIST[t];
 		assert_eq!(alive_z.len(), pos_z.len());
 
 		for z in 0..INIT_ZOMBIE_LIST.len() {
@@ -483,7 +483,7 @@ fn debug_kernel_score_and_state_match_expected() {
 			let (ex, ey) = pos_z[idx];
 			assert_eq!(
 				(zx as i32, zy as i32),
-				(ex, ey),
+				(ex as i32, ey as i32),
 				"zombie {zid} position mismatch at turn {t}: got ({zx}, {zy}), expected ({ex}, {ey})"
 			);
 		}
@@ -499,7 +499,7 @@ fn debug_kernel_score_and_state_match_expected() {
 		}
 	}
 
-	let final_score = log.turn_score(n_turns, 0);
+	let final_score = log.turn_score(turn_count, 0);
 	assert_eq!(
 		final_score, FINAL_SCORE,
 		"cumulative score after last turn mismatch: got {final_score}, expected {FINAL_SCORE}"

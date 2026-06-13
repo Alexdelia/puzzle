@@ -12,7 +12,8 @@ panic = "abort"
 default = []
 
 [dependencies]
-# rand = "0.10"
+rand = "0.9"
+rand_xoshiro = "0.7"
 ron = "0.12"
 serde = { version = "1", features = ["derive"] }
 
