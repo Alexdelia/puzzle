@@ -36,12 +36,18 @@ pub fn solve(config: Config, validator: InitialState) -> Result<(), String> {
 		.map_err(|e| format!("failed to init referee: {e}"))?;
 
 	let existing_best = read_score(score_path);
-	let existing_solution = parse_solution_file(solution_path)
-		.ok()
-		.filter(|s| !s.is_empty());
-	if existing_solution.is_some() {
-		eprintln!("seeded with existing solution (score {existing_best})");
-	}
+	let existing_solution = if config.fresh {
+		eprintln!("fresh run: ignoring saved solution as seed (still only saves above {existing_best})");
+		None
+	} else {
+		let s = parse_solution_file(solution_path)
+			.ok()
+			.filter(|s| !s.is_empty());
+		if s.is_some() {
+			eprintln!("seeded with existing solution (score {existing_best})");
+		}
+		s
+	};
 
 	let mut beam_result: Option<(Score, Solution)> = None;
 	if matches!(config.mode, Mode::Beam | Mode::BeamThenGa) {
