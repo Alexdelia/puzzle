@@ -39,6 +39,7 @@ pub const ENV_SEED: &str = "SEED";
 pub const ENV_POPULATION: &str = "POPULATION";
 pub const ENV_TIME_SEC_LIMIT: &str = "TIME_SEC_LIMIT";
 pub const ENV_TURN_LIMIT: &str = "TURN_LIMIT";
+pub const ENV_HUMAN_WEIGHT: &str = "HUMAN_WEIGHT";
 
 pub fn parse_config() -> Result<Config, String> {
 	let validator_name = env::args().nth(1).ok_or_else(usage_message)?;
@@ -48,6 +49,7 @@ pub fn parse_config() -> Result<Config, String> {
 	let population = parse_env::<usize>(ENV_POPULATION, 8192)?;
 	let turn_limit = parse_env::<usize>(ENV_TURN_LIMIT, 100)?;
 	let time_sec_limit = parse_env::<f64>(ENV_TIME_SEC_LIMIT, 60.0)?;
+	let human_weight = parse_env::<i64>(ENV_HUMAN_WEIGHT, 0)?;
 
 	if population == 0 {
 		return Err(format!("{ENV_POPULATION} must be > 0"));
@@ -67,6 +69,7 @@ pub fn parse_config() -> Result<Config, String> {
 		elite: (population / 64).clamp(8, 128),
 		turn_limit,
 		time_limit: Duration::from_secs_f64(time_sec_limit),
+		human_weight,
 	};
 
 	let path = PathConfig::new(cwd()?, &validator_name);

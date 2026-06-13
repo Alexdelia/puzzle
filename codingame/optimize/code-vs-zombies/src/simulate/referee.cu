@@ -18,7 +18,8 @@ extern "C" __global__ void simulate(
     const int simulation_count,
     const int turn_limit,
     const double* __restrict__ solution,
-    unsigned int* __restrict__ score_list
+    unsigned int* __restrict__ score_list,
+    int* __restrict__ out_alive_h
 #ifdef OUTPUT_STATE
   , double*    __restrict__ out_player
   , double*    __restrict__ out_zombie_list
@@ -202,4 +203,5 @@ extern "C" __global__ void simulate(
     }
 
     score_list[tid] = score;
+    out_alive_h[tid] = alive_h;
 }

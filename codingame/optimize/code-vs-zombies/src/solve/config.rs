@@ -9,6 +9,7 @@ pub struct SearchConfig {
 	pub elite: usize,
 	pub turn_limit: usize,
 	pub time_limit: Duration,
+	pub human_weight: i64,
 }
 
 impl Default for SearchConfig {
@@ -19,6 +20,7 @@ impl Default for SearchConfig {
 			elite: 64,
 			turn_limit: 64,
 			time_limit: Duration::from_mins(1),
+			human_weight: 0,
 		}
 	}
 }

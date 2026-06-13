@@ -162,6 +162,76 @@ pub(crate) fn mutate_one(sol: &mut [Coord], i: usize, initial: &InitialState, rn
 	}
 }
 
+pub fn smart_mutate_gather(sol: &mut [Coord], initial: &InitialState, rng: &mut impl Rng) {
+	let len = sol.len();
+	if len < 4 {
+		return;
+	}
+	let t = rng.random_range(2..len);
+	let mut state = State::from_initial(initial);
+	for &m in sol.iter().take(t) {
+		state.step(m);
+		if state.over {
+			return;
+		}
+	}
+	let mut cx = 0.0;
+	let mut cy = 0.0;
+	let mut n = 0;
+	for (z, &(zx, zy)) in state.zombie_list.iter().enumerate() {
+		if state.zombie_alive_list[z] {
+			cx += zx;
+			cy += zy;
+			n += 1;
+		}
+	}
+	if n == 0 {
+		return;
+	}
+	cx /= n as f64;
+	cy /= n as f64;
+
+	let mut hx = 0.0;
+	let mut hy = 0.0;
+	let mut hn = 0;
+	for (h, &(px, py)) in state.human_list.iter().enumerate() {
+		if state.human_alive_list[h] {
+			hx += px;
+			hy += py;
+			hn += 1;
+		}
+	}
+	let (mut dx, mut dy) = if hn > 0 {
+		(cx - hx / hn as f64, cy - hy / hn as f64)
+	} else {
+		(rng.random_range(-1.0..=1.0), rng.random_range(-1.0..=1.0))
+	};
+	let d = (dx * dx + dy * dy).sqrt();
+	if d < 1.0 {
+		dx = 1.0;
+		dy = 0.0;
+	} else {
+		dx /= d;
+		dy /= d;
+	}
+
+	let standoff = rng.random_range(2050..=3200) as f64;
+	let hover = (
+		(cx + dx * standoff).clamp(0.0, (MAX_W - 1) as f64) as Axis,
+		(cy + dy * standoff).clamp(0.0, (MAX_H - 1) as f64) as Axis,
+	);
+	let nuke = (cx as Axis, cy as Axis);
+
+	let w = rng.random_range(2..=10).min(t);
+	for slot in sol[(t - w)..t].iter_mut() {
+		*slot = hover;
+	}
+	sol[t] = nuke;
+	if t + 1 < len {
+		sol[t + 1] = nuke;
+	}
+}
+
 pub fn smart_mutate_kill_focus(sol: &mut [Coord], initial: &InitialState, rng: &mut impl Rng) {
 	let len = sol.len();
 	if len == 0 {
