@@ -1,10 +1,217 @@
 use rand::Rng;
 
-use crate::simulate::{MAX_H, MAX_W, State};
+use crate::simulate::{MAX_H, MAX_W, PLAYER_RANGE_SQ, State};
 use crate::{Axis, Coord, InitialState};
 
 use super::config::SearchConfig;
 use super::mutate::{mutate, pad_solution};
+
+fn alive_zombie_centroid(state: &State) -> Option<(f64, f64, usize)> {
+	let mut sx = 0.0;
+	let mut sy = 0.0;
+	let mut n = 0;
+	for (z, &(zx, zy)) in state.zombie_list.iter().enumerate() {
+		if state.zombie_alive_list[z] {
+			sx += zx;
+			sy += zy;
+			n += 1;
+		}
+	}
+	if n == 0 {
+		None
+	} else {
+		Some((sx / n as f64, sy / n as f64, n))
+	}
+}
+
+pub fn gather_and_nuke(
+	initial: &InitialState,
+	anchor: (f64, f64),
+	standoff: f64,
+	trigger_frac: f64,
+	max_turns: usize,
+) -> Vec<Coord> {
+	let mut state = State::from_initial(initial);
+	let mut moves = Vec::with_capacity(max_turns);
+	for _ in 0..max_turns {
+		if state.over {
+			moves.push((state.player.0 as Axis, state.player.1 as Axis));
+			continue;
+		}
+		let target = match alive_zombie_centroid(&state) {
+			None => (state.player.0 as Axis, state.player.1 as Axis),
+			Some((cx, cy, n)) => {
+				let in_range = state
+					.zombie_list
+					.iter()
+					.enumerate()
+					.filter(|(z, _)| state.zombie_alive_list[*z])
+					.filter(|&(_, &(zx, zy))| {
+						let dx = zx - cx;
+						let dy = zy - cy;
+						dx * dx + dy * dy <= PLAYER_RANGE_SQ
+					})
+					.count();
+				if in_range as f64 >= trigger_frac * n as f64 {
+					(cx as Axis, cy as Axis)
+				} else {
+					let dx = anchor.0 - cx;
+					let dy = anchor.1 - cy;
+					let d = (dx * dx + dy * dy).sqrt().max(1.0);
+					let hx = (cx + dx / d * standoff).clamp(0.0, (MAX_W - 1) as f64);
+					let hy = (cy + dy / d * standoff).clamp(0.0, (MAX_H - 1) as f64);
+					(hx as Axis, hy as Axis)
+				}
+			}
+		};
+		moves.push(target);
+		state.step(target);
+	}
+	moves
+}
+
+pub fn shepherd(
+	initial: &InitialState,
+	corral: (f64, f64),
+	nuke_frac: f64,
+	max_turns: usize,
+) -> Vec<Coord> {
+	let mut state = State::from_initial(initial);
+	let mut moves = Vec::with_capacity(max_turns);
+	for _ in 0..max_turns {
+		if state.over {
+			moves.push((state.player.0 as Axis, state.player.1 as Axis));
+			continue;
+		}
+		let (px, py) = state.player;
+
+		let mut worst_defector: Option<(f64, (f64, f64))> = None;
+		for (z, &(zx, zy)) in state.zombie_list.iter().enumerate() {
+			if !state.zombie_alive_list[z] {
+				continue;
+			}
+			let da = (zx - px) * (zx - px) + (zy - py) * (zy - py);
+			let mut dh = f64::INFINITY;
+			for (h, &(hx, hy)) in state.human_list.iter().enumerate() {
+				if !state.human_alive_list[h] {
+					continue;
+				}
+				let d = (zx - hx) * (zx - hx) + (zy - hy) * (zy - hy);
+				if d < dh {
+					dh = d;
+				}
+			}
+			let imminent = 1200.0 * 1200.0;
+			if dh < da
+				&& dh < imminent
+				&& dh < worst_defector.map(|(d, _)| d).unwrap_or(f64::INFINITY)
+			{
+				worst_defector = Some((dh, (zx, zy)));
+			}
+		}
+
+		let target = if let Some((_, (zx, zy))) = worst_defector {
+			(zx as Axis, zy as Axis)
+		} else {
+			match alive_zombie_centroid(&state) {
+				None => (px as Axis, py as Axis),
+				Some((cx, cy, n)) => {
+					let mut in_range = 0;
+					let mut nearest = (cx, cy);
+					let mut nearest_d2 = f64::INFINITY;
+					for (z, &(zx, zy)) in state.zombie_list.iter().enumerate() {
+						if !state.zombie_alive_list[z] {
+							continue;
+						}
+						let dc2 = (zx - cx) * (zx - cx) + (zy - cy) * (zy - cy);
+						if dc2 <= PLAYER_RANGE_SQ {
+							in_range += 1;
+						}
+						let da2 = (zx - px) * (zx - px) + (zy - py) * (zy - py);
+						if da2 < nearest_d2 {
+							nearest_d2 = da2;
+							nearest = (zx, zy);
+						}
+					}
+					if in_range as f64 >= nuke_frac * n as f64 {
+						(cx as Axis, cy as Axis)
+					} else {
+						let dx = corral.0 - cx;
+						let dy = corral.1 - cy;
+						let d = (dx * dx + dy * dy).sqrt().max(1.0);
+						let ux = dx / d;
+						let uy = dy / d;
+						let hx = (nearest.0 + ux * 2050.0).clamp(0.0, (MAX_W - 1) as f64);
+						let hy = (nearest.1 + uy * 2050.0).clamp(0.0, (MAX_H - 1) as f64);
+						(hx as Axis, hy as Axis)
+					}
+				}
+			}
+		};
+		moves.push(target);
+		state.step(target);
+	}
+	moves
+}
+
+fn herding_anchors(initial: &InitialState) -> Vec<(f64, f64)> {
+	let w = MAX_W as f64;
+	let h = MAX_H as f64;
+	let mut anchors = vec![
+		(0.0, 0.0),
+		(w - 1.0, 0.0),
+		(0.0, h - 1.0),
+		(w - 1.0, h - 1.0),
+		(w / 2.0, h / 2.0),
+	];
+	let nz = initial.zombie_list.len().max(1) as f64;
+	let (zx, zy) = initial
+		.zombie_list
+		.iter()
+		.fold((0.0, 0.0), |(ax, ay), &(x, y)| {
+			(ax + x as f64, ay + y as f64)
+		});
+	let zc = (zx / nz, zy / nz);
+	if !initial.human_list.is_empty() {
+		let nh = initial.human_list.len() as f64;
+		let (hx, hy) = initial
+			.human_list
+			.iter()
+			.fold((0.0, 0.0), |(ax, ay), &(x, y)| {
+				(ax + x as f64, ay + y as f64)
+			});
+		let hc = (hx / nh, hy / nh);
+		let dx = zc.0 - hc.0;
+		let dy = zc.1 - hc.1;
+		let d = (dx * dx + dy * dy).sqrt().max(1.0);
+		anchors.push((
+			(zc.0 + dx / d * 6000.0).clamp(0.0, w - 1.0),
+			(zc.1 + dy / d * 6000.0).clamp(0.0, h - 1.0),
+		));
+	}
+	anchors
+}
+
+fn push_herding_seeds(pop: &mut Vec<Vec<Coord>>, initial: &InitialState, turn_limit: usize) {
+	for anchor in herding_anchors(initial) {
+		for standoff in [2050.0, 2500.0, 2900.0] {
+			for trigger_frac in [0.6, 0.85, 1.0] {
+				pop.push(gather_and_nuke(
+					initial,
+					anchor,
+					standoff,
+					trigger_frac,
+					turn_limit,
+				));
+			}
+		}
+	}
+	for corral in herding_anchors(initial) {
+		for nuke_frac in [0.6, 0.8, 0.95, 1.0] {
+			pop.push(shepherd(initial, corral, nuke_frac, turn_limit));
+		}
+	}
+}
 
 pub fn random_solution(max_turns: usize, rng: &mut impl Rng) -> Vec<Coord> {
 	(0..max_turns)
@@ -207,6 +414,8 @@ pub fn build_initial_population(
 	pop.push(greedy_nearest_zombie(initial, cfg.turn_limit));
 	pop.push(greedy_defend(initial, cfg.turn_limit));
 	pop.push(dynamic_centroid(initial, cfg.turn_limit));
+
+	push_herding_seeds(&mut pop, initial, cfg.turn_limit);
 
 	for i in 0..initial.zombie_list.len().min(16) {
 		pop.push(target_zombie_idx(initial, i, cfg.turn_limit));

@@ -143,12 +143,20 @@ impl Referee {
 	}
 
 	pub fn run(&self, solution: &[Vec<Coord>]) -> Result<Vec<Score>, DriverError> {
+		Ok(self.run_with_humans(solution)?.0)
+	}
+
+	pub fn run_with_humans(
+		&self,
+		solution: &[Vec<Coord>],
+	) -> Result<(Vec<Score>, Vec<i32>), DriverError> {
 		let simulation_count = solution.len();
 		assert!(simulation_count > 0);
 
 		let solution_flat = pack_solution(solution, self.turn_limit);
 		let d_solution = self.stream.clone_htod(&solution_flat)?;
 		let mut d_score_list = self.stream.alloc_zeros::<Score>(simulation_count)?;
+		let mut d_alive_h = self.stream.alloc_zeros::<i32>(simulation_count)?;
 
 		let cfg = launch_config(simulation_count as u32);
 		let mut builder = self.stream.launch_builder(&self.fast_func);
@@ -158,9 +166,12 @@ impl Referee {
 		builder.arg(&turn_limit_i);
 		builder.arg(&d_solution);
 		builder.arg(&mut d_score_list);
+		builder.arg(&mut d_alive_h);
 		unsafe { builder.launch(cfg)? };
 
-		self.stream.clone_dtoh(&d_score_list)
+		let score_list = self.stream.clone_dtoh(&d_score_list)?;
+		let alive_h = self.stream.clone_dtoh(&d_alive_h)?;
+		Ok((score_list, alive_h))
 	}
 
 	pub fn run_with_state(
@@ -174,6 +185,7 @@ impl Referee {
 		let solution_flat = pack_solution(solution, self.turn_limit);
 		let d_solution = self.stream.clone_htod(&solution_flat)?;
 		let mut d_score_list = self.stream.alloc_zeros::<Score>(simulation_count)?;
+		let mut d_alive_h = self.stream.alloc_zeros::<i32>(simulation_count)?;
 		let mut d_player = self
 			.stream
 			.alloc_zeros::<f64>(state_count * simulation_count * 2)?;
@@ -198,6 +210,7 @@ impl Referee {
 		builder.arg(&turn_limit_i);
 		builder.arg(&d_solution);
 		builder.arg(&mut d_score_list);
+		builder.arg(&mut d_alive_h);
 		builder.arg(&mut d_player);
 		builder.arg(&mut d_zombie_list);
 		builder.arg(&mut d_z_alive);

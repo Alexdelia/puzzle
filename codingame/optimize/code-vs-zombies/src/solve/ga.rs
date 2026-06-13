@@ -9,7 +9,7 @@ use super::config::{SearchConfig, SearchState};
 use super::crossover::crossover;
 use super::heuristic::{build_initial_population, random_solution, track_zombie};
 use super::hill_climb::{hill_climb_pass, hill_climb_window};
-use super::mutate::{mutate, pad_solution, smart_mutate_kill_focus};
+use super::mutate::{mutate, pad_solution, smart_mutate_gather, smart_mutate_kill_focus};
 
 pub fn run_search(
 	initial: &InitialState,
@@ -38,22 +38,45 @@ pub fn run_search(
 			break;
 		}
 
-		let score_list = referee.run(&population).expect("referee.run failed");
+		let w = cfg.human_weight;
+		let (score_list, fitness): (Vec<Score>, Vec<i64>) = if w > 0 {
+			let (sc, ah) = referee
+				.run_with_humans(&population)
+				.expect("referee.run_with_humans failed");
+			let fit = sc
+				.iter()
+				.zip(&ah)
+				.map(|(&s, &h)| s as i64 + h as i64 * w)
+				.collect();
+			(sc, fit)
+		} else {
+			let sc = referee.run(&population).expect("referee.run failed");
+			let fit = sc.iter().map(|&s| s as i64).collect();
+			(sc, fit)
+		};
 
 		let mut idx: Vec<usize> = (0..population.len()).collect();
-		idx.sort_by(|&a, &b| score_list[b].cmp(&score_list[a]));
+		idx.sort_by(|&a, &b| fitness[b].cmp(&fitness[a]));
 
-		let top_score = score_list[idx[0]];
-		if top_score > best_score {
-			best_score = top_score;
-			best_solution = population[idx[0]].clone();
+		let mut top_real = 0;
+		let mut top_real_i = 0;
+		for (i, &s) in score_list.iter().enumerate() {
+			if s > top_real {
+				top_real = s;
+				top_real_i = i;
+			}
+		}
+		if top_real > best_score {
+			best_score = top_real;
+			best_solution = population[top_real_i].clone();
 			last_improvement_gen = generation;
 			on_improvement(best_score, &best_solution);
 		}
 
 		if last_log.elapsed().as_secs_f64() >= 2.0 {
 			eprintln!(
-				"gen {generation} | top {top_score} | best {best_score} | stagnant {} | elapsed {:.1}s",
+				"gen {generation} | top {top_real} | best {best_score} | top_fit {} | stagnant {} | elapsed {:.1}s",
+				fitness[idx[0]],
 				generation - last_improvement_gen,
 				start.elapsed().as_secs_f64(),
 			);
@@ -77,15 +100,15 @@ pub fn run_search(
 			0.25
 		};
 
-		let score_list_clone = score_list.clone();
+		let fitness_clone = fitness.clone();
 		let tournament = |rng: &mut Xoshiro256PlusPlus| -> usize {
 			let k = 4;
 			let mut best = rng.random_range(0..population.len());
-			let mut bs = score_list_clone[best];
+			let mut bs = fitness_clone[best];
 			for _ in 1..k {
 				let c = rng.random_range(0..population.len());
-				if score_list_clone[c] > bs {
-					bs = score_list_clone[c];
+				if fitness_clone[c] > bs {
+					bs = fitness_clone[c];
 					best = c;
 				}
 			}
@@ -118,12 +141,16 @@ pub fn run_search(
 			new_pop.push(child);
 		}
 
-		let smart_budget = (cfg.elite / 4).max(2);
+		let smart_budget = (cfg.elite / 2).max(4);
 		for slot in 0..smart_budget.min(new_pop.len() - cfg.elite) {
 			let target_slot = cfg.elite + slot;
 			let elite_idx = slot % cfg.elite;
 			let mut c = new_pop[elite_idx].clone();
-			smart_mutate_kill_focus(&mut c, initial, &mut rng);
+			if slot % 2 == 0 {
+				smart_mutate_kill_focus(&mut c, initial, &mut rng);
+			} else {
+				smart_mutate_gather(&mut c, initial, &mut rng);
+			}
 			new_pop[target_slot] = c;
 		}
 
