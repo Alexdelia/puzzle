@@ -1,4 +1,4 @@
-use code_vs_zombies::{Referee, parse_solution_file, parse_validator};
+use code_vs_zombies::{Referee, parse_solution_file, parse_validator_packs};
 
 #[test]
 #[ignore]
@@ -26,9 +26,13 @@ fn analyze_17_horde() {
 
 fn analyze_one(name: &str) {
 	let cwd = std::env::current_dir().unwrap();
-	let val = parse_validator(&cwd.join(format!("validator/{name}.txt"))).expect("v");
+	let val = parse_validator_packs(&cwd.join(format!("validator/{name}.txt")))
+		.expect("v")
+		.into_iter()
+		.last()
+		.unwrap();
 	let sol = parse_solution_file(&cwd.join(format!("output/{name}/solution.txt"))).expect("s");
-	let referee = Referee::new(&val.initial, sol.len()).expect("r");
+	let referee = Referee::new(&val, sol.len()).expect("r");
 	let (score_list, log) = referee
 		.run_with_state(std::slice::from_ref(&sol))
 		.expect("debug run");
