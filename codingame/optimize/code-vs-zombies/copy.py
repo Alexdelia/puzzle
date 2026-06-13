@@ -77,9 +77,9 @@ for entry in sorted(output_dir.iterdir()):
 	flag = f"({fmt_pt(player)},{fmt_pts(humans)},{fmt_pts(zombies)})"
 	parts.append(f"({flag},{fmt_pts(moves)}),")
 
-total = 0.0
-for ttf_path in output_dir.glob("*/" + SCORE_FILE_NAME):
-	total += float(ttf_path.read_text().strip())
+total = 0
+for score_path in output_dir.glob("*/" + SCORE_FILE_NAME):
+	total += int(score_path.read_text().strip())
 
-print(f"\033[1;32m{total:.3f}\033[0m", file=sys.stderr)
+print(f"\033[1;32m{total}\033[0m", file=sys.stderr)
 print("".join(parts), end="")
