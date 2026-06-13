@@ -1,4 +1,4 @@
-use code_vs_zombies::{InitialState, Referee};
+use code_vs_zombies::{Coord, InitialState, Referee};
 
 fn initial() -> InitialState {
 	InitialState {
@@ -39,7 +39,7 @@ fn initial() -> InitialState {
 	}
 }
 
-const SOLUTION: &[(i32, i32)] = &[
+const SOLUTION: &[Coord] = &[
 	(2402, 5512),
 	(641, 4882),
 	(39, 5598),
@@ -62,8 +62,7 @@ fn batch_identical_simulation_match() {
 	let referee = Referee::new(&initial(), SOLUTION.len()).expect("init");
 
 	let simulation_count = 1024;
-	let solution_list: Vec<Vec<(i32, i32)>> =
-		(0..simulation_count).map(|_| SOLUTION.to_vec()).collect();
+	let solution_list: Vec<Vec<Coord>> = (0..simulation_count).map(|_| SOLUTION.to_vec()).collect();
 	let score_list = referee.run(&solution_list).expect("run");
 	assert_eq!(score_list.len(), simulation_count);
 	for (i, s) in score_list.iter().enumerate() {
@@ -75,7 +74,7 @@ fn batch_identical_simulation_match() {
 fn batch_different_sims_produce_different_score_list() {
 	let referee = Referee::new(&initial(), SOLUTION.len()).expect("init");
 
-	let standing_still: Vec<(i32, i32)> = (0..15).map(|_| (3989, 3259)).collect();
+	let standing_still: Vec<Coord> = (0..15).map(|_| (3989, 3259)).collect();
 	let solution_list = vec![SOLUTION.to_vec(), standing_still];
 
 	let score_list = referee.run(&solution_list).expect("run");

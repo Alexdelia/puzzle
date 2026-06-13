@@ -16,15 +16,15 @@ __constant__ double c_zombie_list_init[NZ * 2];
 
 extern "C" __global__ void simulate(
     const int simulation_count,
-    const int max_turns,
+    const int turn_limit,
     const double* __restrict__ solution,
-    long long*    __restrict__ scores
+    unsigned int* __restrict__ score_list
 #ifdef OUTPUT_STATE
   , double*    __restrict__ out_player
   , double*    __restrict__ out_zombie_list
   , int*       __restrict__ out_zombie_alive_list
   , int*       __restrict__ out_human_alive_list
-  , long long* __restrict__ out_score_per_turn
+  , unsigned int* __restrict__ out_score_per_turn
 #endif
 ) {
     const int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -53,7 +53,7 @@ extern "C" __global__ void simulate(
     }
     int alive_z = NZ;
 
-    long long score = 0;
+    unsigned int score = 0;
     bool game_over = false;
 
 #ifdef OUTPUT_STATE
@@ -77,7 +77,7 @@ extern "C" __global__ void simulate(
     }
 #endif
 
-    for (int turn = 0; turn < max_turns; turn++) {
+    for (int turn = 0; turn < turn_limit; turn++) {
         if (!game_over) {
             double nzx[NZ], nzy[NZ];
 
@@ -141,8 +141,8 @@ extern "C" __global__ void simulate(
                 player_y = trunc(player_y + ady * PLAYER_MOVE / adist);
             }
 
-            const long long base_score = (long long)alive_h * (long long)alive_h * 10LL;
-            long long fib_prev = 1, fib_cur = 1;
+            const unsigned int base_score = (unsigned int)alive_h * (unsigned int)alive_h * 10u;
+            unsigned int fib_prev = 1, fib_cur = 1;
             for (int z = 0; z < NZ; z++) {
                 if (!z_alive[z]) continue;
                 const double kdx = zx[z] - player_x;
@@ -152,7 +152,7 @@ extern "C" __global__ void simulate(
                     z_alive[z] = false;
                     alive_z--;
                     score += base_score * fib_cur;
-                    const long long fib_next = fib_prev + fib_cur;
+                    const unsigned int fib_next = fib_prev + fib_cur;
                     fib_prev = fib_cur;
                     fib_cur  = fib_next;
                 }
@@ -201,5 +201,5 @@ extern "C" __global__ void simulate(
 #endif
     }
 
-    scores[tid] = score;
+    score_list[tid] = score;
 }
