@@ -104,13 +104,13 @@ env var:
 {ENV_POPULATION}=8192
 {ENV_TIME_SEC_LIMIT}=60.0
 {ENV_TURN_LIMIT}=100
-{ENV_FRESH}=0"
+{ENV_FRESH}=false"
 	)
 }
 
 fn parse_bool_env(name: &str) -> bool {
 	match env::var(name) {
-		Ok(v) => !matches!(v.trim(), "" | "0" | "false" | "no"),
+		Ok(v) => !matches!(v.trim(), "" | "0" | "false"),
 		Err(_) => false,
 	}
 }
