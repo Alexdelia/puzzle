@@ -5,6 +5,7 @@ pub mod ga;
 pub mod heuristic;
 pub mod hill_climb;
 pub mod mutate;
+pub mod policy;
 
 pub use beam::*;
 pub use config::*;
@@ -13,6 +14,7 @@ pub use ga::*;
 pub use heuristic::*;
 pub use hill_climb::*;
 pub use mutate::*;
+pub use policy::*;
 
 use std::fs;
 use std::path::{Path, PathBuf};
