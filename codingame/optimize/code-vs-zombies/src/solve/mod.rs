@@ -17,6 +17,7 @@ pub use mutate::*;
 pub use policy::*;
 
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::parse_solution_file;
@@ -131,7 +132,8 @@ fn write_best(
 	let solution_str: String = trimmed.iter().map(|(x, y)| format!("{x} {y}\n")).collect();
 	write_atomic(score_path, &format!("{score}\n"))?;
 	write_atomic(solution_path, &solution_str)?;
-	eprintln!("  -> wrote new best: score={score} turns={}", trimmed.len());
+	println!("  -> wrote new best: score={score} turns={}", trimmed.len());
+	let _ = std::io::stdout().flush();
 	Ok(())
 }
 
