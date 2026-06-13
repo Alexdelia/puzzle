@@ -30,6 +30,7 @@ impl FromStr for Mode {
 pub struct Config {
 	pub validator_name: String,
 	pub mode: Mode,
+	pub fresh: bool,
 	pub search_config: SearchConfig,
 	pub path: PathConfig,
 }
@@ -40,6 +41,7 @@ pub const ENV_POPULATION: &str = "POPULATION";
 pub const ENV_TIME_SEC_LIMIT: &str = "TIME_SEC_LIMIT";
 pub const ENV_TURN_LIMIT: &str = "TURN_LIMIT";
 pub const ENV_HUMAN_WEIGHT: &str = "HUMAN_WEIGHT";
+pub const ENV_FRESH: &str = "FRESH";
 
 pub fn parse_config() -> Result<Config, String> {
 	let validator_name = env::args().nth(1).ok_or_else(usage_message)?;
@@ -50,6 +52,7 @@ pub fn parse_config() -> Result<Config, String> {
 	let turn_limit = parse_env::<usize>(ENV_TURN_LIMIT, 100)?;
 	let time_sec_limit = parse_env::<f64>(ENV_TIME_SEC_LIMIT, 60.0)?;
 	let human_weight = parse_env::<i64>(ENV_HUMAN_WEIGHT, 0)?;
+	let fresh = parse_bool_env(ENV_FRESH);
 
 	if population == 0 {
 		return Err(format!("{ENV_POPULATION} must be > 0"));
@@ -77,6 +80,7 @@ pub fn parse_config() -> Result<Config, String> {
 	Ok(Config {
 		validator_name,
 		mode,
+		fresh,
 		search_config,
 		path,
 	})
@@ -99,8 +103,16 @@ env var:
 {ENV_SEED}=0
 {ENV_POPULATION}=8192
 {ENV_TIME_SEC_LIMIT}=60.0
-{ENV_TURN_LIMIT}=100",
+{ENV_TURN_LIMIT}=100
+{ENV_FRESH}=0"
 	)
+}
+
+fn parse_bool_env(name: &str) -> bool {
+	match env::var(name) {
+		Ok(v) => !matches!(v.trim(), "" | "0" | "false" | "no"),
+		Err(_) => false,
+	}
 }
 
 fn parse_env<T: FromStr>(name: &str, default: T) -> Result<T, String>
