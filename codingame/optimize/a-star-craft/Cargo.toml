@@ -1,0 +1,17 @@
+[package]
+name = "a-star-craft"
+version = "0.1.0"
+edition = "2024"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[features]
+default = []
+
+[dependencies]
+rand = "0.10"
+rand_xoshiro = "0.8"
+cudarc = { version = "0.19", default-features = false, features = ["std", "driver", "nvrtc", "cuda-12080", "dynamic-linking"] }
