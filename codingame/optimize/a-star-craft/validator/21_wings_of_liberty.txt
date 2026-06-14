@@ -1,10 +1,10 @@
+#dddddd#uuu#ddd#uuu
+dddddddd#u#ddddd#u#
+ddddddddd#ddddddd#d
+..D..D.......D.....
 ...................
 ...................
-.U.......U.......U.
-u#ddddddd#ddddddd#u
-uu#ddddd#u#ddddd#uu
-uuu#ddd#uuu#ddd#uuu
-uuuu#d#uuuuu#d#uuuu
-uuuuu#uuuuuuu#uuuuu
-.....D.......D.....
 ...................
+.........U.......U.
+uu#dd#uuuuuuu#uuuuu
+u#dddd#uuuuu#d#uuuu
