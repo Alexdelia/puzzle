@@ -17,8 +17,6 @@ pub const LEFT: Tile = 3;
 pub const NONE: Tile = 4;
 pub const VOID: Tile = 5;
 
-pub const MAX_TURNS: Turn = (MAP_AREA * 4) as Turn;
-
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct Robot {
@@ -89,6 +87,16 @@ pub fn char_to_tile(c: char) -> Option<Tile> {
 		'l' => Some(LEFT),
 		'.' => Some(NONE),
 		'#' => Some(VOID),
+		_ => None,
+	}
+}
+
+pub fn tile_to_char(tile: Tile) -> Option<char> {
+	match tile {
+		UP => Some('U'),
+		RIGHT => Some('R'),
+		DOWN => Some('D'),
+		LEFT => Some('L'),
 		_ => None,
 	}
 }
