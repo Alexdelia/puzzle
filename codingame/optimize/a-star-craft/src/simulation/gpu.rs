@@ -194,3 +194,68 @@ impl GpuSim {
 			.map_err(|e| format!("stream sync: {e}"))
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::GpuSim;
+	use crate::parse::parse_map;
+	use crate::simulation::{LEFT, MAP_WIDTH, RIGHT, SimOutput, Solution, build_next_table};
+
+	const SIMPLE: &str = concat!(
+		"###################\n",
+		"###################\n",
+		"###################\n",
+		"###################\n",
+		"###R...........####\n",
+		"###################\n",
+		"###################\n",
+		"###################\n",
+		"###################\n",
+		"###################",
+	);
+
+	const OPEN: &str = concat!(
+		"R..................\n",
+		"...................\n",
+		"...................\n",
+		"...................\n",
+		"...................\n",
+		"...................\n",
+		"...................\n",
+		"...................\n",
+		"...................\n",
+		"...................",
+	);
+
+	fn run(map: &str, solution: &Solution) -> SimOutput {
+		let engine = parse_map(map).unwrap();
+		let next = build_next_table();
+		let mut gpu = GpuSim::new(1, &engine, &next).unwrap();
+		let generation = [*solution];
+		let mut output_list = [SimOutput::default(); 1];
+		gpu.submit_async(&generation, &mut output_list).unwrap();
+		gpu.wait().unwrap();
+		output_list[0]
+	}
+
+	#[test]
+	fn empty_solution_runs_into_void() {
+		let output = run(SIMPLE, &Solution::empty());
+		assert_eq!(output.score, 12);
+		assert_eq!(output.game_length, 12);
+	}
+
+	#[test]
+	fn toroidal_wraparound_loops_after_one_lap() {
+		let output = run(OPEN, &Solution::empty());
+		assert_eq!(output.score, MAP_WIDTH as u16);
+	}
+
+	#[test]
+	fn bouncing_arrows_extend_lifetime() {
+		let mut solution = Solution::empty();
+		solution.arrow[4 * MAP_WIDTH + 14] = LEFT;
+		solution.arrow[4 * MAP_WIDTH + 3] = RIGHT;
+		assert!(run(SIMPLE, &solution).score > 12);
+	}
+}

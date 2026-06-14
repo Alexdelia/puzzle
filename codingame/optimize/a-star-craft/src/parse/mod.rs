@@ -1,13 +1,23 @@
+mod env;
+
+use std::time::Duration;
+
 use crate::simulation::{
 	Cell, Engine, MAP_AREA, MAP_HEIGHT, MAP_WIDTH, MAX_ROBOTS, NONE, Robot, Tile, char_to_tile,
 };
+use crate::solve::{Knobs, Strategy};
 
-const DEFAULT_BATCH: usize = 1 << 16;
+const DEFAULT_CHAIN_COUNT: usize = 1 << 12;
 
 pub struct Config {
 	pub name: String,
 	pub engine: Engine,
-	pub batch: usize,
+	pub chain_count: usize,
+	pub duration: Duration,
+	pub fresh: bool,
+	pub seed: u64,
+	pub phase_list: Vec<Strategy>,
+	pub knobs: Knobs,
 }
 
 pub fn parse() -> Result<Config, String> {
@@ -17,11 +27,11 @@ pub fn parse() -> Result<Config, String> {
 		.next()
 		.ok_or_else(|| "missing input file path argument".to_string())?;
 
-	let batch = match argument.next() {
+	let chain_count = match argument.next() {
 		Some(value) => value
 			.parse::<usize>()
-			.map_err(|e| format!("invalid batch size: {e}"))?,
-		None => DEFAULT_BATCH,
+			.map_err(|e| format!("invalid chain count: {e}"))?,
+		None => DEFAULT_CHAIN_COUNT,
 	};
 
 	let name = validator_name(&path);
@@ -31,7 +41,12 @@ pub fn parse() -> Result<Config, String> {
 	Ok(Config {
 		name,
 		engine,
-		batch,
+		chain_count,
+		duration: env::duration(),
+		fresh: env::fresh(),
+		seed: env::seed(),
+		phase_list: env::phase_list(),
+		knobs: env::knobs(),
 	})
 }
 
