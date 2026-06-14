@@ -79,6 +79,57 @@ pub fn build_next_table() -> Vec<Cell> {
 	next
 }
 
+pub fn control_cell_list(base: &[Tile], next: &[Cell], robot_list: &[Robot]) -> Vec<Cell> {
+	let passable = |cell: usize| base[cell] != VOID;
+	let neighbor = |cell: usize, direction: Tile| next[cell * 4 + direction as usize] as usize;
+
+	let mut in_cycle = [false; MAP_AREA];
+	for (cell, slot) in in_cycle.iter_mut().enumerate() {
+		*slot = passable(cell);
+	}
+	loop {
+		let mut peeled = false;
+		for cell in 0..MAP_AREA {
+			if in_cycle[cell]
+				&& [UP, RIGHT, DOWN, LEFT]
+					.iter()
+					.filter(|&&direction| in_cycle[neighbor(cell, direction)])
+					.count() <= 1
+			{
+				in_cycle[cell] = false;
+				peeled = true;
+			}
+		}
+		if !peeled {
+			break;
+		}
+	}
+
+	let mut on_robot = [false; MAP_AREA];
+	for robot in robot_list {
+		on_robot[robot.cell as usize] = true;
+	}
+
+	(0..MAP_AREA)
+		.filter(|&cell| base[cell] == NONE)
+		.filter(|&cell| {
+			if on_robot[cell] {
+				return true;
+			}
+			let up = passable(neighbor(cell, UP));
+			let right = passable(neighbor(cell, RIGHT));
+			let down = passable(neighbor(cell, DOWN));
+			let left = passable(neighbor(cell, LEFT));
+			match up as u8 + right as u8 + down as u8 + left as u8 {
+				0 => false,
+				2 => !((up && down) || (left && right)) || in_cycle[cell],
+				_ => true,
+			}
+		})
+		.map(|cell| cell as Cell)
+		.collect()
+}
+
 pub fn char_to_tile(c: char) -> Option<Tile> {
 	match c.to_ascii_lowercase() {
 		'u' => Some(UP),
@@ -98,5 +149,65 @@ pub fn tile_to_char(tile: Tile) -> Option<char> {
 		DOWN => Some('D'),
 		LEFT => Some('L'),
 		_ => None,
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::parse::parse_map;
+
+	fn control_cell(map: &str) -> Vec<Cell> {
+		let engine = parse_map(map).unwrap();
+		let next = build_next_table();
+		control_cell_list(&engine.base, &next, &engine.robot_list)
+	}
+
+	const CORRIDOR: &str = concat!(
+		"###################\n",
+		"###################\n",
+		"###################\n",
+		"###################\n",
+		"###R...........####\n",
+		"###################\n",
+		"###################\n",
+		"###################\n",
+		"###################\n",
+		"###################",
+	);
+
+	const RING: &str = concat!(
+		"###################\n",
+		"###################\n",
+		"###################\n",
+		"###################\n",
+		"########R..########\n",
+		"########.#.########\n",
+		"########...########\n",
+		"###################\n",
+		"###################\n",
+		"###################",
+	);
+
+	#[test]
+	fn corridor_keeps_only_its_ends() {
+		assert_eq!(control_cell(CORRIDOR), vec![4 * 19 + 3, 4 * 19 + 14]);
+	}
+
+	#[test]
+	fn ring_keeps_every_cell() {
+		assert_eq!(
+			control_cell(RING),
+			vec![
+				4 * 19 + 8,
+				4 * 19 + 9,
+				4 * 19 + 10,
+				5 * 19 + 8,
+				5 * 19 + 10,
+				6 * 19 + 8,
+				6 * 19 + 9,
+				6 * 19 + 10,
+			]
+		);
 	}
 }

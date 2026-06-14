@@ -7,6 +7,7 @@ use super::persist;
 use super::strategy::{ChainMeta, Plan, Strategy};
 use crate::simulation::{
 	Cell, Engine, GpuSim, MAP_AREA, NONE, PinnedBuf, Score, SimOutput, Solution, Tile, Turn,
+	control_cell_list,
 };
 
 const MAX_MOVE: usize = 16;
@@ -83,10 +84,7 @@ impl Search {
 		disk_best: Score,
 		knobs: Knobs,
 	) -> Result<Self, String> {
-		let placeable_cell_list: Vec<Cell> = (0..MAP_AREA)
-			.filter(|&cell| engine.base[cell] == NONE)
-			.map(|cell| cell as Cell)
-			.collect();
+		let placeable_cell_list = control_cell_list(&engine.base, next, &engine.robot_list);
 
 		let gpu = GpuSim::new(chain_count, engine, next)?;
 		let current = gpu.alloc_pinned::<Solution>(chain_count)?;
