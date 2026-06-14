@@ -12,6 +12,7 @@ VALIDATOR_DIR = SCRIPT_DIR / "validator"
 OUTPUT_DIR = SCRIPT_DIR / "output"
 TIME_FILE_NAME = "time.txt"
 SCORE_FILE_NAME = "score.txt"
+COMPLETE_FLAG_NAME = "complete.flag"
 
 DURATION = os.environ.get("DURATION", "30")
 STRATEGY_CYCLE = os.environ.get("STRATEGY_CYCLE", "sa,ils").split(",")
@@ -34,6 +35,10 @@ def read_int(path: Path) -> int:
 	if path.exists():
 		return int(path.read_text().strip())
 	return 0
+
+
+def is_complete(validator_name: str) -> bool:
+	return (OUTPUT_DIR / validator_name / COMPLETE_FLAG_NAME).exists()
 
 
 def execute(binary: Path, validator_path: Path, strategy: str) -> bool:
@@ -72,16 +77,29 @@ def sort(validator_list: ValidatorList) -> ValidatorList:
 	return sorted(validator_list, key=lambda entry: entry[2])
 
 
-def human_readable_time(seconds: int) -> str:
+def human_readable_time(seconds: int, dim: bool = False) -> str:
+	level = "2;" if dim else ""
 	if seconds < 60:
-		return f"\033[0;96m{seconds}\033[2ms\033[0m"
+		return f"\033[0;{level}96m{seconds}\033[2ms\033[0m"
 	if seconds < 3600:
 		return (
-			f"\033[0;36m{seconds // 60}\033[2mm \033[0;96m{seconds % 60}\033[2ms\033[0m"
+			f"\033[0;{level}36m{seconds // 60}\033[2mm "
+			f"\033[0;{level}96m{seconds % 60}\033[2ms\033[0m"
 		)
 	return (
-		f"\033[0;34m{seconds // 3600}\033[2mh"
-		f" \033[0;36m{(seconds % 3600) // 60}\033[2mm\033[0m"
+		f"\033[0;{level}34m{seconds // 3600}\033[2mh"
+		f" \033[0;{level}36m{(seconds % 3600) // 60}\033[2mm\033[0m"
+	)
+
+
+def format_entry(validator_name: str, elapsed: int, score: int, complete: bool) -> str:
+	prefix = "✓" if complete else " "
+	dim = "\033[2m" if complete else ""
+	weight = "2" if complete else "1"
+	return (
+		f"{dim}  {prefix} \033[32m{validator_name:<28}"
+		f"\033[0;{weight}m{score:>6}\033[0m  "
+		f"{human_readable_time(elapsed, dim=complete)}"
 	)
 
 
@@ -91,26 +109,31 @@ def total_score(validator_list: ValidatorList) -> int:
 
 binary = build()
 
-vl = sort(get_validator_list())
+full_list = sort(get_validator_list())
+active_list = [entry for entry in full_list if not is_complete(entry[0])]
+complete_list = [entry for entry in full_list if is_complete(entry[0])]
 
 if start_with_validator:
-	for i, (vn, *_) in enumerate(vl):
+	for i, (vn, *_) in enumerate(active_list):
 		if vn == start_with_validator:
-			vl.insert(0, vl.pop(i))
+			active_list.insert(0, active_list.pop(i))
 			break
 
 print()
-for vn, _, vt, vs in vl:
-	mark = "\033[1;32m✓\033[0m" if vs > 0 else "-"
-	print(
-		f"  {mark} \033[32m{vn:<28}\033[0;1m{vs:>6}\033[0m  {human_readable_time(vt)}"
-	)
-print(f"\n  total \033[1;32m{total_score(vl)}\033[0m\n")
+for vn, _, vt, vs in active_list:
+	print(format_entry(vn, vt, vs, complete=False))
+for vn, _, vt, vs in complete_list:
+	print(format_entry(vn, vt, vs, complete=True))
+print(f"\n  total \033[1;32m{total_score(full_list)}\033[0m\n")
+
+if not active_list:
+	print("  \033[2mnothing to search\033[0m\n")
+	sys.exit(0)
 
 visit_count: dict[str, int] = {}
 
 while True:
-	[vn, vp, vt, vs] = vl.pop(0)
+	[vn, vp, vt, vs] = active_list.pop(0)
 	strategy = STRATEGY_CYCLE[visit_count.get(vn, 0) % len(STRATEGY_CYCLE)]
 	visit_count[vn] = visit_count.get(vn, 0) + 1
 
@@ -131,5 +154,5 @@ while True:
 	if not success:
 		break
 
-	vl.append((vn, vp, vt, vs))
-	vl = sort(vl)
+	active_list.append((vn, vp, vt, vs))
+	active_list = sort(active_list)
