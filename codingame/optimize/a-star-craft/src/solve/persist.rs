@@ -39,8 +39,8 @@ pub fn read_stored_solution(name: &str, base: &[Tile]) -> Option<Solution> {
 
 pub fn format_solution(solution: &Solution, base: &[Tile]) -> String {
 	let mut output = String::new();
-	for cell in 0..MAP_AREA {
-		if base[cell] != NONE {
+	for (cell, &tile) in base.iter().enumerate().take(MAP_AREA) {
+		if tile != NONE {
 			continue;
 		}
 		let Some(direction) = tile_to_char(solution.arrow[cell]) else {
