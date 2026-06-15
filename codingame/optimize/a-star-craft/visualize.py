@@ -23,6 +23,13 @@ GLYPH = {
 	"L": " ",
 }
 
+ROBOT_GLYPH = {
+	"U": "󰳢 ",
+	"R": "󰳠 ",
+	"D": "󰳜 ",
+	"L": "󰳞 ",
+}
+
 RESET = "\033[0m"
 VOID_STYLE = "\033[40m"
 EMPTY_STYLE = "\033[0m"
@@ -44,8 +51,9 @@ def render_empty() -> str:
 	return EMPTY_STYLE + cell_text("") + RESET
 
 
-def render_robot(heading: str) -> str:
-	return ROBOT_STYLE + cell_text(GLYPH[heading]) + RESET
+def render_robot(heading: str, direction: str | None) -> str:
+	glyph = GLYPH[direction] if direction else ROBOT_GLYPH[heading]
+	return ROBOT_STYLE + cell_text(glyph) + RESET
 
 
 def render_arrow(direction: str) -> str:
@@ -90,7 +98,7 @@ def render(validator: str) -> None:
 		for x in range(MAP_WIDTH):
 			c = row[x] if x < len(row) else VOID_CHAR
 			if c in ROBOT_CHAR:
-				line += render_robot(arrow.get((x, y), c))
+				line += render_robot(c, arrow.get((x, y)))
 			elif (x, y) in arrow:
 				line += render_arrow(arrow[(x, y)])
 			elif c == VOID_CHAR:
