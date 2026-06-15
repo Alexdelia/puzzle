@@ -52,6 +52,16 @@ def render_arrow(direction: str) -> str:
 	return ARROW_STYLE + cell_text(GLYPH[direction]) + RESET
 
 
+def resolve_validator(token: str) -> str | None:
+	name_list = sorted(path.stem for path in VALIDATOR_DIR.glob("*.txt"))
+	if token in name_list:
+		return token
+	if token.isdigit():
+		prefix = f"{int(token):02d}_"
+		return next((name for name in name_list if name.startswith(prefix)), None)
+	return None
+
+
 def read_map(validator: str) -> list[str]:
 	path = VALIDATOR_DIR / f"{validator}.txt"
 	return path.read_text().splitlines()[:MAP_HEIGHT]
@@ -96,7 +106,11 @@ def main() -> None:
 	if len(sys.argv) != 2:
 		print(f"usage: {sys.argv[0]} <validator>", file=sys.stderr)
 		sys.exit(1)
-	render(sys.argv[1])
+	validator = resolve_validator(sys.argv[1])
+	if validator is None:
+		print(f"unknown validator: {sys.argv[1]}", file=sys.stderr)
+		sys.exit(1)
+	render(validator)
 
 
 if __name__ == "__main__":

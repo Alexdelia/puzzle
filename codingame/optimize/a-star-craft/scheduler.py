@@ -41,6 +41,16 @@ def is_complete(validator_name: str) -> bool:
 	return (OUTPUT_DIR / validator_name / COMPLETE_FLAG_NAME).exists()
 
 
+def resolve_validator(token: str) -> str | None:
+	name_list = sorted(path.stem for path in VALIDATOR_DIR.glob("*.txt"))
+	if token in name_list:
+		return token
+	if token.isdigit():
+		prefix = f"{int(token):02d}_"
+		return next((name for name in name_list if name.startswith(prefix)), None)
+	return None
+
+
 def execute(binary: Path, validator_path: Path, strategy: str) -> bool:
 	try:
 		subprocess.run(  # noqa: S603
@@ -114,8 +124,9 @@ active_list = [entry for entry in full_list if not is_complete(entry[0])]
 complete_list = [entry for entry in full_list if is_complete(entry[0])]
 
 if start_with_validator:
+	target = resolve_validator(start_with_validator) or start_with_validator
 	for i, (vn, *_) in enumerate(active_list):
-		if vn == start_with_validator:
+		if vn == target:
 			active_list.insert(0, active_list.pop(i))
 			break
 
