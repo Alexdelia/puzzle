@@ -17,16 +17,16 @@ ROBOT_CHAR = {"U", "R", "D", "L"}
 ARROW_CHAR = {"u": "U", "r": "R", "d": "D", "l": "L"}
 
 GLYPH = {
-	"U": "^",
-	"R": ">",
-	"D": "v",
-	"L": "<",
+	"U": " ",
+	"R": " ",
+	"D": " ",
+	"L": " ",
 }
 
 RESET = "\033[0m"
-VOID_STYLE = "\033[100m"
+VOID_STYLE = "\033[40m"
 EMPTY_STYLE = "\033[0m"
-ROBOT_STYLE = "\033[30;47m"
+ROBOT_STYLE = "\033[37;45m"
 ARROW_STYLE = "\033[1;32m"
 
 CELL_WIDTH = 2
