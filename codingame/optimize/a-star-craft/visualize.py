@@ -89,12 +89,12 @@ def render(validator: str) -> None:
 		line = ""
 		for x in range(MAP_WIDTH):
 			c = row[x] if x < len(row) else VOID_CHAR
-			if (x, y) in arrow:
+			if c in ROBOT_CHAR:
+				line += render_robot(arrow.get((x, y), c))
+			elif (x, y) in arrow:
 				line += render_arrow(arrow[(x, y)])
 			elif c == VOID_CHAR:
 				line += render_void()
-			elif c in ROBOT_CHAR:
-				line += render_robot(c)
 			elif c in ARROW_CHAR:
 				line += render_arrow(ARROW_CHAR[c])
 			else:
