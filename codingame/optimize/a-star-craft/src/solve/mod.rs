@@ -1,4 +1,5 @@
 mod persist;
+mod report;
 mod search;
 mod strategy;
 
@@ -39,13 +40,13 @@ pub fn solve(config: Config) -> Result<(), String> {
 		knobs,
 	)?;
 
-	eprintln!(
-		"\x1b[1;32m{name}\x1b[0m {robot} robots, {placeable} placeable cells, {forced} forced, disk best {disk_best}",
-		robot = engine.robot_count(),
-		placeable = search.placeable_count(),
-		forced = search.forced_count(),
+	report::announce(
+		&name,
+		engine.robot_count(),
+		disk_best,
+		search.spot_list(),
+		search.forced_list(),
 	);
-	eprint!("\n\n\n\n\n");
 
 	search.init_chains(stored);
 	search.seed_scores()?;
