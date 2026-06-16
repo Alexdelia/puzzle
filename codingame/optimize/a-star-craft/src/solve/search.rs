@@ -6,8 +6,8 @@ use rand_xoshiro::Xoshiro256PlusPlus;
 use super::persist;
 use super::strategy::{ChainMeta, Plan, Strategy};
 use crate::simulation::{
-	Cell, Engine, GpuSim, MAP_AREA, NONE, PinnedBuf, Score, SimOutput, Solution, Tile, Turn,
-	control_cell_list,
+	Cell, Engine, GpuSim, MAP_AREA, NONE, PinnedBuf, Score, SimOutput, Solution, Spot, Tile, Turn,
+	placeable_spot_list,
 };
 
 const MAX_MOVE: usize = 16;
@@ -49,7 +49,7 @@ const EMPTY_PENDING: MovePending = MovePending {
 
 pub struct Search {
 	gpu: GpuSim,
-	placeable_cell_list: Vec<Cell>,
+	spot_list: Vec<Spot>,
 	rng: Xoshiro256PlusPlus,
 	chain_count: usize,
 	knobs: Knobs,
@@ -74,6 +74,16 @@ pub struct Search {
 	refocus_count: u64,
 }
 
+fn pick_change(candidate: &[Tile], previous: Tile, rng: &mut Xoshiro256PlusPlus) -> Tile {
+	match candidate.iter().position(|&tile| tile == previous) {
+		Some(skip) => {
+			let roll = rng.random_range(0..candidate.len() - 1);
+			candidate[if roll < skip { roll } else { roll + 1 }]
+		}
+		None => candidate[rng.random_range(0..candidate.len())],
+	}
+}
+
 impl Search {
 	pub fn new(
 		name: String,
@@ -84,7 +94,7 @@ impl Search {
 		disk_best: Score,
 		knobs: Knobs,
 	) -> Result<Self, String> {
-		let placeable_cell_list = control_cell_list(&engine.base, next, &engine.robot_list);
+		let spot_list = placeable_spot_list(&engine.base, next, &engine.robot_list);
 
 		let gpu = GpuSim::new(chain_count, engine, next)?;
 		let current = gpu.alloc_pinned::<Solution>(chain_count)?;
@@ -93,7 +103,7 @@ impl Search {
 		let now = Instant::now();
 		Ok(Self {
 			gpu,
-			placeable_cell_list,
+			spot_list,
 			rng: Xoshiro256PlusPlus::seed_from_u64(seed),
 			chain_count,
 			knobs,
@@ -123,17 +133,18 @@ impl Search {
 	}
 
 	pub fn placeable_count(&self) -> usize {
-		self.placeable_cell_list.len()
+		self.spot_list.len()
 	}
 
 	pub fn init_chains(&mut self, stored: Option<Solution>) {
 		for i in 0..self.chain_count {
 			self.current[i].arrow = [NONE; MAP_AREA];
 			let density: f32 = self.rng.random();
-			for index in 0..self.placeable_cell_list.len() {
+			for index in 0..self.spot_list.len() {
 				if self.rng.random::<f32>() < density {
-					let cell = self.placeable_cell_list[index] as usize;
-					self.current[i].arrow[cell] = self.rng.random_range(0..4u8) as Tile;
+					let spot = self.spot_list[index];
+					let pick = self.rng.random_range(0..spot.alive_count as usize);
+					self.current[i].arrow[spot.cell as usize] = spot.candidate[pick];
 				}
 			}
 		}
@@ -197,7 +208,7 @@ impl Search {
 
 	fn propose(&mut self, strategy: &Strategy, refocus: bool) {
 		let refocus_threshold = (self.best_score as f32 * self.knobs.refocus_fraction) as Score;
-		let placeable_count = self.placeable_cell_list.len();
+		let spot_count = self.spot_list.len();
 
 		for i in 0..self.chain_count {
 			let reset = refocus && self.current_score[i] < refocus_threshold;
@@ -219,13 +230,16 @@ impl Search {
 			self.pending[i].len = move_size as u8;
 			self.pending[i].force_accept = plan.force_accept;
 			for m in 0..move_size {
-				let cell = self.placeable_cell_list[self.rng.random_range(0..placeable_count)];
-				let previous = self.current[i].arrow[cell as usize];
-				let roll = self.rng.random_range(0..4u8) as Tile;
-				let value = if roll < previous { roll } else { roll + 1 };
-				self.pending[i].cell[m] = cell;
+				let spot = self.spot_list[self.rng.random_range(0..spot_count)];
+				let previous = self.current[i].arrow[spot.cell as usize];
+				let value = pick_change(
+					&spot.candidate[..=spot.alive_count as usize],
+					previous,
+					&mut self.rng,
+				);
+				self.pending[i].cell[m] = spot.cell;
 				self.pending[i].old[m] = previous;
-				self.current[i].arrow[cell as usize] = value;
+				self.current[i].arrow[spot.cell as usize] = value;
 			}
 		}
 	}

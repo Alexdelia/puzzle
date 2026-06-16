@@ -79,6 +79,39 @@ pub fn build_next_table() -> Vec<Cell> {
 	next
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Spot {
+	pub cell: Cell,
+	pub candidate: [Tile; 5],
+	pub alive_count: u8,
+}
+
+pub fn placeable_spot_list(base: &[Tile], next: &[Cell], robot_list: &[Robot]) -> Vec<Spot> {
+	control_cell_list(base, next, robot_list)
+		.into_iter()
+		.filter_map(|cell| {
+			let mut candidate = [NONE; 5];
+			let mut alive_count = 0usize;
+			for direction in [UP, RIGHT, DOWN, LEFT] {
+				let neighbor = next[cell as usize * 4 + direction as usize] as usize;
+				if base[neighbor] != VOID {
+					candidate[alive_count] = direction;
+					alive_count += 1;
+				}
+			}
+			if alive_count == 0 {
+				return None;
+			}
+			candidate[alive_count] = NONE;
+			Some(Spot {
+				cell,
+				candidate,
+				alive_count: alive_count as u8,
+			})
+		})
+		.collect()
+}
+
 pub fn control_cell_list(base: &[Tile], next: &[Cell], robot_list: &[Robot]) -> Vec<Cell> {
 	let passable = |cell: usize| base[cell] != VOID;
 	let neighbor = |cell: usize, direction: Tile| next[cell * 4 + direction as usize] as usize;
@@ -163,6 +196,16 @@ mod tests {
 		control_cell_list(&engine.base, &next, &engine.robot_list)
 	}
 
+	fn placeable_spot(map: &str) -> Vec<Spot> {
+		let engine = parse_map(map).unwrap();
+		let next = build_next_table();
+		placeable_spot_list(&engine.base, &next, &engine.robot_list)
+	}
+
+	fn alive_direction(spot: &Spot) -> Vec<Tile> {
+		spot.candidate[..spot.alive_count as usize].to_vec()
+	}
+
 	const CORRIDOR: &str = concat!(
 		"###################\n",
 		"###################\n",
@@ -192,6 +235,16 @@ mod tests {
 	#[test]
 	fn corridor_keeps_only_its_ends() {
 		assert_eq!(control_cell(CORRIDOR), vec![4 * 19 + 3, 4 * 19 + 14]);
+	}
+
+	#[test]
+	fn corridor_end_offers_only_inward_direction() {
+		let spot = placeable_spot(CORRIDOR);
+		assert_eq!(spot.len(), 2);
+		assert_eq!(spot[0].cell, 4 * 19 + 3);
+		assert_eq!(alive_direction(&spot[0]), vec![RIGHT]);
+		assert_eq!(spot[1].cell, 4 * 19 + 14);
+		assert_eq!(alive_direction(&spot[1]), vec![LEFT]);
 	}
 
 	#[test]
