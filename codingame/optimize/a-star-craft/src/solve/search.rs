@@ -4,6 +4,7 @@ use rand::{RngExt, SeedableRng};
 use rand_xoshiro::Xoshiro256PlusPlus;
 
 use super::persist;
+use super::report;
 use super::strategy::{ChainMeta, Plan, Strategy};
 use crate::simulation::{
 	Cell, Engine, ForcedArrow, GpuSim, MAP_AREA, NONE, PinnedBuf, Placement, Score, SimOutput,
@@ -137,12 +138,12 @@ impl Search {
 		})
 	}
 
-	pub fn placeable_count(&self) -> usize {
-		self.spot_list.len()
+	pub fn spot_list(&self) -> &[Spot] {
+		&self.spot_list
 	}
 
-	pub fn forced_count(&self) -> usize {
-		self.forced_list.len()
+	pub fn forced_list(&self) -> &[ForcedArrow] {
+		&self.forced_list
 	}
 
 	pub fn init_chains(&mut self, stored: Option<Solution>) {
@@ -314,7 +315,6 @@ impl Search {
 		let now = Instant::now();
 		let since = (now - self.last_log_time).as_secs_f64().max(1e-9);
 		let rounds_since = (self.round - self.last_log_round) as f64;
-		let elapsed = (now - self.start_time).as_secs();
 
 		let mut sum: u64 = 0;
 		let mut population_max: Score = 0;
@@ -324,35 +324,22 @@ impl Search {
 				population_max = score;
 			}
 		}
-		let mean = sum as f64 / self.chain_count as f64;
 
 		let rounds_per_sec = rounds_since / since;
-		let moves_per_sec = rounds_per_sec * self.chain_count as f64;
-		let nanos_per_eval = since * 1e9 / (rounds_since * self.chain_count as f64);
-
-		let elapsed_str = if elapsed >= 60 {
-			format!(
-				"\x1b[0;34m{}\x1b[2mm \x1b[0;36m{:>2}\x1b[2ms",
-				elapsed / 60,
-				elapsed % 60
-			)
-		} else {
-			format!("\x1b[0;36m{elapsed}\x1b[2ms")
-		};
-
-		eprint!(
-			"\r\x1b[4A\x1b[1;32m{best:>5}\x1b[0m \x1b[2mgame\x1b[0m {game:>3} \x1b[2mdisk\x1b[0m {disk:<5} \x1b[0;35m{strategy}\x1b[0m\x1b[K
-\x1b[2mpop\x1b[0m \x1b[0;36m{mean:>7.1}\x1b[2m mean\x1b[0m \x1b[0;36m{population_max:>5}\x1b[2m max\x1b[0m \x1b[0;33m{refocus}\x1b[2m refocus\x1b[0m\x1b[K
-\x1b[0;38;2;52;235;198m{nanos_per_eval:>6.1}\x1b[2mns/eval \x1b[0;96m{moves_per_sec:>8.0}\x1b[2m mv/s \x1b[0;94m{rounds_per_sec:>6.0}\x1b[2m rnd/s\x1b[0m\x1b[K
-{elapsed_str}\x1b[K
-\x1b[0;1m{round}\x1b[0m \x1b[2mrounds\x1b[0m\x1b[K",
-			best = self.best_score,
-			game = self.best_game_length,
-			disk = self.disk_best,
-			strategy = strategy.name(),
-			refocus = self.refocus_count,
-			round = self.round,
-		);
+		report::progress(&report::Progress {
+			best: self.best_score,
+			game_length: self.best_game_length,
+			disk_best: self.disk_best,
+			strategy: strategy.name(),
+			mean: sum as f64 / self.chain_count as f64,
+			population_max,
+			refocus: self.refocus_count,
+			nanos_per_eval: since * 1e9 / (rounds_since * self.chain_count as f64),
+			moves_per_sec: rounds_per_sec * self.chain_count as f64,
+			rounds_per_sec,
+			elapsed: (now - self.start_time).as_secs(),
+			round: self.round,
+		});
 
 		self.last_log_time = now;
 		self.last_log_round = self.round;
