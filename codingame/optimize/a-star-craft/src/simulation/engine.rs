@@ -84,32 +84,61 @@ pub struct Spot {
 	pub cell: Cell,
 	pub candidate: [Tile; 5],
 	pub alive_count: u8,
+	pub removable: bool,
 }
 
-pub fn placeable_spot_list(base: &[Tile], next: &[Cell], robot_list: &[Robot]) -> Vec<Spot> {
-	control_cell_list(base, next, robot_list)
-		.into_iter()
-		.filter_map(|cell| {
-			let mut candidate = [NONE; 5];
-			let mut alive_count = 0usize;
-			for direction in [UP, RIGHT, DOWN, LEFT] {
-				let neighbor = next[cell as usize * 4 + direction as usize] as usize;
-				if base[neighbor] != VOID {
-					candidate[alive_count] = direction;
-					alive_count += 1;
-				}
+#[derive(Clone, Copy, Debug)]
+pub struct ForcedArrow {
+	pub cell: Cell,
+	pub direction: Tile,
+}
+
+pub struct Placement {
+	pub spot_list: Vec<Spot>,
+	pub forced_list: Vec<ForcedArrow>,
+}
+
+pub fn placement(base: &[Tile], next: &[Cell], robot_list: &[Robot]) -> Placement {
+	let mut spot_list = Vec::new();
+	let mut forced_list = Vec::new();
+
+	for cell in control_cell_list(base, next, robot_list) {
+		let mut candidate = [NONE; 5];
+		let mut alive = [false; 4];
+		let mut alive_count = 0usize;
+		for direction in [UP, RIGHT, DOWN, LEFT] {
+			let neighbor = next[cell as usize * 4 + direction as usize] as usize;
+			if base[neighbor] != VOID {
+				candidate[alive_count] = direction;
+				alive[direction as usize] = true;
+				alive_count += 1;
 			}
-			if alive_count == 0 {
-				return None;
-			}
-			candidate[alive_count] = NONE;
-			Some(Spot {
+		}
+
+		match alive_count {
+			0 => {}
+			1 => forced_list.push(ForcedArrow {
 				cell,
-				candidate,
-				alive_count: alive_count as u8,
-			})
-		})
-		.collect()
+				direction: candidate[0],
+			}),
+			_ => {
+				candidate[alive_count] = NONE;
+				let removable = (alive[UP as usize] && alive[DOWN as usize])
+					|| (alive[RIGHT as usize] && alive[LEFT as usize]);
+				spot_list.push(Spot {
+					cell,
+					candidate,
+					alive_count: alive_count as u8,
+					removable,
+				});
+			}
+		}
+	}
+
+	Placement {
+		spot_list,
+		forced_list,
+	}
 }
 
 pub fn control_cell_list(base: &[Tile], next: &[Cell], robot_list: &[Robot]) -> Vec<Cell> {
@@ -196,14 +225,18 @@ mod tests {
 		control_cell_list(&engine.base, &next, &engine.robot_list)
 	}
 
-	fn placeable_spot(map: &str) -> Vec<Spot> {
+	fn placement_of(map: &str) -> Placement {
 		let engine = parse_map(map).unwrap();
 		let next = build_next_table();
-		placeable_spot_list(&engine.base, &next, &engine.robot_list)
+		placement(&engine.base, &next, &engine.robot_list)
 	}
 
-	fn alive_direction(spot: &Spot) -> Vec<Tile> {
-		spot.candidate[..spot.alive_count as usize].to_vec()
+	fn spot_at(placement: &Placement, cell: Cell) -> Spot {
+		*placement
+			.spot_list
+			.iter()
+			.find(|spot| spot.cell == cell)
+			.unwrap()
 	}
 
 	const CORRIDOR: &str = concat!(
@@ -238,13 +271,25 @@ mod tests {
 	}
 
 	#[test]
-	fn corridor_end_offers_only_inward_direction() {
-		let spot = placeable_spot(CORRIDOR);
-		assert_eq!(spot.len(), 2);
-		assert_eq!(spot[0].cell, 4 * 19 + 3);
-		assert_eq!(alive_direction(&spot[0]), vec![RIGHT]);
-		assert_eq!(spot[1].cell, 4 * 19 + 14);
-		assert_eq!(alive_direction(&spot[1]), vec![LEFT]);
+	fn corridor_ends_force_inward_bounce() {
+		let placement = placement_of(CORRIDOR);
+		assert!(placement.spot_list.is_empty());
+		assert_eq!(placement.forced_list.len(), 2);
+		assert_eq!(placement.forced_list[0].cell, 4 * 19 + 3);
+		assert_eq!(placement.forced_list[0].direction, RIGHT);
+		assert_eq!(placement.forced_list[1].cell, 4 * 19 + 14);
+		assert_eq!(placement.forced_list[1].direction, LEFT);
+	}
+
+	#[test]
+	fn ring_bend_forbids_empty_but_straight_allows_it() {
+		let placement = placement_of(RING);
+		assert!(placement.forced_list.is_empty());
+		assert_eq!(placement.spot_list.len(), 8);
+		assert!(!spot_at(&placement, 4 * 19 + 8).removable);
+		assert!(spot_at(&placement, 4 * 19 + 9).removable);
+		assert!(spot_at(&placement, 5 * 19 + 8).removable);
+		assert!(!spot_at(&placement, 6 * 19 + 10).removable);
 	}
 
 	#[test]

@@ -6,8 +6,8 @@ use rand_xoshiro::Xoshiro256PlusPlus;
 use super::persist;
 use super::strategy::{ChainMeta, Plan, Strategy};
 use crate::simulation::{
-	Cell, Engine, GpuSim, MAP_AREA, NONE, PinnedBuf, Score, SimOutput, Solution, Spot, Tile, Turn,
-	placeable_spot_list,
+	Cell, Engine, ForcedArrow, GpuSim, MAP_AREA, NONE, PinnedBuf, Placement, Score, SimOutput,
+	Solution, Spot, Tile, Turn, placement,
 };
 
 const MAX_MOVE: usize = 16;
@@ -50,6 +50,7 @@ const EMPTY_PENDING: MovePending = MovePending {
 pub struct Search {
 	gpu: GpuSim,
 	spot_list: Vec<Spot>,
+	forced_list: Vec<ForcedArrow>,
 	rng: Xoshiro256PlusPlus,
 	chain_count: usize,
 	knobs: Knobs,
@@ -94,7 +95,10 @@ impl Search {
 		disk_best: Score,
 		knobs: Knobs,
 	) -> Result<Self, String> {
-		let spot_list = placeable_spot_list(&engine.base, next, &engine.robot_list);
+		let Placement {
+			spot_list,
+			forced_list,
+		} = placement(&engine.base, next, &engine.robot_list);
 
 		let gpu = GpuSim::new(chain_count, engine, next)?;
 		let current = gpu.alloc_pinned::<Solution>(chain_count)?;
@@ -104,6 +108,7 @@ impl Search {
 		Ok(Self {
 			gpu,
 			spot_list,
+			forced_list,
 			rng: Xoshiro256PlusPlus::seed_from_u64(seed),
 			chain_count,
 			knobs,
@@ -136,13 +141,17 @@ impl Search {
 		self.spot_list.len()
 	}
 
+	pub fn forced_count(&self) -> usize {
+		self.forced_list.len()
+	}
+
 	pub fn init_chains(&mut self, stored: Option<Solution>) {
 		for i in 0..self.chain_count {
 			self.current[i].arrow = [NONE; MAP_AREA];
 			let density: f32 = self.rng.random();
 			for index in 0..self.spot_list.len() {
-				if self.rng.random::<f32>() < density {
-					let spot = self.spot_list[index];
+				let spot = self.spot_list[index];
+				if !spot.removable || self.rng.random::<f32>() < density {
 					let pick = self.rng.random_range(0..spot.alive_count as usize);
 					self.current[i].arrow[spot.cell as usize] = spot.candidate[pick];
 				}
@@ -150,6 +159,22 @@ impl Search {
 		}
 		if let Some(solution) = stored {
 			self.current[0] = solution;
+		}
+		self.apply_constraint();
+	}
+
+	fn apply_constraint(&mut self) {
+		for i in 0..self.chain_count {
+			for f in 0..self.forced_list.len() {
+				let forced = self.forced_list[f];
+				self.current[i].arrow[forced.cell as usize] = forced.direction;
+			}
+			for s in 0..self.spot_list.len() {
+				let spot = self.spot_list[s];
+				if !spot.removable && self.current[i].arrow[spot.cell as usize] == NONE {
+					self.current[i].arrow[spot.cell as usize] = spot.candidate[0];
+				}
+			}
 		}
 	}
 
@@ -171,6 +196,9 @@ impl Search {
 	}
 
 	pub fn run(&mut self, strategy: &Strategy, budget: Duration) -> Result<(), String> {
+		if self.spot_list.is_empty() {
+			return Ok(());
+		}
 		for slot in &mut self.meta {
 			*slot = strategy.init_meta();
 		}
@@ -232,11 +260,8 @@ impl Search {
 			for m in 0..move_size {
 				let spot = self.spot_list[self.rng.random_range(0..spot_count)];
 				let previous = self.current[i].arrow[spot.cell as usize];
-				let value = pick_change(
-					&spot.candidate[..=spot.alive_count as usize],
-					previous,
-					&mut self.rng,
-				);
+				let value_len = spot.alive_count as usize + spot.removable as usize;
+				let value = pick_change(&spot.candidate[..value_len], previous, &mut self.rng);
 				self.pending[i].cell[m] = spot.cell;
 				self.pending[i].old[m] = previous;
 				self.current[i].arrow[spot.cell as usize] = value;

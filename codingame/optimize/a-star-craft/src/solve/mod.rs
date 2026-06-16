@@ -40,9 +40,10 @@ pub fn solve(config: Config) -> Result<(), String> {
 	)?;
 
 	eprintln!(
-		"\x1b[1;32m{name}\x1b[0m {robot} robots, {placeable} placeable cells, disk best {disk_best}",
+		"\x1b[1;32m{name}\x1b[0m {robot} robots, {placeable} placeable cells, {forced} forced, disk best {disk_best}",
 		robot = engine.robot_count(),
 		placeable = search.placeable_count(),
+		forced = search.forced_count(),
 	);
 	eprint!("\n\n\n\n\n");
 
