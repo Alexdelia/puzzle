@@ -8,6 +8,7 @@ use crate::simulation::{
 const OUTPUT_DIR: &str = "output";
 const SCORE_FILE: &str = "score.txt";
 const SOLUTION_FILE: &str = "solution.txt";
+const COMPLETE_FLAG: &str = "complete.flag";
 
 fn directory(name: &str) -> PathBuf {
 	Path::new(OUTPUT_DIR).join(name)
@@ -68,5 +69,13 @@ pub fn write_best(
 		.map_err(|e| format!("write solution: {e}"))?;
 	std::fs::write(dir.join(SCORE_FILE), score.to_string())
 		.map_err(|e| format!("write score: {e}"))?;
+	Ok(())
+}
+
+pub fn mark_complete(name: &str, score: Score) -> Result<(), String> {
+	let dir = directory(name);
+	std::fs::create_dir_all(&dir).map_err(|e| format!("create {dir:?}: {e}"))?;
+	std::fs::write(dir.join(COMPLETE_FLAG), score.to_string())
+		.map_err(|e| format!("write complete flag: {e}"))?;
 	Ok(())
 }

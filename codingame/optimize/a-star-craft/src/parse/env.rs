@@ -3,6 +3,7 @@ use std::time::Duration;
 use crate::solve::{Knobs, Strategy};
 
 const DEFAULT_DURATION: Duration = Duration::from_secs(30);
+const DEFAULT_BRUTE_LIMIT: u64 = 2 << 31;
 
 macro_rules! env_or {
 	($name:expr, $fallback:expr) => {
@@ -19,6 +20,10 @@ pub fn duration() -> Duration {
 		.and_then(|value| value.parse::<f64>().ok())
 		.map(Duration::from_secs_f64)
 		.unwrap_or(DEFAULT_DURATION)
+}
+
+pub fn brute_limit() -> u64 {
+	env_or!("BRUTE_LIMIT", DEFAULT_BRUTE_LIMIT)
 }
 
 pub fn fresh() -> bool {

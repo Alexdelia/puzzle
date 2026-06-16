@@ -8,7 +8,7 @@ use super::report;
 use super::strategy::{ChainMeta, Plan, Strategy};
 use crate::simulation::{
 	Cell, Engine, ForcedArrow, GpuSim, MAP_AREA, NONE, PinnedBuf, Placement, Score, SimOutput,
-	Solution, Spot, Tile, Turn, placement,
+	Solution, Spot, Tile, Turn,
 };
 
 const MAX_MOVE: usize = 16;
@@ -87,6 +87,7 @@ fn pick_change(candidate: &[Tile], previous: Tile, rng: &mut Xoshiro256PlusPlus)
 }
 
 impl Search {
+	#[allow(clippy::too_many_arguments)]
 	pub fn new(
 		name: String,
 		engine: &Engine,
@@ -95,11 +96,12 @@ impl Search {
 		seed: u64,
 		disk_best: Score,
 		knobs: Knobs,
+		placement: Placement,
 	) -> Result<Self, String> {
 		let Placement {
 			spot_list,
 			forced_list,
-		} = placement(&engine.base, next, &engine.robot_list);
+		} = placement;
 
 		let gpu = GpuSim::new(chain_count, engine, next)?;
 		let current = gpu.alloc_pinned::<Solution>(chain_count)?;
@@ -136,14 +138,6 @@ impl Search {
 			last_log_round: 0,
 			refocus_count: 0,
 		})
-	}
-
-	pub fn spot_list(&self) -> &[Spot] {
-		&self.spot_list
-	}
-
-	pub fn forced_list(&self) -> &[ForcedArrow] {
-		&self.forced_list
 	}
 
 	pub fn init_chains(&mut self, stored: Option<Solution>) {

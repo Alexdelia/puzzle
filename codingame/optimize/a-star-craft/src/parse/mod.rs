@@ -18,6 +18,7 @@ pub struct Config {
 	pub seed: u64,
 	pub phase_list: Vec<Strategy>,
 	pub knobs: Knobs,
+	pub brute_limit: u64,
 }
 
 pub fn parse() -> Result<Config, String> {
@@ -47,6 +48,7 @@ pub fn parse() -> Result<Config, String> {
 		seed: env::seed(),
 		phase_list: env::phase_list(),
 		knobs: env::knobs(),
+		brute_limit: env::brute_limit(),
 	})
 }
 
