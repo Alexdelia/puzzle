@@ -22,7 +22,7 @@ parts = []
 for entry in sorted(output_dir.iterdir()):
 	sol_path = entry / SOLUTION_FILE_NAME
 	flag_path = validator_dir / (entry.name + VALIDATOR_FILE_EXTENSION)
-	if not sol_path.is_file():
+	if not sol_path.is_file() or not flag_path.is_file():
 		continue
 	flag = flag_path.read_text().rstrip("\n")
 	solution = sol_path.read_text().strip()
