@@ -1,0 +1,30 @@
+[package]
+name = "mpr"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "arena"
+path = "src/bin/arena.rs"
+
+[[bin]]
+name = "difftest"
+path = "src/bin/difftest.rs"
+
+[[bin]]
+name = "solution"
+path = "src/bin/solution.rs"
+
+[[bin]]
+name = "cg-solution"
+path = "solution.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[dependencies]
