@@ -9,4 +9,12 @@ autobins = false
 name = "bronze"
 path = "bronze.rs"
 
+[[bin]]
+name = "wait"
+path = "wait.rs"
+
+[[bin]]
+name = "greedy"
+path = "greedy.rs"
+
 [dependencies]
