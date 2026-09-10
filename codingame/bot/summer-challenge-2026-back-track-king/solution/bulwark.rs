@@ -352,6 +352,8 @@ struct Tune {
 	think_ms: u128,
 	crude_mix: f64,
 	swing_gain: f64,
+	avoid_inst: u8,
+	crude_base: f64,
 	scen_floor: f64,
 	scen_gain: f64,
 	mirror_weight: f64,
@@ -393,6 +395,8 @@ impl Tune {
 			think_ms: knob("BTK_THINK_MS", 20),
 			crude_mix: knob("BTK_CRUDE_MIX", 2.0),
 			swing_gain: knob("BTK_SWING", 1.0),
+			avoid_inst: knob("BTK_AVOID_INST", 3),
+			crude_base: knob("BTK_CRUDE_BASE", 0.25),
 			scen_floor: knob("BTK_SCEN_FLOOR", 0.0),
 			scen_gain: knob("BTK_SCEN_GAIN", 1.0),
 			mirror_weight: knob("BTK_MIRROR_WEIGHT", 0.0),
@@ -653,7 +657,10 @@ impl Engine {
 						continue;
 					}
 					0
-				} else if state.inked[region] {
+				} else if state.inked[region]
+					|| (!map.region_has_town[region]
+						&& state.instability[region] >= tune.avoid_inst)
+				{
 					continue;
 				} else {
 					let mut price = map.cost[cell] as u32;
@@ -701,7 +708,7 @@ struct Outlook {
 fn foe_ink_value(map: &Map, state: &State, tune: &Tune, region: usize) -> f64 {
 	let mut value = 0.0;
 	for &at in &map.region_cells[region] {
-		let weight = state.mult[at as usize] as f64 + 0.25;
+		let weight = state.mult[at as usize] as f64 + tune.crude_base;
 		match state.owner[at as usize] {
 			MINE => value += weight,
 			FOE => value -= weight * tune.crude_self,
@@ -979,7 +986,7 @@ fn pick_disrupt(
 		let mut foe = 0;
 		let mut crude = 0.0;
 		for &at in &map.region_cells[region] {
-			let weight = state.mult[at as usize] as f64 + 0.25;
+			let weight = state.mult[at as usize] as f64 + tune.crude_base;
 			match owner[at as usize] {
 				MINE => {
 					mine += 1;
