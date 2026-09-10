@@ -6,6 +6,10 @@ authors.workspace = true
 autobins = false
 
 [[bin]]
+name = "example"
+path = "example.rs"
+
+[[bin]]
 name = "bronze"
 path = "bronze.rs"
 
