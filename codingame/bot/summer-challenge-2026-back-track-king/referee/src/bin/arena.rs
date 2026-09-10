@@ -1,7 +1,7 @@
 use btk::arena::{EndReason, MatchResult, TimeLimits, elo_diff, run_match, wilson_ci};
-use btk::cli::{BotArgs, MapArgs, RuleArgs, die};
-use btk::game::Game;
-use btk::trace::{Trace, replay_text};
+use btk::cli::{BotArgs, MapArgs, die};
+use btk::game::{DEFAULT_LEAGUE, Game};
+use btk::trace::{Detail, Trace};
 use clap::Parser;
 use std::collections::BTreeMap;
 use std::sync::Mutex;
@@ -18,9 +18,6 @@ struct Cli {
 	#[command(flatten)]
 	map: MapArgs,
 
-	#[command(flatten)]
-	rules: RuleArgs,
-
 	/// number of games to play
 	#[arg(long, value_name = "N", default_value_t = 100, value_parser = clap::value_parser!(u64).range(1..))]
 	games: u64,
@@ -29,13 +26,17 @@ struct Cli {
 	#[arg(long, value_name = "T", default_value_t = default_threads(), value_parser = clap::value_parser!(u64).range(1..))]
 	threads: u64,
 
-	/// play each map once instead of twice with the sides swapped
+	/// play each board once instead of twice with the sides swapped
 	#[arg(long)]
 	no_swap: bool,
 
-	/// write one replay trace per game into this directory
+	/// write one trace per game into this directory
 	#[arg(long, value_name = "DIR")]
 	replay_dir: Option<String>,
+
+	/// how much of each game the traces keep
+	#[arg(long, value_enum, default_value_t = Detail::Digest)]
+	trace: Detail,
 
 	/// leave measured turn times out of the summary, so two runs compare byte for byte
 	#[arg(long)]
@@ -58,7 +59,7 @@ fn default_threads() -> u64 {
 
 struct Pairing {
 	index: usize,
-	seed: u64,
+	seed: i64,
 	swapped: bool,
 }
 
@@ -84,9 +85,9 @@ fn main() {
 			index,
 			seed: cli.map.seed
 				+ if cli.swap() {
-					(index / 2) as u64
+					(index / 2) as i64
 				} else {
-					index as u64
+					index as i64
 				},
 			swapped: cli.swap() && index % 2 == 1,
 		})
@@ -95,7 +96,7 @@ fn main() {
 	let next = AtomicUsize::new(0);
 	let done = AtomicUsize::new(0);
 	let played: Mutex<Vec<Played>> = Mutex::new(Vec::with_capacity(games));
-	let crashed: Mutex<Vec<u64>> = Mutex::new(Vec::new());
+	let crashed: Mutex<Vec<i64>> = Mutex::new(Vec::new());
 	std::thread::scope(|scope| {
 		for _ in 0..(cli.threads as usize).min(games) {
 			scope.spawn(|| {
@@ -141,8 +142,8 @@ fn main() {
 }
 
 fn play(cli: &Cli, pairing: &Pairing) -> MatchResult {
-	let map = cli.map.build(pairing.seed).unwrap_or_else(die);
-	let mut game = Game::new(map, cli.rules.rules());
+	let grid = cli.map.build(pairing.seed).unwrap_or_else(die);
+	let mut game = Game::new(grid, cli.map.league);
 	let mut d0 = cli
 		.bots
 		.driver(usize::from(pairing.swapped))
@@ -153,18 +154,20 @@ fn play(cli: &Cli, pairing: &Pairing) -> MatchResult {
 		.unwrap_or_else(die);
 	let limits = cli.bots.enforce_cg_time.then(TimeLimits::default);
 
-	let mut trace = Trace::default();
-	let mut result = if cli.replay_dir.is_some() {
-		let mut record = |game: &Game, report: &_| trace.record(game, report);
+	let keep = cli.replay_dir.is_some();
+	let mut trace = Trace::new(if keep { cli.trace } else { Detail::Quiet });
+	trace.header(pairing.seed, &game);
+	let mut result = {
+		let mut record =
+			|game: &Game, report: &_, answers: &_, turn| trace.turn(game, report, answers, turn);
 		run_match(
 			&mut game,
 			[d0.as_mut(), d1.as_mut()],
 			limits,
 			Some(&mut record),
 		)
-	} else {
-		run_match(&mut game, [d0.as_mut(), d1.as_mut()], limits, None)
 	};
+	trace.footer(&game, &result);
 
 	if let Some(dir) = &cli.replay_dir {
 		let path = format!(
@@ -173,19 +176,20 @@ fn play(cli: &Cli, pairing: &Pairing) -> MatchResult {
 			pairing.seed,
 			if pairing.swapped { "swap" } else { "norm" }
 		);
-		let header = [
-			("seed", pairing.seed.to_string()),
-			("swapped", pairing.swapped.to_string()),
-			("p1", cli.bots.spec(0).to_string()),
-			("p2", cli.bots.spec(1).to_string()),
-			("rules", format!("{:?}", cli.rules.rules())),
-		];
-		let verdict = format!("{:?} winner {:?}", result.reason, result.winner);
-		let _ = std::fs::write(path, replay_text(&header, &game, &trace, verdict));
+		let text = format!(
+			"p1 {}\np2 {}\nswapped {}\n{}{}\n",
+			cli.bots.spec(0),
+			cli.bots.spec(1),
+			pairing.swapped,
+			trace.text,
+			replay_command(cli, pairing)
+		);
+		let _ = std::fs::write(path, text);
 	}
 
 	if pairing.swapped {
 		result.score.swap(0, 1);
+		result.texts.swap(0, 1);
 		result.winner = result.winner.map(|side| 1 - side);
 		result.culprit = result.culprit.map(|side| 1 - side);
 		result.slowest.swap(0, 1);
@@ -203,15 +207,8 @@ fn replay_command(cli: &Cli, pairing: &Pairing) -> String {
 	if pairing.swapped {
 		line.push_str(" --swap");
 	}
-	for (flag, on) in [
-		("--disruption", cli.rules.disruption),
-		("--neutral-scores", cli.rules.neutral_scores),
-		("--strict", cli.rules.strict),
-	] {
-		if on {
-			line.push(' ');
-			line.push_str(flag);
-		}
+	if cli.map.league != DEFAULT_LEAGUE {
+		line.push_str(&format!(" --league {}", cli.map.league));
 	}
 	line
 }
@@ -231,7 +228,7 @@ fn report(cli: &Cli, played: &[Played]) {
 	let n = played.len();
 	let mut wins = [0usize; 2];
 	let mut draws = 0usize;
-	let mut points = [0u64; 2];
+	let mut points = [0i64; 2];
 	let mut side = [[[0usize; 3]; 2]; 2];
 	let mut reasons: BTreeMap<String, usize> = BTreeMap::new();
 	let mut slowest = [Duration::ZERO; 2];
@@ -242,9 +239,11 @@ fn report(cli: &Cli, played: &[Played]) {
 			Some(bot) => wins[bot] += 1,
 			None => draws += 1,
 		}
-		points[0] += result.score[0] as u64;
-		points[1] += result.score[1] as u64;
-		*reasons.entry(format!("{:?}", result.reason)).or_default() += 1;
+		points[0] += result.score[0] as i64;
+		points[1] += result.score[1] as i64;
+		*reasons
+			.entry(btk::trace::reason_text(result.reason).to_string())
+			.or_default() += 1;
 		for bot in 0..2 {
 			let seat = if pairing.swapped { 1 - bot } else { bot };
 			let outcome = match result.winner {
@@ -255,7 +254,7 @@ fn report(cli: &Cli, played: &[Played]) {
 			side[bot][seat][outcome] += 1;
 			slowest[bot] = slowest[bot].max(result.slowest[bot]);
 		}
-		if result.reason != EndReason::TurnLimit
+		if result.reason != EndReason::GameOver
 			&& let (Some(bot), Some(note)) = (result.culprit, &result.note)
 		{
 			incidents.push(format!(
@@ -277,9 +276,9 @@ fn report(cli: &Cli, played: &[Played]) {
 		cli.map.seed,
 		cli.map.seed
 			+ if cli.swap() {
-				(n as u64).div_ceil(2)
+				((n as i64) + 1) / 2
 			} else {
-				n as u64
+				n as i64
 			} - 1,
 		cli.swap()
 	);

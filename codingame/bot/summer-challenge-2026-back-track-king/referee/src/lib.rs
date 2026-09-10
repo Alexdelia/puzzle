@@ -1,9 +1,13 @@
+pub mod action;
 pub mod arena;
 pub mod cli;
 pub mod driver;
 pub mod game;
-pub mod map;
-pub mod mapgen;
+pub mod grid;
+pub mod gridmaker;
+pub mod jhash;
+pub mod jqueue;
+pub mod jrand;
+pub mod pathfind;
 pub mod proto;
-pub mod rng;
 pub mod trace;

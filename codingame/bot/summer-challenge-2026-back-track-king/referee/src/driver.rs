@@ -1,34 +1,19 @@
-use crate::game::{Action, Connections, State, parse_actions};
-use crate::map::Map;
-use crate::proto::{init_text, turn_text};
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel, sync_channel};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel, sync_channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 const STDERR_KEPT: usize = 200;
 const UNREAD_TURNS: usize = 2;
 
-pub struct View<'a> {
-	pub map: &'a Map,
-	pub state: &'a State,
-	pub conn: &'a Connections,
-	pub player: usize,
-}
-
 pub trait Driver {
-	fn init(&mut self, map: &Map, player: usize) -> Result<(), String>;
+	fn send(&mut self, text: &str) -> Result<(), String>;
 
-	fn observe(&mut self, view: &View) -> Result<(), String> {
-		let _ = view;
-		Ok(())
-	}
-
-	fn decide(&mut self, view: &View) -> Result<Vec<Action>, String>;
+	fn answer(&mut self) -> Result<String, String>;
 
 	fn elapsed(&self) -> Duration {
 		Duration::ZERO
@@ -43,7 +28,6 @@ pub struct ProcessDriver {
 	child: Child,
 	feed: Option<Sender<String>>,
 	backlog: Arc<AtomicUsize>,
-	recycled: Receiver<String>,
 	lines: Receiver<(Instant, String)>,
 	errors: Arc<Mutex<VecDeque<String>>>,
 	timeout: Duration,
@@ -90,7 +74,6 @@ impl ProcessDriver {
 
 		let mut stdin = child.stdin.take().unwrap();
 		let (feed, outbox) = channel::<String>();
-		let (spent, recycled) = sync_channel::<String>(2);
 		let backlog = Arc::new(AtomicUsize::new(0));
 		let pending = backlog.clone();
 		std::thread::spawn(move || {
@@ -103,7 +86,6 @@ impl ProcessDriver {
 					return;
 				}
 				pending.fetch_sub(1, Ordering::Release);
-				let _ = spent.try_send(text);
 			}
 		});
 
@@ -113,28 +95,12 @@ impl ProcessDriver {
 			child,
 			feed: Some(feed),
 			backlog,
-			recycled,
 			timeout,
 			sent: Instant::now(),
 			elapsed: Duration::ZERO,
 			shell,
 			command: command.to_string(),
 		})
-	}
-
-	fn send(&mut self, text: String) -> Result<(), String> {
-		let feed = self.feed.as_ref().ok_or("input already closed")?;
-		let queued = self.backlog.fetch_add(1, Ordering::AcqRel) + 1;
-		feed.send(text)
-			.map_err(|_| format!("`{}` closed its input", self.command))?;
-		if queued > UNREAD_TURNS {
-			return Err(format!("`{}` stopped reading its input", self.command));
-		}
-		Ok(())
-	}
-
-	fn buffer(&mut self) -> String {
-		self.recycled.try_recv().unwrap_or_default()
 	}
 }
 
@@ -152,41 +118,39 @@ fn pump<R: std::io::Read + Send + 'static>(source: R) -> Receiver<(Instant, Stri
 }
 
 impl Driver for ProcessDriver {
-	fn init(&mut self, map: &Map, player: usize) -> Result<(), String> {
-		let text = init_text(map, player);
-		self.send(text)?;
+	fn send(&mut self, text: &str) -> Result<(), String> {
+		let feed = self.feed.as_ref().ok_or("input already closed")?;
+		let queued = self.backlog.fetch_add(1, Ordering::AcqRel) + 1;
+		feed.send(text.to_string())
+			.map_err(|_| format!("`{}` closed its input", self.command))?;
+		if queued > UNREAD_TURNS {
+			return Err(format!("`{}` stopped reading its input", self.command));
+		}
 		self.sent = Instant::now();
 		Ok(())
 	}
 
-	fn observe(&mut self, view: &View) -> Result<(), String> {
-		let mut text = self.buffer();
-		turn_text(view.map, view.state, view.conn, view.player, &mut text);
-		self.send(text)?;
-		if view.state.turn > 0 {
-			self.sent = Instant::now();
-		}
-		Ok(())
-	}
-
-	fn decide(&mut self, _view: &View) -> Result<Vec<Action>, String> {
-		let (arrived, line) = self.lines.recv_timeout(self.timeout).map_err(|_| {
-			format!(
-				"`{}` gave no answer within {:?}",
-				self.command, self.timeout
-			)
-		})?;
+	fn answer(&mut self) -> Result<String, String> {
+		let (arrived, line) = self
+			.lines
+			.recv_timeout(self.timeout)
+			.map_err(|why| match why {
+				RecvTimeoutError::Timeout => format!(
+					"`{}` gave no answer within {:?}",
+					self.command, self.timeout
+				),
+				RecvTimeoutError::Disconnected => {
+					format!("`{}` closed its output", self.command)
+				}
+			})?;
 		self.elapsed = arrived.saturating_duration_since(self.sent);
 		match self.lines.try_recv() {
-			Err(TryRecvError::Empty) => {}
-			_ => {
-				return Err(format!(
-					"`{}` wrote more than one line this turn",
-					self.command
-				));
-			}
+			Ok(_) => Err(format!(
+				"`{}` wrote more than one line this turn",
+				self.command
+			)),
+			Err(_) => Ok(line),
 		}
-		parse_actions(&line)
 	}
 
 	fn elapsed(&self) -> Duration {

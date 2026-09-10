@@ -1,7 +1,7 @@
 use crate::driver::{Driver, make_driver};
-use crate::game::{Overflow, Rules};
-use crate::map::{CG_HEIGHT, CG_TOWNS, CG_WIDTH, Map, format_map, parse_map, validate};
-use crate::mapgen::{GenParams, generate};
+use crate::game::DEFAULT_LEAGUE;
+use crate::grid::{Grid, parse};
+use crate::gridmaker;
 use clap::Args;
 use std::time::Duration;
 
@@ -44,105 +44,33 @@ impl BotArgs {
 
 #[derive(Args, Clone, Debug)]
 pub struct MapArgs {
-	/// map seed: the same seed always builds the same map
-	#[arg(long, default_value_t = 1)]
-	pub seed: u64,
+	/// CodinGame seed: the same seed builds the same board as the official referee
+	#[arg(long, default_value_t = 1, allow_negative_numbers = true)]
+	pub seed: i64,
 
-	/// read a fixed map from a file instead of generating one
-	#[arg(long, value_name = "FILE", conflicts_with_all = ["width", "height", "towns"])]
+	/// read a fixed board from a file instead of generating one
+	#[arg(long, value_name = "FILE")]
 	pub map: Option<String>,
 
-	/// accept a --map file outside the CodinGame size ranges
-	#[arg(long, requires = "map")]
-	pub loose_map: bool,
-
-	/// force the map width instead of drawing one from the seed
-	#[arg(long, value_name = "W", value_parser = ranged(CG_WIDTH))]
-	pub width: Option<usize>,
-
-	/// force the map height instead of drawing one from the seed
-	#[arg(long, value_name = "H", value_parser = ranged(CG_HEIGHT))]
-	pub height: Option<usize>,
-
-	/// force the town count instead of drawing one from the seed
-	#[arg(long, value_name = "N", value_parser = ranged(CG_TOWNS))]
-	pub towns: Option<usize>,
-}
-
-fn ranged(allowed: std::ops::RangeInclusive<usize>) -> clap::builder::RangedU64ValueParser<usize> {
-	clap::builder::RangedU64ValueParser::new()
-		.range(*allowed.start() as u64..=*allowed.end() as u64)
+	/// league level: 1 and 2 are the solo tutorials, 3 and up the real game
+	#[arg(long, value_name = "N", default_value_t = DEFAULT_LEAGUE)]
+	pub league: i32,
 }
 
 impl MapArgs {
-	pub fn shape(&self) -> GenParams {
-		GenParams {
-			width: self.width,
-			height: self.height,
-			towns: self.towns,
-		}
-	}
-
-	pub fn build(&self, seed: u64) -> Result<Map, String> {
+	pub fn build(&self, seed: i64) -> Result<Grid, String> {
 		let Some(path) = &self.map else {
-			return Ok(generate(seed, &self.shape()));
+			if seed == 0 {
+				return Err(
+					"seed 0 is not reproducible: the CodinGame engine ignores it and seeds itself \
+					 from the system"
+						.into(),
+				);
+			}
+			return Ok(gridmaker::make(seed));
 		};
 		let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
-		let map = parse_map(&text).map_err(|e| format!("{path}: {e}"))?;
-		if !self.loose_map {
-			validate(&map, true)
-				.map_err(|e| format!("{path}: {e} (--loose-map accepts it anyway)"))?;
-		}
-		Ok(map)
-	}
-
-	pub fn dump(&self) -> Result<String, String> {
-		self.build(self.seed).map(|map| format_map(&map))
-	}
-}
-
-#[derive(Args, Clone, Debug)]
-pub struct RuleArgs {
-	/// turn limit
-	#[arg(long, value_name = "N", default_value_t = crate::game::MAX_TURNS)]
-	pub turns: usize,
-
-	/// paint points handed out each turn
-	#[arg(long, value_name = "N", default_value_t = crate::game::PAINT_PER_TURN)]
-	pub paint: u32,
-
-	/// instability that inks a region out
-	#[arg(long, value_name = "N", default_value_t = crate::game::INK_THRESHOLD)]
-	pub ink: u8,
-
-	/// let DISRUPT actually ink regions out (silver league and up)
-	#[arg(long)]
-	pub disruption: bool,
-
-	/// let neutral tracks score for both players
-	#[arg(long)]
-	pub neutral_scores: bool,
-
-	/// treat a refused action as a loss instead of a no-op
-	#[arg(long)]
-	pub strict: bool,
-
-	/// what to do with an action that costs more paint than is left
-	#[arg(long, value_enum, default_value_t = Overflow::Stop)]
-	pub overflow: Overflow,
-}
-
-impl RuleArgs {
-	pub fn rules(&self) -> Rules {
-		Rules {
-			max_turns: self.turns,
-			paint: self.paint,
-			ink_threshold: self.ink,
-			disruption: self.disruption,
-			neutral_scores: self.neutral_scores,
-			strict: self.strict,
-			overflow: self.overflow,
-		}
+		parse(&text).map_err(|e| format!("{path}: {e}"))
 	}
 }
 

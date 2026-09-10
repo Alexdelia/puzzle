@@ -1,62 +1,74 @@
 #[path = "common.rs"]
 mod common;
 
-use btk::game::{Action, Rules};
-use common::{LARGE, MEDIUM, SMALL, after, fresh};
+use btk::pathfind::{autobuild, terrain_reachable, train_path};
+use common::{LARGE, after};
 
 fn main() {
 	divan::main()
 }
 
-#[divan::bench(args = [0, 25, 50, 100])]
-fn recompute_connections(bencher: divan::Bencher, turns: usize) {
-	let mut game = after(1, LARGE, turns);
-	let (map, state, conn) = (&game.map, &game.state, &mut game.conn);
-	bencher.bench_local(|| conn.recompute(map, state));
-}
-
 #[divan::bench(args = [0, 50, 100])]
-fn score_connections(bencher: divan::Bencher, turns: usize) {
-	let game = after(1, LARGE, turns);
-	let rules = Rules::default();
-	bencher.bench(|| divan::black_box(game.conn.gains(&game.state, &rules)));
-}
-
-#[divan::bench(args = [SMALL, MEDIUM, LARGE])]
-fn autoplace_on_an_empty_board(bencher: divan::Bencher, size: (usize, usize, usize)) {
-	bencher
-		.with_inputs(|| {
-			let game = fresh(1, size);
-			let (a, b) = (&game.map.towns[0], &game.map.towns[1]);
-			let line = vec![Action::Autoplace(a.x, a.y, b.x, b.y)];
-			(game, line)
-		})
-		.bench_local_refs(|(game, line)| {
-			game.step([line, &[Action::Wait]]).unwrap();
-		});
+fn train_paths(bencher: divan::Bencher, turns: i32) {
+	let game = after(LARGE, turns);
+	bencher.bench_local(|| {
+		for town in &game.grid.towns {
+			for &other in &town.desired {
+				divan::black_box(train_path(
+					&game.grid,
+					town.coord,
+					game.grid.towns[other].coord,
+				));
+			}
+		}
+	});
 }
 
 #[divan::bench(args = [0, 50])]
-fn a_turn_both_sides_contest(bencher: divan::Bencher, turns: usize) {
-	let mut game = after(3, LARGE, turns);
-	let towns = &game.map.towns;
-	let first = vec![Action::Autoplace(
-		towns[0].x, towns[0].y, towns[1].x, towns[1].y,
-	)];
-	let last = towns.len() - 1;
-	let second = vec![Action::Autoplace(
-		towns[last].x,
-		towns[last].y,
-		towns[0].x,
-		towns[0].y,
-	)];
-	bencher.bench_local(|| game.step([&first, &second]).unwrap());
+fn autoplace_between_two_towns(bencher: divan::Bencher, turns: i32) {
+	let game = after(LARGE, turns);
+	let from = game.grid.towns[0].coord;
+	let to = game.grid.towns[1].coord;
+	bencher.bench_local(|| divan::black_box(autobuild(&game.grid, from, to)));
+}
+
+#[divan::bench]
+fn game_over_check(bencher: divan::Bencher) {
+	let game = after(LARGE, 50);
+	bencher.bench_local(|| {
+		for town in &game.grid.towns {
+			for &other in &town.desired {
+				divan::black_box(terrain_reachable(
+					&game.grid,
+					town.coord,
+					game.grid.towns[other].coord,
+				));
+			}
+		}
+	});
+}
+
+#[divan::bench(args = [0, 50])]
+fn one_turn(bencher: divan::Bencher, turns: i32) {
+	let mut game = after(LARGE, turns);
+	let from = game.grid.towns[0].coord;
+	let to = game.grid.towns[1].coord;
+	let line = format!("AUTOPLACE {} {} {} {}", from.x, from.y, to.x, to.y);
+	bencher.bench_local(|| {
+		game.reset_turn_data();
+		game.take_commands(0, &line);
+		game.take_commands(1, "DISRUPT 0");
+		divan::black_box(game.perform_update())
+	});
 }
 
 #[divan::bench]
 fn an_idle_turn(bencher: divan::Bencher) {
-	let mut game = after(5, LARGE, 40);
-	game.rules.max_turns = usize::MAX;
-	let idle = [Action::Wait];
-	bencher.bench_local(|| divan::black_box(game.step([&idle, &idle]).unwrap()));
+	let mut game = after(LARGE, 40);
+	bencher.bench_local(|| {
+		game.reset_turn_data();
+		game.take_commands(0, "WAIT");
+		game.take_commands(1, "WAIT");
+		divan::black_box(game.perform_update())
+	});
 }

@@ -1,23 +1,15 @@
 #![allow(dead_code)]
 
-use btk::arena::run_match;
 use btk::driver::make_driver;
-use btk::game::{Game, Rules};
-use btk::mapgen::{GenParams, generate};
+use btk::game::{DEFAULT_LEAGUE, Game};
+use btk::gridmaker;
+use btk::proto::{init_lines, turn_lines};
 use std::path::PathBuf;
 use std::time::Duration;
 
-pub const SMALL: (usize, usize, usize) = (21, 14, 4);
-pub const MEDIUM: (usize, usize, usize) = (25, 17, 8);
-pub const LARGE: (usize, usize, usize) = (30, 20, 12);
-
-pub fn shape((width, height, towns): (usize, usize, usize)) -> GenParams {
-	GenParams {
-		width: Some(width),
-		height: Some(height),
-		towns: Some(towns),
-	}
-}
+pub const SMALL: i64 = 4;
+pub const MEDIUM: i64 = 5;
+pub const LARGE: i64 = 2;
 
 pub fn bot(name: &str) -> String {
 	let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), "..", "target", "release", name]
@@ -31,21 +23,40 @@ pub fn bot(name: &str) -> String {
 	path.to_string_lossy().into_owned()
 }
 
-pub fn fresh(seed: u64, size: (usize, usize, usize)) -> Game {
-	Game::new(generate(seed, &shape(size)), Rules::default())
+pub fn fresh(seed: i64) -> Game {
+	Game::new(gridmaker::make(seed), DEFAULT_LEAGUE)
 }
 
-pub fn after(seed: u64, size: (usize, usize, usize), turns: usize) -> Game {
-	let mut game = fresh(seed, size);
+pub fn after(seed: i64, turns: i32) -> Game {
+	let mut game = fresh(seed);
 	if turns == 0 {
 		return game;
 	}
-	game.rules.max_turns = turns;
-	let command = bot("greedy");
+	let command = bot("fuzz");
 	let timeout = Duration::from_secs(10);
-	let mut d0 = make_driver(&command, timeout).unwrap();
-	let mut d1 = make_driver(&command, timeout).unwrap();
-	run_match(&mut game, [d0.as_mut(), d1.as_mut()], None, None);
-	game.rules.max_turns = Rules::default().max_turns;
+	let mut sides = [
+		make_driver(&command, timeout).unwrap(),
+		make_driver(&command, timeout).unwrap(),
+	];
+	let mut frame = String::new();
+	for player in 0..2 {
+		init_lines(&game.grid, player, &mut frame);
+		sides[player].send(&frame).unwrap();
+	}
+	for _ in 0..turns {
+		if game.ended {
+			break;
+		}
+		game.reset_turn_data();
+		for player in 0..2 {
+			turn_lines(&game, player, &mut frame);
+			sides[player].send(&frame).unwrap();
+		}
+		let answers = [sides[0].answer().unwrap(), sides[1].answer().unwrap()];
+		for player in 0..2 {
+			game.take_commands(player, &answers[player]);
+		}
+		game.perform_update();
+	}
 	game
 }

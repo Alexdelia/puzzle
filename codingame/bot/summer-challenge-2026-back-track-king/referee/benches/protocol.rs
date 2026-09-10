@@ -1,8 +1,8 @@
 #[path = "common.rs"]
 mod common;
 
-use btk::game::parse_actions;
-use btk::proto::{init_text, turn_text};
+use btk::action::parse;
+use btk::proto::{init_lines, turn_lines};
 use common::{LARGE, SMALL, after};
 
 fn main() {
@@ -10,21 +10,23 @@ fn main() {
 }
 
 #[divan::bench(args = [SMALL, LARGE])]
-fn write_init_block(bencher: divan::Bencher, size: (usize, usize, usize)) {
-	let game = after(1, size, 0);
+fn write_init_block(bencher: divan::Bencher, seed: i64) {
+	let game = after(seed, 0);
+	let mut out = String::new();
+	init_lines(&game.grid, 0, &mut out);
 	bencher
-		.counter(divan::counter::BytesCount::of_str(&init_text(&game.map, 0)))
-		.bench(|| divan::black_box(init_text(&game.map, 0)));
+		.counter(divan::counter::BytesCount::of_str(&out))
+		.bench_local(|| init_lines(&game.grid, 0, &mut out));
 }
 
 #[divan::bench(args = [0, 50, 100])]
-fn write_turn_block(bencher: divan::Bencher, turns: usize) {
-	let game = after(1, LARGE, turns);
+fn write_turn_block(bencher: divan::Bencher, turns: i32) {
+	let game = after(LARGE, turns);
 	let mut out = String::new();
-	turn_text(&game.map, &game.state, &game.conn, 0, &mut out);
+	turn_lines(&game, 0, &mut out);
 	bencher
 		.counter(divan::counter::BytesCount::of_str(&out))
-		.bench_local(|| turn_text(&game.map, &game.state, &game.conn, 0, &mut out));
+		.bench_local(|| turn_lines(&game, 0, &mut out));
 }
 
 #[divan::bench(args = [
@@ -34,5 +36,5 @@ fn write_turn_block(bencher: divan::Bencher, turns: usize) {
 	"PLACE_TRACKS 1 1;PLACE_TRACKS 2 1;PLACE_TRACKS 3 1;DISRUPT 4 5",
 ])]
 fn parse_an_action_line(bencher: divan::Bencher, line: &str) {
-	bencher.bench(|| divan::black_box(parse_actions(line).unwrap()));
+	bencher.bench(|| divan::black_box(parse(line)));
 }

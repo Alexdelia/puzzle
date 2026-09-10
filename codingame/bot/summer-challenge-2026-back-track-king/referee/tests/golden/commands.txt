@@ -1,0 +1,100 @@
+line <WAIT>
+  intent WAIT
+line <wait>
+  intent WAIT
+line <WAITING>
+  rejected Invalid Input: Expected WAIT but got 'WAITING'
+line <WAIT >
+  intent WAIT
+line < WAIT>
+  intent WAIT
+line <>
+  rejected Invalid Input: Expected AUTOPLACE | PLACE_TRACK | DISRUPT | MESSAGE | WAIT but got ''
+line <;>
+line <;;>
+line <WAIT;>
+  intent WAIT
+line <WAIT;;>
+  intent WAIT
+line <;WAIT>
+  rejected Invalid Input: Expected AUTOPLACE | PLACE_TRACK | DISRUPT | MESSAGE | WAIT but got ''
+line <WAIT;;WAIT>
+  intent WAIT
+  rejected Invalid Input: Expected AUTOPLACE | PLACE_TRACK | DISRUPT | MESSAGE | WAIT but got ''
+line <PLACE_TRACKS 3 4>
+  intent PLACE_TRACKS 3 4
+line <place_tracks 3 4>
+  intent PLACE_TRACKS 3 4
+line <PLACE_TRACKS 03 04>
+  intent PLACE_TRACKS 3 4
+line <PLACE_TRACKS 3 4 5>
+  rejected Invalid Input: Expected PLACE_TRACK x y but got 'PLACE_TRACKS 3 4 5'
+line <PLACE_TRACKS  3 4>
+  rejected Invalid Input: Expected PLACE_TRACK x y but got 'PLACE_TRACKS  3 4'
+line <PLACE_TRACKS 3>
+  rejected Invalid Input: Expected PLACE_TRACK x y but got 'PLACE_TRACKS 3'
+line <PLACE_TRACKS -1 4>
+  rejected Invalid Input: Expected PLACE_TRACK x y but got 'PLACE_TRACKS -1 4'
+line <PLACE_TRACKS 3 99999999999>
+  rejected For input string: "99999999999"
+line <PLACE_TRACK 3 4>
+  rejected Invalid Input: Expected PLACE_TRACK x y but got 'PLACE_TRACK 3 4'
+line <AUTOPLACE 1 2 3 4>
+  intent AUTOPLACE 1 2 3 4
+line <AUTOPLACE 1 2 3>
+  rejected Invalid Input: Expected AUTOPLACE x1 y1 x2 y2 but got 'AUTOPLACE 1 2 3'
+line <AUTOPLACE 1 2 3 4 5>
+  rejected Invalid Input: Expected AUTOPLACE x1 y1 x2 y2 but got 'AUTOPLACE 1 2 3 4 5'
+line <autoplace 0 0 1 1>
+  intent AUTOPLACE 0 0 1 1
+line <DISRUPT 7>
+  intent DISRUPT 7
+line <DISRUPT 7 8>
+  intent DISRUPT_AT 7 8
+line <DISRUPT 7 8 9>
+  rejected Invalid Input: Expected DISRUPT zoneId but got 'DISRUPT 7 8 9'
+line <DISRUPT -3>
+  rejected Invalid Input: Expected DISRUPT zoneId but got 'DISRUPT -3'
+line <DISRUPT 2147483648>
+  rejected For input string: "2147483648"
+line <MESSAGE hello world>
+  message <hello world>
+line <MESSAGE >
+  rejected Invalid Input: Expected MESSAGE text but got 'MESSAGE'
+line <MESSAGE>
+  rejected Invalid Input: Expected MESSAGE text but got 'MESSAGE'
+line <message Hello>
+  message <Hello>
+line <MESSAGE a;MESSAGE b>
+  message <b>
+line <MESSAGE first;WAIT>
+  intent WAIT
+  message <first>
+line <WAIT;MESSAGE second>
+  intent WAIT
+  message <second>
+line <PLACE_TRACKS 1 1;DISRUPT 2;AUTOPLACE 0 0 4 4;MESSAGE go>
+  intent PLACE_TRACKS 1 1
+  intent DISRUPT 2
+  intent AUTOPLACE 0 0 4 4
+  message <go>
+line <PLACE_TRACKS 1 1;TELEPORT;PLACE_TRACKS 2 2>
+  intent PLACE_TRACKS 1 1
+  rejected Invalid Input: Expected AUTOPLACE | PLACE_TRACK | DISRUPT | MESSAGE | WAIT but got 'TELEPORT'
+line <  PLACE_TRACKS 1 1  ;  DISRUPT 2  >
+  intent PLACE_TRACKS 1 1
+  intent DISRUPT 2
+line <TELEPORT 1 2>
+  rejected Invalid Input: Expected AUTOPLACE | PLACE_TRACK | DISRUPT | MESSAGE | WAIT but got 'TELEPORT 1 2'
+line <AUTOPLACEX 1 2 3 4>
+  rejected Invalid Input: Expected AUTOPLACE x1 y1 x2 y2 but got 'AUTOPLACEX 1 2 3 4'
+line <PLACE_TRACKS	1 1>
+  rejected Invalid Input: Expected PLACE_TRACK x y but got 'PLACE_TRACKS	1 1'
+line <AUTOPLACE 1 99999999999 88888888888 4>
+  rejected For input string: "88888888888"
+line <AUTOPLACE 99999999999 1 2 3>
+  rejected For input string: "99999999999"
+line <PLACE_TRACKS 99999999999 88888888888>
+  rejected For input string: "99999999999"
+line <DISRUPT 99999999999 88888888888>
+  rejected For input string: "99999999999"

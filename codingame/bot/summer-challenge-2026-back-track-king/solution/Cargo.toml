@@ -17,4 +17,8 @@ path = "wait.rs"
 name = "greedy"
 path = "greedy.rs"
 
+[[bin]]
+name = "fuzz"
+path = "fuzz.rs"
+
 [dependencies]

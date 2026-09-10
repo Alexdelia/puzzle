@@ -1,603 +1,503 @@
-use crate::map::{Map, NO_TOWN};
-use std::collections::BinaryHeap;
+use crate::action::{Action, Commands};
+use crate::grid::{Coord, Grid, TRACK_NEUTRAL, TRACK_NONE};
+use crate::pathfind::{autobuild, terrain_reachable, train_path};
+use std::collections::BTreeMap;
 
-pub const MAX_TURNS: usize = 100;
-pub const PAINT_PER_TURN: u32 = 3;
-pub const INK_THRESHOLD: u8 = 4;
-
-pub const NO_TRACK: i8 = -1;
-pub const NEUTRAL: i8 = 2;
-
-const UNREACHED: u32 = u32::MAX;
-const HOP_SCALE: u32 = 1 << 12;
-
-#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Overflow {
-	Stop,
-	Skip,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Rules {
-	pub max_turns: usize,
-	pub paint: u32,
-	pub ink_threshold: u8,
-	pub disruption: bool,
-	pub neutral_scores: bool,
-	pub strict: bool,
-	pub overflow: Overflow,
-}
-
-impl Default for Rules {
-	fn default() -> Self {
-		Rules {
-			max_turns: MAX_TURNS,
-			paint: PAINT_PER_TURN,
-			ink_threshold: INK_THRESHOLD,
-			disruption: false,
-			neutral_scores: false,
-			strict: false,
-			overflow: Overflow::Stop,
-		}
-	}
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Action {
-	Place(usize, usize),
-	Autoplace(usize, usize, usize, usize),
-	DisruptRegion(usize),
-	DisruptCell(usize, usize),
-	Message(String),
-	Wait,
-}
-
-#[derive(Clone, Debug)]
-pub struct Foul {
-	pub player: usize,
-	pub reason: String,
-}
+pub const PASSIVE_INCOME: i32 = 3;
+pub const STARTING_DOSH: i32 = 0;
+pub const BLOT_POINTS_PER_TURN: i32 = 1;
+pub const MAX_TURNS: i32 = 100;
+pub const INSTABILITY_THRESHOLD_BASE: i32 = 4;
+pub const INSTABILITY_THRESHOLD_INCREASE: i32 = 0;
+/// `gameManager.setMaxTurns(400)`: the engine's own cap, which the 100-turn rule reaches first.
+pub const ENGINE_MAX_TURNS: i32 = 400;
+/// League 1 and 2 are solo tutorials; the real game starts at 3.
+pub const DEFAULT_LEAGUE: i32 = 3;
+/// `Player.getExpectedOutputLines()`.
+pub const EXPECTED_OUTPUT_LINES: i32 = 1;
 
 #[derive(Clone, Debug, Default)]
-pub struct TurnReport {
-	pub placed: [Vec<usize>; 2],
-	pub gained: [u32; 2],
-	pub inked: Vec<usize>,
-	pub skipped: [Vec<String>; 2],
-	pub messages: [Option<String>; 2],
+pub struct Player {
+	pub score: i32,
+	pub dosh: i32,
+	pub blot_points: i32,
+	pub message: Option<String>,
+	pub intents: Vec<Action>,
+	pub active: bool,
+	pub deactivated_by: Option<String>,
 }
 
-#[derive(Clone, Debug)]
-pub struct State {
-	pub turn: usize,
-	pub score: [u32; 2],
-	pub owner: Vec<i8>,
-	pub instability: Vec<u8>,
-	pub inked: Vec<bool>,
-}
-
-impl State {
-	pub fn new(map: &Map) -> Self {
-		State {
-			turn: 0,
-			score: [0; 2],
-			owner: vec![NO_TRACK; map.cells()],
-			instability: vec![0; map.region_count],
-			inked: vec![false; map.region_count],
+impl Player {
+	fn new() -> Self {
+		Player {
+			dosh: STARTING_DOSH,
+			active: true,
+			..Player::default()
 		}
 	}
 }
 
-pub fn parse_actions(line: &str) -> Result<Vec<Action>, String> {
-	let mut out = Vec::new();
-	for chunk in line.split(';') {
-		let text = chunk.trim();
-		if text.is_empty() {
-			return Err("empty action".into());
-		}
-		let mut tokens = text.split_whitespace();
-		let verb = tokens.next().unwrap();
-		let rest: Vec<&str> = tokens.collect();
-		let num = |i: usize| -> Result<usize, String> {
-			rest[i]
-				.parse::<i64>()
-				.map_err(|_| format!("{verb}: `{}` is not an integer", rest[i]))
-				.and_then(|v| {
-					usize::try_from(v).map_err(|_| format!("{verb}: negative coordinate"))
-				})
-		};
-		let action = match (verb, rest.len()) {
-			("PLACE_TRACKS", 2) => Action::Place(num(0)?, num(1)?),
-			("AUTOPLACE", 4) => Action::Autoplace(num(0)?, num(1)?, num(2)?, num(3)?),
-			("DISRUPT", 1) => Action::DisruptRegion(num(0)?),
-			("DISRUPT", 2) => Action::DisruptCell(num(0)?, num(1)?),
-			("MESSAGE", _) => Action::Message(rest.join(" ")),
-			("WAIT", 0) => Action::Wait,
-			_ => return Err(format!("unknown action `{text}`")),
-		};
-		out.push(action);
-	}
-	validate_actions(&out)?;
-	Ok(out)
+/// The counters the official referee reports as game metadata.
+#[derive(Clone, Debug, Default)]
+pub struct Stats {
+	pub placed_tracks: [i32; 2],
+	pub on_plains: [i32; 2],
+	pub on_river: [i32; 2],
+	pub on_mountains: [i32; 2],
+	pub zones_inked: [i32; 2],
+	pub own_tracks_inked_out: [i32; 2],
+	pub enemy_tracks_inked_out: [i32; 2],
+	pub extra_tiles_in_connection: [i32; 2],
+	pub autobuild_called: [i32; 2],
+	pub ownership_sum: [f32; 2],
+	pub ownership_count: [i32; 2],
 }
 
-pub fn validate_actions(actions: &[Action]) -> Result<(), String> {
-	if actions.is_empty() {
-		return Err("no action".into());
-	}
-	if actions
-		.iter()
-		.filter(|a| matches!(a, Action::Autoplace(..)))
-		.count()
-		> 1
-	{
-		return Err("more than one AUTOPLACE".into());
-	}
-	Ok(())
-}
-
-pub struct Connections {
-	pub pairs: Vec<(u8, u8)>,
-	pub paths: Vec<Vec<u32>>,
-	pub live: Vec<bool>,
-	pub cell_pairs: Vec<Vec<u16>>,
-	targets: Vec<u8>,
-	by_target: Vec<Vec<usize>>,
-	dist: Vec<u32>,
-	queue: std::collections::VecDeque<u32>,
-}
-
-impl Connections {
-	pub fn new(map: &Map) -> Self {
-		let mut pairs = Vec::new();
-		for (src, town) in map.towns.iter().enumerate() {
-			for &dst in &town.desired {
-				pairs.push((src as u8, dst));
-			}
-		}
-		pairs.sort_unstable();
-		let mut targets: Vec<u8> = pairs.iter().map(|p| p.1).collect();
-		targets.sort_unstable();
-		targets.dedup();
-		let by_target = targets
-			.iter()
-			.map(|&t| (0..pairs.len()).filter(|&i| pairs[i].1 == t).collect())
-			.collect();
-		Connections {
-			paths: vec![Vec::new(); pairs.len()],
-			live: vec![false; pairs.len()],
-			cell_pairs: vec![Vec::new(); map.cells()],
-			pairs,
-			targets,
-			by_target,
-			dist: vec![UNREACHED; map.cells()],
-			queue: Default::default(),
-		}
-	}
-
-	fn is_node(map: &Map, state: &State, cell: usize) -> bool {
-		map.town_at[cell] != NO_TOWN || state.owner[cell] != NO_TRACK
-	}
-
-	fn bfs(&mut self, map: &Map, state: &State, from: usize) {
-		self.dist.fill(UNREACHED);
-		self.queue.clear();
-		self.dist[from] = 0;
-		self.queue.push_back(from as u32);
-		while let Some(cell) = self.queue.pop_front() {
-			let next = self.dist[cell as usize] + 1;
-			for &n in &map.neighbors[cell as usize] {
-				if n < 0 {
-					continue;
-				}
-				let n = n as usize;
-				if self.dist[n] == UNREACHED && Self::is_node(map, state, n) {
-					self.dist[n] = next;
-					self.queue.push_back(n as u32);
-				}
-			}
-		}
-	}
-
-	pub fn recompute(&mut self, map: &Map, state: &State) {
-		for cell in self.cell_pairs.iter_mut() {
-			cell.clear();
-		}
-		self.live.fill(false);
-		for ti in 0..self.targets.len() {
-			let target = &map.towns[self.targets[ti] as usize];
-			let target_cell = map.idx(target.x, target.y);
-			self.bfs(map, state, target_cell);
-			for k in 0..self.by_target[ti].len() {
-				let pi = self.by_target[ti][k];
-				let src = &map.towns[self.pairs[pi].0 as usize];
-				let mut cur = map.idx(src.x, src.y);
-				if self.dist[cur] == UNREACHED {
-					continue;
-				}
-				let path = &mut self.paths[pi];
-				path.clear();
-				path.push(cur as u32);
-				while self.dist[cur] != 0 {
-					let want = self.dist[cur] - 1;
-					let step = map.neighbors[cur]
-						.iter()
-						.copied()
-						.find(|&n| n >= 0 && self.dist[n as usize] == want)
-						.expect("shortest path walk stalled");
-					cur = step as usize;
-					path.push(cur as u32);
-				}
-				self.live[pi] = true;
-			}
-		}
-		for pi in 0..self.pairs.len() {
-			if self.live[pi] {
-				for &cell in &self.paths[pi] {
-					self.cell_pairs[cell as usize].push(pi as u16);
-				}
-			}
-		}
-	}
-
-	pub fn gains(&self, state: &State, rules: &Rules) -> [u32; 2] {
-		let mut gain = [0u32; 2];
-		for pi in 0..self.pairs.len() {
-			if !self.live[pi] {
-				continue;
-			}
-			for &cell in &self.paths[pi] {
-				match state.owner[cell as usize] {
-					0 => gain[0] += 1,
-					1 => gain[1] += 1,
-					NEUTRAL if rules.neutral_scores => {
-						gain[0] += 1;
-						gain[1] += 1;
-					}
-					_ => {}
-				}
-			}
-		}
-		gain
-	}
-}
-
-pub struct Pathfinder {
-	dist: Vec<u32>,
-	heap: BinaryHeap<std::cmp::Reverse<(u32, u32)>>,
-	seen: Vec<bool>,
-	queue: std::collections::VecDeque<u32>,
-}
-
-impl Pathfinder {
-	pub fn new(map: &Map) -> Self {
-		Pathfinder {
-			dist: vec![UNREACHED; map.cells()],
-			heap: BinaryHeap::new(),
-			seen: vec![false; map.cells()],
-			queue: Default::default(),
-		}
-	}
-
-	fn paint(map: &Map, state: &State, cell: usize) -> u32 {
-		if map.town_at[cell] != NO_TOWN || state.owner[cell] != NO_TRACK {
-			0
+impl Stats {
+	pub fn average_ownership(&self, player: usize) -> f32 {
+		if self.ownership_count[player] == 0 {
+			0.0
 		} else {
-			map.cost(cell)
+			self.ownership_sum[player] / self.ownership_count[player] as f32
 		}
 	}
+}
 
-	fn weight(map: &Map, state: &State, cell: usize) -> u32 {
-		Self::paint(map, state, cell) * HOP_SCALE + 1
-	}
-
-	fn open(map: &Map, state: &State, cell: usize) -> bool {
-		!state.inked[map.region_of(cell)]
-	}
-
-	pub fn connected(&mut self, map: &Map, state: &State, from: usize, to: usize) -> bool {
-		if !Connections::is_node(map, state, from) || !Connections::is_node(map, state, to) {
-			return false;
-		}
-		self.seen.fill(false);
-		self.queue.clear();
-		self.seen[from] = true;
-		self.queue.push_back(from as u32);
-		while let Some(cell) = self.queue.pop_front() {
-			if cell as usize == to {
-				return true;
-			}
-			for &n in &map.neighbors[cell as usize] {
-				if n < 0 {
-					continue;
-				}
-				let n = n as usize;
-				if !self.seen[n] && Connections::is_node(map, state, n) {
-					self.seen[n] = true;
-					self.queue.push_back(n as u32);
-				}
-			}
-		}
-		false
-	}
-
-	pub fn cheapest(
-		&mut self,
-		map: &Map,
-		state: &State,
-		from: usize,
-		to: usize,
-		out: &mut Vec<usize>,
-	) {
-		out.clear();
-		if !Self::open(map, state, from) || !Self::open(map, state, to) {
-			return;
-		}
-		self.dist.fill(UNREACHED);
-		self.heap.clear();
-		self.dist[to] = Self::weight(map, state, to);
-		self.heap
-			.push(std::cmp::Reverse((self.dist[to], to as u32)));
-		while let Some(std::cmp::Reverse((d, cell))) = self.heap.pop() {
-			let cell = cell as usize;
-			if d > self.dist[cell] {
-				continue;
-			}
-			if cell == from {
-				break;
-			}
-			for &n in &map.neighbors[cell] {
-				if n < 0 {
-					continue;
-				}
-				let n = n as usize;
-				if !Self::open(map, state, n) {
-					continue;
-				}
-				let nd = d + Self::weight(map, state, n);
-				if nd < self.dist[n] {
-					self.dist[n] = nd;
-					self.heap.push(std::cmp::Reverse((nd, n as u32)));
-				}
-			}
-		}
-		if self.dist[from] == UNREACHED {
-			return;
-		}
-		let mut cur = from;
-		loop {
-			if Self::paint(map, state, cur) > 0 {
-				out.push(cur);
-			}
-			if cur == to {
-				return;
-			}
-			let want = self.dist[cur] - Self::weight(map, state, cur);
-			let step = map.neighbors[cur]
-				.iter()
-				.copied()
-				.find(|&n| n >= 0 && self.dist[n as usize] == want)
-				.expect("cheapest path walk stalled");
-			cur = step as usize;
-		}
-	}
+/// What one turn's update did, for traces and the viewer-less arena.
+#[derive(Clone, Debug, Default)]
+pub struct TurnReport {
+	pub built: Vec<(Coord, i8)>,
+	pub disrupted: [Option<usize>; 2],
+	pub inked: Vec<usize>,
+	pub gained: [i32; 2],
+	pub errors: Vec<String>,
 }
 
 pub struct Game {
-	pub map: Map,
-	pub rules: Rules,
-	pub state: State,
-	pub conn: Connections,
-	pathfinder: Pathfinder,
-	scratch: Vec<usize>,
+	pub grid: Grid,
+	pub players: [Player; 2],
+	pub turn: i32,
+	pub league: i32,
+	pub instability_threshold: i32,
+	pub in_tutorial: bool,
+	pub stats: Stats,
+	pub summary: Vec<String>,
+	pub ended: bool,
+	tutorial_inked_enemy_track: bool,
+	successful_blots: BTreeMap<usize, usize>,
 }
 
 impl Game {
-	pub fn new(map: Map, rules: Rules) -> Self {
-		let state = State::new(&map);
-		let mut conn = Connections::new(&map);
-		conn.recompute(&map, &state);
+	pub fn new(grid: Grid, league: i32) -> Self {
 		Game {
-			pathfinder: Pathfinder::new(&map),
-			scratch: Vec::new(),
-			conn,
-			state,
-			map,
-			rules,
+			grid,
+			players: [Player::new(), Player::new()],
+			turn: 0,
+			league,
+			instability_threshold: INSTABILITY_THRESHOLD_BASE,
+			in_tutorial: league == 1 || league == 2,
+			stats: Stats::default(),
+			summary: Vec::new(),
+			ended: false,
+			tutorial_inked_enemy_track: false,
+			successful_blots: BTreeMap::new(),
 		}
 	}
 
-	pub fn over(&self) -> bool {
-		self.state.turn >= self.rules.max_turns
+	pub fn active_players(&self) -> usize {
+		self.players.iter().filter(|player| player.active).count()
 	}
 
-	fn cell_of(&self, x: usize, y: usize) -> Option<usize> {
-		(x < self.map.width && y < self.map.height).then(|| self.map.idx(x, y))
-	}
-
-	fn place_refusal(&self, cell: usize, claimed: &[usize]) -> Option<&'static str> {
-		if self.map.town_at[cell] != NO_TOWN {
-			Some("cell holds a town")
-		} else if self.state.owner[cell] != NO_TRACK {
-			Some("cell already holds a track")
-		} else if self.state.inked[self.map.region_of(cell)] {
-			Some("region is inked out")
-		} else if claimed.contains(&cell) {
-			Some("cell already painted this turn")
-		} else {
-			None
+	/// `Referee.gameTurn`'s first move: last turn's intents and messages are dropped.
+	pub fn reset_turn_data(&mut self) {
+		for player in &mut self.players {
+			player.intents.clear();
+			player.message = None;
 		}
 	}
 
-	fn disrupt_refusal(&self, region: usize) -> Option<&'static str> {
-		if region >= self.map.region_count {
-			Some("no such region")
-		} else if self.map.region_has_town[region] {
-			Some("region holds a town")
-		} else if self.state.inked[region] {
-			Some("region is already inked out")
-		} else {
-			None
+	/// Hands one player's output line to the game, disqualifying them if it does not parse.
+	pub fn take_commands(&mut self, player: usize, line: &str) {
+		let Commands {
+			intents,
+			message,
+			rejected,
+		} = crate::action::parse(line);
+		self.players[player].intents = intents;
+		if let Some(text) = message {
+			self.players[player].message = Some(text);
+		}
+		if let Some(why) = rejected {
+			self.disqualify(player, why);
 		}
 	}
 
-	pub fn step(&mut self, actions: [&[Action]; 2]) -> Result<TurnReport, Foul> {
+	pub fn timed_out(&mut self, player: usize) {
+		self.players[player].active = false;
+		self.players[player].deactivated_by = Some("Timeout!".into());
+		self.summary.push(format!(
+			"${player} has not provided {EXPECTED_OUTPUT_LINES} lines in time"
+		));
+	}
+
+	fn disqualify(&mut self, player: usize, why: String) {
+		self.players[player].active = false;
+		self.players[player].deactivated_by = Some(why.clone());
+		self.players[player].score = -1;
+		self.summary.push(why);
+		self.summary
+			.push(error_message(&format!("${player}: disqualified!")));
+	}
+
+	pub fn perform_update(&mut self) -> TurnReport {
 		let mut report = TurnReport::default();
-		let mut disrupted = [None; 2];
+		self.turn += 1;
 
+		self.do_income();
+		self.compute_autobuilds(&mut report);
+		self.do_actions(&mut report);
+		self.do_instability_check(&mut report);
+		self.move_trains(&mut report);
+		self.compute_tile_states();
+
+		if self.is_game_over() {
+			self.ended = true;
+		}
+		report
+	}
+
+	fn do_income(&mut self) {
+		for player in &mut self.players {
+			player.dosh = PASSIVE_INCOME;
+			player.blot_points = BLOT_POINTS_PER_TURN;
+		}
+	}
+
+	fn report_error(&mut self, report: &mut TurnReport, player: usize, message: String) {
+		let line = error_message(&format!("${player} {message}"));
+		report.errors.push(line.clone());
+		self.summary.push(line);
+	}
+
+	fn compute_autobuilds(&mut self, report: &mut TurnReport) {
 		for player in 0..2 {
-			let mut paint = self.rules.paint;
-			let mut broke = false;
-			let mut claimed: Vec<usize> = Vec::new();
-			let mut wanted: Vec<usize> = Vec::new();
-			let strict = self.rules.strict;
-			let refuse = |player: usize, why: String| -> Result<(), Foul> {
-				if strict {
-					Err(Foul {
+			let mut used = false;
+			let mut resolved: Vec<Action> = Vec::new();
+			for intent in std::mem::take(&mut self.players[player].intents) {
+				let Action::Autoplace { from, to } = intent else {
+					resolved.push(intent);
+					continue;
+				};
+				if used {
+					self.report_error(
+						report,
 						player,
-						reason: why,
-					})
-				} else {
-					Ok(())
-				}
-			};
-
-			for action in actions[player] {
-				wanted.clear();
-				let generated = matches!(action, Action::Autoplace(..));
-				if broke && matches!(action, Action::Place(..) | Action::Autoplace(..)) {
+						"Only one autobuild action allowed per turn.".into(),
+					);
 					continue;
 				}
-				match action {
-					Action::Wait => continue,
-					Action::Message(text) => {
-						report.messages[player] = Some(text.clone());
-						continue;
+				resolved.extend(autobuild(&self.grid, from, to).into_iter().map(|at| {
+					Action::Place {
+						at,
+						autobuilt: true,
 					}
-					Action::Place(x, y) => match self.cell_of(*x, *y) {
-						Some(cell) => wanted.push(cell),
-						None => {
-							return Err(Foul {
-								player,
-								reason: format!("PLACE_TRACKS {x} {y} is off the map"),
-							});
-						}
-					},
-					Action::Autoplace(fx, fy, tx, ty) => {
-						let (Some(from), Some(to)) =
-							(self.cell_of(*fx, *fy), self.cell_of(*tx, *ty))
-						else {
-							return Err(Foul {
-								player,
-								reason: format!("AUTOPLACE {fx} {fy} {tx} {ty} is off the map"),
-							});
-						};
-						if !self.pathfinder.connected(&self.map, &self.state, from, to) {
-							self.pathfinder.cheapest(
-								&self.map,
-								&self.state,
-								from,
-								to,
-								&mut self.scratch,
-							);
-							wanted.extend_from_slice(&self.scratch);
-						}
+				}));
+				used = true;
+				self.stats.autobuild_called[player] += 1;
+			}
+			self.players[player].intents = resolved;
+		}
+	}
+
+	fn do_actions(&mut self, report: &mut TurnReport) {
+		let mut claims: BTreeMap<Coord, Vec<usize>> = BTreeMap::new();
+		let mut order: Vec<Coord> = Vec::new();
+
+		for player in 0..2 {
+			let mut autobuild_interrupted = false;
+			for intent in self.players[player].intents.clone() {
+				if autobuild_interrupted && intent.is_autobuilt() {
+					continue;
+				}
+				let Action::Place { at, autobuilt } = intent else {
+					continue;
+				};
+				let Some(tile) = self.grid.get(at) else {
+					self.report_error(report, player, format!("Not part of grid: {at}"));
+					continue;
+				};
+				if tile.is_town() {
+					self.report_error(
+						report,
+						player,
+						format!("Cannot place tracks on a town at {at}"),
+					);
+					continue;
+				}
+				let zone = self.grid.zone_of(at);
+				if zone.inked {
+					let id = zone.id;
+					self.report_error(report, player, format!("Cannot build in region {id}"));
+					continue;
+				}
+				let taken = claims.get(&at).is_some_and(|by| by.contains(&player));
+				if self.grid.tile(at).track != TRACK_NONE || taken {
+					self.report_error(
+						report,
+						player,
+						format!("Cannot place tracks on existing tracks at {at}"),
+					);
+					continue;
+				}
+				let cost = self.grid.tile(at).rail_cost();
+				if self.players[player].dosh < cost {
+					if autobuilt {
+						self.report_error(
+							report,
+							player,
+							format!(
+								"Autobuild interrupted: not enough track points to build a track at {at}."
+							),
+						);
+						autobuild_interrupted = true;
+					} else {
+						self.report_error(
+							report,
+							player,
+							format!("Not enough track points to build a track at {at}."),
+						);
 					}
-					Action::DisruptRegion(_) | Action::DisruptCell(..) => {
-						if !self.rules.disruption {
-							report.skipped[player].push("DISRUPT: inert in this league".into());
-							continue;
-						}
-						let region = match action {
-							Action::DisruptRegion(r) => *r,
-							Action::DisruptCell(x, y) => match self.cell_of(*x, *y) {
-								Some(cell) => self.map.region_of(cell),
-								None => {
-									return Err(Foul {
-										player,
-										reason: format!("DISRUPT {x} {y} is off the map"),
-									});
-								}
-							},
-							_ => unreachable!(),
-						};
-						if disrupted[player].is_some() {
-							refuse(player, "more than one DISRUPT".into())?;
-							report.skipped[player].push("DISRUPT: point already spent".into());
-							continue;
-						}
-						if let Some(why) = self.disrupt_refusal(region) {
-							refuse(player, format!("DISRUPT {region}: {why}"))?;
-							report.skipped[player].push(format!("DISRUPT {region}: {why}"));
-							continue;
-						}
-						disrupted[player] = Some(region);
-						continue;
-					}
+					continue;
 				}
 
-				for &cell in &wanted {
-					let (x, y) = self.map.xy(cell);
-					if let Some(why) = self.place_refusal(cell, &claimed) {
-						if !generated {
-							refuse(player, format!("PLACE_TRACKS {x} {y}: {why}"))?;
-						}
-						report.skipped[player].push(format!("PLACE_TRACKS {x} {y}: {why}"));
-						continue;
-					}
-					let cost = self.map.cost(cell);
-					if cost > paint {
-						report.skipped[player]
-							.push(format!("PLACE_TRACKS {x} {y}: not enough paint"));
-						if self.rules.overflow == Overflow::Stop {
-							broke = true;
-							break;
-						}
-						continue;
-					}
-					paint -= cost;
-					claimed.push(cell);
+				claims.entry(at).or_default().push(player);
+				order.retain(|&other| other != at);
+				order.push(at);
+
+				self.players[player].dosh -= cost;
+				self.stats.placed_tracks[player] += 1;
+				let tile = self.grid.tile(at);
+				if tile.is_mountain() {
+					self.stats.on_mountains[player] += 1;
+				} else if tile.is_water() {
+					self.stats.on_river[player] += 1;
+				} else if tile.is_plains() {
+					self.stats.on_plains[player] += 1;
 				}
 			}
-			report.placed[player] = claimed;
+		}
+
+		for at in order {
+			let by = &claims[&at];
+			let owner = if by.len() == 1 {
+				by[0] as i8
+			} else {
+				TRACK_NEUTRAL
+			};
+			self.grid.tile_mut(at).track = owner;
+			report.built.push((at, owner));
 		}
 
 		for player in 0..2 {
-			let other = 1 - player;
-			for i in 0..report.placed[player].len() {
-				let cell = report.placed[player][i];
-				self.state.owner[cell] = if report.placed[other].contains(&cell) {
-					NEUTRAL
-				} else {
-					player as i8
+			for intent in self.players[player].intents.clone() {
+				let zone = match intent {
+					Action::Disrupt { zone } => zone,
+					Action::DisruptAt { at } => match self.grid.get(at) {
+						Some(tile) => tile.zone as i32,
+						None => {
+							self.report_error(report, player, format!("Not part of grid: {at}"));
+							continue;
+						}
+					},
+					_ => continue,
 				};
+				if self.players[player].blot_points <= 0 {
+					self.report_error(report, player, "Not enough disruption points.".into());
+					continue;
+				}
+				if zone < 0 || zone as usize >= self.grid.zones.len() {
+					self.report_error(report, player, format!("Invalid region id: {zone}"));
+					continue;
+				}
+				let zone = zone as usize;
+				if self.grid.zones[zone].inked {
+					self.report_error(
+						report,
+						player,
+						format!("Cannot disrupt region{zone}. Already inked out."),
+					);
+					continue;
+				}
+				if !self.grid.zones[zone].towns.is_empty() {
+					self.report_error(
+						report,
+						player,
+						format!("Cannot disrupt region{zone}. It contains a town."),
+					);
+					continue;
+				}
+				self.players[player].blot_points -= 1;
+				self.grid.zones[zone].instability += 1;
+				self.successful_blots.insert(player, zone);
+				report.disrupted[player] = Some(zone);
 			}
 		}
+	}
 
-		for target in disrupted.into_iter().flatten() {
-			let reached = (self.state.instability[target] + 1).min(self.rules.ink_threshold);
-			self.state.instability[target] = reached;
-			if reached >= self.rules.ink_threshold && !self.state.inked[target] {
-				self.state.inked[target] = true;
-				report.inked.push(target);
+	fn do_instability_check(&mut self, report: &mut TurnReport) {
+		let to_ink: Vec<usize> = self
+			.grid
+			.zones
+			.iter()
+			.filter(|zone| {
+				!zone.inked
+					&& zone.towns.is_empty()
+					&& zone.instability >= self.instability_threshold
+			})
+			.map(|zone| zone.id)
+			.collect();
+
+		for zone in to_ink {
+			self.instability_threshold += INSTABILITY_THRESHOLD_INCREASE;
+			self.grid.zones[zone].inked = true;
+			report.inked.push(zone);
+
+			let mut wiped = [0i32; 3];
+			for at in self.grid.zones[zone].coords.clone() {
+				let tile = self.grid.tile_mut(at);
+				if !tile.is_track() {
+					continue;
+				}
+				if tile.track > -1 {
+					wiped[tile.track as usize] += 1;
+				}
+				tile.track = TRACK_NONE;
 			}
-		}
-		for &region in &report.inked {
-			for cell in 0..self.map.cells() {
-				if self.map.region_of(cell) == region {
-					self.state.owner[cell] = NO_TRACK;
+
+			if self.successful_blots.get(&0) == Some(&zone) && wiped[1] > 0 {
+				self.tutorial_inked_enemy_track = true;
+			}
+			for player in 0..2 {
+				if self.successful_blots.get(&player) == Some(&zone) {
+					self.stats.zones_inked[player] += 1;
+					self.stats.own_tracks_inked_out[player] += wiped[player];
+					self.stats.enemy_tracks_inked_out[player] += wiped[1 - player];
 				}
 			}
 		}
-
-		if !report.placed[0].is_empty() || !report.placed[1].is_empty() || !report.inked.is_empty()
-		{
-			self.conn.recompute(&self.map, &self.state);
-		}
-		report.gained = self.conn.gains(&self.state, &self.rules);
-		self.state.score[0] += report.gained[0];
-		self.state.score[1] += report.gained[1];
-		self.state.turn += 1;
-		Ok(report)
 	}
+
+	fn move_trains(&mut self, report: &mut TurnReport) {
+		for id in 0..self.grid.towns.len() {
+			let from = self.grid.towns[id].coord;
+			let desired = self.grid.towns[id].desired.clone();
+			let mut active = Vec::new();
+			let mut paths: BTreeMap<usize, Vec<Coord>> = BTreeMap::new();
+
+			for other in desired {
+				let to = self.grid.towns[other].coord;
+				let path = train_path(&self.grid, from, to);
+				if path.is_empty() {
+					continue;
+				}
+				active.push(other);
+
+				let mut points = [0i32; 2];
+				for &at in &path {
+					match self.grid.tile(at).track {
+						0 => points[0] += 1,
+						1 => points[1] += 1,
+						_ => {}
+					}
+				}
+				for player in 0..2 {
+					if points[player] == 0 {
+						continue;
+					}
+					self.players[player].score += points[player];
+					report.gained[player] += points[player];
+					self.stats.extra_tiles_in_connection[player] +=
+						path.len() as i32 - from.manhattan_to(to);
+					self.stats.ownership_sum[player] += points[player] as f32 / path.len() as f32;
+					self.stats.ownership_count[player] += 1;
+				}
+				paths.insert(other, path);
+			}
+
+			self.grid.towns[id].active = active;
+			self.grid.towns[id].paths = paths;
+		}
+	}
+
+	fn compute_tile_states(&mut self) {
+		for tile in &mut self.grid.tiles {
+			tile.connections.clear();
+		}
+		for id in 0..self.grid.towns.len() {
+			for (&other, path) in &self.grid.towns[id].paths.clone() {
+				for &at in path {
+					self.grid
+						.tile_mut(at)
+						.connections
+						.push((id as u8, other as u8));
+				}
+			}
+		}
+	}
+
+	pub fn is_game_over(&self) -> bool {
+		if self.in_tutorial {
+			return self.tutorial_objective_complete() || self.turn >= MAX_TURNS;
+		}
+		!self.any_connection_still_possible() || self.turn >= MAX_TURNS
+	}
+
+	fn any_connection_still_possible(&self) -> bool {
+		self.grid.towns.iter().any(|town| {
+			town.desired.iter().any(|&other| {
+				terrain_reachable(&self.grid, town.coord, self.grid.towns[other].coord)
+			})
+		})
+	}
+
+	fn tutorial_objective_complete(&self) -> bool {
+		match self.league {
+			1 => self.players[0].score >= 1,
+			2 => self.tutorial_inked_enemy_track,
+			_ => false,
+		}
+	}
+
+	/// `Game.onEnd`: the scores the endscreen reports, and the texts beside them.
+	pub fn on_end(&mut self) -> [String; 2] {
+		if self.in_tutorial {
+			let win = self.tutorial_objective_complete();
+			self.players[0].score = if win { 0 } else { -1 };
+			self.players[1].score = if win { -1 } else { 0 };
+			return [
+				if win {
+					"objective complete".into()
+				} else {
+					"objective failed".into()
+				},
+				"-".into(),
+			];
+		}
+		let mut texts = [String::new(), String::new()];
+		for player in 0..2 {
+			if !self.players[player].active {
+				self.players[player].score = -1;
+				texts[player] = "-".into();
+			} else {
+				let score = self.players[player].score;
+				texts[player] = format!("{score} point{}", if score > 1 { "s" } else { "" });
+			}
+		}
+		texts
+	}
+}
+
+/// `GameManager.formatErrorMessage`.
+pub fn error_message(message: &str) -> String {
+	format!("¤RED¤{message}§RED§")
 }

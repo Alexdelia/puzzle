@@ -1,0 +1,282 @@
+seed 1
+nextInt -1765061395
+nextInt -958952890
+nextInt 1714755920
+nextInt -585300305
+nextInt 1432426612
+nextInt 554064022
+nextInt 1614405352
+nextInt 861636861
+nextInt(1) 0
+nextInt(2) 1
+nextInt(3) 0
+nextInt(7) 4
+nextInt(16) 12
+nextInt(100) 94
+nextInt(1000) 897
+nextInt(65536) 49574
+nextInt(14,21) 17
+nextInt(14,21) 18
+nextInt(14,21) 14
+nextInt(14,21) 18
+nextInt(2,8) 5
+nextInt(0,5) 0
+nextFloat 1048345412
+nextFloat 1036916744
+nextFloat 1062380455
+nextFloat 1040024432
+nextFloat 1064152063
+nextFloat 1060073605
+nextFloat(1.0) 1038114792
+nextFloat(0.055) 1018588698
+nextFloat(12.6) 1079732771
+nextFloat(24.0) 1101774608
+nextFloat(3.5) 1019136528
+nextBoolean 1
+nextBoolean 0
+nextBoolean 1
+nextBoolean 0
+nextBoolean 0
+nextBoolean 1
+nextDouble 4600716074298720722
+shuffle(1) 0
+shuffle(2) 0 1
+shuffle(5) 0 1 2 3 4
+shuffle(17) 5 3 13 16 9 12 0 6 1 8 4 10 11 14 2 7 15
+shuffle(64) 45 20 35 41 25 29 18 3 42 7 13 59 2 55 53 49 10 15 39 0 21 51 4 60 50 36 24 9 5 63 37 57 32 58 11 40 8 28 52 54 6 44 62 30 33 27 46 34 26 19 16 48 12 23 61 17 56 1 38 22 14 31 43 47
+nextBytes 136 22 218 38 105 116 9 207 101 83 187 251 135 106 116 152 246 58 183 91 233 155 135 255 232 43 57 241 63 219 54 198 69 109 233 252 143
+seed -1
+nextInt -1108850615
+nextInt 1250324966
+nextInt 494753579
+nextInt -1667380268
+nextInt 776981688
+nextInt -721045671
+nextInt 2008388605
+nextInt 977846932
+nextInt(1) 0
+nextInt(2) 0
+nextInt(3) 1
+nextInt(7) 2
+nextInt(16) 1
+nextInt(100) 37
+nextInt(1000) 84
+nextInt(65536) 45198
+nextInt(14,21) 14
+nextInt(14,21) 20
+nextInt(14,21) 19
+nextInt(14,21) 17
+nextInt(2,8) 7
+nextInt(0,5) 1
+nextFloat 1060073929
+nextFloat 1057054468
+nextFloat 1057839295
+nextFloat 1063924743
+nextFloat 1049231014
+nextFloat 1054266432
+nextFloat(1.0) 1052630076
+nextFloat(0.055) 1012271492
+nextFloat(12.6) 1093700675
+nextFloat(24.0) 1078762166
+nextFloat(3.5) 1075146992
+nextBoolean 1
+nextBoolean 1
+nextBoolean 1
+nextBoolean 1
+nextBoolean 0
+nextBoolean 1
+nextDouble 4603319456139198010
+shuffle(1) 0
+shuffle(2) 1 0
+shuffle(5) 4 2 3 1 0
+shuffle(17) 7 12 8 3 16 13 2 10 15 5 4 0 6 9 14 11 1
+shuffle(64) 4 61 14 6 44 62 50 55 20 10 21 39 18 37 28 43 59 47 3 27 15 22 25 56 53 2 24 40 41 32 8 30 63 52 36 11 7 54 58 60 48 34 38 12 45 46 13 0 35 42 49 16 19 57 33 17 26 31 1 23 29 9 5 51
+nextBytes 36 44 94 59 241 250 178 138 25 79 102 61 4 188 221 47 208 182 77 149 241 181 164 63 40 235 197 208 115 67 251 123 174 159 163 242 40
+seed 3967011272695928663
+nextInt -1633721228
+nextInt -1087869910
+nextInt 1120573129
+nextInt -1488002135
+nextInt 1604496820
+nextInt 2101278521
+nextInt 906493271
+nextInt -770719760
+nextInt(1) 0
+nextInt(2) 0
+nextInt(3) 1
+nextInt(7) 2
+nextInt(16) 14
+nextInt(100) 46
+nextInt(1000) 85
+nextInt(65536) 27543
+nextInt(14,21) 19
+nextInt(14,21) 14
+nextInt(14,21) 16
+nextInt(14,21) 17
+nextInt(2,8) 3
+nextInt(0,5) 1
+nextFloat 1064706127
+nextFloat 1019992192
+nextFloat 1017056576
+nextFloat 1035468920
+nextFloat 1015124800
+nextFloat 1053988220
+nextFloat(1.0) 1057005339
+nextFloat(0.055) 1013575898
+nextFloat(12.6) 1080748923
+nextFloat(24.0) 1082068898
+nextFloat(3.5) 1064916390
+nextBoolean 0
+nextBoolean 0
+nextBoolean 1
+nextBoolean 1
+nextBoolean 0
+nextBoolean 1
+nextDouble 4591121375354078400
+shuffle(1) 0
+shuffle(2) 1 0
+shuffle(5) 3 2 4 0 1
+shuffle(17) 2 4 14 9 10 6 8 5 3 1 13 15 0 11 7 12 16
+shuffle(64) 48 51 10 23 5 41 47 63 45 0 61 52 14 2 7 27 32 49 38 39 30 3 6 1 43 53 18 9 16 28 36 29 50 21 31 19 13 34 40 62 35 59 46 37 57 33 55 24 15 26 4 58 42 56 54 17 22 20 60 11 8 25 44 12
+nextBytes 4 183 224 20 239 27 16 117 209 72 170 29 124 130 207 176 253 134 229 66 27 79 7 112 50 249 187 111 73 217 222 130 14 36 127 133 244
+seed 42
+nextInt -720715128
+nextInt -1190207954
+nextInt 823853623
+nextInt 1808432240
+nextInt 800467495
+nextInt -1172697074
+nextInt -887193915
+nextInt -677659203
+nextInt(1) 0
+nextInt(2) 0
+nextInt(3) 2
+nextInt(7) 5
+nextInt(16) 7
+nextInt(100) 67
+nextInt(1000) 584
+nextInt(65536) 63855
+nextInt(14,21) 15
+nextInt(14,21) 18
+nextInt(14,21) 14
+nextInt(14,21) 16
+nextInt(2,8) 3
+nextInt(0,5) 4
+nextFloat 1023977712
+nextFloat 1064306409
+nextFloat 1026570800
+nextFloat 1060487863
+nextFloat 1045000660
+nextFloat 1056526760
+nextFloat(1.0) 1046623644
+nextFloat(0.055) 992567991
+nextFloat(12.6) 1091717281
+nextFloat(24.0) 1097313111
+nextFloat(3.5) 1073493234
+nextBoolean 0
+nextBoolean 0
+nextBoolean 0
+nextBoolean 1
+nextBoolean 1
+nextBoolean 1
+nextDouble 4603233140496890991
+shuffle(1) 0
+shuffle(2) 0 1
+shuffle(5) 4 3 2 1 0
+shuffle(17) 6 2 0 8 11 4 13 14 5 12 7 15 3 10 9 16 1
+shuffle(64) 22 38 44 61 58 23 21 39 50 9 14 53 17 10 51 57 6 5 16 32 33 29 62 8 1 18 46 3 2 48 26 34 42 43 52 0 30 40 41 36 47 20 25 13 54 24 37 56 4 19 45 11 15 7 35 59 28 12 31 55 49 60 63 27
+nextBytes 82 173 243 168 85 124 182 147 238 226 55 202 149 94 158 173 223 135 13 230 57 117 209 196 240 72 88 169 156 7 33 82 23 192 157 219 91
+seed 7
+nextInt 1560068868
+nextInt -555164231
+nextInt 1313547762
+nextInt 2058655692
+nextInt -1909816876
+nextInt 1605250138
+nextInt -1373322736
+nextInt -1775146144
+nextInt(1) 0
+nextInt(2) 1
+nextInt(3) 1
+nextInt(7) 3
+nextInt(16) 0
+nextInt(100) 33
+nextInt(1000) 687
+nextInt(65536) 35278
+nextInt(14,21) 16
+nextInt(14,21) 16
+nextInt(14,21) 18
+nextInt(14,21) 19
+nextInt(2,8) 7
+nextInt(0,5) 1
+nextFloat 988166144
+nextFloat 1062272455
+nextFloat 1064749329
+nextFloat 1060887267
+nextFloat 1063473889
+nextFloat 1054041590
+nextFloat(1.0) 1059954233
+nextFloat(0.055) 990958703
+nextFloat(12.6) 1093856646
+nextFloat(24.0) 1097680204
+nextFloat(3.5) 1075670086
+nextBoolean 0
+nextBoolean 0
+nextBoolean 0
+nextBoolean 0
+nextBoolean 1
+nextBoolean 0
+nextDouble 4603711541073452450
+shuffle(1) 0
+shuffle(2) 0 1
+shuffle(5) 0 3 2 1 4
+shuffle(17) 0 16 8 6 12 10 2 9 15 7 5 3 13 11 14 4 1
+shuffle(64) 15 16 58 63 18 45 13 12 31 19 5 41 1 11 34 50 22 30 39 7 56 4 53 26 43 29 44 24 33 14 36 21 25 3 2 49 38 60 27 20 46 0 55 47 54 62 10 32 51 61 59 48 42 35 9 17 40 52 28 37 6 23 8 57
+nextBytes 143 36 161 152 131 248 200 174 63 217 129 14 134 175 127 248 198 47 140 236 116 77 193 153 128 183 11 60 50 53 167 64 167 235 102 251 96
+seed -8888888888888
+nextInt -574300498
+nextInt 1467512217
+nextInt -1080981101
+nextInt -1216978631
+nextInt 789318955
+nextInt -1175585345
+nextInt 1629946252
+nextInt -566789275
+nextInt(1) 0
+nextInt(2) 0
+nextInt(3) 1
+nextInt(7) 6
+nextInt(16) 6
+nextInt(100) 98
+nextInt(1000) 462
+nextInt(65536) 40621
+nextInt(14,21) 18
+nextInt(14,21) 19
+nextInt(14,21) 17
+nextInt(14,21) 14
+nextInt(2,8) 4
+nextInt(0,5) 3
+nextFloat 1052684570
+nextFloat 1057289808
+nextFloat 1051915102
+nextFloat 1044899396
+nextFloat 1060553403
+nextFloat 1055312244
+nextFloat(1.0) 1062921645
+nextFloat(0.055) 1019207577
+nextFloat(12.6) 1082029351
+nextFloat(24.0) 1097698984
+nextFloat(3.5) 1068784748
+nextBoolean 1
+nextBoolean 0
+nextBoolean 1
+nextBoolean 1
+nextBoolean 0
+nextBoolean 1
+nextDouble 4604971198043495177
+shuffle(1) 0
+shuffle(2) 1 0
+shuffle(5) 4 1 2 3 0
+shuffle(17) 13 7 2 0 8 1 14 12 10 4 11 16 3 15 9 5 6
+shuffle(64) 0 63 62 56 57 54 49 50 31 28 32 8 1 22 41 51 39 4 37 58 46 30 10 29 21 43 14 35 16 47 17 9 2 34 61 48 25 36 52 7 38 5 19 20 18 44 27 59 45 26 33 3 12 53 42 55 24 13 15 11 6 40 23 60
+nextBytes 16 121 205 245 167 212 136 157 70 243 157 3 85 74 61 130 218 29 5 144 29 197 96 10 173 79 141 105 183 44 211 144 138 164 216 28 211
