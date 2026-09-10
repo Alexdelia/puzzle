@@ -593,16 +593,16 @@ fn best_action(e: &Env) -> Action {
 		let death_ratio =
 			(event.death.pow(2) as f32) / (action_remaining_count_list[i].max(1) as f32);
 		let death_score = (death_ratio * 10.0).round() as usize;
-		if death_score > best.1 .0 {
+		if death_score > best.1.0 {
 			continue;
 		}
 
-		if death_score < best.1 .0 {
+		if death_score < best.1.0 {
 			best = (i, (death_score, score));
 			continue;
 		}
 
-		if score > best.1 .1 {
+		if score > best.1.1 {
 			best = (i, (death_score, score));
 		}
 	}

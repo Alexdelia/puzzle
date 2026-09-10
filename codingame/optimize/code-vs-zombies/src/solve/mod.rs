@@ -38,7 +38,9 @@ pub fn solve(config: Config, validator: InitialState) -> Result<(), String> {
 
 	let existing_best = read_score(score_path);
 	let existing_solution = if config.fresh {
-		eprintln!("fresh run: ignoring saved solution as seed (still only saves above {existing_best})");
+		eprintln!(
+			"fresh run: ignoring saved solution as seed (still only saves above {existing_best})"
+		);
 		None
 	} else {
 		let s = parse_solution_file(solution_path)
