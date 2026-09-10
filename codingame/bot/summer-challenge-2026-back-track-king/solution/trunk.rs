@@ -205,7 +205,11 @@ impl Map {
 				let slot = y * w + x;
 				neigh[slot] = [
 					if y > 0 { (slot - w) as Cell } else { NO_CELL },
-					if x + 1 < w { (slot + 1) as Cell } else { NO_CELL },
+					if x + 1 < w {
+						(slot + 1) as Cell
+					} else {
+						NO_CELL
+					},
 					if y + 1 < height as usize {
 						(slot + w) as Cell
 					} else {
@@ -585,7 +589,9 @@ fn pick_disrupt(map: &Map, state: &State, planned: &[Cell]) -> Option<u8> {
 		if value <= 0.0 {
 			continue;
 		}
-		let steps = INSTABILITY_THRESHOLD.saturating_sub(state.instability[region]).max(1) as f64;
+		let steps = INSTABILITY_THRESHOLD
+			.saturating_sub(state.instability[region])
+			.max(1) as f64;
 		let score = value / steps;
 		if best.as_ref().is_none_or(|(top, _)| score > *top) {
 			best = Some((score, region as u8));
@@ -626,13 +632,7 @@ fn send(commands: &[Command], out: &mut impl Write) -> io::Result<()> {
 	out.flush()
 }
 
-fn decide(
-	map: &Map,
-	state: &State,
-	engine: &mut Engine,
-	turn: i32,
-	commands: &mut Vec<Command>,
-) {
+fn decide(map: &Map, state: &State, engine: &mut Engine, turn: i32, commands: &mut Vec<Command>) {
 	let clock = Instant::now();
 	commands.clear();
 

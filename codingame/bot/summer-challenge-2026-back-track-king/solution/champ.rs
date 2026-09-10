@@ -205,7 +205,11 @@ impl Map {
 				let slot = y * w + x;
 				neigh[slot] = [
 					if y > 0 { (slot - w) as Cell } else { NO_CELL },
-					if x + 1 < w { (slot + 1) as Cell } else { NO_CELL },
+					if x + 1 < w {
+						(slot + 1) as Cell
+					} else {
+						NO_CELL
+					},
 					if y + 1 < height as usize {
 						(slot + w) as Cell
 					} else {
@@ -805,7 +809,11 @@ fn topup(
 			continue;
 		}
 		let region = map.region[slot] as usize;
-		let shelter = if map.region_has_town[region] { 2.0 } else { 0.0 };
+		let shelter = if map.region_has_town[region] {
+			2.0
+		} else {
+			0.0
+		};
 		let calm = -(state.instability[region] as f64);
 		seeds.push((shelter + calm - map.cost[slot] as f64, slot as Cell));
 	}

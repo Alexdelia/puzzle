@@ -10,7 +10,6 @@ const MAX_TURNS: i32 = 100;
 const PAINT_PER_TURN: u32 = 3;
 const INSTABILITY_THRESHOLD: u8 = 4;
 
-
 const NO_TRACK: i8 = -1;
 const NEUTRAL_TRACK: i8 = 2;
 
@@ -205,7 +204,11 @@ impl Map {
 				let slot = y * w + x;
 				neigh[slot] = [
 					if y > 0 { (slot - w) as Cell } else { NO_CELL },
-					if x + 1 < w { (slot + 1) as Cell } else { NO_CELL },
+					if x + 1 < w {
+						(slot + 1) as Cell
+					} else {
+						NO_CELL
+					},
 					if y + 1 < height as usize {
 						(slot + w) as Cell
 					} else {
@@ -676,7 +679,8 @@ impl Engine {
 				} else {
 					4 * (toll * CELL_WEIGHT + 1)
 				};
-				let total = reached + stride + (((cell as u32) ^ self.salt).wrapping_mul(2654435761) >> 30);
+				let total =
+					reached + stride + (((cell as u32) ^ self.salt).wrapping_mul(2654435761) >> 30);
 				if self.seen[cell] == epoch && self.ranks[cell] <= total {
 					continue;
 				}
@@ -850,7 +854,15 @@ fn survey(
 					std::mem::take(&mut engine.clear)
 				};
 				let found = engine.plot(
-					map, state, tune, owner, start, goal, short_first, risk_aware, avoid_foe,
+					map,
+					state,
+					tune,
+					owner,
+					start,
+					goal,
+					short_first,
+					risk_aware,
+					avoid_foe,
 					&blocked,
 				);
 				if mode == 3 {
@@ -927,7 +939,11 @@ fn topup(
 			continue;
 		}
 		let region = map.region[slot] as usize;
-		let shelter = if map.region_has_town[region] { 2.0 } else { 0.0 };
+		let shelter = if map.region_has_town[region] {
+			2.0
+		} else {
+			0.0
+		};
 		let calm = -(state.instability[region] as f64);
 		seeds.push((shelter + calm - map.cost[slot] as f64, slot as Cell));
 	}
@@ -1053,7 +1069,8 @@ fn pick_disrupt(
 			}
 		} else if tune.precharge
 			&& steps > 1.0
-			&& foe > 0 && mine == 0
+			&& foe > 0
+			&& mine == 0
 			&& idle.as_ref().is_none_or(|(top, _)| score > *top)
 		{
 			idle = Some((score, region as u8));
