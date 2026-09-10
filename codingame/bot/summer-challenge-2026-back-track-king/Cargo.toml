@@ -1,12 +1,13 @@
-[package]
-name = "bot"
+[workspace]
+resolver = "3"
+members = ["referee", "solution"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
 authors = ["Alexandre Delille <adelille@student.42.fr>"]
 
 [profile.release]
-debug = true
-
-[[bin]]
-name = "summer-challenge-2026-back-track-king"
-path = "main.rs"
+opt-level = 3
+lto = "thin"
+codegen-units = 1

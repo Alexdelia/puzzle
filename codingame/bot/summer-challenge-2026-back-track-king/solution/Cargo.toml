@@ -1,0 +1,12 @@
+[package]
+name = "solution"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+autobins = false
+
+[[bin]]
+name = "bronze"
+path = "bronze.rs"
+
+[dependencies]
