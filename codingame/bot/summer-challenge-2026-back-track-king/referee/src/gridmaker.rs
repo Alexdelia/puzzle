@@ -209,7 +209,7 @@ impl GridMaker {
 					next_coord,
 					&river.history,
 					if splitting {
-						Direction::from_coord(next_coord.sub(current))
+						Direction::from_coord(next_coord - current)
 					} else {
 						river.preferred
 					},
@@ -233,7 +233,7 @@ impl GridMaker {
 				let branch = River::new(
 					split,
 					&river.history,
-					Direction::from_coord(split.sub(current)),
+					Direction::from_coord(split - current),
 				);
 				self.create_water(&mut to_expand, branch);
 				left -= 1;
@@ -322,7 +322,7 @@ impl GridMaker {
 		for id in 0..zone_count {
 			let row = id / cols;
 			let col = id % cols;
-			let cell_w = if row == rows - 1 && zone_count % cols != 0 {
+			let cell_w = if row == rows - 1 && !zone_count.is_multiple_of(cols) {
 				self.w as f64 / (zone_count % cols) as f64
 			} else {
 				self.w as f64 / cols as f64
@@ -358,9 +358,9 @@ impl GridMaker {
 			id = (id + 1) % zone_count;
 		}
 
-		for id in 0..zone_count {
+		for (id, zone) in zones.iter_mut().enumerate() {
 			let mut neighbours: Vec<usize> = Vec::new();
-			for at in &zones[id].coords {
+			for at in &zone.coords {
 				for n in self.grid.neighbours(*at) {
 					let other = self.grid.tile(n).zone as usize;
 					if other != id && !neighbours.contains(&other) {
@@ -369,7 +369,7 @@ impl GridMaker {
 				}
 			}
 			neighbours.sort_unstable();
-			zones[id].neighbours = neighbours;
+			zone.neighbours = neighbours;
 		}
 
 		self.grid.zones = zones;
@@ -487,7 +487,7 @@ fn is_accessible(tile: &Tile) -> bool {
 }
 
 fn weight(neighbour: Coord, current: Coord, preferred: Direction) -> f32 {
-	let direction = neighbour.sub(current);
+	let direction = neighbour - current;
 	if direction == preferred.coord() {
 		1.75
 	} else if direction == preferred.opposite().coord() {

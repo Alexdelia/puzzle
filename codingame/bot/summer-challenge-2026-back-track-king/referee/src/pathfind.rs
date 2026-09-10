@@ -115,7 +115,7 @@ pub fn autobuild(grid: &Grid, from: Coord, to: Coord) -> Vec<Coord> {
 			if spent >= *ranks.get(&key).unwrap_or(&f64::INFINITY) {
 				continue;
 			}
-			let tie = Direction::from_coord(next.at.sub(steps[node.step].at)).ordinal();
+			let tie = Direction::from_coord(next.at - steps[node.step].at).ordinal();
 			came_from.insert(key, node.step);
 			ranks.insert(key, spent);
 			steps.push(next);

@@ -95,9 +95,9 @@ impl JavaRandom {
 			output = sha1(&self.state);
 			step_state(&mut self.state, &output);
 			let todo = DIGEST.min(result.len() - index);
-			for i in 0..todo {
-				result[index] = output[i];
-				output[i] = 0;
+			for byte in &mut output[..todo] {
+				result[index] = *byte;
+				*byte = 0;
 				index += 1;
 			}
 			self.remaining += todo;
@@ -108,7 +108,7 @@ impl JavaRandom {
 	}
 
 	fn next_bits(&mut self, bits: u32) -> i32 {
-		let bytes = ((bits + 7) / 8) as usize;
+		let bytes = bits.div_ceil(8) as usize;
 		let mut buffer = [0u8; 4];
 		self.next_bytes(&mut buffer[..bytes]);
 		let mut value = 0u32;

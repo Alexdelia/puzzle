@@ -29,11 +29,15 @@ pub const fn coord(x: i32, y: i32) -> Coord {
 	Coord { x, y }
 }
 
-impl Coord {
-	pub fn sub(self, other: Coord) -> Coord {
+impl std::ops::Sub for Coord {
+	type Output = Coord;
+
+	fn sub(self, other: Coord) -> Coord {
 		coord(self.x - other.x, self.y - other.y)
 	}
+}
 
+impl Coord {
 	pub fn manhattan_to(self, other: Coord) -> i32 {
 		(other.x - self.x).abs() + (other.y - self.y).abs()
 	}

@@ -56,8 +56,8 @@ impl Trace {
 			turn_lines(game, player, &mut lines);
 			self.protocol(&format!("frame{player}"), &lines);
 		}
-		for player in 0..2 {
-			let _ = writeln!(self.text, "out{player} {}", answers[player]);
+		for (player, answer) in answers.iter().enumerate() {
+			let _ = writeln!(self.text, "out{player} {answer}");
 			if let Some(message) = &game.players[player].message {
 				let _ = writeln!(self.text, "say{player} {message}");
 			}

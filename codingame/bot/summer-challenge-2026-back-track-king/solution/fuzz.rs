@@ -70,8 +70,8 @@ fn main() {
 	let height = input.number().unwrap() as i32;
 	let cells = (width * height) as usize;
 	let mut region = vec![0usize; cells];
-	for cell in 0..cells {
-		region[cell] = input.number().unwrap() as usize;
+	for slot in region.iter_mut() {
+		*slot = input.number().unwrap() as usize;
 		input.number().unwrap();
 	}
 	let regions = region.iter().copied().max().unwrap_or(0) + 1;

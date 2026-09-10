@@ -410,15 +410,15 @@ impl Game {
 						_ => {}
 					}
 				}
-				for player in 0..2 {
-					if points[player] == 0 {
+				for (player, &gained) in points.iter().enumerate() {
+					if gained == 0 {
 						continue;
 					}
-					self.players[player].score += points[player];
-					report.gained[player] += points[player];
+					self.players[player].score += gained;
+					report.gained[player] += gained;
 					self.stats.extra_tiles_in_connection[player] +=
 						path.len() as i32 - from.manhattan_to(to);
-					self.stats.ownership_sum[player] += points[player] as f32 / path.len() as f32;
+					self.stats.ownership_sum[player] += gained as f32 / path.len() as f32;
 					self.stats.ownership_count[player] += 1;
 				}
 				paths.insert(other, path);
@@ -484,13 +484,13 @@ impl Game {
 			];
 		}
 		let mut texts = [String::new(), String::new()];
-		for player in 0..2 {
+		for (player, text) in texts.iter_mut().enumerate() {
 			if !self.players[player].active {
 				self.players[player].score = -1;
-				texts[player] = "-".into();
+				*text = "-".into();
 			} else {
 				let score = self.players[player].score;
-				texts[player] = format!("{score} point{}", if score > 1 { "s" } else { "" });
+				*text = format!("{score} point{}", if score > 1 { "s" } else { "" });
 			}
 		}
 		texts

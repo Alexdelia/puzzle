@@ -39,22 +39,22 @@ pub fn after(seed: i64, turns: i32) -> Game {
 		make_driver(&command, timeout).unwrap(),
 	];
 	let mut frame = String::new();
-	for player in 0..2 {
+	for (player, side) in sides.iter_mut().enumerate() {
 		init_lines(&game.grid, player, &mut frame);
-		sides[player].send(&frame).unwrap();
+		side.send(&frame).unwrap();
 	}
 	for _ in 0..turns {
 		if game.ended {
 			break;
 		}
 		game.reset_turn_data();
-		for player in 0..2 {
+		for (player, side) in sides.iter_mut().enumerate() {
 			turn_lines(&game, player, &mut frame);
-			sides[player].send(&frame).unwrap();
+			side.send(&frame).unwrap();
 		}
 		let answers = [sides[0].answer().unwrap(), sides[1].answer().unwrap()];
-		for player in 0..2 {
-			game.take_commands(player, &answers[player]);
+		for (player, answer) in answers.iter().enumerate() {
+			game.take_commands(player, answer);
 		}
 		game.perform_update();
 	}
