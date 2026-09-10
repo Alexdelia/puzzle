@@ -25,4 +25,16 @@ path = "greedy.rs"
 name = "fuzz"
 path = "fuzz.rs"
 
+[[bin]]
+name = "trunk"
+path = "trunk.rs"
+
+[[bin]]
+name = "bulwark"
+path = "bulwark.rs"
+
+[[bin]]
+name = "champ"
+path = "champ.rs"
+
 [dependencies]
