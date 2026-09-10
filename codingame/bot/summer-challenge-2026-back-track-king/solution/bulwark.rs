@@ -9,7 +9,7 @@ use std::time::Instant;
 const MAX_TURNS: i32 = 100;
 const PAINT_PER_TURN: u32 = 3;
 const INSTABILITY_THRESHOLD: u8 = 4;
-const THINK_BUDGET_MS: u128 = 20;
+
 
 const NO_TRACK: i8 = -1;
 const NEUTRAL_TRACK: i8 = 2;
@@ -349,6 +349,9 @@ struct Tune {
 	commit_bonus: f64,
 	scan_share: u128,
 	anti_sever: bool,
+	think_ms: u128,
+	crude_mix: f64,
+	swing_gain: f64,
 	scen_floor: f64,
 	scen_gain: f64,
 	mirror_weight: f64,
@@ -368,7 +371,7 @@ impl Tune {
 			risk_inst: knob("BTK_RISK_INST", 4),
 			scenarios: knob("BTK_SCENARIOS", 2),
 			flip: knob::<u8>("BTK_FLIP", 0) != 0,
-			disrupt: knob("BTK_DISRUPT", 2),
+			disrupt: knob("BTK_DISRUPT", 3),
 			self_penalty: knob("BTK_SELF_PENALTY", 1.0),
 			plan_penalty: knob("BTK_PLAN_PENALTY", 1.0),
 			modes: knob("BTK_MODES", 15),
@@ -387,6 +390,9 @@ impl Tune {
 			commit_bonus: knob("BTK_COMMIT_BONUS", 1.0),
 			scan_share: knob("BTK_SCAN_SHARE", 55),
 			anti_sever: knob::<u8>("BTK_ANTI_SEVER", 0) != 0,
+			think_ms: knob("BTK_THINK_MS", 20),
+			crude_mix: knob("BTK_CRUDE_MIX", 2.0),
+			swing_gain: knob("BTK_SWING", 1.0),
 			scen_floor: knob("BTK_SCEN_FLOOR", 0.0),
 			scen_gain: knob("BTK_SCEN_GAIN", 1.0),
 			mirror_weight: knob("BTK_MIRROR_WEIGHT", 0.0),
@@ -802,7 +808,7 @@ fn survey(
 	};
 
 	for index in 0..map.links.len() {
-		if clock.elapsed().as_millis() > THINK_BUDGET_MS {
+		if clock.elapsed().as_millis() > tune.think_ms {
 			break;
 		}
 		let (from, to) = map.links[index];
@@ -820,7 +826,7 @@ fn survey(
 		for mode in 0..4u32 {
 			if tune.modes & (1 << mode) == 0
 				|| (mode == 3 && !detour)
-				|| clock.elapsed().as_millis() > THINK_BUDGET_MS
+				|| clock.elapsed().as_millis() > tune.think_ms
 			{
 				continue;
 			}
@@ -960,10 +966,10 @@ fn pick_disrupt(
 	let outearned = engine.edge(map, owner) < 0;
 	let closing = ahead && outearned;
 	let live_links = engine.links_left(map, &state.inked, usize::MAX);
-	let base = if tune.disrupt == 1 {
-		engine.edge(map, owner) as f64
-	} else {
+	let base = if tune.disrupt == 2 {
 		0.0
+	} else {
+		engine.edge(map, owner) as f64
 	};
 	for region in 0..map.region_cells.len() {
 		if map.region_has_town[region] || state.inked[region] {
@@ -986,21 +992,29 @@ fn pick_disrupt(
 				_ => {}
 			}
 		}
-		let mut value = if tune.disrupt == 1 {
-			engine.shade.copy_from_slice(owner);
-			for &at in &map.region_cells[region] {
-				engine.shade[at as usize] = EMPTY;
-			}
-			let shade = std::mem::take(&mut engine.shade);
-			let after = engine.edge(map, &shade) as f64;
-			engine.shade = shade;
-			let mut swing = after - base;
+		let mut value = if tune.disrupt == 2 {
+			crude
+		} else {
+			let mut swing = if mine == 0 && foe == 0 {
+				0.0
+			} else {
+				engine.shade.copy_from_slice(owner);
+				for &at in &map.region_cells[region] {
+					engine.shade[at as usize] = EMPTY;
+				}
+				let shade = std::mem::take(&mut engine.shade);
+				let after = engine.edge(map, &shade) as f64;
+				engine.shade = shade;
+				after - base
+			};
 			if swing < 0.0 {
 				swing *= tune.self_penalty;
 			}
-			swing
-		} else {
-			crude
+			if tune.disrupt == 3 {
+				tune.swing_gain * swing + tune.crude_mix * crude
+			} else {
+				swing
+			}
 		};
 		for &at in planned {
 			if map.region[at as usize] as usize == region {
@@ -1096,7 +1110,7 @@ fn decide(
 	let mut planned: Vec<Cell> = Vec::new();
 
 	for _ in 0..3 {
-		if budget == 0 || clock.elapsed().as_millis() > THINK_BUDGET_MS {
+		if budget == 0 || clock.elapsed().as_millis() > tune.think_ms {
 			break;
 		}
 		let Some(choice) = survey(
@@ -1127,7 +1141,7 @@ fn decide(
 		}
 	}
 
-	while tune.fill && budget > 0 && clock.elapsed().as_millis() <= THINK_BUDGET_MS {
+	while tune.fill && budget > 0 && clock.elapsed().as_millis() <= tune.think_ms {
 		let Some(at) = topup(map, state, tune, engine, &owner, budget) else {
 			break;
 		};
