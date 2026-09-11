@@ -9,6 +9,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    nixpkgs-python = {
+      url = "github:cachix/nixpkgs-python";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -22,21 +27,24 @@
     extra-substituters = "https://devenv.cachix.org";
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    flake-utils,
-    devenv,
-    ...
-  } @ inputs:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      devenv,
+      ...
+    }@inputs:
     flake-utils.lib.eachDefaultSystem (
-      system: let
+      system:
+      let
         pkgs = import nixpkgs {
           inherit system;
         };
 
         treefmtEval = inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
-      in {
+      in
+      {
         packages = {
           devenv-up = self.devShells.${system}.default.config.procfileScript;
           devenv-test = self.devShells.${system}.default.config.test;
@@ -48,26 +56,20 @@
           modules = [
             {
               # https://devenv.sh/packages/
-              packages =
-                (with pkgs; [
-                  git
+              packages = with pkgs; [
+                git
 
-                  ruff
-                  ty
+                ruff
+                ty
 
-                  cargo-flamegraph
-                  hyperfine
-                  perf
-                  libllvm
+                cargo-flamegraph
+                hyperfine
+                perf
+                libllvm
 
-                  imagemagick
-                  bc
-                ])
-                ++ (with pkgs.python3Packages; [
-                  numpy
-                  aocd
-                  tqdm
-                ]);
+                imagemagick
+                bc
+              ];
 
               # https://devenv.sh/languages/
               languages = {
@@ -79,6 +81,18 @@
 
                 python = {
                   enable = true;
+                  version = "3.11.5"; # https://www.codingame.com/playgrounds/40701/help-center/languages-versions
+
+                  venv = {
+                    enable = true;
+                    requirements = ''
+                      numpy==1.20.2
+                      pandas==1.2.4
+                      scipy==1.6.3
+                      aocd
+                      tqdm
+                    '';
+                  };
                 };
               };
 
