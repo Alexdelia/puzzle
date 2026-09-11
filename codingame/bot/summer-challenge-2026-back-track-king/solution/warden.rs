@@ -376,6 +376,11 @@ struct Tune {
 	life_slope: f64,
 	pre: f64,
 	pre_paint: u32,
+	pre_order: u8,
+	pre_safe: f64,
+	fill_mult: f64,
+	pre_risk: u8,
+	pre_cap: u32,
 }
 
 fn knob<T: std::str::FromStr>(name: &str, fallback: T) -> T {
@@ -423,6 +428,11 @@ impl Tune {
 			life_slope: knob("BTK_LIFE_SLOPE", 3.0),
 			pre: knob("BTK_PRE", 0.5),
 			pre_paint: knob("BTK_PRE_PAINT", 9),
+			pre_order: knob("BTK_PRE_ORDER", 0),
+			pre_safe: knob("BTK_PRE_SAFE", 0.5),
+			fill_mult: knob("BTK_FILL_MULT", 0.5),
+			pre_risk: knob("BTK_PRE_RISK", 0),
+			pre_cap: knob("BTK_PRE_CAP", 0),
 		}
 	}
 }
@@ -1023,25 +1033,44 @@ fn foresee(
 	found.map(|choice| choice.cells).unwrap_or_default()
 }
 
-fn preclaim(
+fn forecast(
 	map: &Map,
 	state: &State,
 	tune: &Tune,
 	engine: &mut Engine,
 	owner: &[u8],
-	remaining: f64,
-) -> Option<Choice> {
+) -> (Vec<u8>, Vec<u16>) {
 	let mut hope = owner.to_vec();
-	for index in 0..map.links.len() {
+	let mut order: Vec<usize> = (0..map.links.len()).collect();
+	if tune.pre_order != 0 {
+		order.sort_by_key(|&index| {
+			let (from, to) = map.links[index];
+			let (ax, ay) = map.point(map.towns[from as usize].at);
+			let (bx, by) = map.point(map.towns[to as usize].at);
+			ax.abs_diff(bx) + ay.abs_diff(by)
+		});
+	}
+	for index in order {
 		let (from, to) = map.links[index];
 		let start = map.towns[from as usize].at;
 		let goal = map.towns[to as usize].at;
 		let blocked = std::mem::take(&mut engine.clear);
 		let found = engine.plot(
-			map, state, tune, &hope, start, goal, true, false, false, &blocked,
+			map,
+			state,
+			tune,
+			&hope,
+			start,
+			goal,
+			true,
+			tune.pre_risk != 0,
+			false,
+			&blocked,
 		);
 		engine.clear = blocked;
-		if found.is_some() {
+		if let Some(paint) = found
+			&& (tune.pre_cap == 0 || paint <= tune.pre_cap)
+		{
 			for &at in &engine.route {
 				hope[at as usize] = VIRT;
 			}
@@ -1049,12 +1078,31 @@ fn preclaim(
 	}
 	let mut mult = vec![0u16; map.cells];
 	engine.tally(map, &hope, &mut mult);
+	(hope, mult)
+}
+
+fn preclaim(
+	map: &Map,
+	tune: &Tune,
+	owner: &[u8],
+	hope: &[u8],
+	mult: &[u16],
+	remaining: f64,
+) -> Option<Choice> {
 	let mut wanted: Vec<(f64, Cell)> = Vec::new();
 	for slot in 0..map.cells {
 		if owner[slot] != EMPTY || hope[slot] != VIRT || mult[slot] == 0 {
 			continue;
 		}
-		wanted.push((mult[slot] as f64 / map.cost[slot] as f64, slot as Cell));
+		let shelter = if map.region_has_town[map.region[slot] as usize] {
+			1.0 + tune.pre_safe
+		} else {
+			1.0
+		};
+		wanted.push((
+			shelter * mult[slot] as f64 / map.cost[slot] as f64,
+			slot as Cell,
+		));
 	}
 	wanted.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
 	let mut cells: Vec<Cell> = Vec::new();
@@ -1085,6 +1133,7 @@ fn topup(
 	tune: &Tune,
 	engine: &mut Engine,
 	owner: &[u8],
+	mult: &[u16],
 	budget: u32,
 ) -> Option<Cell> {
 	let base = engine.edge(map, owner) as f64;
@@ -1104,7 +1153,8 @@ fn topup(
 				touching += 1;
 			}
 		}
-		if touching == 0 {
+		let worth = tune.fill_mult * mult[slot] as f64;
+		if touching == 0 && worth <= 0.0 {
 			continue;
 		}
 		let region = map.region[slot] as usize;
@@ -1114,7 +1164,7 @@ fn topup(
 			0.0
 		};
 		let calm = -(state.instability[region] as f64);
-		seeds.push((shelter + calm - map.cost[slot] as f64, slot as Cell));
+		seeds.push((worth + shelter + calm - map.cost[slot] as f64, slot as Cell));
 	}
 	seeds.sort_by(|a, b| b.0.total_cmp(&a.0));
 	seeds.truncate(tune.fill_cap);
@@ -1301,8 +1351,13 @@ fn decide(
 	let mut budget = PAINT_PER_TURN;
 	let mut built: Vec<Cell> = Vec::new();
 	let mut planned: Vec<Cell> = Vec::new();
+	let (hope, mult) = if tune.pre > 0.0 || tune.fill_mult > 0.0 {
+		forecast(map, state, tune, engine, &owner)
+	} else {
+		(Vec::new(), vec![0u16; map.cells])
+	};
 	let mut pre = if tune.pre > 0.0 {
-		preclaim(map, state, tune, engine, &owner, remaining)
+		preclaim(map, tune, &owner, &hope, &mult, remaining)
 	} else {
 		None
 	};
@@ -1362,7 +1417,7 @@ fn decide(
 	}
 
 	while tune.fill && budget > 0 && clock.elapsed().as_millis() <= tune.think_ms {
-		let Some(at) = topup(map, state, tune, engine, &owner, budget) else {
+		let Some(at) = topup(map, state, tune, engine, &owner, &mult, budget) else {
 			break;
 		};
 		budget -= map.cost[at as usize] as u32;
