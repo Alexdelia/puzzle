@@ -1209,6 +1209,7 @@ fn topup(
 	best.map(|(_, at)| at)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn pick_disrupt(
 	map: &Map,
 	state: &State,
