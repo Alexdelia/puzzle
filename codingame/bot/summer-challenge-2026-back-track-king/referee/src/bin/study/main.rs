@@ -47,7 +47,7 @@ struct Cli {
 	#[arg(long, value_name = "0|1")]
 	me: Option<usize>,
 
-	/// force the pairing of the two logged answer streams instead of detecting it
+	/// read the two logged answer streams the other way round
 	#[arg(long)]
 	swapped: Option<bool>,
 
@@ -122,10 +122,10 @@ fn study(cli: &Cli, path: &str, seed: Option<i64>) {
 
 	let (swapped, run) = match cli.swapped {
 		Some(swapped) => (swapped, replay::run(grid.clone(), &log.answers(swapped))),
-		None => detect_sides(&grid, &log),
+		None => replay_in_order(&grid, &log),
 	};
 	let me = cli.me.unwrap_or(log.my_id);
-	let view = View::new(&run, me);
+	let view = View::named(&run, me, log.players.clone());
 	report(cli, &view, &log, &grid, swapped);
 
 	if let Some(spec) = &cli.against {
@@ -178,19 +178,15 @@ fn load(path: &str, seed: Option<i64>) -> Result<Log, String> {
 	}
 }
 
-fn detect_sides(grid: &Grid, log: &Log) -> (bool, Replay) {
-	let straight = replay::run(grid.clone(), &log.answers(false));
-	let Some(want) = log.final_score else {
-		return (false, straight);
-	};
-	if straight.score == want {
-		return (false, straight);
+fn replay_in_order(grid: &Grid, log: &Log) -> (bool, Replay) {
+	let run = replay::run(grid.clone(), &log.answers(false));
+	if let Some(want) = log.final_score
+		&& run.score != want
+		&& run.score == [want[1], want[0]]
+	{
+		println!("warning: the log ends with the scores in the opposite order\n");
 	}
-	let crossed = replay::run(grid.clone(), &log.answers(true));
-	if crossed.score == want {
-		return (true, crossed);
-	}
-	(false, straight)
+	(false, run)
 }
 
 fn report(cli: &Cli, view: &View, log: &Log, grid: &Grid, swapped: bool) {

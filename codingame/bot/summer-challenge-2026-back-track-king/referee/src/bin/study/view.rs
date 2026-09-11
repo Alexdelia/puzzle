@@ -6,11 +6,20 @@ pub const COLUMN: usize = 10;
 pub struct View<'a> {
 	pub run: &'a Replay,
 	pub me: usize,
+	pub players: Option<[String; 2]>,
 }
 
 impl<'a> View<'a> {
 	pub fn new(run: &'a Replay, me: usize) -> Self {
-		View { run, me }
+		View {
+			run,
+			me,
+			players: None,
+		}
+	}
+
+	pub fn named(run: &'a Replay, me: usize, players: Option<[String; 2]>) -> Self {
+		View { run, me, players }
 	}
 
 	pub fn foe(&self) -> usize {
@@ -21,8 +30,20 @@ impl<'a> View<'a> {
 		[self.me, self.foe()]
 	}
 
-	pub fn name(&self, player: usize) -> &'static str {
-		if player == self.me { "us" } else { "foe" }
+	pub fn name(&self, player: usize) -> &str {
+		match &self.players {
+			Some(names) => &names[player],
+			None if player == self.me => "us",
+			None => "foe",
+		}
+	}
+
+	pub fn mine_name(&self) -> &str {
+		self.name(self.me)
+	}
+
+	pub fn foe_name(&self) -> &str {
+		self.name(self.foe())
 	}
 
 	pub fn mine<T: Copy>(&self, values: [T; 2]) -> T {
@@ -34,7 +55,12 @@ impl<'a> View<'a> {
 	}
 
 	pub fn heading(&self) {
-		println!("{:<LABEL$} {:>COLUMN$} {:>COLUMN$}", "", "us", "foe");
+		println!(
+			"{:<LABEL$} {:>COLUMN$} {:>COLUMN$}",
+			"",
+			self.mine_name(),
+			self.foe_name()
+		);
 	}
 
 	pub fn row(&self, label: &str, values: [String; 2]) {
@@ -55,10 +81,9 @@ impl<'a> View<'a> {
 		self.row(label, values.map(|value| format!("{value:.digits$}")));
 	}
 
-	pub fn owner_name(&self, owner: i8) -> &'static str {
+	pub fn owner_name(&self, owner: i8) -> &str {
 		match owner {
-			0 | 1 if owner as usize == self.me => "us",
-			0 | 1 => "foe",
+			0 | 1 => self.name(owner as usize),
 			2 => "neu",
 			_ => "-",
 		}

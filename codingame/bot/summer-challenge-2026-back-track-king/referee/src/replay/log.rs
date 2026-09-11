@@ -13,6 +13,7 @@ pub struct Log {
 	pub marked_turns: usize,
 	pub marked_total: Option<usize>,
 	pub final_score: Option<[i32; 2]>,
+	pub players: Option<[String; 2]>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -27,16 +28,37 @@ const STREAM_MARKER: &str = "Standard Output Stream:";
 
 pub fn read(path: &str) -> Result<Log, String> {
 	let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
-	let seed =
-		seed_of(path).ok_or_else(|| format!("{path}: file name is not a seed, pass --seed"))?;
-	parse(path, seed, &text)
+	let spot = std::path::Path::new(path);
+	let beside = spot.with_file_name(INIT_FILE);
+	if seed_of(spot).is_some() {
+		let seed = seed_of(spot).unwrap();
+		return parse(path, seed, &text);
+	}
+	let folder = spot
+		.parent()
+		.ok_or_else(|| format!("{path}: no folder to take the seed from"))?;
+	let seed = seed_of(folder).ok_or_else(|| {
+		format!("{path}: neither the file nor its folder is named after a seed, pass --seed")
+	})?;
+	let head =
+		std::fs::read_to_string(&beside).map_err(|e| format!("{}: {e}", beside.display()))?;
+	let mut log = parse(path, seed, &format!("{head}\n{text}"))?;
+	log.players = players_of(spot);
+	Ok(log)
 }
 
-fn seed_of(path: &str) -> Option<i64> {
-	std::path::Path::new(path)
-		.file_stem()
+const INIT_FILE: &str = "init";
+
+fn seed_of(spot: &std::path::Path) -> Option<i64> {
+	spot.file_stem()
 		.and_then(|stem| stem.to_str())
 		.and_then(|stem| stem.parse::<i64>().ok())
+}
+
+fn players_of(spot: &std::path::Path) -> Option<[String; 2]> {
+	let stem = spot.file_stem()?.to_str()?;
+	let (first, second) = stem.split_once('-')?;
+	(!first.is_empty() && !second.is_empty()).then(|| [first.to_string(), second.to_string()])
 }
 
 pub fn parse(path: &str, seed: i64, text: &str) -> Result<Log, String> {
@@ -78,6 +100,7 @@ pub fn parse(path: &str, seed: i64, text: &str) -> Result<Log, String> {
 		marked_total,
 		final_score,
 		outputs,
+		players: None,
 	})
 }
 
