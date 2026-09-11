@@ -10,4 +10,5 @@ pub mod jqueue;
 pub mod jrand;
 pub mod pathfind;
 pub mod proto;
+pub mod replay;
 pub mod trace;
