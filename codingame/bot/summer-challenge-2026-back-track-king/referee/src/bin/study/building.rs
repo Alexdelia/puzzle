@@ -180,6 +180,61 @@ fn dead_map(view: &View) {
 	});
 }
 
+pub fn shelter(view: &View) {
+	section("building out of reach of the ink");
+	println!("a region holding a town can never be disrupted, so track there is permanent");
+	view.heading();
+	let run = view.run;
+	let mut safe = [0i32; 2];
+	let mut claims = [0i32; 2];
+	for claim in &run.totals.claims {
+		let Some(player) = claim.player() else {
+			continue;
+		};
+		claims[player] += 1;
+		let zone = run.grid.zone_of(claim.at);
+		if !zone.towns.is_empty() {
+			safe[player] += 1;
+		}
+	}
+	view.count_row("claims", claims);
+	view.count_row("  in a town region", safe);
+	view.row(
+		"  share safe",
+		[0, 1].map(|player| {
+			format!(
+				"{:.0}%",
+				percent(safe[player] as i64, claims[player] as i64)
+			)
+		}),
+	);
+	let mut lost = [0i32; 2];
+	for record in view.turns() {
+		for counts in record.wiped.values() {
+			lost[0] += counts[0];
+			lost[1] += counts[1];
+		}
+	}
+	view.row(
+		"lost to ink per 100 claims",
+		[0, 1].map(|player| {
+			format!(
+				"{:.0}",
+				100.0 * lost[player] as f64 / claims[player].max(1) as f64
+			)
+		}),
+	);
+	view.row(
+		"track traded away by ink",
+		[0, 1].map(|player| {
+			format!(
+				"{}:{}",
+				run.totals.wiped_foe[player], run.totals.wiped_own[player]
+			)
+		}),
+	);
+}
+
 pub fn network(view: &View) {
 	let run = view.run;
 	section("how the network gets built");

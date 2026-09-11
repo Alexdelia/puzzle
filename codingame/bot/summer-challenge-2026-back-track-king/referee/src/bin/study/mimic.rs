@@ -1,6 +1,6 @@
 use crate::view::{View, section};
 use btk::action::{Action, parse};
-use btk::grid::Coord;
+use btk::grid::{Coord, Grid};
 use std::collections::BTreeSet;
 
 pub struct Answer {
@@ -9,7 +9,7 @@ pub struct Answer {
 	pub line: String,
 }
 
-pub fn read_answer(line: &str) -> Answer {
+pub fn read_answer(grid: &Grid, line: &str) -> Answer {
 	let parsed = parse(line);
 	let mut cells = BTreeSet::new();
 	let mut disrupt = None;
@@ -19,6 +19,9 @@ pub fn read_answer(line: &str) -> Answer {
 				cells.insert(at);
 			}
 			Action::Disrupt { zone } => disrupt = Some(zone),
+			Action::DisruptAt { at } => {
+				disrupt = grid.get(at).map(|tile| tile.zone as i32);
+			}
 			_ => {}
 		}
 	}
@@ -57,8 +60,8 @@ pub fn agreement(view: &View, played: &[String], side: usize, show: usize) {
 	let mut misses: Vec<String> = Vec::new();
 
 	for turn in 0..turns {
-		let want = read_answer(recorded[turn]);
-		let got = read_answer(&played[turn]);
+		let want = read_answer(&view.run.grid, recorded[turn]);
+		let got = read_answer(&view.run.grid, &played[turn]);
 		same_line += usize::from(want.line == got.line);
 		same_cells += usize::from(want.cells == got.cells);
 		same_disrupt += usize::from(want.disrupt == got.disrupt);
