@@ -912,10 +912,10 @@ fn pick_disrupt(
 			if best.as_ref().is_none_or(|(top, _)| score > *top) {
 				best = Some((score, region as u8));
 			}
-		} else if tune.precharge && steps > 1.0
-			&& idle.as_ref().is_none_or(|(top, _)| score > *top) {
-				idle = Some((score, region as u8));
-			}
+		} else if tune.precharge && steps > 1.0 && idle.as_ref().is_none_or(|(top, _)| score > *top)
+		{
+			idle = Some((score, region as u8));
+		}
 	}
 	best.or(idle).map(|(_, region)| region)
 }
