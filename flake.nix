@@ -81,6 +81,13 @@
                   enable = true;
                 };
               };
+
+              # https://devenv.sh/git-hooks/
+              git-hooks.hooks.treefmt = {
+                enable = true;
+                package = treefmtEval.config.build.wrapper;
+                settings.fail-on-change = true;
+              };
             }
           ];
         };
