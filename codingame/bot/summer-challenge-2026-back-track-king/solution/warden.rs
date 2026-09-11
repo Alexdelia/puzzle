@@ -381,6 +381,10 @@ struct Tune {
 	fill_mult: f64,
 	pre_risk: u8,
 	pre_cap: u32,
+	route_mult: u32,
+	pre_turns: i32,
+	hope_eval: u8,
+	ink_hope: f64,
 }
 
 fn knob<T: std::str::FromStr>(name: &str, fallback: T) -> T {
@@ -433,6 +437,10 @@ impl Tune {
 			fill_mult: knob("BTK_FILL_MULT", 0.5),
 			pre_risk: knob("BTK_PRE_RISK", 0),
 			pre_cap: knob("BTK_PRE_CAP", 0),
+			route_mult: knob("BTK_ROUTE_MULT", 0),
+			pre_turns: knob("BTK_PRE_TURNS", 0),
+			hope_eval: knob("BTK_HOPE_EVAL", 0),
+			ink_hope: knob("BTK_INK_HOPE", 0.0),
 		}
 	}
 }
@@ -454,6 +462,8 @@ struct Engine {
 	salt: u32,
 	comp: Vec<u16>,
 	stack: Vec<Cell>,
+	mult: Vec<u16>,
+	ride: bool,
 }
 
 impl Engine {
@@ -485,6 +495,8 @@ impl Engine {
 			salt: (map.me as u32).wrapping_mul(0x9E37_79B9),
 			comp: vec![0; map.cells],
 			stack: Vec::with_capacity(map.cells),
+			mult: vec![0; map.cells],
+			ride: false,
 		}
 	}
 
@@ -742,11 +754,15 @@ impl Engine {
 					&& map.region[here] != map.region[cell]
 					&& !map.is_town[cell];
 				let toll = toll + if crossing { tune.toll } else { 0 };
-				let stride = if short_first {
+				let mut stride = if short_first {
 					4 * (CELL_WEIGHT + toll)
 				} else {
 					4 * (toll * CELL_WEIGHT + 1)
 				};
+				if self.ride {
+					let bonus = tune.route_mult * self.mult[cell] as u32;
+					stride -= bonus.min(stride.saturating_sub(1));
+				}
 				let total =
 					reached + stride + (((cell as u32) ^ self.salt).wrapping_mul(2654435761) >> 30);
 				if self.seen[cell] == epoch && self.ranks[cell] <= total {
@@ -858,6 +874,7 @@ fn survey(
 	tune: &Tune,
 	engine: &mut Engine,
 	owner: &[u8],
+	field: &[u8],
 	outlook: &Outlook,
 	remaining: f64,
 	clock: &Instant,
@@ -865,12 +882,12 @@ fn survey(
 	contested: &[Cell],
 	deadline: u128,
 ) -> Option<Choice> {
-	let base = appraise(map, engine, owner, outlook);
+	let base = appraise(map, engine, field, outlook);
 	let mut best: Option<Choice> = None;
 	let mut banned = vec![0u8; map.cells];
 	let mut current: Vec<Cell> = Vec::new();
 	let weigh = |engine: &mut Engine, cells: &[Cell], paint: u32, loyalty: f64| {
-		engine.trial.copy_from_slice(owner);
+		engine.trial.copy_from_slice(field);
 		for &at in cells {
 			engine.trial[at as usize] = MINE;
 		}
@@ -1022,6 +1039,7 @@ fn foresee(
 		tune,
 		engine,
 		&theirs,
+		&theirs,
 		outlook,
 		remaining,
 		&clock,
@@ -1047,7 +1065,8 @@ fn forecast(
 			let (from, to) = map.links[index];
 			let (ax, ay) = map.point(map.towns[from as usize].at);
 			let (bx, by) = map.point(map.towns[to as usize].at);
-			ax.abs_diff(bx) + ay.abs_diff(by)
+			let span = (ax.abs_diff(bx) + ay.abs_diff(by)) as i32;
+			if tune.pre_order == 2 { -span } else { span }
 		});
 	}
 	for index in order {
@@ -1196,6 +1215,7 @@ fn pick_disrupt(
 	tune: &Tune,
 	engine: &mut Engine,
 	owner: &[u8],
+	mult: &[u16],
 	planned: &[Cell],
 	turn: i32,
 ) -> Option<u8> {
@@ -1231,7 +1251,7 @@ fn pick_disrupt(
 					foe += 1;
 					crude += weight;
 				}
-				_ => {}
+				_ => crude += tune.ink_hope * mult[at as usize] as f64,
 			}
 		}
 		let mut value = if tune.disrupt == 2 {
@@ -1351,11 +1371,16 @@ fn decide(
 	let mut budget = PAINT_PER_TURN;
 	let mut built: Vec<Cell> = Vec::new();
 	let mut planned: Vec<Cell> = Vec::new();
-	let (hope, mult) = if tune.pre > 0.0 || tune.fill_mult > 0.0 {
+	engine.ride = false;
+	let (hope, mult) = if tune.pre > 0.0 || tune.fill_mult > 0.0 || tune.route_mult > 0 {
 		forecast(map, state, tune, engine, &owner)
 	} else {
 		(Vec::new(), vec![0u16; map.cells])
 	};
+	if tune.route_mult > 0 {
+		engine.mult.copy_from_slice(&mult);
+		engine.ride = true;
+	}
 	let mut pre = if tune.pre > 0.0 {
 		preclaim(map, tune, &owner, &hope, &mult, remaining)
 	} else {
@@ -1367,6 +1392,10 @@ fn decide(
 		Vec::new()
 	};
 
+	let mut field = owner.clone();
+	if tune.hope_eval != 0 && !hope.is_empty() {
+		field.copy_from_slice(&hope);
+	}
 	for _ in 0..3 {
 		if budget == 0 || clock.elapsed().as_millis() > tune.think_ms {
 			break;
@@ -1377,6 +1406,7 @@ fn decide(
 			tune,
 			engine,
 			&owner,
+			&field,
 			&outlook,
 			remaining,
 			&clock,
@@ -1387,7 +1417,7 @@ fn decide(
 			break;
 		};
 		let choice = match pre.take() {
-			Some(early) if early.score > choice.score => early,
+			Some(early) if early.score > choice.score || turn <= tune.pre_turns => early,
 			other => {
 				pre = other;
 				choice
@@ -1404,6 +1434,7 @@ fn decide(
 			if price <= budget {
 				budget -= price;
 				owner[at as usize] = MINE;
+				field[at as usize] = MINE;
 				built.push(at);
 			} else {
 				whole = false;
@@ -1429,7 +1460,7 @@ fn decide(
 		let (x, y) = map.point(*at);
 		commands.push(Command::Place(x, y));
 	}
-	if let Some(region) = pick_disrupt(map, state, tune, engine, &owner, &planned, turn) {
+	if let Some(region) = pick_disrupt(map, state, tune, engine, &owner, &mult, &planned, turn) {
 		commands.push(Command::Disrupt(region));
 	}
 }
