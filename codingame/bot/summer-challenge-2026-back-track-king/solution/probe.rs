@@ -605,7 +605,7 @@ impl Tune {
 			pre_turns: knob("BTK_PRE_TURNS", 0),
 			hope_eval: knob("BTK_HOPE_EVAL", 0),
 			ink_hope: knob("BTK_INK_HOPE", 0.0),
-			lin: knob("BTK_LIN", 0),
+			lin: knob("BTK_LIN", 1),
 			wave: knob("BTK_GEN", 1),
 			explore: knob("BTK_EXPLORE", 0.0),
 			roll: std::time::SystemTime::now()
