@@ -50,6 +50,10 @@ name = "warden"
 path = "warden.rs"
 
 [[bin]]
+name = "probe"
+path = "probe.rs"
+
+[[bin]]
 name = "echo"
 path = "echo.rs"
 
