@@ -37,4 +37,8 @@ path = "bulwark.rs"
 name = "champ"
 path = "champ.rs"
 
+[[bin]]
+name = "corridor"
+path = "corridor.rs"
+
 [dependencies]
