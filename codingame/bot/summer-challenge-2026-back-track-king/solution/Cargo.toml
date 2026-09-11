@@ -46,6 +46,10 @@ name = "rampart"
 path = "rampart.rs"
 
 [[bin]]
+name = "warden"
+path = "warden.rs"
+
+[[bin]]
 name = "echo"
 path = "echo.rs"
 
