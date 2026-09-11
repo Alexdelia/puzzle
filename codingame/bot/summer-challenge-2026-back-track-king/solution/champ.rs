@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::fmt::Display;
@@ -161,15 +159,12 @@ fn paint_cost(kind: u8) -> u8 {
 
 struct Town {
 	at: Cell,
-	x: u8,
-	y: u8,
 	desired: Vec<TownId>,
 }
 
 struct Map {
 	me: u8,
 	width: u8,
-	height: u8,
 	cells: usize,
 	neigh: Vec<[Cell; 4]>,
 	cost: Vec<u8>,
@@ -240,8 +235,6 @@ impl Map {
 			region_has_town[region[at] as usize] = true;
 			towns.push(Town {
 				at: at as Cell,
-				x,
-				y,
 				desired,
 			});
 		}
@@ -256,7 +249,6 @@ impl Map {
 		Map {
 			me,
 			width,
-			height,
 			cells,
 			neigh,
 			cost,

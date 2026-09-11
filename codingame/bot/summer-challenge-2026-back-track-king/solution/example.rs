@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::fmt::Display;
 use std::io::{self, Read, Write};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Index, IndexMut, Sub, SubAssign};
@@ -8,8 +6,8 @@ const MAX_WIDTH: u8 = 30;
 const MAX_HEIGHT: u8 = 20;
 const ROWS: usize = MAX_HEIGHT as usize;
 
-const PAINT_PER_TURN: u8 = 3;
-const INSTABILITY_THRESHOLD: u8 = 4;
+const _PAINT_PER_TURN: u8 = 3;
+const _INSTABILITY_THRESHOLD: u8 = 4;
 
 const NO_TRACK: i8 = -1;
 const NEUTRAL_TRACK: i8 = 2;
@@ -35,7 +33,7 @@ impl Mask {
 		self.0[y as usize] |= 1u64 << x;
 	}
 
-	fn remove(&mut self, (x, y): Point) {
+	fn _remove(&mut self, (x, y): Point) {
 		self.0[y as usize] &= !(1u64 << x);
 	}
 
@@ -43,7 +41,7 @@ impl Mask {
 		self.0.iter().all(|row| *row == 0)
 	}
 
-	fn len(&self) -> u32 {
+	fn _len(&self) -> u32 {
 		self.0.iter().map(|row| row.count_ones()).sum()
 	}
 
@@ -316,7 +314,7 @@ impl Terrain {
 		}
 	}
 
-	fn paint_cost(self) -> u8 {
+	fn _paint_cost(self) -> u8 {
 		match self {
 			Terrain::Plains => 1,
 			Terrain::River => 2,
@@ -364,7 +362,7 @@ struct Map {
 	me: u8,
 	width: u8,
 	height: u8,
-	terrain: Field<Terrain>,
+	_terrain: Field<Terrain>,
 	region: Field<RegionId>,
 	regions: Vec<Region>,
 	towns: Vec<Town>,
@@ -430,7 +428,7 @@ impl Map {
 			me,
 			width,
 			height,
-			terrain,
+			_terrain: terrain,
 			region,
 			regions,
 			towns,
@@ -445,7 +443,7 @@ impl Map {
 		(0..self.height).flat_map(move |y| (0..width).map(move |x| (x, y)))
 	}
 
-	fn neighbours(&self, (x, y): Point) -> impl Iterator<Item = Point> {
+	fn _neighbours(&self, (x, y): Point) -> impl Iterator<Item = Point> {
 		let (width, height) = (self.width, self.height);
 		[
 			(y > 0).then(|| (x, y - 1)),
@@ -457,7 +455,7 @@ impl Map {
 		.flatten()
 	}
 
-	fn grown(&self, mask: Mask) -> Mask {
+	fn _grown(&self, mask: Mask) -> Mask {
 		let inside = (1u64 << self.width) - 1;
 		let mut out = Mask::EMPTY;
 		for y in 0..self.height as usize {
@@ -474,8 +472,8 @@ impl Map {
 		out
 	}
 
-	fn paint_cost(&self, at: Point) -> u8 {
-		self.terrain[at].paint_cost()
+	fn _paint_cost(&self, at: Point) -> u8 {
+		self._terrain[at]._paint_cost()
 	}
 
 	fn region_of(&self, at: Point) -> RegionId {
@@ -495,7 +493,7 @@ impl Map {
 
 #[derive(Clone, Copy, Default)]
 struct RegionState {
-	instability: u8,
+	_instability: u8,
 	inked: bool,
 }
 
@@ -545,7 +543,7 @@ impl Turn {
 		for at in map.points() {
 			let track = Track::read(input.i8(), map.me);
 			let state = RegionState {
-				instability: input.u8(),
+				_instability: input.u8(),
 				inked: input.bool(),
 			};
 			self.regions[map.region_of(at) as usize] = state;
@@ -578,7 +576,7 @@ impl Turn {
 		true
 	}
 
-	fn owner_of(&self, at: Point) -> Option<Track> {
+	fn _owner_of(&self, at: Point) -> Option<Track> {
 		if self.my_tracks.contains(at) {
 			Some(Track::Mine)
 		} else if self.foe_tracks.contains(at) {
@@ -590,11 +588,11 @@ impl Turn {
 		}
 	}
 
-	fn income_of(&self, link: LinkId) -> (u32, u32) {
+	fn _income_of(&self, link: LinkId) -> (u32, u32) {
 		let path = self.paths[link as usize];
 		(
-			(path & self.my_tracks).len(),
-			(path & self.foe_tracks).len(),
+			(path & self.my_tracks)._len(),
+			(path & self.foe_tracks)._len(),
 		)
 	}
 
@@ -602,13 +600,13 @@ impl Turn {
 		!map.regions[region as usize].has_town && !self.regions[region as usize].inked
 	}
 
-	fn disruptions_to_ink(&self, region: RegionId) -> u8 {
-		INSTABILITY_THRESHOLD.saturating_sub(self.regions[region as usize].instability)
+	fn _disruptions_to_ink(&self, region: RegionId) -> u8 {
+		_INSTABILITY_THRESHOLD.saturating_sub(self.regions[region as usize]._instability)
 	}
 }
 
 enum Command {
-	Place(Point),
+	_Place(Point),
 	Autoplace(Point, Point),
 	Disrupt(RegionId),
 	Wait,
@@ -617,7 +615,7 @@ enum Command {
 impl Display for Command {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match *self {
-			Command::Place((x, y)) => write!(f, "PLACE_TRACKS {x} {y}"),
+			Command::_Place((x, y)) => write!(f, "PLACE_TRACKS {x} {y}"),
 			Command::Autoplace((x, y), (to_x, to_y)) => {
 				write!(f, "AUTOPLACE {x} {y} {to_x} {to_y}")
 			}

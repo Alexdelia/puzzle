@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::fmt::Display;
@@ -179,15 +177,12 @@ fn paint_cost(kind: u8) -> u8 {
 
 struct Town {
 	at: Cell,
-	x: u8,
-	y: u8,
 	desired: Vec<TownId>,
 }
 
 struct Map {
 	me: u8,
 	width: u8,
-	height: u8,
 	cells: usize,
 	neigh: Vec<[Cell; 4]>,
 	cost: Vec<u8>,
@@ -258,8 +253,6 @@ impl Map {
 			region_has_town[region[at] as usize] = true;
 			towns.push(Town {
 				at: at as Cell,
-				x,
-				y,
 				desired,
 			});
 		}
@@ -274,7 +267,6 @@ impl Map {
 		Map {
 			me,
 			width,
-			height,
 			cells,
 			neigh,
 			cost,
@@ -366,10 +358,7 @@ struct Tune {
 	late_ink: i32,
 	sever_bonus: f64,
 	sever: bool,
-	short_list: usize,
-	spare_list: usize,
 	commit_bonus: f64,
-	scan_share: u128,
 	anti_sever: bool,
 	think_ms: u128,
 	crude_mix: f64,
@@ -409,10 +398,7 @@ impl Tune {
 			late_ink: knob("BTK_LATE_INK", 100),
 			sever_bonus: knob("BTK_SEVER_BONUS", 4.0),
 			sever: knob::<u8>("BTK_SEVER", 1) != 0,
-			short_list: knob("BTK_SHORT_LIST", 8),
-			spare_list: knob("BTK_SPARE_LIST", 5),
 			commit_bonus: knob("BTK_COMMIT_BONUS", 1.0),
-			scan_share: knob("BTK_SCAN_SHARE", 55),
 			anti_sever: knob::<u8>("BTK_ANTI_SEVER", 0) != 0,
 			think_ms: knob("BTK_THINK_MS", 20),
 			crude_mix: knob("BTK_CRUDE_MIX", 2.0),
