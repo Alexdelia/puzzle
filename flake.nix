@@ -27,24 +27,21 @@
     extra-substituters = "https://devenv.cachix.org";
   };
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-      flake-utils,
-      devenv,
-      ...
-    }@inputs:
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+    devenv,
+    ...
+  } @ inputs:
     flake-utils.lib.eachDefaultSystem (
-      system:
-      let
+      system: let
         pkgs = import nixpkgs {
           inherit system;
         };
 
         treefmtEval = inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
-      in
-      {
+      in {
         packages = {
           devenv-up = self.devShells.${system}.default.config.procfileScript;
           devenv-test = self.devShells.${system}.default.config.test;
