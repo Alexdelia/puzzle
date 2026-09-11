@@ -1,7 +1,6 @@
 import random
 import sys
 
-FEATS = 11
 NAMES = [
 	"bias",
 	"fmult",
@@ -14,7 +13,12 @@ NAMES = [
 	"foes",
 	"fmult*horizon",
 	"fmult*town",
+	"town dist",
+	"region size",
+	"fmult^2",
+	"region live",
 ]
+FEATS = len(NAMES)
 
 
 def load(path):

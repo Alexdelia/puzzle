@@ -2,6 +2,8 @@ use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::fmt::Display;
 use std::io::{self, Read, Write};
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 const MAX_TURNS: i32 = 100;
@@ -168,10 +170,27 @@ impl Reader {
 	}
 }
 
-const FEATS: usize = 11;
-const LIN: [f64; FEATS] = [
+const UNREACHED: u16 = u16::MAX;
+const FEATS: usize = 15;
+const LIN1: [f64; FEATS] = [
 	-227.37703, -6.47221, 10.08946, 20.81373, 14.01935, -56.12361, 520.84578, -2.15219, -18.25436,
-	31.51967, 30.01429,
+	31.51967, 30.01429, 0.00000, 0.00000, 0.00000, 0.00000,
+];
+const LIN3: [f64; FEATS] = [
+	-190.24383, -4.43547, 10.12603, 15.61133, 27.20877, -29.64224, 425.81640, 2.76901, -18.41436,
+	32.86463, 20.40429, 0.00000, 0.00000, 0.00000, 0.00000,
+];
+const LIN5: [f64; FEATS] = [
+	-468.75310, -6.71690, 6.79160, 20.58147, -1.98141, -32.04535, 516.76554, 5.92131, -12.96249,
+	33.16500, 27.47790, -28.16679, 273.68617, -1.84821, 9.02711,
+];
+const LIN4: [f64; FEATS] = [
+	-189.28831, -9.86136, 10.36838, 14.91794, 22.87045, -38.60956, 440.03433, 0.69739, -17.15686,
+	38.85854, 21.49386, 0.00000, 0.00000, 0.00000, 0.00000,
+];
+const LIN2: [f64; FEATS] = [
+	-163.31167, -17.64243, 11.51545, 11.46045, 20.69470, -38.81388, 401.37502, -1.77217, -18.14510,
+	51.25537, 19.81685, 0.00000, 0.00000, 0.00000, 0.00000,
 ];
 
 fn paint_cost(kind: u8) -> u8 {
@@ -199,6 +218,7 @@ struct Map {
 	links: Vec<(TownId, TownId)>,
 	region_cells: Vec<Vec<Cell>>,
 	region_has_town: Vec<bool>,
+	town_dist: Vec<u16>,
 }
 
 impl Map {
@@ -271,6 +291,26 @@ impl Map {
 			}
 		}
 
+		let mut town_dist = vec![UNREACHED; cells];
+		let mut wave: Vec<Cell> = Vec::with_capacity(cells);
+		for town in &towns {
+			town_dist[town.at as usize] = 0;
+			wave.push(town.at);
+		}
+		let mut head = 0;
+		while head < wave.len() {
+			let at = wave[head];
+			head += 1;
+			let step = town_dist[at as usize] + 1;
+			for way in 0..4 {
+				let next = neigh[at as usize][way];
+				if next != NO_CELL && town_dist[next as usize] == UNREACHED {
+					town_dist[next as usize] = step;
+					wave.push(next);
+				}
+			}
+		}
+
 		Map {
 			me,
 			width,
@@ -283,6 +323,7 @@ impl Map {
 			links,
 			region_cells,
 			region_has_town,
+			town_dist,
 		}
 	}
 
@@ -370,6 +411,10 @@ fn features(map: &Map, state: &State, mult: &[u16], remaining: f64, at: usize) -
 		}
 	}
 	let horizon = remaining / 100.0;
+	let region_live = map.region_cells[region]
+		.iter()
+		.map(|&cell| state.mult[cell as usize] as f64)
+		.sum::<f64>();
 	[
 		1.0,
 		fmult,
@@ -382,14 +427,25 @@ fn features(map: &Map, state: &State, mult: &[u16], remaining: f64, at: usize) -
 		foes,
 		fmult * horizon,
 		fmult * town_region,
+		map.town_dist[at] as f64 / 10.0,
+		map.region_cells[region].len() as f64 / 10.0,
+		fmult * fmult / 10.0,
+		region_live / 10.0,
 	]
 }
 
-fn value(map: &Map, state: &State, mult: &[u16], remaining: f64, at: usize) -> f64 {
+fn value(map: &Map, state: &State, tune: &Tune, mult: &[u16], remaining: f64, at: usize) -> f64 {
 	let feat = features(map, state, mult, remaining, at);
-	let mut worth = 0.0;
+	let lin = match tune.wave {
+		2 => &LIN2,
+		3 => &LIN3,
+		4 => &LIN4,
+		5 => &LIN5,
+		_ => &LIN1,
+	};
+	let mut worth = 0.0f64;
 	for index in 0..FEATS {
-		worth += LIN[index] * feat[index];
+		worth += lin[index] * feat[index];
 	}
 	worth.max(0.0)
 }
@@ -444,8 +500,6 @@ impl Ledger {
 	}
 }
 
-const UNREACHED: u16 = u16::MAX;
-
 struct Tune {
 	risk_base: u32,
 	risk_inst: u32,
@@ -492,6 +546,9 @@ struct Tune {
 	hope_eval: u8,
 	ink_hope: f64,
 	lin: u8,
+	wave: u8,
+	explore: f64,
+	roll: u32,
 }
 
 fn knob<T: std::str::FromStr>(name: &str, fallback: T) -> T {
@@ -549,6 +606,13 @@ impl Tune {
 			hope_eval: knob("BTK_HOPE_EVAL", 0),
 			ink_hope: knob("BTK_INK_HOPE", 0.0),
 			lin: knob("BTK_LIN", 0),
+			wave: knob("BTK_GEN", 1),
+			explore: knob("BTK_EXPLORE", 0.0),
+			roll: std::time::SystemTime::now()
+				.duration_since(std::time::UNIX_EPOCH)
+				.map(|span| span.subsec_nanos())
+				.unwrap_or(1)
+				| 1,
 		}
 	}
 }
@@ -1208,6 +1272,15 @@ fn forecast(
 	(hope, mult)
 }
 
+static TICK: AtomicU32 = AtomicU32::new(1);
+
+fn spin(seed: &mut u32) -> f64 {
+	*seed ^= *seed << 13;
+	*seed ^= *seed >> 17;
+	*seed ^= *seed << 5;
+	*seed as f64 / u32::MAX as f64
+}
+
 fn preclaim(
 	map: &Map,
 	state: &State,
@@ -1217,13 +1290,15 @@ fn preclaim(
 	mult: &[u16],
 	remaining: f64,
 ) -> Option<Choice> {
+	let mut seed = tune.roll ^ TICK.fetch_add(0x9E37_79B9, Ordering::Relaxed) | 1;
+	let straying = tune.explore > 0.0 && spin(&mut seed) < tune.explore;
 	let mut wanted: Vec<(f64, Cell)> = Vec::new();
 	for slot in 0..map.cells {
 		if owner[slot] != EMPTY || hope[slot] != VIRT || mult[slot] == 0 {
 			continue;
 		}
 		let worth = if tune.lin == 1 || tune.lin == 2 {
-			value(map, state, mult, remaining, slot) / remaining
+			value(map, state, tune, mult, remaining, slot) / remaining
 		} else {
 			let shelter = if map.region_has_town[map.region[slot] as usize] {
 				1.0 + tune.pre_safe
@@ -1232,7 +1307,12 @@ fn preclaim(
 			};
 			shelter * mult[slot] as f64
 		};
-		wanted.push((worth / map.cost[slot] as f64, slot as Cell));
+		let key = if straying {
+			spin(&mut seed)
+		} else {
+			worth / map.cost[slot] as f64
+		};
+		wanted.push((key, slot as Cell));
 	}
 	wanted.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
 	let mut cells: Vec<Cell> = Vec::new();
@@ -1245,7 +1325,7 @@ fn preclaim(
 		}
 		paint += price;
 		gain += if tune.lin == 1 || tune.lin == 3 {
-			value(map, state, mult, remaining, at as usize) / remaining
+			value(map, state, tune, mult, remaining, at as usize) / remaining
 		} else {
 			mult[at as usize] as f64
 		};
