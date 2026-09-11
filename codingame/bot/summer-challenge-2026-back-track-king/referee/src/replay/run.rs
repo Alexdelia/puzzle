@@ -1,12 +1,21 @@
 use super::Pair;
 use super::board::render;
+use super::probe::Probe;
 use super::record::{ActivePair, Claim, Replay, Totals, TurnRecord, ZoneLook};
 use crate::game::{DEFAULT_LEAGUE, Game, PASSIVE_INCOME, Stats, TurnReport};
 use crate::grid::{Coord, Grid};
 use std::collections::BTreeMap;
 
 pub fn run(grid: Grid, answers: &[[String; 2]]) -> Replay {
+	run_probed(grid, answers, None)
+}
+
+pub fn run_probed(grid: Grid, answers: &[[String; 2]], mut probe: Option<&mut Probe>) -> Replay {
 	let mut game = Game::new(grid, DEFAULT_LEAGUE);
+	let mut frame = String::new();
+	if let Some(probe) = probe.as_deref_mut() {
+		probe.start(&game.grid, &mut frame);
+	}
 	let mut turns = Vec::with_capacity(answers.len());
 	let mut totals = Totals::default();
 	let mut seen_errors = 0;
@@ -15,6 +24,9 @@ pub fn run(grid: Grid, answers: &[[String; 2]]) -> Replay {
 	for pair in answers {
 		if game.ended || game.active_players() < 2 {
 			break;
+		}
+		if let Some(probe) = probe.as_deref_mut() {
+			probe.ask(&game, &mut frame);
 		}
 		let before = look_at_zones(&game);
 		let tracks_before: Vec<i8> = game.grid.tiles.iter().map(|tile| tile.track).collect();

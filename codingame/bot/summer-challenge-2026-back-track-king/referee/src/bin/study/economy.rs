@@ -117,3 +117,56 @@ pub fn income(view: &View) {
 		);
 	}
 }
+
+pub fn ink_effect(view: &View) {
+	section("what each ink did to the paths");
+	println!("an inked region severs some pairs and forces the rest to detour, and a longer");
+	println!("path pays more cells every turn to whoever owns them");
+	println!("turn  by    region  pairs        length        +us   +foe");
+	let mut swing = [0i64; 2];
+	let mut lengthened = [0i64; 2];
+	for pair in view.turns().windows(2) {
+		let (before, after) = (&pair[0], &pair[1]);
+		if after.inked.is_empty() {
+			continue;
+		}
+		let span = |record: &btk::replay::TurnRecord| -> i64 {
+			record.paths.values().map(|path| path.len() as i64).sum()
+		};
+		for &zone in &after.inked {
+			let by: Vec<usize> = (0..2)
+				.filter(|&player| after.disrupted[player] == Some(zone))
+				.collect();
+			let names: Vec<&str> = by.iter().map(|&player| view.name(player)).collect();
+			let us = after.gained[view.me] - before.gained[view.me];
+			let foe = after.gained[view.foe()] - before.gained[view.foe()];
+			println!(
+				"{:>4}  {:<5} {:>6} {:>3}->{:<3} {:>7}->{:<7} {:>+5} {:>+6}",
+				after.turn,
+				names.join("+"),
+				zone,
+				before.pairs.len(),
+				after.pairs.len(),
+				span(before),
+				span(after),
+				us,
+				foe
+			);
+			for &player in &by {
+				let mine = if player == view.me { us } else { foe };
+				let theirs = if player == view.me { foe } else { us };
+				swing[player] += (mine - theirs) as i64;
+				lengthened[player] += span(after) - span(before);
+			}
+		}
+	}
+	view.heading();
+	view.row(
+		"income swing won by ink",
+		[0, 1].map(|player| swing[player].to_string()),
+	);
+	view.row(
+		"path length added by ink",
+		[0, 1].map(|player| lengthened[player].to_string()),
+	);
+}
