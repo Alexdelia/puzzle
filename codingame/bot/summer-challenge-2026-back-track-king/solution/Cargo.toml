@@ -41,4 +41,12 @@ path = "champ.rs"
 name = "corridor"
 path = "corridor.rs"
 
+[[bin]]
+name = "rampart"
+path = "rampart.rs"
+
+[[bin]]
+name = "echo"
+path = "echo.rs"
+
 [dependencies]
