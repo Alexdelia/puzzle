@@ -28,11 +28,15 @@ const CELL_WEIGHT: u32 = 2048;
 const READ_BUFFER: usize = 1 << 16;
 const END_OF_INPUT: u8 = 0;
 
+const ECHO_INIT: bool = false;
+
 struct Reader {
 	input: io::StdinLock<'static>,
 	buffer: Box<[u8]>,
 	at: usize,
 	filled: usize,
+	echo: Vec<u8>,
+	echoing: bool,
 }
 
 impl Reader {
@@ -42,7 +46,19 @@ impl Reader {
 			buffer: vec![0; READ_BUFFER].into_boxed_slice(),
 			at: 0,
 			filled: 0,
+			echo: Vec::new(),
+			echoing: ECHO_INIT,
 		}
+	}
+
+	fn flush_echo(&mut self) {
+		if !ECHO_INIT || !self.echoing {
+			return;
+		}
+		self.echoing = false;
+		eprint!("{}", String::from_utf8_lossy(&self.echo).trim_end());
+		eprintln!();
+		self.echo = Vec::new();
 	}
 
 	fn peek(&mut self) -> u8 {
@@ -61,6 +77,9 @@ impl Reader {
 	}
 
 	fn bump(&mut self) {
+		if ECHO_INIT && self.echoing {
+			self.echo.push(self.buffer[self.at]);
+		}
 		self.at += 1;
 	}
 
@@ -1188,6 +1207,7 @@ fn main() {
 	let mut out = io::stdout().lock();
 	let tune = Tune::load();
 	let map = Map::read(&mut input);
+	input.flush_echo();
 	let mut state = State::new(&map);
 	let mut engine = Engine::new(&map);
 	let mut commands = Vec::with_capacity(5);
