@@ -29,7 +29,7 @@ _: {
 
     formatter.rustfmt.options = [
       "--config-path"
-      (builtins.toString ./.rustfmt.toml)
+      (toString ./.rustfmt.toml)
     ];
   };
 }
