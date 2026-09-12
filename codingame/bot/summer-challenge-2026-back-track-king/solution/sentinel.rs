@@ -553,7 +553,7 @@ impl Tune {
 			life_base: knob("BTK_LIFE_BASE", 0.0),
 			life_slope: knob("BTK_LIFE_SLOPE", 3.0),
 			pre: knob("BTK_PRE", 1.0),
-			pre_paint: knob("BTK_PRE_PAINT", 9),
+			pre_paint: knob("BTK_PRE_PAINT", 12),
 			pre_order: knob("BTK_PRE_ORDER", 0),
 			pre_safe: knob("BTK_PRE_SAFE", 1.5),
 			fill_mult: knob("BTK_FILL_MULT", 0.5),
