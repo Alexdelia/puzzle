@@ -17,8 +17,9 @@ if [ "${1:-}" = "--game" ]; then
 			/^paint sunk in dead claims/ { sunk[0] = $6; sunk[1] = $7 }
 			/^cells that paid/ { paying[0] = $4; paying[1] = $5 }
 			/^points per paying cell/ { per[0] = $5; per[1] = $6 }
+			/^  turns on a path/ { alive[0] = $5; alive[1] = $6 }
 			/^  share of paint spent/ { gsub("%", ""); share[0] = $5; share[1] = $6 }
-			END { print won, share[side], dead[side], orphan[side], mine, yours, paying[side], per[side], per[1 - side] }
+			END { print won, share[side], dead[side], orphan[side], mine, yours, paying[side], per[side], per[1 - side], alive[side], alive[1 - side] }
 		'
 	exit 0
 fi
@@ -55,11 +56,11 @@ for ((i = 0; i < games; i++)); do
 done | xargs -P "$(nproc)" -n 2 "$0" --game | awk -v cand="$cand" -v foe="$foe" '
 	{
 		games++; won += $1; share += $2; dead += $3; orphan += $4; mine += $5; yours += $6
-		paying += $7; per += $8; foe_per += $9
+		paying += $7; per += $8; foe_per += $9; alive += $10; foe_alive += $11
 	}
 	END {
-		printf "%-46s %6.1f%% win  %5.1f%% points  paying %5.1f at %5.1f (foe %5.1f)  sunk %5.1f%%\n",
+		printf "%-32s %6.1f%% win  %5.1f%% points  paying %5.1f at %5.1f (foe %5.1f)  turns %5.1f (foe %5.1f)\n",
 			cand " vs " foe, 100 * won / games, 100 * mine / (mine + yours),
-			paying / games, per / games, foe_per / games, share / games
+			paying / games, per / games, foe_per / games, alive / games, foe_alive / games
 	}
 '

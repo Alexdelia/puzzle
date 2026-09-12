@@ -487,6 +487,7 @@ struct Tune {
 	step: u32,
 	trace_inst: u8,
 	weigh_life: f64,
+	slack: f64,
 	lin: u8,
 	plots: u32,
 	exact: bool,
@@ -580,6 +581,7 @@ impl Tune {
 			step: knob("BTK_STEP", 1),
 			trace_inst: knob("BTK_TRACE_INST", 3),
 			weigh_life: knob("BTK_WEIGH_LIFE", 1.5),
+			slack: knob("BTK_SLACK", 0.0),
 			lin: knob("BTK_LIN", 2),
 			plots: knob("BTK_PLOTS", 250),
 			exact: knob::<u8>("BTK_EXACT", 0) != 0,
@@ -727,6 +729,7 @@ struct Engine {
 	came: Vec<Cell>,
 	heap: BinaryHeap<Reverse<(u32, Cell)>>,
 	route: Vec<Cell>,
+	span: usize,
 	trial: Vec<u8>,
 	shade: Vec<u8>,
 	clear: Vec<u8>,
@@ -763,6 +766,7 @@ impl Engine {
 			came: vec![NO_CELL; map.cells],
 			heap: BinaryHeap::with_capacity(map.cells),
 			route: Vec::with_capacity(map.cells),
+			span: 0,
 			trial: vec![EMPTY; map.cells],
 			shade: vec![EMPTY; map.cells],
 			clear: vec![0; map.cells],
@@ -1020,10 +1024,12 @@ impl Engine {
 			return None;
 		}
 		self.route.clear();
+		self.span = 0;
 		let mut paint = 0;
 		let mut walk = to;
 		while walk != NO_CELL {
 			let cell = walk as usize;
+			self.span += 1;
 			if !map.is_town[cell] && owner[cell] == EMPTY {
 				self.route.push(walk);
 				paint += map.cost[cell] as u32;
@@ -1074,10 +1080,12 @@ impl Engine {
 			let reached = self.ranks[here];
 			if at == to {
 				self.route.clear();
+				self.span = 0;
 				let mut paint = 0;
 				let mut walk = at;
 				while walk != NO_CELL {
 					let cell = walk as usize;
+					self.span += 1;
 					if !map.is_town[cell] && owner[cell] == EMPTY {
 						self.route.push(walk);
 						paint += map.cost[cell] as u32;
@@ -1282,7 +1290,7 @@ fn survey(
 	let mut best: Option<Choice> = None;
 	let mut banned = vec![0u8; map.cells];
 	let mut current: Vec<Cell> = Vec::new();
-	let weigh = |engine: &mut Engine, cells: &[Cell], paint: u32, loyalty: f64| {
+	let weigh = |engine: &mut Engine, cells: &[Cell], paint: u32, loyalty: f64, slack: f64| {
 		engine.trial.copy_from_slice(field);
 		for &at in cells {
 			engine.trial[at as usize] = MINE;
@@ -1330,6 +1338,9 @@ fn survey(
 		}
 		if gain <= 0.0 {
 			return None;
+		}
+		if tune.slack > 0.0 {
+			turns /= 1.0 + tune.slack * slack;
 		}
 		Some(loyalty * gain * turns / (paint as f64).powf(tune.paint_power))
 	};
@@ -1424,7 +1435,13 @@ fn survey(
 				}
 				seen_routes.push(mark);
 			}
-			let Some(score) = weigh(engine, &cells, paint, 1.0) else {
+			let bound = {
+				let (ax, ay) = map.point(start);
+				let (bx, by) = map.point(goal);
+				(ax.abs_diff(bx) + ay.abs_diff(by)) as usize + 1
+			};
+			let slack = engine.span.saturating_sub(bound) as f64;
+			let Some(score) = weigh(engine, &cells, paint, 1.0, slack) else {
 				continue;
 			};
 			if best.as_ref().is_none_or(|top| score > top.score) {
@@ -1448,7 +1465,7 @@ fn survey(
 			.map(|&at| map.cost[at as usize] as u32)
 			.sum::<u32>();
 		if paint > 0
-			&& let Some(score) = weigh(engine, extra, paint, loyalty)
+			&& let Some(score) = weigh(engine, extra, paint, loyalty, 0.0)
 			&& best.as_ref().is_none_or(|top| score > top.score)
 		{
 			best = Some(Choice {
