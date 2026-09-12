@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 pub fn connections(view: &View) {
 	let run = view.run;
 	section("connections");
-	println!("pair   turns  avg len  paid us  paid foe  share us");
+	println!("pair   turns  avg len  slack  paid us  paid foe  share us");
 	let mut rows: Vec<_> = run.totals.pay.iter().collect();
 	rows.sort_by_key(|(_, pay)| -pay.total());
 	let mut paid = [0i64; 2];
@@ -16,10 +16,11 @@ pub fn connections(view: &View) {
 		paid[0] += pay.paid[0];
 		paid[1] += pay.paid[1];
 		println!(
-			"{}  {:>5} {:>8.1} {:>8} {:>9} {:>8.0}%",
+			"{}  {:>5} {:>8.1} {:>6.1} {:>8} {:>9} {:>8.0}%",
 			pair_name(pair),
 			pay.turns,
 			pay.mean_length(),
+			pay.mean_length() - straight(run, pair) as f64,
 			view.mine(pay.paid),
 			view.theirs(pay.paid),
 			percent(view.mine(pay.paid), pay.total())
@@ -41,6 +42,12 @@ pub fn connections(view: &View) {
 	if !never.is_empty() {
 		println!("never connected: {}", never.join(" "));
 	}
+}
+
+fn straight(run: &btk::replay::Replay, pair: (usize, usize)) -> i32 {
+	let from = run.grid.towns[pair.0].coord;
+	let to = run.grid.towns[pair.1].coord;
+	from.manhattan_to(to) + 1
 }
 
 pub fn paid_cells(view: &View, top: usize) {

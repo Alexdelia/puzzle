@@ -83,6 +83,7 @@ pub fn placements(view: &View) {
 		1,
 	);
 	view.count_row("cells rebuilt after ink", rebuilt(view));
+	yield_split(view);
 
 	dead_by_bucket(view);
 	dead_map(view);
@@ -99,6 +100,82 @@ pub fn placements(view: &View) {
 			percent(best, earned[player])
 		);
 	}
+}
+
+fn yield_split(view: &View) {
+	let run = view.run;
+	let mut held: BTreeMap<Coord, [i32; 2]> = BTreeMap::new();
+	for record in view.turns() {
+		let mut seen: std::collections::BTreeSet<Coord> = std::collections::BTreeSet::new();
+		for path in record.paths.values() {
+			seen.extend(path.iter().copied());
+		}
+		for at in seen {
+			if let 0 | 1 = record.owner(at) {
+				held.entry(at).or_default()[record.owner(at) as usize] += 1;
+			}
+		}
+	}
+
+	let mut turns = [Vec::new(), Vec::new()];
+	let mut crossings = [Vec::new(), Vec::new()];
+	let mut claimed: std::collections::BTreeSet<Coord> = std::collections::BTreeSet::new();
+	for claim in &run.totals.claims {
+		let Some(player) = claim.player() else {
+			continue;
+		};
+		let paid = run.totals.paid_for(claim.at)[player];
+		if paid == 0 || !claimed.insert(claim.at) {
+			continue;
+		}
+		let alive = held
+			.get(&claim.at)
+			.map_or(0, |counts| counts[player])
+			.max(1);
+		turns[player].push(alive as f64);
+		crossings[player].push(paid as f64 / alive as f64);
+	}
+
+	view.ratio_row(
+		"  turns on a path",
+		[0, 1].map(|player| mean(&turns[player])),
+		1,
+	);
+	view.ratio_row(
+		"  pairs a paid turn",
+		[0, 1].map(|player| mean(&crossings[player])),
+		2,
+	);
+	for player in view.sides() {
+		let mut best: Vec<(i64, Coord)> = claimed
+			.iter()
+			.filter_map(|&at| {
+				let paid = run.totals.paid_for(at)[player];
+				(paid > 0).then_some((paid, at))
+			})
+			.collect();
+		best.sort_unstable_by(|a, b| b.cmp(a));
+		best.truncate(TOP_CELLS);
+		let shown: Vec<String> = best
+			.iter()
+			.map(|&(paid, at)| {
+				let alive = held.get(&at).map_or(0, |counts| counts[player]).max(1);
+				format!("{paid}={alive}x{:.1}", paid as f64 / alive as f64)
+			})
+			.collect();
+		println!(
+			"{:<3} best cells, points=turns x pairs  {}",
+			view.name(player),
+			shown.join("  ")
+		);
+	}
+}
+
+fn mean(values: &[f64]) -> f64 {
+	if values.is_empty() {
+		return 0.0;
+	}
+	values.iter().sum::<f64>() / values.len() as f64
 }
 
 fn rebuilt(view: &View) -> [i32; 2] {
