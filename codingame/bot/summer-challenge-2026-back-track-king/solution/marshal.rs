@@ -468,6 +468,7 @@ struct Tune {
 	pre_paint: u32,
 	pre_order: u8,
 	pre_safe: f64,
+	gate: f64,
 	fill_mult: f64,
 	pre_risk: u8,
 	pre_cap: u32,
@@ -475,6 +476,7 @@ struct Tune {
 	pre_turns: i32,
 	ink_hope: f64,
 	fill_shelter: f64,
+	fill_gate: f64,
 	fill_calm: f64,
 	fill_cost: f64,
 	foe_toll: u32,
@@ -559,6 +561,7 @@ impl Tune {
 			pre_paint: knob("BTK_PRE_PAINT", 12),
 			pre_order: knob("BTK_PRE_ORDER", 0),
 			pre_safe: knob("BTK_PRE_SAFE", 1.5),
+			gate: knob("BTK_GATE", 0.0),
 			fill_mult: knob("BTK_FILL_MULT", 0.5),
 			pre_risk: knob("BTK_PRE_RISK", 0),
 			pre_cap: knob("BTK_PRE_CAP", 0),
@@ -566,6 +569,7 @@ impl Tune {
 			pre_turns: knob("BTK_PRE_TURNS", 0),
 			ink_hope: knob("BTK_INK_HOPE", 0.0),
 			fill_shelter: knob("BTK_FILL_SHELTER", 0.0),
+			fill_gate: knob("BTK_FILL_GATE", 0.0),
 			fill_calm: knob("BTK_FILL_CALM", 1.0),
 			fill_cost: knob("BTK_FILL_COST", 1.0),
 			foe_toll: knob("BTK_FOE_TOLL", 2),
@@ -1544,6 +1548,13 @@ fn forecast(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn at_gateway(map: &Map, slot: usize) -> bool {
+	(0..4).any(|way| {
+		let next = map.neigh[slot][way];
+		next != NO_CELL && map.is_town[next as usize]
+	})
+}
+
 fn preclaim(
 	map: &Map,
 	state: &State,
@@ -1571,6 +1582,11 @@ fn preclaim(
 				1.0
 			};
 			shelter * mult[slot] as f64
+		};
+		let worth = if tune.gate > 0.0 && at_gateway(map, slot) {
+			worth * (1.0 + tune.gate)
+		} else {
+			worth
 		};
 		let worth = worth * (1.0 + tune.align * map.aligned[slot] as f64);
 		let worth =
@@ -1682,8 +1698,13 @@ fn topup(
 			0.0
 		};
 		let calm = -tune.fill_calm * state.instability[region] as f64;
+		let gate = if at_gateway(map, slot) {
+			tune.fill_gate
+		} else {
+			0.0
+		};
 		seeds.push((
-			worth + shelter + calm - tune.fill_cost * map.cost[slot] as f64,
+			worth + shelter + calm + gate - tune.fill_cost * map.cost[slot] as f64,
 			slot as Cell,
 		));
 	}

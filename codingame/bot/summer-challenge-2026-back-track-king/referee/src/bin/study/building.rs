@@ -75,6 +75,13 @@ pub fn placements(view: &View) {
 		[0, 1].map(|player| earned[player] as f64 / claimed[player].max(1) as f64),
 		1,
 	);
+	let paying = [0, 1].map(|player| claimed[player] - dead[player]);
+	view.count_row("cells that paid", paying);
+	view.ratio_row(
+		"points per paying cell",
+		[0, 1].map(|player| earned[player] as f64 / paying[player].max(1) as f64),
+		1,
+	);
 	view.count_row("cells rebuilt after ink", rebuilt(view));
 
 	dead_by_bucket(view);
