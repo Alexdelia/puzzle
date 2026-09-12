@@ -1546,6 +1546,7 @@ fn send(commands: &[Command], out: &mut impl Write) -> io::Result<()> {
 	out.flush()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn decide(
 	map: &Map,
 	state: &State,
