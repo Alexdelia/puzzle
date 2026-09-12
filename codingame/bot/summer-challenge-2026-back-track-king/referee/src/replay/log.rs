@@ -25,6 +25,7 @@ pub struct LoggedTown {
 }
 
 const STREAM_MARKER: &str = "Standard Output Stream:";
+const SUMMARY_MARKER: &str = "Game Summary:";
 
 pub fn read(path: &str) -> Result<Log, String> {
 	let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
@@ -231,10 +232,19 @@ impl Reader<'_> {
 		let mut trailing: Vec<i64> = Vec::new();
 		let mut markers: Vec<i64> = Vec::new();
 		let mut awaiting_output = false;
+		let mut inside_summary = false;
 		for line in self.lines.by_ref() {
 			let line = line.trim_end();
 			if line == STREAM_MARKER {
 				awaiting_output = true;
+				inside_summary = false;
+				continue;
+			}
+			if line == SUMMARY_MARKER {
+				inside_summary = true;
+				continue;
+			}
+			if inside_summary {
 				continue;
 			}
 			if awaiting_output {

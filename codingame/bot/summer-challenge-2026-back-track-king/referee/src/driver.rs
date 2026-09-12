@@ -7,7 +7,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel, sync_channel}
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-const STDERR_KEPT: usize = 200;
+const STDERR_KEPT: usize = 4000;
 const UNREAD_TURNS: usize = 2;
 
 pub trait Driver {

@@ -94,6 +94,10 @@ struct Cli {
 	/// how many disagreeing turns --against prints
 	#[arg(long, value_name = "N", default_value_t = 15)]
 	against_show: usize,
+
+	/// only compare the first N turns with --against (0 for all)
+	#[arg(long, value_name = "N", default_value_t = 0)]
+	against_until: usize,
 }
 
 fn main() {
@@ -142,7 +146,13 @@ fn study(cli: &Cli, path: &str, seed: Option<i64>) {
 				probe.answers.len()
 			);
 		}
-		mimic::agreement(&view, &probe.answers, side, cli.against_show);
+		mimic::agreement(
+			&view,
+			&probe.answers,
+			side,
+			cli.against_show,
+			cli.against_until,
+		);
 	}
 }
 

@@ -32,7 +32,7 @@ pub fn read_answer(grid: &Grid, line: &str) -> Answer {
 	}
 }
 
-pub fn agreement(view: &View, played: &[String], side: usize, show: usize) {
+pub fn agreement(view: &View, played: &[String], side: usize, show: usize, until: usize) {
 	section("imitation");
 	println!(
 		"a candidate bot answering the very frames p{side} ({}) was given, its answer compared",
@@ -45,7 +45,10 @@ pub fn agreement(view: &View, played: &[String], side: usize, show: usize) {
 		.iter()
 		.map(|record| &record.answers[side])
 		.collect();
-	let turns = played.len().min(recorded.len());
+	let mut turns = played.len().min(recorded.len());
+	if until > 0 {
+		turns = turns.min(until);
+	}
 	if turns == 0 {
 		println!("the candidate answered nothing");
 		return;
