@@ -7,14 +7,14 @@ seed=${3:-7000000}
 shift $(( $# < 3 ? $# : 3 )) || true
 opponents=("$@")
 if [ ${#opponents[@]} -eq 0 ]; then
-	opponents=(vanguard warden probe bulwark champ corridor trunk)
+	opponents=(sentinel vanguard squire warden probe bulwark champ corridor trunk)
 fi
 root=$(cd "$(dirname "$0")/.." && pwd)
 bin=$root/target/release
 
 spec_of() {
 	case $1 in
-		vanguard|warden|probe|bulwark|rampart)
+		sentinel|vanguard|warden|probe|bulwark|rampart)
 			echo "env BTK_THINK_MS=200 BTK_PLOTS=0 $bin/$1" ;;
 		*) echo "$bin/$1" ;;
 	esac
