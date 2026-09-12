@@ -58,6 +58,14 @@ name = "probe"
 path = "probe.rs"
 
 [[bin]]
+name = "augur"
+path = "augur.rs"
+
+[[bin]]
+name = "sentinel"
+path = "sentinel.rs"
+
+[[bin]]
 name = "echo"
 path = "echo.rs"
 
