@@ -662,6 +662,7 @@ struct Tune {
 	ink_foe_plan: f64,
 	ink_commit: f64,
 	ink_floor: f64,
+	ink_my_loss: f64,
 	ink_alt: f64,
 	ink_stick: f64,
 	net: bool,
@@ -721,6 +722,7 @@ impl Tune {
 			ink_foe_plan: knob("BTK_INK_FOE_PLAN", 0.5),
 			ink_commit: knob("BTK_INK_COMMIT", 0.5),
 			ink_floor: knob("BTK_INK_FLOOR", 0.0),
+			ink_my_loss: knob("BTK_INK_MY_LOSS", 1.0),
 			ink_alt: knob("BTK_INK_ALT", 0.0),
 			ink_stick: knob("BTK_INK_STICK", 0.0),
 			net: knob::<u8>("BTK_NET", 1) != 0,
@@ -1719,7 +1721,9 @@ impl Planner {
 			let swing = if has_track {
 				let passable = board.passable - region.cells;
 				let after = self.trains.income(map, passable, board.mine, board.foe);
-				(base.foe as f64 - after.foe as f64) - (base.mine as f64 - after.mine as f64)
+				let foe_loss = base.foe as f64 - after.foe as f64;
+				let my_loss = base.mine as f64 - after.mine as f64;
+				foe_loss - tune.ink_my_loss * my_loss
 			} else {
 				0.0
 			};
