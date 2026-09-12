@@ -1,4 +1,5 @@
 mod building;
+mod dead;
 mod detail;
 mod economy;
 mod mimic;
@@ -216,6 +217,7 @@ fn sections(cli: &Cli, view: &View) {
 	paths::paid_cells(view, cli.top);
 	building::gateways(view);
 	building::placements(view);
+	dead::dead_claims(view);
 	building::shelter(view);
 	building::network(view);
 	paths::openings(view);
