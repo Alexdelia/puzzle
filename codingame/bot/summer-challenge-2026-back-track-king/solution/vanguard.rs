@@ -516,7 +516,7 @@ impl Tune {
 			own_toll: knob("BTK_OWN_TOLL", 6),
 			weigh_life: knob("BTK_WEIGH_LIFE", 1.5),
 			lin: knob("BTK_LIN", 2),
-			plots: knob("BTK_PLOTS", 350),
+			plots: knob("BTK_PLOTS", 250),
 		}
 	}
 }
