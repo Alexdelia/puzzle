@@ -78,16 +78,17 @@ fn runs(view: &View, cells: &BTreeMap<Coord, DeadCell>) {
 	let run = view.run;
 	let mine: BTreeMap<Coord, &DeadCell> = cells
 		.iter()
-		.filter(|(_, cell)| cell.owner == view.me)
+		.filter(|(_, cell)| cell.owner == view.me && cell.fate == Fate::Orphan)
 		.map(|(&at, cell)| (at, cell))
 		.collect();
 	let mut seen: std::collections::BTreeSet<Coord> = std::collections::BTreeSet::new();
-	let mut found: Vec<(usize, i32, i32, i32, bool)> = Vec::new();
+	let mut found: Vec<(usize, i32, i32, i32, bool, i32, i32)> = Vec::new();
 	for &start in mine.keys() {
 		if !seen.insert(start) {
 			continue;
 		}
 		let mut queue = std::collections::VecDeque::from([start]);
+		let mut members: Vec<Coord> = Vec::new();
 		let mut size = 0usize;
 		let mut first = i32::MAX;
 		let mut last = 0;
@@ -95,6 +96,7 @@ fn runs(view: &View, cells: &BTreeMap<Coord, DeadCell>) {
 		let mut near_town = false;
 		while let Some(at) = queue.pop_front() {
 			let cell = mine[&at];
+			members.push(at);
 			size += 1;
 			first = first.min(cell.turn);
 			last = last.max(cell.turn);
@@ -106,26 +108,101 @@ fn runs(view: &View, cells: &BTreeMap<Coord, DeadCell>) {
 				}
 			}
 		}
-		found.push((size, first, last, paint, near_town));
+		let began = shortfall(view, first, &members);
+		let short = shortfall(view, last, &members);
+		found.push((size, first, last, paint, near_town, began, short));
 	}
 	found.sort_unstable_by(|a, b| b.cmp(a));
 	let runs_of = |least: usize| found.iter().filter(|entry| entry.0 >= least).count();
 	println!(
-		"\n{} dead runs, {} of them {MIN_RUN} cells or more",
+		"\n{} unfinished runs (claims off every linked pair, 4-connected), {} of them {MIN_RUN} cells or more",
 		found.len(),
 		runs_of(MIN_RUN)
 	);
-	println!("cells  built over  paint  touches a town");
-	for &(size, first, last, paint, near_town) in found.iter().take(TOP_RUNS) {
+	println!(
+		"cells  built over  paint  town  paint short of a pair: at the first claim, at the last"
+	);
+	for &(size, first, last, paint, near_town, began, short) in found.iter().take(TOP_RUNS) {
 		if size < MIN_RUN {
 			break;
 		}
+		let shown = |value: i32| {
+			if value == UNREACHED {
+				"-".to_string()
+			} else {
+				value.to_string()
+			}
+		};
 		println!(
-			"{size:>5}  {:>10}  {paint:>5}  {}",
+			"{size:>5}  {:>10}  {paint:>5}  {:>4}  {:>26}  {:>12}",
 			format!("t{first}-{last}"),
-			if near_town { "yes" } else { "no" }
+			if near_town { "yes" } else { "no" },
+			shown(began),
+			shown(short)
 		);
 	}
+}
+
+fn shortfall(view: &View, turn: i32, members: &[Coord]) -> i32 {
+	let run = view.run;
+	let Some(record) = run.at_turn(turn) else {
+		return UNREACHED;
+	};
+	let reach: Vec<Vec<(i32, i32)>> = run
+		.grid
+		.towns
+		.iter()
+		.map(|town| build_cost(&run.grid, record, town.coord))
+		.collect();
+	let linked = town_distances(&run.grid, record);
+	let mut best = UNREACHED;
+	for &at in members {
+		let index = run.grid.index(at);
+		for town in &run.grid.towns {
+			for &other in &town.desired {
+				let (paint, hops) = reach[town.id][index];
+				let (paint_back, hops_back) = reach[other][index];
+				if paint == UNREACHED || paint_back == UNREACHED {
+					continue;
+				}
+				let span = linked[town.id][run.grid.index(run.grid.towns[other].coord)];
+				if span != UNREACHED && hops + hops_back >= span {
+					continue;
+				}
+				best = best.min(paint + paint_back);
+			}
+		}
+	}
+	best
+}
+
+fn build_cost(grid: &Grid, record: &TurnRecord, from: Coord) -> Vec<(i32, i32)> {
+	let mut cost = vec![(UNREACHED, UNREACHED); grid.cells()];
+	let mut heap = std::collections::BinaryHeap::new();
+	cost[grid.index(from)] = (0, 0);
+	heap.push((std::cmp::Reverse((0i32, 0i32)), grid.index(from)));
+	while let Some((std::cmp::Reverse(here), cell)) = heap.pop() {
+		if here > cost[cell] {
+			continue;
+		}
+		for next in grid.neighbours(grid.coord_of(cell)) {
+			let tile = grid.tile(next);
+			let step = if tile.is_town() || record.owner(next) != -1 {
+				0
+			} else if record.before[&(tile.zone as usize)].inked {
+				continue;
+			} else {
+				tile.rail_cost()
+			};
+			let index = grid.index(next);
+			let reached = (here.0 + step, here.1 + 1);
+			if reached < cost[index] {
+				cost[index] = reached;
+				heap.push((std::cmp::Reverse(reached), index));
+			}
+		}
+	}
+	cost
 }
 
 fn collect(view: &View) -> BTreeMap<Coord, DeadCell> {
