@@ -70,3 +70,7 @@ name = "echo"
 path = "echo.rs"
 
 [dependencies]
+
+[[bin]]
+name = "squire"
+path = "squire.rs"
