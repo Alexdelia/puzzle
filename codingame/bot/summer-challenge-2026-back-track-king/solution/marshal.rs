@@ -529,7 +529,7 @@ impl Tune {
 			disrupt: knob("BTK_DISRUPT", 3),
 			self_penalty: knob("BTK_SELF_PENALTY", 1.0),
 			plan_penalty: knob("BTK_PLAN_PENALTY", 1.0),
-			modes: knob("BTK_MODES", 255),
+			modes: knob("BTK_MODES", 767),
 			fill: knob::<u8>("BTK_FILL", 1) != 0,
 			fill_cap: knob("BTK_FILL_CAP", 48),
 			paint_power: knob("BTK_PAINT_POWER", 1.5),
