@@ -3,7 +3,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 bin=$root/target/release
-pinned="env BTK_THINK_MS=200 BTK_PLOTS=0"
+pinned="env BTK_THINK_MS=3000 BTK_PLOTS=0"
 
 if [ "${1:-}" = "--game" ]; then
 	seed=$2

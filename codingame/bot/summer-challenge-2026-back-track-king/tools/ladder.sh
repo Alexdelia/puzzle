@@ -15,7 +15,7 @@ bin=$root/target/release
 spec_of() {
 	case $1 in
 		sentinel|vanguard|warden|probe|bulwark|rampart)
-			echo "env BTK_THINK_MS=200 BTK_PLOTS=0 $bin/$1" ;;
+			echo "env BTK_THINK_MS=3000 BTK_PLOTS=0 $bin/$1" ;;
 		*) echo "$bin/$1" ;;
 	esac
 }
