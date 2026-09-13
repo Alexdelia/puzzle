@@ -1564,7 +1564,6 @@ fn forecast(
 	(hope, mult)
 }
 
-#[allow(clippy::too_many_arguments)]
 fn at_gateway(map: &Map, slot: usize) -> bool {
 	(0..4).any(|way| {
 		let next = map.neigh[slot][way];
@@ -1572,6 +1571,7 @@ fn at_gateway(map: &Map, slot: usize) -> bool {
 	})
 }
 
+#[allow(clippy::too_many_arguments)]
 fn preclaim(
 	map: &Map,
 	state: &State,
