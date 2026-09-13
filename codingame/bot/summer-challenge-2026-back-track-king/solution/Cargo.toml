@@ -78,3 +78,7 @@ path = "squire.rs"
 [[bin]]
 name = "marshal"
 path = "marshal.rs"
+
+[[bin]]
+name = "praetor"
+path = "praetor.rs"
