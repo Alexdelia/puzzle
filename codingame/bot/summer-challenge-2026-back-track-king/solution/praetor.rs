@@ -1723,7 +1723,6 @@ fn forecast(
 	(hope, mult)
 }
 
-#[allow(clippy::too_many_arguments)]
 fn at_gateway(map: &Map, slot: usize) -> bool {
 	(0..4).any(|way| {
 		let next = map.neigh[slot][way];
@@ -1731,6 +1730,7 @@ fn at_gateway(map: &Map, slot: usize) -> bool {
 	})
 }
 
+#[allow(clippy::too_many_arguments)]
 fn preclaim(
 	map: &Map,
 	state: &State,
@@ -1838,6 +1838,7 @@ fn preclaim(
 	})
 }
 
+#[allow(clippy::too_many_arguments)]
 fn topup(
 	map: &Map,
 	state: &State,
@@ -2750,7 +2751,6 @@ fn send(commands: &[Command], out: &mut impl Write) -> io::Result<()> {
 	out.flush()
 }
 
-#[allow(clippy::too_many_arguments)]
 fn reflect(map: &Map, state: &State) -> State {
 	let owner: Vec<u8> = state
 		.owner
@@ -2762,8 +2762,8 @@ fn reflect(map: &Map, state: &State) -> State {
 		})
 		.collect();
 	let mut foe_seen = vec![0u8; map.region_cells.len()];
-	for slot in 0..map.cells {
-		if owner[slot] == FOE {
+	for (slot, &who) in owner.iter().enumerate() {
+		if who == FOE {
 			let region = map.region[slot] as usize;
 			foe_seen[region] = foe_seen[region].saturating_add(1);
 		}
@@ -2938,8 +2938,8 @@ fn decide(
 		}
 	}
 	if tune.doom_eval > 0 {
-		for region in 0..map.region_cells.len() {
-			if !dead[region] {
+		for (region, &doomed) in dead.iter().enumerate() {
+			if !doomed {
 				continue;
 			}
 			for &at in &map.region_cells[region] {
@@ -3021,8 +3021,8 @@ fn decide(
 	}
 
 	if tune.doom_eval > 0 {
-		for region in 0..map.region_cells.len() {
-			if dead[region] {
+		for (region, &doomed) in dead.iter().enumerate() {
+			if doomed {
 				for &at in &map.region_cells[region] {
 					engine.clear[at as usize] = 0;
 				}
@@ -3060,10 +3060,9 @@ fn decide(
 		&& let Some(theirs) = foe_ink
 		&& ink == Some(theirs)
 		&& (tune.mirror_ink == 1 || state.instability[theirs as usize] + 1 >= INSTABILITY_THRESHOLD)
+		&& let Some(&(_, other)) = ranked.iter().find(|&&(_, region)| region != theirs)
 	{
-		if let Some(&(_, other)) = ranked.iter().find(|&&(_, region)| region != theirs) {
-			ink = Some(other);
-		}
+		ink = Some(other);
 	}
 	if tune.poison && !forced && ranked.is_empty() && !hope_foe.is_empty() {
 		let mut best: Option<((u8, usize), usize)> = None;
