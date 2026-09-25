@@ -24,3 +24,7 @@ path = "src/search.rs"
 [[bin]]
 name = "queue"
 path = "src/queue.rs"
+
+[[bin]]
+name = "pack"
+path = "src/pack.rs"
