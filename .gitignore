@@ -1,6 +1,8 @@
 .vscode
 *~
 
+*.bak
+
 Cargo.lock
 
 obj
