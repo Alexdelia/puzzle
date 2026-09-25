@@ -233,8 +233,7 @@ fn main() -> ExitCode {
 		dbg!(&saved);
 	}
 
-	while !saved.is_empty() {
-		let s = saved.pop().unwrap();
+	while let Some(s) = saved.pop() {
 		dbg!(s);
 
 		let mut board = Board::new();
