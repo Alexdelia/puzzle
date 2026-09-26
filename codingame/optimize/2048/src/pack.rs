@@ -2,7 +2,9 @@
 #[path = "answer.rs"]
 mod answer;
 
-use answer::{CHAR_BITS, CJK_BASE, HALF, MOVE_CHARS, Model, Plan, QUARTER, TOP, ranking, start};
+use answer::{
+	CHAR_BITS, CJK_BASE, HALF, MOVE_CHARS, Model, Plan, QUARTER, TOP, oriented, ranking, start,
+};
 
 struct Encoder {
 	low: u64,
@@ -70,6 +72,7 @@ struct Game {
 	seed0: u64,
 	score: u32,
 	moves: Vec<usize>,
+	symmetry: usize,
 }
 
 fn parse(line: &str) -> Game {
@@ -81,17 +84,19 @@ fn parse(line: &str) -> Game {
 			.chars()
 			.map(|c| MOVE_CHARS.iter().position(|&m| m == c).unwrap())
 			.collect(),
+		symmetry: fields.get(4).map_or(0, |f| f.parse().unwrap()),
 	}
 }
 
 fn encode(game: &Game) -> String {
 	let seed0 = game.seed0;
 	let (mut board, mut seed) = start(game.seed0);
+	let snake = oriented(game.symmetry);
 	let mut model = Model::default();
 	let mut encoder = Encoder::new();
 	let mut score = 0;
 	for &mv in &game.moves {
-		let steps = ranking(&board, seed);
+		let steps = ranking(&board, seed, &snake);
 		let rank = steps
 			.iter()
 			.position(|s| s.mv == mv)
@@ -111,7 +116,7 @@ fn encode(game: &Game) -> String {
 
 fn verify(game: &Game, stream: &str) -> u32 {
 	let seed0 = game.seed0;
-	let mut plan = Plan::replay(seed0, stream, game.moves.len());
+	let mut plan = Plan::replay(seed0, game.symmetry, stream, game.moves.len());
 	for (i, &expected) in game.moves.iter().enumerate() {
 		assert_eq!(
 			plan.next_move(),
@@ -141,14 +146,19 @@ fn main() {
 		let stream = encode(game);
 		let offset = payload.chars().count();
 		let final_score = verify(game, &stream);
-		let Game { seed0, score, .. } = *game;
+		let Game {
+			seed0,
+			score,
+			symmetry,
+			..
+		} = *game;
 		let move_count = game.moves.len();
 		let char_count = stream.chars().count();
 		let bit_per_move = (char_count * CHAR_BITS as usize) as f64 / move_count as f64;
 		eprintln!(
 			"{seed0:>9} {score:>8} move {move_count:>6} char {char_count:>5} bit/move {bit_per_move:.3} final {final_score}"
 		);
-		table.push(format!("({seed0}, {move_count}, {offset})"));
+		table.push(format!("({seed0}, {symmetry}, {move_count}, {offset})"));
 		payload.push_str(&stream);
 		stored_total += score as u64;
 		final_total += final_score as u64;
@@ -160,6 +170,6 @@ fn main() {
 		"{game_count} game, {move_total} move, {payload_char} payload char, stored score {stored_total}, with greedy tail {final_total}"
 	);
 	let table = table.join(", ");
-	println!("const GAMES: &[(u64, usize, usize)] = &[{table}];");
+	println!("const GAMES: &[(u64, usize, usize, usize)] = &[{table}];");
 	println!("const PAYLOAD: &str = \"{payload}\";");
 }

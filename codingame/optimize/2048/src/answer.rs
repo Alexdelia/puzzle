@@ -1,6 +1,6 @@
 use std::io::{self, BufRead, Write};
 
-const GAMES: &[(u64, usize, usize)] = &[];
+const GAMES: &[(u64, usize, usize, usize)] = &[];
 const PAYLOAD: &str = "";
 
 const CHUNK: usize = 9000;
@@ -32,32 +32,47 @@ pub fn play(board: &Board, mv: usize) -> Option<(Board, u32)> {
 	let mut out = [0u8; 16];
 	let mut gain = 0;
 	for line in 0..4 {
-		let tiles: Vec<u8> = (0..4)
-			.map(|k| board[line_cell(mv, line, k)])
-			.filter(|&v| v != 0)
-			.collect();
 		let mut slot = 0;
-		let mut i = 0;
-		while i < tiles.len() {
-			let merged = i + 1 < tiles.len() && tiles[i] == tiles[i + 1];
-			let value = if merged { tiles[i] + 1 } else { tiles[i] };
-			if merged {
-				gain += 1 << value;
+		let mut held = 0u8;
+		for k in 0..4 {
+			let value = board[line_cell(mv, line, k)];
+			if value == 0 {
+				continue;
 			}
-			out[line_cell(mv, line, slot)] = value;
-			slot += 1;
-			i += if merged { 2 } else { 1 };
+			if held == value {
+				out[line_cell(mv, line, slot)] = value + 1;
+				gain += 1 << (value + 1);
+				slot += 1;
+				held = 0;
+			} else {
+				if held != 0 {
+					out[line_cell(mv, line, slot)] = held;
+					slot += 1;
+				}
+				held = value;
+			}
+		}
+		if held != 0 {
+			out[line_cell(mv, line, slot)] = held;
 		}
 	}
 	(out != *board).then_some((out, gain))
 }
 
 pub fn spawn(board: &mut Board, seed: u64) {
-	let empty: Vec<usize> = (0..4)
-		.flat_map(|y| (0..4).map(move |x| x * 4 + y))
-		.filter(|&i| board[i] == 0)
-		.collect();
-	board[empty[seed as usize % empty.len()]] = if seed & 0x10 == 0 { 1 } else { 2 };
+	let empty = board.iter().filter(|&&v| v == 0).count();
+	let mut target = seed as usize % empty;
+	for y in 0..4 {
+		for x in 0..4 {
+			if board[x * 4 + y] == 0 {
+				if target == 0 {
+					board[x * 4 + y] = if seed & 0x10 == 0 { 1 } else { 2 };
+					return;
+				}
+				target -= 1;
+			}
+		}
+	}
 }
 
 pub fn start(seed0: u64) -> (Board, u64) {
@@ -68,9 +83,21 @@ pub fn start(seed0: u64) -> (Board, u64) {
 	(board, next(seed))
 }
 
-fn snake_value(board: &Board) -> i64 {
+pub type Snake = [usize; 16];
+
+pub fn oriented(symmetry: usize) -> Snake {
+	SNAKE.map(|cell| {
+		let (x, y) = (cell / 4, cell % 4);
+		let (x, y) = if symmetry & 4 == 0 { (x, y) } else { (y, x) };
+		let x = if symmetry & 1 == 0 { x } else { 3 - x };
+		let y = if symmetry & 2 == 0 { y } else { 3 - y };
+		x * 4 + y
+	})
+}
+
+pub fn snake_value(board: &Board, snake: &Snake) -> i64 {
 	let mut total = 0i64;
-	for (k, &i) in SNAKE.iter().enumerate() {
+	for (k, &i) in snake.iter().enumerate() {
 		total += if board[i] == 0 {
 			1
 		} else {
@@ -84,9 +111,10 @@ pub struct Step {
 	pub mv: usize,
 	pub board: Board,
 	pub gain: u32,
+	pub value: i64,
 }
 
-pub fn ranking(board: &Board, seed: u64) -> Vec<Step> {
+pub fn ranking(board: &Board, seed: u64, snake: &Snake) -> Vec<Step> {
 	let mut steps: Vec<Step> = (0..4)
 		.filter_map(|mv| {
 			play(board, mv).map(|(mut after, gain)| {
@@ -95,11 +123,12 @@ pub fn ranking(board: &Board, seed: u64) -> Vec<Step> {
 					mv,
 					board: after,
 					gain,
+					value: snake_value(&after, snake),
 				}
 			})
 		})
 		.collect();
-	steps.sort_by_key(|s| (-snake_value(&s.board), s.mv));
+	steps.sort_by_key(|s| (-s.value, s.mv));
 	steps
 }
 
@@ -210,18 +239,20 @@ pub struct Plan<'a> {
 	pub board: Board,
 	pub seed: u64,
 	pub score: u32,
+	snake: Snake,
 	stored: usize,
 	decoder: Decoder<'a>,
 	model: Model,
 }
 
 impl<'a> Plan<'a> {
-	pub fn replay(seed0: u64, stream: &'a str, stored: usize) -> Self {
+	pub fn replay(seed0: u64, symmetry: usize, stream: &'a str, stored: usize) -> Self {
 		let (board, seed) = start(seed0);
 		Self {
 			board,
 			seed,
 			score: 0,
+			snake: oriented(symmetry),
 			stored,
 			decoder: Decoder::new(stream),
 			model: Model::default(),
@@ -233,6 +264,7 @@ impl<'a> Plan<'a> {
 			board,
 			seed,
 			score: 0,
+			snake: SNAKE,
 			stored: 0,
 			decoder: Decoder::new(""),
 			model: Model::default(),
@@ -240,7 +272,7 @@ impl<'a> Plan<'a> {
 	}
 
 	pub fn next_move(&mut self) -> Option<usize> {
-		let mut steps = ranking(&self.board, self.seed);
+		let mut steps = ranking(&self.board, self.seed, &self.snake);
 		if steps.is_empty() {
 			return None;
 		}
@@ -279,7 +311,8 @@ fn read_turn(lines: &mut impl Iterator<Item = io::Result<String>>) -> Option<(u6
 }
 
 fn plan_for(seed: u64, board: Board) -> Plan<'static> {
-	let Some(&(seed0, stored, offset)) = GAMES.iter().find(|g| next(next(g.0)) == seed) else {
+	let Some(&(seed0, symmetry, stored, offset)) = GAMES.iter().find(|g| next(next(g.0)) == seed)
+	else {
 		eprintln!("unknown seed {seed}: greedy");
 		return Plan::greedy(board, seed);
 	};
@@ -287,7 +320,7 @@ fn plan_for(seed: u64, board: Board) -> Plan<'static> {
 		.char_indices()
 		.nth(offset)
 		.map_or(PAYLOAD.len(), |(i, _)| i)..];
-	let plan = Plan::replay(seed0, stream, stored);
+	let plan = Plan::replay(seed0, symmetry, stream, stored);
 	let simulated = plan.board;
 	if simulated != board {
 		eprintln!("board mismatch for seed {seed}: {simulated:?} vs input {board:?}");

@@ -4,15 +4,6 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Alexandre Delille <adelille@student.42.fr>"]
 
-[dependencies]
-enum_vec = "0.3"
-enum_like = "0.2"
-enum_like_derive = "0.1"
-
-[lib]
-name = "lib2048"
-path = "src/lib.rs"
-
 [[bin]]
 name = "answer"
 path = "src/answer.rs"
@@ -22,9 +13,13 @@ name = "search"
 path = "src/search.rs"
 
 [[bin]]
-name = "queue"
-path = "src/queue.rs"
-
-[[bin]]
 name = "pack"
 path = "src/pack.rs"
+
+[[bin]]
+name = "gate"
+path = "src/gate.rs"
+
+[profile.release]
+debug = false
+opt-level = 3
