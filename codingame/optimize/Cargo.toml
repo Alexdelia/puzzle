@@ -13,9 +13,5 @@ name = "spring-2025"
 path = "spring-challenge-2025.rs"
 
 [[bin]]
-name = "number-shifting"
-path = "number-shifting.rs"
-
-[[bin]]
 name = "code-of-the-rings"
 path = "code-of-the-rings.rs"
