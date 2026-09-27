@@ -4,10 +4,12 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Alexandre Delille <adelille@student.42.fr>"]
 
-[[bin]]
-name = "naive"
-path = "src/naive.rs"
+[features]
+lossless = []
 
 [profile.release]
 debug = false
 opt-level = 3
+
+[lib]
+path = "src/lib.rs"
