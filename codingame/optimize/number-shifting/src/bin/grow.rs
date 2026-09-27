@@ -1,5 +1,7 @@
 use number_shifting::plan::{Cell, ROOT, Rooted, SumSet, cells, plan};
 use number_shifting::{DX, DY, Level, Move, Rng};
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 fn knob(name: &str, default: f64) -> f64 {
@@ -568,47 +570,63 @@ impl Forest {
 	}
 }
 
-fn main() {
-	let level = Level::read_stdin();
-	let start = Instant::now();
-	let mut rng = Rng::new(knob("SEED", 1.0) as u64);
-	let depth = knob("DEPTH", 3.0) as usize;
-	let history = knob("LFA", 2000.0) as usize;
-	let detach_rate = knob("DETACH", 5.0) as usize;
-	let focus = knob("FOCUS", 80.0) as usize;
-	let report = knob("REPORT", 5_000_000.0) as u64;
-	let mut forest = Forest::new(&level);
+struct Knobs {
+	depth: usize,
+	history: usize,
+	detach_rate: usize,
+	focus: usize,
+	report: u64,
+	stagnation: u64,
+	kick: usize,
+	chain_rate: usize,
+	chain_budget: usize,
+}
+
+impl Knobs {
+	fn from_env() -> Knobs {
+		Knobs {
+			depth: knob("DEPTH", 3.0) as usize,
+			history: knob("LFA", 2000.0) as usize,
+			detach_rate: knob("DETACH", 5.0) as usize,
+			focus: knob("FOCUS", 80.0) as usize,
+			report: knob("REPORT", 5_000_000.0) as u64,
+			stagnation: knob("STAGNATION", 10000.0) as u64,
+			kick: knob("KICK", 1.0) as usize,
+			chain_rate: knob("CHAIN", 300.0) as usize,
+			chain_budget: knob("CHAIN_BUDGET", 300.0) as usize,
+		}
+	}
+}
+
+fn search(
+	level: &Level,
+	seed: u64,
+	knobs: &Knobs,
+	stop: &AtomicBool,
+	start: Instant,
+	verbose: bool,
+) -> Option<(Vec<Move>, u64)> {
+	let mut rng = Rng::new(seed);
+	let mut forest = Forest::new(level);
 	let n = forest.cells.len();
-	let mut lfa = vec![forest.score(); history];
+	let mut lfa = vec![forest.score(); knobs.history];
 	let mut best = forest.score();
 	let mut best_state = forest.snapshot();
 	let mut last_improvement = 0u64;
-	let stagnation = knob("STAGNATION", 200000.0) as u64;
-	let kick = knob("KICK", 5.0) as usize;
-	let chain_rate = knob("CHAIN", 300.0) as usize;
-	let chain_budget = knob("CHAIN_BUDGET", 300.0) as usize;
 	let mut chains = 0u64;
 	for it in 0u64.. {
 		if forest.remaining.is_empty() {
 			match forest.solution() {
-				Ok(moves) => {
-					for m in &moves {
-						println!("{m}");
-					}
-					eprintln!(
-						"solved in {:.3}s, {it} iterations",
-						start.elapsed().as_secs_f64()
-					);
-					return;
-				}
+				Ok(moves) => return Some((moves, it)),
 				Err(node) => panic!("invariant broken at node {node}"),
 			}
 		}
-		if !forest.remaining.is_empty() && rng.below(1000) < chain_rate {
+		if it % 1024 == 0 && stop.load(Ordering::Relaxed) {
+			return None;
+		}
+		if rng.below(1000) < knobs.chain_rate {
 			let start_node = forest.remaining[rng.below(forest.remaining.len())];
-			let mark = forest.journal.len();
-			if forest.chain_repair(start_node, chain_budget, &mut rng) {
-				forest.journal.truncate(mark);
+			if forest.chain_repair(start_node, knobs.chain_budget, &mut rng) {
 				forest.journal.clear();
 				chains += 1;
 				if forest.score() < best {
@@ -621,22 +639,22 @@ fn main() {
 		}
 		let before = forest.score();
 		let mark = forest.journal.len();
-		let moved = if rng.below(100) < detach_rate {
+		let moved = if rng.below(100) < knobs.detach_rate {
 			let node = rng.below(n);
-			forest.detach_move(node, depth, &mut rng)
+			forest.detach_move(node, knobs.depth, &mut rng)
 		} else {
-			let node = if rng.below(100) < focus {
+			let node = if rng.below(100) < knobs.focus {
 				forest.remaining[rng.below(forest.remaining.len())]
 			} else {
 				rng.below(n)
 			};
-			forest.attach_move(node, depth, &mut rng)
+			forest.attach_move(node, knobs.depth, &mut rng)
 		};
 		if !moved {
 			continue;
 		}
 		let after = forest.score();
-		let slot = (it % history as u64) as usize;
+		let slot = (it % knobs.history as u64) as usize;
 		if after <= before || after <= lfa[slot] {
 			lfa[slot] = after;
 			forest.journal.clear();
@@ -649,17 +667,17 @@ fn main() {
 			best_state = forest.snapshot();
 			last_improvement = it;
 		}
-		if it - last_improvement > stagnation {
+		if it - last_improvement > knobs.stagnation {
 			forest.restore(&best_state);
-			for _ in 0..kick {
+			for _ in 0..knobs.kick {
 				let node = rng.below(n);
-				forest.detach_move(node, depth, &mut rng);
+				forest.detach_move(node, knobs.depth, &mut rng);
 			}
 			forest.journal.clear();
 			lfa.iter_mut().for_each(|f| *f = forest.score());
 			last_improvement = it;
 		}
-		if it % report == 0 {
+		if verbose && it % knobs.report == 0 {
 			eprintln!(
 				"{:.1}s it {it} remaining {} residual {} best {best} chains {chains}",
 				start.elapsed().as_secs_f64(),
@@ -668,4 +686,43 @@ fn main() {
 			);
 		}
 	}
+	None
+}
+
+fn main() {
+	let level = Level::read_stdin();
+	let start = Instant::now();
+	let knobs = Knobs::from_env();
+	let seed = knob("SEED", 1.0) as u64;
+	let default_threads = std::thread::available_parallelism().map_or(1, |n| n.get());
+	let threads = knob("THREADS", default_threads as f64) as usize;
+	let stop = AtomicBool::new(false);
+	let found = Mutex::new(None);
+	std::thread::scope(|scope| {
+		for thread in 0..threads {
+			let (level, knobs, stop, found) = (&level, &knobs, &stop, &found);
+			scope.spawn(move || {
+				if let Some((moves, it)) =
+					search(level, seed + thread as u64, knobs, stop, start, thread == 0)
+				{
+					let mut slot = found.lock().unwrap();
+					if slot.is_none() {
+						*slot = Some((moves, it, thread));
+						stop.store(true, Ordering::Relaxed);
+					}
+				}
+			});
+		}
+	});
+	let (moves, it, thread) = found
+		.into_inner()
+		.unwrap()
+		.expect("every search thread ended without a solution");
+	for m in &moves {
+		println!("{m}");
+	}
+	eprintln!(
+		"solved in {:.3}s, {it} iterations, thread {thread}/{threads}",
+		start.elapsed().as_secs_f64()
+	);
 }
