@@ -12,6 +12,7 @@ fn knob(name: &str, default: f64) -> f64 {
 }
 
 const REMAINING_WEIGHT: i64 = 64;
+const ASSEMBLE_CANDIDATES: usize = 24;
 
 #[derive(Clone, Copy)]
 enum Delta {
@@ -48,6 +49,8 @@ struct Forest {
 	remaining: Vec<usize>,
 	remaining_slot: Vec<usize>,
 	residual_sum: i64,
+	weight: Vec<i64>,
+	penalty_sum: i64,
 	journal: Vec<Op>,
 	sum_cache: Vec<SumSet>,
 	neutral_tries: usize,
@@ -62,7 +65,13 @@ impl Forest {
 			cell_at[c.y * level.w + c.x] = i;
 		}
 		let residual = cells.iter().map(|c| c.value).collect::<Vec<_>>();
+		let base_weight = knob("WEIGHT_BASE", 64.0) as i64;
 		Forest {
+			penalty_sum: residual
+				.iter()
+				.map(|&r| base_weight * (REMAINING_WEIGHT + r as i64))
+				.sum(),
+			weight: vec![base_weight; n],
 			width: level.w,
 			height: level.h,
 			cell_at,
@@ -81,7 +90,30 @@ impl Forest {
 	}
 
 	fn score(&self) -> i64 {
+		self.penalty_sum
+	}
+
+	fn raw_score(&self) -> i64 {
 		self.remaining.len() as i64 * REMAINING_WEIGHT + self.residual_sum
+	}
+
+	fn penalty(&self, node: usize, residual: i32) -> i64 {
+		if residual > 0 {
+			self.weight[node] * (REMAINING_WEIGHT + residual as i64)
+		} else {
+			0
+		}
+	}
+
+	fn pick_remaining(&self, rng: &mut Rng) -> usize {
+		self.remaining[rng.below(self.remaining.len())]
+	}
+
+	fn bump_weights(&mut self, step: i64) {
+		for &node in &self.remaining {
+			self.weight[node] += step;
+			self.penalty_sum += step * (REMAINING_WEIGHT + self.residual[node] as i64);
+		}
 	}
 
 	fn distances(&self, node: usize) -> Vec<i32> {
@@ -110,9 +142,13 @@ impl Forest {
 				sums.add(d);
 				sums
 			}
-			Some(Delta::Remove(_)) => {
-				SumSet::of(self.cells[node].value, self.effective(node, delta))
-			}
+			Some(Delta::Remove(removed)) => SumSet::of(
+				self.cells[node].value,
+				self.children[node]
+					.iter()
+					.filter(|&&c| c != removed)
+					.map(|&c| self.target[c]),
+			),
 		}
 	}
 
@@ -141,6 +177,7 @@ impl Forest {
 	fn set_residual(&mut self, node: usize, residual: i32) {
 		let old = self.residual[node];
 		self.residual_sum += (residual - old) as i64;
+		self.penalty_sum += self.penalty(node, residual) - self.penalty(node, old);
 		self.residual[node] = residual;
 		match (old > 0, residual > 0) {
 			(false, true) => {
@@ -337,6 +374,77 @@ impl Forest {
 		}
 		let old_parent = self.unlink(node);
 		self.fix(old_parent, depth, rng);
+		true
+	}
+
+	fn assemble_candidates(&self, root: usize, rng: &mut Rng) -> Vec<(usize, i32)> {
+		let mut free = self.cells[root]
+			.candidates
+			.iter()
+			.copied()
+			.filter(|&(z, d)| {
+				let q = self.parent[z];
+				q != root
+					&& self.achievable(z).contains_abs(d)
+					&& self.holds(q, Some(Delta::Remove(z)))
+			})
+			.collect::<Vec<_>>();
+		for i in (1..free.len()).rev() {
+			free.swap(i, rng.below(i + 1));
+		}
+		free.truncate(ASSEMBLE_CANDIDATES);
+		free
+	}
+
+	fn subset_layers(&self, root: usize, free: &[(usize, i32)]) -> Vec<SumSet> {
+		let mut layers = vec![*self.sums(root)];
+		for &(_, d) in free {
+			let mut next = *layers.last().unwrap();
+			let mut shifted = next;
+			shifted.add(d);
+			next.union(&shifted);
+			layers.push(next);
+		}
+		layers
+	}
+
+	fn subset_reaching(layers: &[SumSet], free: &[(usize, i32)], target: i32) -> Vec<(usize, i32)> {
+		let mut chosen = Vec::new();
+		let mut sum = target;
+		for (k, &(z, d)) in free.iter().enumerate().rev() {
+			let before = &layers[k];
+			if before.contains(sum) {
+				continue;
+			}
+			sum += if before.contains(sum - d) { -d } else { d };
+			chosen.push((z, d));
+		}
+		chosen
+	}
+
+	fn assemble_move(&mut self, root: usize, depth: usize, rng: &mut Rng) -> bool {
+		if self.parent[root] != ROOT {
+			return false;
+		}
+		let free = self.assemble_candidates(root, rng);
+		let layers = self.subset_layers(root, &free);
+		if !layers.last().unwrap().contains(0) {
+			return false;
+		}
+		let chosen = Self::subset_reaching(&layers, &free, 0);
+		let mut old_parents = Vec::new();
+		for &(z, d) in &chosen {
+			if self.parent[z] != ROOT {
+				old_parents.push(self.unlink(z));
+			}
+			self.link(z, root, d);
+		}
+		for &(z, _) in &chosen {
+			self.fix(z, depth, rng);
+		}
+		for q in old_parents {
+			self.fix(q, depth, rng);
+		}
 		true
 	}
 
@@ -620,6 +728,8 @@ struct Knobs {
 	chain_rate: usize,
 	chain_budget: usize,
 	neutral_kick: bool,
+	weight_step: i64,
+	assemble_rate: usize,
 }
 
 impl Knobs {
@@ -635,6 +745,8 @@ impl Knobs {
 			chain_rate: knob("CHAIN", 300.0) as usize,
 			chain_budget: knob("CHAIN_BUDGET", 300.0) as usize,
 			neutral_kick: knob("NEUTRAL_KICK", 1.0) > 0.0,
+			weight_step: knob("WEIGHT_STEP", 1.0) as i64,
+			assemble_rate: knob("ASSEMBLE", 50.0) as usize,
 		}
 	}
 }
@@ -651,7 +763,7 @@ fn search(
 	let mut forest = Forest::new(level);
 	let n = forest.cells.len();
 	let mut lfa = vec![forest.score(); knobs.history];
-	let mut best = forest.score();
+	let mut best = forest.raw_score();
 	let mut best_state = forest.snapshot();
 	let mut last_improvement = 0u64;
 	let mut chains = 0u64;
@@ -666,12 +778,12 @@ fn search(
 			return None;
 		}
 		if rng.below(1000) < knobs.chain_rate {
-			let start_node = forest.remaining[rng.below(forest.remaining.len())];
+			let start_node = forest.pick_remaining(&mut rng);
 			if forest.chain_repair(start_node, knobs.chain_budget, &mut rng) {
 				forest.journal.clear();
 				chains += 1;
-				if forest.score() < best {
-					best = forest.score();
+				if forest.raw_score() < best {
+					best = forest.raw_score();
 					best_state = forest.snapshot();
 					last_improvement = it;
 				}
@@ -680,12 +792,15 @@ fn search(
 		}
 		let before = forest.score();
 		let mark = forest.journal.len();
-		let moved = if rng.below(100) < knobs.detach_rate {
+		let moved = if rng.below(1000) < knobs.assemble_rate {
+			let node = forest.pick_remaining(&mut rng);
+			forest.assemble_move(node, knobs.depth, &mut rng)
+		} else if rng.below(100) < knobs.detach_rate {
 			let node = rng.below(n);
 			forest.detach_move(node, knobs.depth, &mut rng)
 		} else {
 			let node = if rng.below(100) < knobs.focus {
-				forest.remaining[rng.below(forest.remaining.len())]
+				forest.pick_remaining(&mut rng)
 			} else {
 				rng.below(n)
 			};
@@ -703,12 +818,13 @@ fn search(
 			forest.rollback(mark);
 			lfa[slot] = before;
 		}
-		if after < best {
-			best = after;
+		if forest.raw_score() < best {
+			best = forest.raw_score();
 			best_state = forest.snapshot();
 			last_improvement = it;
 		}
 		if it - last_improvement > knobs.stagnation {
+			forest.bump_weights(knobs.weight_step);
 			forest.restore(&best_state);
 			for _ in 0..knobs.kick {
 				if !(knobs.neutral_kick && forest.neutral_detach(&mut rng, 64)) {

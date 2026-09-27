@@ -224,8 +224,9 @@ pub fn plan(value: i32, distances: &[i32], target: i32) -> Result<Vec<(usize, i3
 	Err(best.max(1))
 }
 
-const SUM_WORDS: usize = 32;
+const SUM_WORDS: usize = 8;
 const SUM_OFFSET: i32 = (SUM_WORDS * 32) as i32;
+const ABS_WORDS: usize = SUM_WORDS / 2 + 1;
 
 #[derive(Clone, Copy)]
 pub struct SumSet {
@@ -291,30 +292,38 @@ impl SumSet {
 		self.bits = next;
 	}
 
-	fn signed_values(&self) -> impl Iterator<Item = i32> + '_ {
-		self.bits.iter().enumerate().flat_map(|(i, &word)| {
-			let mut rest = word;
+	pub fn union(&mut self, other: &SumSet) {
+		for (mine, theirs) in self.bits.iter_mut().zip(other.bits) {
+			*mine |= theirs;
+		}
+	}
+
+	fn abs_mask(&self) -> [u64; ABS_WORDS] {
+		let half = SUM_WORDS / 2;
+		let mut mask = [0u64; ABS_WORDS];
+		for k in 0..half {
+			let mirrored = self.bits[half - 1 - k].reverse_bits();
+			mask[k] |= self.bits[half + k] | mirrored << 1;
+			mask[k + 1] |= mirrored >> 63;
+		}
+		mask
+	}
+
+	pub fn abs_values(&self) -> impl Iterator<Item = i32> + use<> {
+		let mask = self.abs_mask();
+		(0..ABS_WORDS).flat_map(move |k| {
+			let mut rest = mask[k];
 			std::iter::from_fn(move || {
 				(rest != 0).then(|| {
 					let bit = rest.trailing_zeros();
 					rest &= rest - 1;
-					(i * 64) as i32 + bit as i32 - SUM_OFFSET
+					(k * 64) as i32 + bit as i32
 				})
 			})
 		})
 	}
 
-	pub fn abs_values(&self) -> Vec<i32> {
-		let mut values = self.signed_values().map(i32::abs).collect::<Vec<_>>();
-		values.sort_unstable();
-		values.dedup();
-		values
-	}
-
 	pub fn min_abs(&self) -> i32 {
-		self.signed_values()
-			.map(i32::abs)
-			.min()
-			.unwrap_or(SUM_OFFSET)
+		self.abs_values().next().unwrap_or(SUM_OFFSET)
 	}
 }
