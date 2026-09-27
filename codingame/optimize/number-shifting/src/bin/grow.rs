@@ -49,6 +49,7 @@ struct Forest {
 	remaining_slot: Vec<usize>,
 	residual_sum: i64,
 	journal: Vec<Op>,
+	sum_cache: Vec<SumSet>,
 	neutral_tries: usize,
 }
 
@@ -73,6 +74,7 @@ impl Forest {
 			remaining: (0..n).collect(),
 			remaining_slot: (0..n).collect(),
 			journal: Vec::new(),
+			sum_cache: cells.iter().map(|c| SumSet::new(c.value)).collect(),
 			neutral_tries: knob("NEUTRAL", 8.0) as usize,
 			cells,
 		}
@@ -89,11 +91,29 @@ impl Forest {
 			.collect()
 	}
 
-	fn sums(&self, node: usize) -> SumSet {
-		SumSet::of(
+	fn sums(&self, node: usize) -> &SumSet {
+		&self.sum_cache[node]
+	}
+
+	fn recompute_sums(&mut self, node: usize) {
+		self.sum_cache[node] = SumSet::of(
 			self.cells[node].value,
 			self.children[node].iter().map(|&c| self.target[c]),
-		)
+		);
+	}
+
+	fn effective_sums(&self, node: usize, delta: Option<Delta>) -> SumSet {
+		match delta {
+			None => self.sum_cache[node],
+			Some(Delta::Add(d)) => {
+				let mut sums = self.sum_cache[node];
+				sums.add(d);
+				sums
+			}
+			Some(Delta::Remove(_)) => {
+				SumSet::of(self.cells[node].value, self.effective(node, delta))
+			}
+		}
 	}
 
 	fn fits(
@@ -109,7 +129,7 @@ impl Forest {
 	}
 
 	fn satisfied(&self, node: usize) -> bool {
-		self.fits(node, &self.sums(node), self.target[node], || {
+		self.fits(node, self.sums(node), self.target[node], || {
 			self.distances(node)
 		})
 	}
@@ -151,6 +171,7 @@ impl Forest {
 		self.parent[child] = parent;
 		self.target[child] = distance;
 		self.children[parent].push(child);
+		self.recompute_sums(parent);
 	}
 
 	fn raw_unlink(&mut self, child: usize) -> (usize, i32) {
@@ -163,6 +184,7 @@ impl Forest {
 		self.children[parent].swap_remove(slot);
 		self.parent[child] = ROOT;
 		self.target[child] = 0;
+		self.recompute_sums(parent);
 		(parent, distance)
 	}
 
@@ -218,7 +240,7 @@ impl Forest {
 		false
 	}
 
-	fn achievable(&self, node: usize) -> SumSet {
+	fn achievable(&self, node: usize) -> &SumSet {
 		self.sums(node)
 	}
 
@@ -271,7 +293,7 @@ impl Forest {
 		if self.parent[parent] == ROOT {
 			return true;
 		}
-		let mut sums = self.sums(parent);
+		let mut sums = *self.sums(parent);
 		sums.add(distance);
 		self.fits(parent, &sums, self.target[parent], || {
 			let mut distances = self.distances(parent);
@@ -318,6 +340,19 @@ impl Forest {
 		true
 	}
 
+	fn neutral_detach(&mut self, rng: &mut Rng, tries: usize) -> bool {
+		let n = self.cells.len();
+		for _ in 0..tries {
+			let node = rng.below(n);
+			let parent = self.parent[node];
+			if parent != ROOT && self.holds(parent, Some(Delta::Remove(node))) {
+				self.unlink(node);
+				return true;
+			}
+		}
+		false
+	}
+
 	fn effective(&self, node: usize, delta: Option<Delta>) -> Vec<i32> {
 		let mut distances = Vec::with_capacity(self.children[node].len() + 1);
 		for &c in &self.children[node] {
@@ -335,13 +370,10 @@ impl Forest {
 		if node == ROOT || self.parent[node] == ROOT {
 			return true;
 		}
-		let distances = self.effective(node, delta);
-		let sums = SumSet::of(self.cells[node].value, distances.iter().copied());
-		self.fits(node, &sums, self.target[node], || distances)
-	}
-
-	fn sums_of(&self, node: usize, distances: &[i32]) -> Vec<i32> {
-		SumSet::of(self.cells[node].value, distances.iter().copied()).abs_values()
+		let sums = self.effective_sums(node, delta);
+		self.fits(node, &sums, self.target[node], || {
+			self.effective(node, delta)
+		})
 	}
 
 	fn outcome(&self, broken: [(usize, Option<Delta>, bool); 2]) -> Option<Option<(usize, Delta)>> {
@@ -360,9 +392,10 @@ impl Forest {
 		out: &mut Vec<(Step, Option<(usize, Delta)>)>,
 	) {
 		let own = self.effective(carrier, delta);
+		let own_sums = self.effective_sums(carrier, delta);
 		let is_root = self.parent[carrier] == ROOT;
 		let old_parent = self.parent[carrier];
-		for t in self.sums_of(carrier, &own) {
+		for t in own_sums.abs_values() {
 			if t == 0 {
 				if is_root {
 					continue;
@@ -412,7 +445,8 @@ impl Forest {
 				let mut without = own.clone();
 				let slot = without.iter().position(|&d| d == self.target[c]).unwrap();
 				without.swap_remove(slot);
-				plan(self.cells[carrier].value, &without, self.target[carrier]).is_ok()
+				let sums = SumSet::of(self.cells[carrier].value, without.iter().copied());
+				self.fits(carrier, &sums, self.target[carrier], || without)
 			};
 			if !carrier_ok {
 				continue;
@@ -436,17 +470,19 @@ impl Forest {
 			}
 		}
 		for &(z, d) in &self.cells[carrier].candidates {
-			if self.parent[z] == carrier
-				|| self.in_subtree(carrier, z)
-				|| !self.achievable(z).contains_abs(d)
-			{
+			if self.parent[z] == carrier || !self.achievable(z).contains_abs(d) {
 				continue;
 			}
-			let mut with = own.clone();
-			with.push(d);
-			let carrier_ok =
-				is_root || plan(self.cells[carrier].value, &with, self.target[carrier]).is_ok();
-			if !carrier_ok {
+			let carrier_ok = is_root || {
+				let mut sums = own_sums;
+				sums.add(d);
+				self.fits(carrier, &sums, self.target[carrier], || {
+					let mut with = own.clone();
+					with.push(d);
+					with
+				})
+			};
+			if !carrier_ok || self.in_subtree(carrier, z) {
 				continue;
 			}
 			let q = self.parent[z];
@@ -554,6 +590,9 @@ impl Forest {
 			}
 		}
 		for node in 0..n {
+			self.recompute_sums(node);
+		}
+		for node in 0..n {
 			self.refresh(node);
 		}
 		self.journal.clear();
@@ -580,6 +619,7 @@ struct Knobs {
 	kick: usize,
 	chain_rate: usize,
 	chain_budget: usize,
+	neutral_kick: bool,
 }
 
 impl Knobs {
@@ -591,9 +631,10 @@ impl Knobs {
 			focus: knob("FOCUS", 80.0) as usize,
 			report: knob("REPORT", 5_000_000.0) as u64,
 			stagnation: knob("STAGNATION", 10000.0) as u64,
-			kick: knob("KICK", 1.0) as usize,
+			kick: knob("KICK", 6.0) as usize,
 			chain_rate: knob("CHAIN", 300.0) as usize,
 			chain_budget: knob("CHAIN_BUDGET", 300.0) as usize,
+			neutral_kick: knob("NEUTRAL_KICK", 1.0) > 0.0,
 		}
 	}
 }
@@ -670,8 +711,10 @@ fn search(
 		if it - last_improvement > knobs.stagnation {
 			forest.restore(&best_state);
 			for _ in 0..knobs.kick {
-				let node = rng.below(n);
-				forest.detach_move(node, knobs.depth, &mut rng);
+				if !(knobs.neutral_kick && forest.neutral_detach(&mut rng, 64)) {
+					let node = rng.below(n);
+					forest.detach_move(node, knobs.depth, &mut rng);
+				}
 			}
 			forest.journal.clear();
 			lfa.iter_mut().for_each(|f| *f = forest.score());
