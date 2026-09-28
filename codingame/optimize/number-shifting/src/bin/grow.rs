@@ -54,6 +54,7 @@ struct Forest {
 	journal: Vec<Op>,
 	sum_cache: Vec<SumSet>,
 	neutral_tries: usize,
+	weight_cap: i64,
 }
 
 impl Forest {
@@ -85,6 +86,7 @@ impl Forest {
 			journal: Vec::new(),
 			sum_cache: cells.iter().map(|c| SumSet::new(c.value)).collect(),
 			neutral_tries: knob("NEUTRAL", 8.0) as usize,
+			weight_cap: knob("WEIGHT_CAP", 1e15) as i64,
 			cells,
 		}
 	}
@@ -111,6 +113,9 @@ impl Forest {
 
 	fn bump_weights(&mut self, step: i64) {
 		for &node in &self.remaining {
+			if self.weight[node] >= self.weight_cap {
+				continue;
+			}
 			self.weight[node] += step;
 			self.penalty_sum += step * (REMAINING_WEIGHT + self.residual[node] as i64);
 		}
