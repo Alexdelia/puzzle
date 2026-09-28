@@ -37,6 +37,62 @@ enum Op {
 	Unlink(usize, usize, i32),
 }
 
+type Snapshot = (Vec<usize>, Vec<i32>);
+
+struct Elite {
+	score: i64,
+	key: u64,
+	state: Snapshot,
+}
+
+struct Pool {
+	elites: Vec<Elite>,
+	capacity: usize,
+}
+
+fn snapshot_key(state: &Snapshot) -> u64 {
+	let mut hash = 0xcbf2_9ce4_8422_2325u64;
+	for (&parent, &target) in state.0.iter().zip(&state.1) {
+		hash = (hash ^ parent as u64).wrapping_mul(0x100_0000_01b3);
+		hash = (hash ^ target as u64).wrapping_mul(0x100_0000_01b3);
+	}
+	hash
+}
+
+impl Pool {
+	fn offer(&mut self, score: i64, state: &Snapshot) {
+		let key = snapshot_key(state);
+		if self.elites.iter().any(|e| e.key == key) {
+			return;
+		}
+		let elite = Elite {
+			score,
+			key,
+			state: state.clone(),
+		};
+		if self.elites.len() < self.capacity {
+			self.elites.push(elite);
+			return;
+		}
+		let worst = (0..self.elites.len())
+			.max_by_key(|&i| self.elites[i].score)
+			.unwrap();
+		if score < self.elites[worst].score {
+			self.elites[worst] = elite;
+		}
+	}
+
+	fn pick(&self, rng: &mut Rng) -> Option<(i64, Snapshot)> {
+		if self.elites.is_empty() {
+			return None;
+		}
+		let a = &self.elites[rng.below(self.elites.len())];
+		let b = &self.elites[rng.below(self.elites.len())];
+		let winner = if a.score <= b.score { a } else { b };
+		Some((winner.score, winner.state.clone()))
+	}
+}
+
 struct Forest {
 	width: usize,
 	height: usize,
@@ -54,7 +110,6 @@ struct Forest {
 	journal: Vec<Op>,
 	sum_cache: Vec<SumSet>,
 	neutral_tries: usize,
-	weight_cap: i64,
 }
 
 impl Forest {
@@ -86,7 +141,6 @@ impl Forest {
 			journal: Vec::new(),
 			sum_cache: cells.iter().map(|c| SumSet::new(c.value)).collect(),
 			neutral_tries: knob("NEUTRAL", 8.0) as usize,
-			weight_cap: knob("WEIGHT_CAP", 1e15) as i64,
 			cells,
 		}
 	}
@@ -113,9 +167,6 @@ impl Forest {
 
 	fn bump_weights(&mut self, step: i64) {
 		for &node in &self.remaining {
-			if self.weight[node] >= self.weight_cap {
-				continue;
-			}
 			self.weight[node] += step;
 			self.penalty_sum += step * (REMAINING_WEIGHT + self.residual[node] as i64);
 		}
@@ -688,11 +739,11 @@ impl Forest {
 		false
 	}
 
-	fn snapshot(&self) -> (Vec<usize>, Vec<i32>) {
+	fn snapshot(&self) -> Snapshot {
 		(self.parent.clone(), self.target.clone())
 	}
 
-	fn restore(&mut self, snapshot: &(Vec<usize>, Vec<i32>)) {
+	fn restore(&mut self, snapshot: &Snapshot) {
 		let n = self.cells.len();
 		self.children.iter_mut().for_each(Vec::clear);
 		self.parent = snapshot.0.clone();
@@ -735,10 +786,17 @@ struct Knobs {
 	neutral_kick: bool,
 	weight_step: i64,
 	assemble_rate: usize,
+	pool_rate: usize,
+	pool_rn: usize,
+	pool_size: usize,
+	pool_threads: usize,
+	threads: usize,
 }
 
 impl Knobs {
 	fn from_env() -> Knobs {
+		let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
+		let threads = knob("THREADS", cores as f64) as usize;
 		Knobs {
 			depth: knob("DEPTH", 3.0) as usize,
 			history: knob("LFA", 2000.0) as usize,
@@ -752,19 +810,35 @@ impl Knobs {
 			neutral_kick: knob("NEUTRAL_KICK", 1.0) > 0.0,
 			weight_step: knob("WEIGHT_STEP", 1.0) as i64,
 			assemble_rate: knob("ASSEMBLE", 50.0) as usize,
+			pool_rate: knob("POOL", 500.0) as usize,
+			pool_rn: knob("POOL_RN", 12.0) as usize,
+			pool_size: knob("POOL_SIZE", 16.0) as usize,
+			pool_threads: knob("POOL_THREADS", (threads / 2) as f64) as usize,
+			threads,
 		}
 	}
 }
 
+struct Shared {
+	stop: AtomicBool,
+	pool: Mutex<Pool>,
+	start: Instant,
+}
+
 fn search(
 	level: &Level,
+	thread: usize,
 	seed: u64,
 	knobs: &Knobs,
-	stop: &AtomicBool,
-	start: Instant,
-	verbose: bool,
+	shared: &Shared,
 ) -> Option<(Vec<Move>, u64)> {
+	let verbose = thread == 0;
 	let mut rng = Rng::new(seed);
+	let pool_rate = if thread < knobs.pool_threads {
+		knobs.pool_rate
+	} else {
+		0
+	};
 	let mut forest = Forest::new(level);
 	let n = forest.cells.len();
 	let mut lfa = vec![forest.score(); knobs.history];
@@ -779,7 +853,7 @@ fn search(
 				Err(node) => panic!("invariant broken at node {node}"),
 			}
 		}
-		if it % 1024 == 0 && stop.load(Ordering::Relaxed) {
+		if it % 1024 == 0 && shared.stop.load(Ordering::Relaxed) {
 			return None;
 		}
 		if rng.below(1000) < knobs.chain_rate {
@@ -791,6 +865,9 @@ fn search(
 					best = forest.raw_score();
 					best_state = forest.snapshot();
 					last_improvement = it;
+					if forest.remaining.len() <= knobs.pool_rn {
+						shared.pool.lock().unwrap().offer(best, &best_state);
+					}
 				}
 			}
 			continue;
@@ -827,9 +904,23 @@ fn search(
 			best = forest.raw_score();
 			best_state = forest.snapshot();
 			last_improvement = it;
+			if forest.remaining.len() <= knobs.pool_rn {
+				shared.pool.lock().unwrap().offer(best, &best_state);
+			}
 		}
 		if it - last_improvement > knobs.stagnation {
 			forest.bump_weights(knobs.weight_step);
+			let elite = if pool_rate > 0 && rng.below(1000) < pool_rate {
+				shared.pool.lock().unwrap().pick(&mut rng)
+			} else {
+				None
+			};
+			if let Some((score, state)) = elite
+				&& score < best
+			{
+				best = score;
+				best_state = state;
+			}
 			forest.restore(&best_state);
 			for _ in 0..knobs.kick {
 				if !(knobs.neutral_kick && forest.neutral_detach(&mut rng, 64)) {
@@ -844,7 +935,7 @@ fn search(
 		if verbose && it % knobs.report == 0 {
 			eprintln!(
 				"{:.1}s it {it} remaining {} residual {} best {best} chains {chains}",
-				start.elapsed().as_secs_f64(),
+				shared.start.elapsed().as_secs_f64(),
 				forest.remaining.len(),
 				forest.residual_sum
 			);
@@ -855,24 +946,28 @@ fn search(
 
 fn main() {
 	let level = Level::read_stdin();
-	let start = Instant::now();
 	let knobs = Knobs::from_env();
 	let seed = knob("SEED", 1.0) as u64;
-	let default_threads = std::thread::available_parallelism().map_or(1, |n| n.get());
-	let threads = knob("THREADS", default_threads as f64) as usize;
-	let stop = AtomicBool::new(false);
+	let shared = Shared {
+		stop: AtomicBool::new(false),
+		pool: Mutex::new(Pool {
+			elites: Vec::new(),
+			capacity: knobs.pool_size,
+		}),
+		start: Instant::now(),
+	};
 	let found = Mutex::new(None);
 	std::thread::scope(|scope| {
-		for thread in 0..threads {
-			let (level, knobs, stop, found) = (&level, &knobs, &stop, &found);
+		for thread in 0..knobs.threads {
+			let (level, knobs, shared, found) = (&level, &knobs, &shared, &found);
 			scope.spawn(move || {
 				if let Some((moves, it)) =
-					search(level, seed + thread as u64, knobs, stop, start, thread == 0)
+					search(level, thread, seed + thread as u64, knobs, shared)
 				{
 					let mut slot = found.lock().unwrap();
 					if slot.is_none() {
 						*slot = Some((moves, it, thread));
-						stop.store(true, Ordering::Relaxed);
+						shared.stop.store(true, Ordering::Relaxed);
 					}
 				}
 			});
@@ -886,7 +981,8 @@ fn main() {
 		println!("{m}");
 	}
 	eprintln!(
-		"solved in {:.3}s, {it} iterations, thread {thread}/{threads}",
-		start.elapsed().as_secs_f64()
+		"solved in {:.3}s, {it} iterations, thread {thread}/{}",
+		shared.start.elapsed().as_secs_f64(),
+		knobs.threads
 	);
 }
