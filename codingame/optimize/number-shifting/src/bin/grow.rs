@@ -762,6 +762,42 @@ impl Forest {
 		self.journal.clear();
 	}
 
+	fn root_of(&self, mut node: usize) -> usize {
+		while self.parent[node] != ROOT {
+			node = self.parent[node];
+		}
+		node
+	}
+
+	fn shape(&self) -> String {
+		let mut size = vec![0usize; self.cells.len()];
+		for node in 0..self.cells.len() {
+			size[self.root_of(node)] += 1;
+		}
+		let roots = (0..self.cells.len())
+			.filter(|&r| self.parent[r] == ROOT)
+			.collect::<Vec<_>>();
+		let largest = roots.iter().copied().max_by_key(|&r| size[r]).unwrap();
+		let mut open = self
+			.remaining
+			.iter()
+			.map(|&r| (size[r], self.residual[r]))
+			.collect::<Vec<_>>();
+		open.sort_unstable_by(|a, b| b.cmp(a));
+		let open_cells = open.iter().map(|&(s, _)| s).sum::<usize>();
+		format!(
+			"cells {} trees {} largest {} {} open_cells {open_cells} open {open:?}",
+			self.cells.len(),
+			roots.len(),
+			size[largest],
+			if self.residual[largest] > 0 {
+				"OPEN"
+			} else {
+				"closed"
+			},
+		)
+	}
+
 	fn solution(&self) -> Result<Vec<Move>, usize> {
 		let rooted = Rooted {
 			cells: &self.cells,
@@ -846,6 +882,9 @@ fn search(
 	let mut best_state = forest.snapshot();
 	let mut last_improvement = 0u64;
 	let mut chains = 0u64;
+	let shape_rn = knob("SHAPE_RN", 0.0) as usize;
+	let mut last_shape = 0.0;
+	let mut next_report = 0u64;
 	for it in 0u64.. {
 		if forest.remaining.is_empty() {
 			match forest.solution() {
@@ -922,6 +961,11 @@ fn search(
 				best_state = state;
 			}
 			forest.restore(&best_state);
+			let elapsed = shared.start.elapsed().as_secs_f64();
+			if verbose && forest.remaining.len() <= shape_rn && elapsed - last_shape > 2.0 {
+				last_shape = elapsed;
+				eprintln!("SHAPE {elapsed:.1}s {}", forest.shape());
+			}
 			for _ in 0..knobs.kick {
 				if !(knobs.neutral_kick && forest.neutral_detach(&mut rng, 64)) {
 					let node = rng.below(n);
@@ -932,7 +976,8 @@ fn search(
 			lfa.iter_mut().for_each(|f| *f = forest.score());
 			last_improvement = it;
 		}
-		if verbose && it % knobs.report == 0 {
+		if verbose && it >= next_report {
+			next_report += knobs.report;
 			eprintln!(
 				"{:.1}s it {it} remaining {} residual {} best {best} chains {chains}",
 				shared.start.elapsed().as_secs_f64(),
