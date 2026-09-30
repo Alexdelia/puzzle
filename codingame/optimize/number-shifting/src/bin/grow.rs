@@ -34,7 +34,7 @@ struct ChainNode {
 }
 
 enum Op {
-	Link(usize, usize),
+	Link(usize, usize, SumSet),
 	Unlink(usize, usize, i32),
 }
 
@@ -112,6 +112,8 @@ struct Forest {
 	journal: Vec<Op>,
 	sum_cache: Vec<SumSet>,
 	neutral_tries: usize,
+	visited: Vec<u64>,
+	visit_stamp: u64,
 }
 
 impl Forest {
@@ -144,6 +146,8 @@ impl Forest {
 			journal: Vec::new(),
 			sum_cache: cells.iter().map(|c| SumSet::new(c.value)).collect(),
 			neutral_tries: knob("NEUTRAL", 8.0) as usize,
+			visited: vec![0; n],
+			visit_stamp: 0,
 			cells,
 		};
 		for (x, y, weight) in prior_weights() {
@@ -247,6 +251,19 @@ impl Forest {
 				&& plan(self.cells[node].value, &distances(), target).is_ok())
 	}
 
+	fn fits_adding(
+		&self,
+		node: usize,
+		sums: &SumSet,
+		d: i32,
+		target: i32,
+		distances: impl FnOnce() -> Vec<i32>,
+	) -> bool {
+		sums.contains_after_adding(target, d)
+			|| (sums.contains_after_adding(-target, d)
+				&& plan(self.cells[node].value, &distances(), target).is_ok())
+	}
+
 	fn satisfied(&self, node: usize) -> bool {
 		self.fits(node, self.sums(node), self.target[node], || {
 			self.distances(node)
@@ -291,10 +308,16 @@ impl Forest {
 		self.parent[child] = parent;
 		self.target[child] = distance;
 		self.children[parent].push(child);
-		self.recompute_sums(parent);
+		self.sum_cache[parent].add(distance);
 	}
 
 	fn raw_unlink(&mut self, child: usize) -> (usize, i32) {
+		let (parent, distance) = self.remove_child(child);
+		self.recompute_sums(parent);
+		(parent, distance)
+	}
+
+	fn remove_child(&mut self, child: usize) -> (usize, i32) {
 		let parent = self.parent[child];
 		let distance = self.target[child];
 		let slot = self.children[parent]
@@ -304,13 +327,13 @@ impl Forest {
 		self.children[parent].swap_remove(slot);
 		self.parent[child] = ROOT;
 		self.target[child] = 0;
-		self.recompute_sums(parent);
 		(parent, distance)
 	}
 
 	fn link(&mut self, child: usize, parent: usize, distance: i32) {
+		let before = self.sum_cache[parent];
 		self.raw_link(child, parent, distance);
-		self.journal.push(Op::Link(child, parent));
+		self.journal.push(Op::Link(child, parent, before));
 		self.refresh(child);
 		self.refresh(parent);
 	}
@@ -335,8 +358,9 @@ impl Forest {
 	fn rollback(&mut self, mark: usize) {
 		while self.journal.len() > mark {
 			match self.journal.pop().unwrap() {
-				Op::Link(child, parent) => {
-					self.raw_unlink(child);
+				Op::Link(child, parent, before) => {
+					self.remove_child(child);
+					self.sum_cache[parent] = before;
 					self.refresh(child);
 					self.refresh(parent);
 				}
@@ -413,13 +437,17 @@ impl Forest {
 		if self.parent[parent] == ROOT {
 			return true;
 		}
-		let mut sums = *self.sums(parent);
-		sums.add(distance);
-		self.fits(parent, &sums, self.target[parent], || {
-			let mut distances = self.distances(parent);
-			distances.push(distance);
-			distances
-		})
+		self.fits_adding(
+			parent,
+			self.sums(parent),
+			distance,
+			self.target[parent],
+			|| {
+				let mut distances = self.distances(parent);
+				distances.push(distance);
+				distances
+			},
+		)
 	}
 
 	fn pick_parent(&self, options: &[(usize, i32)], rng: &mut Rng) -> (usize, i32) {
@@ -561,6 +589,11 @@ impl Forest {
 		if node == ROOT || self.parent[node] == ROOT {
 			return true;
 		}
+		if let Some(Delta::Add(d)) = delta {
+			return self.fits_adding(node, self.sums(node), d, self.target[node], || {
+				self.effective(node, delta)
+			});
+		}
 		let sums = self.effective_sums(node, delta);
 		self.fits(node, &sums, self.target[node], || {
 			self.effective(node, delta)
@@ -568,10 +601,10 @@ impl Forest {
 	}
 
 	fn outcome(&self, broken: [(usize, Option<Delta>, bool); 2]) -> Option<Option<(usize, Delta)>> {
-		let failing = broken.iter().filter(|b| !b.2).collect::<Vec<_>>();
-		match failing.len() {
-			0 => Some(None),
-			1 => failing[0].1.map(|d| Some((failing[0].0, d))),
+		let mut failing = broken.iter().filter(|b| !b.2);
+		match (failing.next(), failing.next()) {
+			(None, _) => Some(None),
+			(Some(&(node, delta, _)), None) => delta.map(|d| Some((node, d))),
 			_ => None,
 		}
 	}
@@ -586,12 +619,12 @@ impl Forest {
 		let own_sums = self.effective_sums(carrier, delta);
 		let is_root = self.parent[carrier] == ROOT;
 		let old_parent = self.parent[carrier];
+		let q_ok = is_root || self.holds(old_parent, Some(Delta::Remove(carrier)));
 		for t in own_sums.abs_values() {
 			if t == 0 {
 				if is_root {
 					continue;
 				}
-				let q_ok = self.holds(old_parent, Some(Delta::Remove(carrier)));
 				let step = Step {
 					moved: carrier,
 					new_parent: ROOT,
@@ -609,23 +642,26 @@ impl Forest {
 				let Some(y) = self.cell_toward(carrier, dir, t) else {
 					continue;
 				};
-				if y == old_parent || self.in_subtree(y, carrier) {
+				if y == old_parent {
 					continue;
 				}
-				let q_ok = is_root || self.holds(old_parent, Some(Delta::Remove(carrier)));
 				let y_ok = self.holds(y, Some(Delta::Add(t)));
+				let q = if is_root { ROOT } else { old_parent };
+				let Some(o) = self.outcome([
+					(q, Some(Delta::Remove(carrier)), q_ok),
+					(y, Some(Delta::Add(t)), y_ok),
+				]) else {
+					continue;
+				};
+				if self.in_subtree(y, carrier) {
+					continue;
+				}
 				let step = Step {
 					moved: carrier,
 					new_parent: y,
 					distance: t,
 				};
-				let q = if is_root { ROOT } else { old_parent };
-				if let Some(o) = self.outcome([
-					(q, Some(Delta::Remove(carrier)), q_ok),
-					(y, Some(Delta::Add(t)), y_ok),
-				]) {
-					out.push((step, o));
-				}
+				out.push((step, o));
 			}
 		}
 		for &c in &self.children[carrier] {
@@ -633,11 +669,18 @@ impl Forest {
 				continue;
 			}
 			let carrier_ok = is_root || {
-				let mut without = own.clone();
-				let slot = without.iter().position(|&d| d == self.target[c]).unwrap();
-				without.swap_remove(slot);
-				let sums = SumSet::of(self.cells[carrier].value, without.iter().copied());
-				self.fits(carrier, &sums, self.target[carrier], || without)
+				let slot = own.iter().position(|&d| d == self.target[c]).unwrap();
+				let rest = own
+					.iter()
+					.enumerate()
+					.filter(|&(i, _)| i != slot)
+					.map(|(_, &d)| d);
+				let sums = SumSet::of(self.cells[carrier].value, rest);
+				self.fits(carrier, &sums, self.target[carrier], || {
+					let mut without = own.clone();
+					without.swap_remove(slot);
+					without
+				})
 			};
 			if !carrier_ok {
 				continue;
@@ -664,15 +707,12 @@ impl Forest {
 			if self.parent[z] == carrier || !self.achievable(z).contains_abs(d) {
 				continue;
 			}
-			let carrier_ok = is_root || {
-				let mut sums = own_sums;
-				sums.add(d);
-				self.fits(carrier, &sums, self.target[carrier], || {
+			let carrier_ok = is_root
+				|| self.fits_adding(carrier, &own_sums, d, self.target[carrier], || {
 					let mut with = own.clone();
 					with.push(d);
 					with
-				})
-			};
+				});
 			if !carrier_ok || self.in_subtree(carrier, z) {
 				continue;
 			}
@@ -717,10 +757,12 @@ impl Forest {
 	fn chain_repair(&mut self, start: usize, budget: usize, rng: &mut Rng) -> bool {
 		let before = self.score();
 		let mut arena: Vec<ChainNode> = Vec::new();
-		let mut visited = std::collections::HashSet::new();
-		visited.insert(start);
+		self.visit_stamp += 1;
+		let stamp = self.visit_stamp;
+		self.visited[start] = stamp;
 		let mut frontier = vec![(start, None, usize::MAX)];
 		let mut transitions = Vec::new();
+		let mut steps = Vec::new();
 		let mut evaluated = 0;
 		while !frontier.is_empty() && arena.len() < budget {
 			let mut next = Vec::new();
@@ -736,13 +778,15 @@ impl Forest {
 					};
 					if !terminal {
 						let (c, d) = outcome.unwrap();
-						if visited.insert(c) {
+						if self.visited[c] != stamp {
+							self.visited[c] = stamp;
 							arena.push(ChainNode { prev: index, step });
 							next.push((c, Some(d), arena.len() - 1));
 						}
 						continue;
 					}
-					let mut steps = vec![step];
+					steps.clear();
+					steps.push(step);
 					let mut walker = index;
 					while walker != usize::MAX {
 						steps.push(arena[walker].step);

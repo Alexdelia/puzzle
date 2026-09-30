@@ -264,6 +264,11 @@ impl SumSet {
 		self.bits[bit / 64] >> (bit % 64) & 1 == 1
 	}
 
+	pub fn contains_after_adding(&self, sum: i32, d: i32) -> bool {
+		(-SUM_OFFSET..SUM_OFFSET).contains(&sum)
+			&& (self.contains(sum - d) || self.contains(sum + d))
+	}
+
 	pub fn contains_abs(&self, value: i32) -> bool {
 		self.contains(value) || self.contains(-value)
 	}
