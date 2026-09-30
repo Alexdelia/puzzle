@@ -1,7 +1,7 @@
 use number_shifting::plan::{Cell, ROOT, Rooted, SumSet, cells, plan};
 use number_shifting::{DX, DY, Level, Move, Rng};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::time::Instant;
 
 fn knob(name: &str, default: f64) -> f64 {
@@ -848,7 +848,7 @@ struct Knobs {
 	chain_budget: usize,
 	neutral_kick: bool,
 	weight_step: i64,
-	restart: f64,
+	restart_work: u64,
 	restart_top: i64,
 	restart_cut: i64,
 	assemble_rate: usize,
@@ -875,7 +875,7 @@ impl Knobs {
 			chain_budget: knob("CHAIN_BUDGET", 300.0) as usize,
 			neutral_kick: knob("NEUTRAL_KICK", 1.0) > 0.0,
 			weight_step: knob("WEIGHT_STEP", 1.0) as i64,
-			restart: knob("RESTART", 45.0),
+			restart_work: (knob("RESTART_WORK", 10.0) * 1e6) as u64,
 			restart_top: knob("RESTART_TOP", 640.0) as i64,
 			restart_cut: knob("RESTART_CUT", 300.0) as i64,
 			assemble_rate: knob("ASSEMBLE", 50.0) as usize,
@@ -925,17 +925,30 @@ fn offer_current(shared: &Shared, epoch: u64, score: i64, state: &Snapshot) {
 	}
 }
 
-fn restart_due(shared: &Shared, epoch: u64, best: i64, patience: f64) -> bool {
-	if shared.epoch.load(Ordering::Relaxed) == epoch {
-		let now = shared.start.elapsed().as_secs_f64();
-		let mut record = shared.record.lock().unwrap();
-		if best < record.0 {
-			*record = (best, now);
-		} else if now - record.1 > patience {
-			*record = (i64::MAX, now);
-			shared.pool.lock().unwrap().elites.clear();
-			shared.epoch.fetch_add(1, Ordering::Relaxed);
-		}
+fn work(shared: &Shared) -> u64 {
+	shared.work.load(Ordering::Relaxed)
+}
+
+fn note_best(shared: &Shared, epoch: u64, best: i64) {
+	if shared.epoch.load(Ordering::Relaxed) == epoch
+		&& best < shared.record_best.fetch_min(best, Ordering::Relaxed)
+	{
+		shared.record_work.store(work(shared), Ordering::Relaxed);
+	}
+}
+
+fn restart_due(shared: &Shared, epoch: u64, knobs: &Knobs) -> bool {
+	let now = work(shared);
+	let last = shared.record_work.load(Ordering::Relaxed);
+	if now.saturating_sub(last) > knobs.restart_work
+		&& shared
+			.epoch
+			.compare_exchange(epoch, epoch + 1, Ordering::Relaxed, Ordering::Relaxed)
+			.is_ok()
+	{
+		shared.record_best.store(i64::MAX, Ordering::Relaxed);
+		shared.record_work.store(now, Ordering::Relaxed);
+		shared.pool.lock().unwrap().elites.clear();
 	}
 	shared.epoch.load(Ordering::Relaxed) != epoch
 }
@@ -945,7 +958,9 @@ struct Shared {
 	pool: Mutex<Pool>,
 	start: Instant,
 	epoch: AtomicU64,
-	record: Mutex<(i64, f64)>,
+	record_best: AtomicI64,
+	record_work: AtomicU64,
+	work: AtomicU64,
 	heat: Mutex<Vec<i64>>,
 }
 
@@ -983,6 +998,9 @@ fn search(
 				Err(node) => panic!("invariant broken at node {node}"),
 			}
 		}
+		if it % 1024 == 0 {
+			shared.work.fetch_add(1024, Ordering::Relaxed);
+		}
 		if it % 1024 == 0 && shared.stop.load(Ordering::Relaxed) {
 			return None;
 		}
@@ -996,6 +1014,9 @@ fn search(
 					best_state = forest.snapshot();
 					dump(&dump_dir, thread, forest.remaining.len(), &best_state);
 					last_improvement = it;
+					if knobs.restart_work > 0 {
+						note_best(shared, epoch, best);
+					}
 					if forest.remaining.len() <= knobs.pool_rn {
 						offer_current(shared, epoch, best, &best_state);
 					}
@@ -1036,12 +1057,15 @@ fn search(
 			best_state = forest.snapshot();
 			dump(&dump_dir, thread, forest.remaining.len(), &best_state);
 			last_improvement = it;
+			if knobs.restart_work > 0 {
+				note_best(shared, epoch, best);
+			}
 			if forest.remaining.len() <= knobs.pool_rn {
 				offer_current(shared, epoch, best, &best_state);
 			}
 		}
 		if it - last_improvement > knobs.stagnation {
-			if knobs.restart > 0.0 && restart_due(shared, epoch, best, knobs.restart) {
+			if knobs.restart_work > 0 && restart_due(shared, epoch, knobs) {
 				epoch = shared.epoch.load(Ordering::Relaxed);
 				let heat = shared.heat.lock().unwrap().clone();
 				if verbose {
@@ -1049,7 +1073,11 @@ fn search(
 						.map(|c| (heat[c], forest.cells[c].x, forest.cells[c].y))
 						.collect::<Vec<_>>();
 					hottest.sort_unstable_by(|a, b| b.cmp(a));
-					eprintln!("RESTART heat top {:?}", &hottest[..8]);
+					eprintln!(
+						"{:.1}s RESTART heat top {:?}",
+						shared.start.elapsed().as_secs_f64(),
+						&hottest[..8]
+					);
 				}
 				forest = Forest::new(level);
 				forest.carry_weights(&heat, knobs.restart_top, knobs.restart_cut);
@@ -1061,7 +1089,7 @@ fn search(
 				continue;
 			}
 			forest.bump_weights(knobs.weight_step);
-			if knobs.restart > 0.0 {
+			if knobs.restart_work > 0 {
 				let mut heat = shared.heat.lock().unwrap();
 				for &node in &forest.remaining {
 					heat[node] += 1;
@@ -1119,7 +1147,9 @@ fn main() {
 		}),
 		start: Instant::now(),
 		epoch: AtomicU64::new(0),
-		record: Mutex::new((i64::MAX, 0.0)),
+		record_best: AtomicI64::new(i64::MAX),
+		record_work: AtomicU64::new(0),
+		work: AtomicU64::new(0),
 		heat: Mutex::new(vec![0; number_shifting::plan::cells(&level).len()]),
 	};
 	let found = Mutex::new(None);
