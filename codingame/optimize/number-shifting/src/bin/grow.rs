@@ -1,7 +1,7 @@
 use number_shifting::plan::{Cell, ROOT, Rooted, SumSet, cells, plan};
 use number_shifting::{DX, DY, Level, Move, Rng};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
 
 fn knob(name: &str, default: f64) -> f64 {
@@ -13,6 +13,7 @@ fn knob(name: &str, default: f64) -> f64 {
 
 const REMAINING_WEIGHT: i64 = 64;
 const ASSEMBLE_CANDIDATES: usize = 24;
+const DUMP_MAX_REMAINING: usize = 3;
 
 #[derive(Clone, Copy)]
 enum Delta {
@@ -106,6 +107,7 @@ struct Forest {
 	remaining_slot: Vec<usize>,
 	residual_sum: i64,
 	weight: Vec<i64>,
+	base_weight: i64,
 	penalty_sum: i64,
 	journal: Vec<Op>,
 	sum_cache: Vec<SumSet>,
@@ -122,12 +124,13 @@ impl Forest {
 		}
 		let residual = cells.iter().map(|c| c.value).collect::<Vec<_>>();
 		let base_weight = knob("WEIGHT_BASE", 64.0) as i64;
-		Forest {
+		let mut forest = Forest {
 			penalty_sum: residual
 				.iter()
 				.map(|&r| base_weight * (REMAINING_WEIGHT + r as i64))
 				.sum(),
 			weight: vec![base_weight; n],
+			base_weight,
 			width: level.w,
 			height: level.h,
 			cell_at,
@@ -142,7 +145,14 @@ impl Forest {
 			sum_cache: cells.iter().map(|c| SumSet::new(c.value)).collect(),
 			neutral_tries: knob("NEUTRAL", 8.0) as usize,
 			cells,
+		};
+		for (x, y, weight) in prior_weights() {
+			let node = forest.cell_at[y * forest.width + x];
+			forest.penalty_sum +=
+				(weight - forest.weight[node]) * (REMAINING_WEIGHT + forest.residual[node] as i64);
+			forest.weight[node] = weight;
 		}
+		forest
 	}
 
 	fn score(&self) -> i64 {
@@ -163,6 +173,23 @@ impl Forest {
 
 	fn pick_remaining(&self, rng: &mut Rng) -> usize {
 		self.remaining[rng.below(self.remaining.len())]
+	}
+
+	fn carry_weights(&mut self, heat: &[i64], top: i64, cut_permille: i64) {
+		let peak = *heat.iter().max().unwrap();
+		if peak <= 0 {
+			return;
+		}
+		for (weight, &cell_heat) in self.weight.iter_mut().zip(heat) {
+			if cell_heat * 1000 >= peak * cut_permille {
+				*weight = self.base_weight + cell_heat * (top - self.base_weight) / peak;
+			}
+		}
+		self.penalty_sum = self
+			.remaining
+			.iter()
+			.map(|&node| self.penalty(node, self.residual[node]))
+			.sum();
 	}
 
 	fn bump_weights(&mut self, step: i64) {
@@ -821,6 +848,9 @@ struct Knobs {
 	chain_budget: usize,
 	neutral_kick: bool,
 	weight_step: i64,
+	restart: f64,
+	restart_top: i64,
+	restart_cut: i64,
 	assemble_rate: usize,
 	pool_rate: usize,
 	pool_rn: usize,
@@ -845,6 +875,9 @@ impl Knobs {
 			chain_budget: knob("CHAIN_BUDGET", 300.0) as usize,
 			neutral_kick: knob("NEUTRAL_KICK", 1.0) > 0.0,
 			weight_step: knob("WEIGHT_STEP", 1.0) as i64,
+			restart: knob("RESTART", 45.0),
+			restart_top: knob("RESTART_TOP", 640.0) as i64,
+			restart_cut: knob("RESTART_CUT", 300.0) as i64,
 			assemble_rate: knob("ASSEMBLE", 50.0) as usize,
 			pool_rate: knob("POOL", 500.0) as usize,
 			pool_rn: knob("POOL_RN", 12.0) as usize,
@@ -855,10 +888,65 @@ impl Knobs {
 	}
 }
 
+fn dump(dir: &Option<String>, thread: usize, remaining: usize, state: &Snapshot) {
+	let Some(dir) = dir.as_ref().filter(|_| remaining <= DUMP_MAX_REMAINING) else {
+		return;
+	};
+	let lines = state
+		.0
+		.iter()
+		.zip(&state.1)
+		.map(|(&parent, &target)| {
+			let parent = if parent == ROOT { -1 } else { parent as i64 };
+			format!("{parent} {target}\n")
+		})
+		.collect::<String>();
+	std::fs::write(format!("{dir}/rn{remaining}_t{thread}.txt"), lines).unwrap();
+}
+
+fn prior_weights() -> Vec<(usize, usize, i64)> {
+	std::env::var("PRIOR")
+		.unwrap_or_default()
+		.split(';')
+		.filter(|entry| !entry.is_empty())
+		.map(|entry| {
+			let parts = entry
+				.split(',')
+				.map(|v| v.parse::<i64>().unwrap())
+				.collect::<Vec<_>>();
+			(parts[0] as usize, parts[1] as usize, parts[2])
+		})
+		.collect()
+}
+
+fn offer_current(shared: &Shared, epoch: u64, score: i64, state: &Snapshot) {
+	if shared.epoch.load(Ordering::Relaxed) == epoch {
+		shared.pool.lock().unwrap().offer(score, state);
+	}
+}
+
+fn restart_due(shared: &Shared, epoch: u64, best: i64, patience: f64) -> bool {
+	if shared.epoch.load(Ordering::Relaxed) == epoch {
+		let now = shared.start.elapsed().as_secs_f64();
+		let mut record = shared.record.lock().unwrap();
+		if best < record.0 {
+			*record = (best, now);
+		} else if now - record.1 > patience {
+			*record = (i64::MAX, now);
+			shared.pool.lock().unwrap().elites.clear();
+			shared.epoch.fetch_add(1, Ordering::Relaxed);
+		}
+	}
+	shared.epoch.load(Ordering::Relaxed) != epoch
+}
+
 struct Shared {
 	stop: AtomicBool,
 	pool: Mutex<Pool>,
 	start: Instant,
+	epoch: AtomicU64,
+	record: Mutex<(i64, f64)>,
+	heat: Mutex<Vec<i64>>,
 }
 
 fn search(
@@ -880,7 +968,10 @@ fn search(
 	let mut lfa = vec![forest.score(); knobs.history];
 	let mut best = forest.raw_score();
 	let mut best_state = forest.snapshot();
+	let dump_dir = std::env::var("DUMP_DIR").ok();
 	let mut last_improvement = 0u64;
+	let mut epoch = 0u64;
+	let mut restarts = 0u64;
 	let mut chains = 0u64;
 	let shape_rn = knob("SHAPE_RN", 0.0) as usize;
 	let mut last_shape = 0.0;
@@ -903,9 +994,10 @@ fn search(
 				if forest.raw_score() < best {
 					best = forest.raw_score();
 					best_state = forest.snapshot();
+					dump(&dump_dir, thread, forest.remaining.len(), &best_state);
 					last_improvement = it;
 					if forest.remaining.len() <= knobs.pool_rn {
-						shared.pool.lock().unwrap().offer(best, &best_state);
+						offer_current(shared, epoch, best, &best_state);
 					}
 				}
 			}
@@ -942,13 +1034,39 @@ fn search(
 		if forest.raw_score() < best {
 			best = forest.raw_score();
 			best_state = forest.snapshot();
+			dump(&dump_dir, thread, forest.remaining.len(), &best_state);
 			last_improvement = it;
 			if forest.remaining.len() <= knobs.pool_rn {
-				shared.pool.lock().unwrap().offer(best, &best_state);
+				offer_current(shared, epoch, best, &best_state);
 			}
 		}
 		if it - last_improvement > knobs.stagnation {
+			if knobs.restart > 0.0 && restart_due(shared, epoch, best, knobs.restart) {
+				epoch = shared.epoch.load(Ordering::Relaxed);
+				let heat = shared.heat.lock().unwrap().clone();
+				if verbose {
+					let mut hottest = (0..n)
+						.map(|c| (heat[c], forest.cells[c].x, forest.cells[c].y))
+						.collect::<Vec<_>>();
+					hottest.sort_unstable_by(|a, b| b.cmp(a));
+					eprintln!("RESTART heat top {:?}", &hottest[..8]);
+				}
+				forest = Forest::new(level);
+				forest.carry_weights(&heat, knobs.restart_top, knobs.restart_cut);
+				best = forest.raw_score();
+				best_state = forest.snapshot();
+				lfa.iter_mut().for_each(|f| *f = forest.score());
+				last_improvement = it;
+				restarts += 1;
+				continue;
+			}
 			forest.bump_weights(knobs.weight_step);
+			if knobs.restart > 0.0 {
+				let mut heat = shared.heat.lock().unwrap();
+				for &node in &forest.remaining {
+					heat[node] += 1;
+				}
+			}
 			let elite = if pool_rate > 0 && rng.below(1000) < pool_rate {
 				shared.pool.lock().unwrap().pick(&mut rng)
 			} else {
@@ -979,7 +1097,7 @@ fn search(
 		if verbose && it >= next_report {
 			next_report += knobs.report;
 			eprintln!(
-				"{:.1}s it {it} remaining {} residual {} best {best} chains {chains}",
+				"{:.1}s it {it} remaining {} residual {} best {best} chains {chains} restarts {restarts}",
 				shared.start.elapsed().as_secs_f64(),
 				forest.remaining.len(),
 				forest.residual_sum
@@ -1000,6 +1118,9 @@ fn main() {
 			capacity: knobs.pool_size,
 		}),
 		start: Instant::now(),
+		epoch: AtomicU64::new(0),
+		record: Mutex::new((i64::MAX, 0.0)),
+		heat: Mutex::new(vec![0; number_shifting::plan::cells(&level).len()]),
 	};
 	let found = Mutex::new(None);
 	std::thread::scope(|scope| {
