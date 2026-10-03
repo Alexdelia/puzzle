@@ -1,4 +1,4 @@
-use block_the_spreading_fire::{Action, Fault, Game, Map};
+use block_the_spreading_fire::{Action, Fault, Game, Map, read_cuts, score_plan};
 use std::fmt;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -128,21 +128,6 @@ fn play(map: &Map, command: &[String]) -> Outcome {
 	finish(game, outcome)
 }
 
-fn replay(map: &Map, actions: &str) -> Outcome {
-	let mut game = Game::new(map);
-	let mut outcome = Outcome::default();
-	for line in actions.lines() {
-		if game.is_over() {
-			break;
-		}
-		if let Err(fault) = Action::parse(line, map).and_then(|action| game.play(action)) {
-			outcome.stop = Some((game.turn() + 1, Stop::Rule(fault)));
-			break;
-		}
-	}
-	finish(game, outcome)
-}
-
 fn load_map(path: &Path) -> Map {
 	let shown = path.display();
 	let text = fs::read_to_string(path).unwrap_or_else(|e| panic!("{shown}: {e}"));
@@ -198,10 +183,12 @@ fn main() -> ExitCode {
 			}
 			println!("total {total}");
 		}
-		Some("replay") if args.len() == 3 => {
-			let actions = fs::read_to_string(&args[2])
-				.unwrap_or_else(|e| panic!("{path}: {e}", path = args[2]));
-			report(&args[1], &replay(&load_map(Path::new(&args[1])), &actions));
+		Some("score") if args.len() == 3 => {
+			let map = load_map(Path::new(&args[1]));
+			match score_plan(&map, &read_cuts(&map, &args[2])) {
+				Ok(score) => println!("{map} {score}", map = args[1]),
+				Err((cut, fault)) => println!("{map} cut {cut}: {fault}", map = args[1]),
+			}
 		}
 		_ => return ExitCode::from(2),
 	}
