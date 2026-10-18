@@ -69,6 +69,7 @@
 
                 imagemagick
                 bc
+                jq
               ];
 
               # https://devenv.sh/languages/
