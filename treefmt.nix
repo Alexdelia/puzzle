@@ -24,7 +24,7 @@ _: {
 
       "*.toml"
 
-      "codingame/code_golf/*"
+      "codingame/codegolf/*"
     ];
 
     formatter.rustfmt.options = [

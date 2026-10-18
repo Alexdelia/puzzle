@@ -1,0 +1,8 @@
+[package]
+name = "set-probabilities-card-game"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "set-probabilities-card-game"
+path = "main.rs"

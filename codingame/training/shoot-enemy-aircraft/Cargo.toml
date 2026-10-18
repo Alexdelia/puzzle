@@ -1,0 +1,8 @@
+[package]
+name = "shoot-enemy-aircraft"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "shoot-enemy-aircraft"
+path = "main.rs"

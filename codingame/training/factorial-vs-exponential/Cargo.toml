@@ -1,0 +1,8 @@
+[package]
+name = "factorial-vs-exponential"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "factorial-vs-exponential"
+path = "main.rs"
