@@ -1,0 +1,4 @@
+[package]
+name = "summer-challenge-2025-soak-overflow"
+version = "0.1.0"
+edition = "2021"

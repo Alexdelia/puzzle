@@ -1,0 +1,4 @@
+[package]
+name = "spring-challenge-2023-ants"
+version = "0.1.0"
+edition = "2021"
