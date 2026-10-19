@@ -1,0 +1,8 @@
+.direnv/
+agent/state/queue/
+agent/state/running/
+agent/state/journal/
+agent/state/leaderboard/
+agent/state/build/
+agent/state/lock/
+agent/state/STOP
