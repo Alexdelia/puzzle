@@ -17,3 +17,29 @@ pretty_id `genome-sequencing-codesize`, leaderboard `genome-sequencing-codesize`
 ## Local validators
 
 - 01 N=1, 02 N=5 length 10 with overlap 1 only (48), 03/09 duplicates, 04/07/08 containment chains, 05 N=5 length 10, 06 three-way chain, 10 cyclic overlaps where the best order uses overlap 4 everywhere (8, a first-fit order gives 11)
+
+## Shortest known
+
+General method (passes tests + local validators): depth-first search on the superstring itself, no permutations, no import.
+
+- `f(s)` = `len(s)` once every input is in `s`; else min of `f(s+t[k:])` over inputs `t` not in `s` and `k` in `0..9` with `t in s+t[k:]`
+- the `t in s+t[k:]` test keeps only valid merges (overlap `k`, or `t` found straddling the join); the max overlap is among them, so min over the tree is exact; contained strings are skipped by `t not in s`, no dedupe pass needed
+- `t not in s` is required for termination (contained `t` with `t[k:]==''` loops forever)
+- keep the `N` line as one more string: `"3"` can never overlap ACGT, it adds exactly 1, `-1` at the end is shorter than dropping it
+- needs: substring test, slicing, recursion (lambda or function), min over a list; no regex, no big ints
+- Python 132, verified local tests + validators, 0.5 s suite: `f=lambda s:min([f(s+t[k:])for t in l for k in range(10)if(t in s)<(t in s+t[k:])]or[len(s)])`, `l` = all whitespace tokens, print `f('')-1`
+- langs with builtin permutations (Ruby `permutation`): alternative fold `s[t]?s:(s+"\n"+t).sub(/(.*)\n\1/,'\1')` per order, min size, `-1` for the N token; regex `(.*)\n\1` leftmost match = longest suffix/prefix overlap, empty overlap just drops the `\n` (unverified locally: no Ruby toolchain in this shell)
+
+Rejected (fail local validators, lengths not shorter anyway):
+
+- fold in input order: fails t03, t05 and 6 validators
+- fold in sorted order: fails t07 and 5 validators
+- fold over the N rotations of input order: passes all 7 CG tests (for N<=3 every order is a rotation of input order or its reverse), fails validators 02/05
+- one global regex `s/(.+)\n\1/$1/g` on the input (as is or rotated): fails most tests (no containment, no reorder)
+- set version `f(s,l-{t})`: 134, contained strings branch 11 times
+- separate `t not in s` filter in the comprehension: 136
+
+## Leaderboard vs local validators
+
+- CG tops (php 32, ruby 33, perl 34, python 51, bash 54, js 64) are far below any exact method (python 132 here, `from itertools import*` alone is 22): they must exploit weak CG validators (CG tests: N<=3, length<=7), unverified what exactly
+- submit.sh requires local validators (N up to 5, containment, cyclic overlaps), so such hacks cannot be submitted: rank 1 in those langs is out of reach with the current validators; the user decides whether validators should mirror CG more closely
