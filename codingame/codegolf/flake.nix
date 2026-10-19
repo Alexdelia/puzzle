@@ -58,6 +58,15 @@
     {
       packages.${system} = langPackages;
 
+      legacyPackages.${system}.langArgs = {
+        inherit
+          pkgs
+          inputs
+          system
+          fetchNixpkgs
+          ;
+      };
+
       devShells.${system}.default = pkgs.mkShell {
         packages = with pkgs; [
           claude-code

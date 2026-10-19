@@ -77,10 +77,10 @@ changed_paths() {
 	git -C "$root" status --porcelain=v1 --untracked-files=all -- "$@" | cut -c4- | sed "s|^$prefix||"
 }
 
-changed_paths knowledge/puzzle | grep -o '^knowledge/puzzle/[^/]*\.md' | sort -u | while read -r file; do
+{ changed_paths knowledge/puzzle | grep -o '^knowledge/puzzle/[^/]*\.md' | sort -u || true; } | while read -r file; do
 	commit_scope "doc(golf): knowledge puzzle $(basename "$file" .md)" "$file"
 done
-changed_paths knowledge/lang | grep -o '^knowledge/lang/[^/]*' | sort -u | while read -r dir; do
+{ changed_paths knowledge/lang | grep -o '^knowledge/lang/[^/]*' | sort -u || true; } | while read -r dir; do
 	commit_scope "doc(golf): knowledge lang $(basename "$dir")" "$dir"
 done
 

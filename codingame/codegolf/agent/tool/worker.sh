@@ -35,7 +35,7 @@ while [[ ! -e $state/STOP ]]; do
 	"$tool_dir/prompt.sh" "$running" >"$output.prompt"
 	CG_TASK_ID=$id command time -f '%e %U %S' -o "$output.time" \
 		timeout --kill-after=60 "$task_wall_seconds" \
-		claude -p "$(<"$output.prompt")" --model "$model" --effort "$effort" --output-format json \
+		direnv exec "$root" claude -p "$(<"$output.prompt")" --model "$model" --effort "$effort" --output-format json \
 		--permission-mode dontAsk --max-budget-usd "$task_budget_usd" >"$output.json" 2>"$output.err" </dev/null
 	code=$?
 	"$tool_dir/finish.sh" "$running" "$output.json" "$output.time" "$code"
