@@ -24,7 +24,7 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 ## Traps
 
 - `capture-io.sh` truncates tests 05 and 06 (CG output cap ~4 kB). Captured as zlib+b85 of stdin in 3500-char slices, one game each (journal `referee.roller-coaster.*`, scratch `capture.sh`)
-- missing the "group boards at most once per ride" cap passes tests 1-3, 5, 6 but fails test 4 (97800 vs 15000) and validators 02, 03, 10
+- missing the "group boards at most once per ride" cap fails test 4 (97800 vs 15000) and validators 02, 10; tests 1-3, 5 never hit it
 - validators cover: C=1, N=1 with L=1 and C=1e7, all groups = 1e6 with L=1e7 (answer 1e14), sum < L with huge L, ride exactly full on wrap
 
 ## Shortest known
