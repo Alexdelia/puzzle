@@ -13,9 +13,16 @@ read -r id kind puzzle lang depth < <(jq -r '[.id, .kind, .puzzle, .lang, .depth
 outcome=$(jq -r '.outcome // "none"' "$running")
 note=$(jq -r '.note // ""' "$running")
 read -r wall_s cpu_user_s cpu_sys_s < <(tail -n 1 "$time_file" 2>/dev/null || echo "0 0 0")
-read -r tokens_in tokens_out cost_usd < <(jq -r '
+read -r tokens_in tokens_out cost_usd turns api_s input_tokens cache_write_tokens cache_read_tokens thinking_tokens \
+	permission_denials < <(jq -r '
 	[((.usage.input_tokens // 0) + (.usage.cache_creation_input_tokens // 0) + (.usage.cache_read_input_tokens // 0)),
-	 (.usage.output_tokens // 0), (.total_cost_usd // 0)] | @tsv' "$claude_json" 2>/dev/null || echo "0 0 0")
+	 (.usage.output_tokens // 0), (.total_cost_usd // 0), (.num_turns // 0), ((.duration_api_ms // 0) / 1000),
+	 (.usage.input_tokens // 0), (.usage.cache_creation_input_tokens // 0), (.usage.cache_read_input_tokens // 0),
+	 (.usage.output_tokens_details.thinking_tokens // 0), (.permission_denials // [] | length)] | @tsv' "$claude_json" 2>/dev/null ||
+	echo "0 0 0 0 0 0 0 0 0 0")
+read -r cg_calls cg_test_games cg_submits < <(awk -F'\t' -v id="$id" '
+	$2 == id { calls++; if ($3 == "POST" && $4 ~ /\/test-games$/) tests++; if ($3 == "POST" && $4 ~ /\/submissions$/) submits++ }
+	END { print calls + 0, tests + 0, submits + 0 }' "$state/cg.log" 2>/dev/null || echo "0 0 0")
 
 status_path=$(ensure_status "$kind" "$puzzle" "$lang")
 set_status() {
@@ -107,7 +114,11 @@ jq --arg ended_at "$(now)" --arg outcome "$outcome" --arg exit_code "$exit_code"
 	      cpu_user_s: $cpu_user, cpu_sys_s: $cpu_sys, tokens_in: $tokens_in, tokens_out: $tokens_out, cost_usd: $cost}
 	 | del(.worker_pid)' "$running" >"$state/done/$id.json"
 rm -f "$running"
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(now)" "$id" "$kind" "$puzzle" "$lang" \
-	"$wall_s" "$cpu_user_s" "$cpu_sys_s" "$tokens_in" "$tokens_out" "$cost_usd" "$outcome" "$(printf '%s' "$note" | tr '\t\n' '  ')" \
-	>>"$state/time.log"
+time_row=("$(now)" "$id" "$kind" "$puzzle" "$lang" "$wall_s" "$cpu_user_s" "$cpu_sys_s" "$tokens_in" "$tokens_out" "$cost_usd"
+	"$outcome" "$(printf '%s' "$note" | tr '\t\n' '  ')" "$turns" "$api_s" "$input_tokens" "$cache_write_tokens"
+	"$cache_read_tokens" "$thinking_tokens" "$permission_denials" "$cg_calls" "$cg_test_games" "$cg_submits")
+(
+	IFS=$'\t'
+	with_lock time_log bash -c 'printf "%s\n" "$1" >>"$2"' _ "${time_row[*]}" "$state/time.log"
+)
 event "finish $id outcome=$outcome wall_s=$wall_s cost_usd=$cost_usd"

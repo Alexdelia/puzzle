@@ -38,6 +38,8 @@ header_value() {
 
 while true; do
 	status=$(curl "${curl_args[@]}" "$url")
+	printf '%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${CG_TASK_ID:--}" "$method" "${path%%\?*}" "$status" \
+		>>"$lock_dir/../cg.log"
 	if [[ $status == 429 ]]; then
 		retry_after=$(header_value Retry-After)
 		sleep "${retry_after:-10}"
