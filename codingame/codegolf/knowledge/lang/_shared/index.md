@@ -5,3 +5,4 @@
 - [io-time-limit](io-time-limit.md): io puzzle run limit about 6000 ms per test, startup included, verified
 - [crash-exit](crash-exit.md): io puzzles ignore exit status, crash after output passes, verified
 - [best-kept](best-kept.md): CG keeps best submission per language, longer submit harmless but unconfirmable, verified
+- [system-wrapper](system-wrapper.md): `os.system("bash -c ...")` runs bash on CG, interactive io works; cell length = wrapper + shortest core, verified on Python
