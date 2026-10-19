@@ -24,3 +24,26 @@ pretty_id `super-computer-codesize`, leaderboard `super-computer-codesize`, io.
 ## Validators (local)
 
 - edge cases: N=1, identical intervals, touching chain (`J+D == next J`, all fit), overlap by one day, nested long interval, many ties, ends past 1e6, N=99999 all disjoint (answer = N), heavy overlap
+
+## Shortest known
+
+Method: greedy by latest start (mirror of earliest-end greedy). Verified 15/15 local (tests + validators) in bash, perl, ruby, python, c; bash version passed CG test 03 (2026-10-19), so `sort`, `awk`, `wc` exist on CG.
+
+- sort intervals by start `J` descending, ties in any order (correct: future choices depend only on the chosen start, same start = same state)
+- `e` = start of last taken, `0` = none yet. Take iff not (`e` and `J+D > e`), then `e = J`. Answer = number taken
+- `e=0` sentinel works because `J > 0`. No infinity constant, no end key to compute before sorting
+- why short: sorts by start only, and "numeric value of the line" = `J` in languages that read the leading number of `"J D"` (awk/`sort -n`, perl `$b-$a`, ruby `to_i`, php, js `parseInt`): no field split before the sort
+- the `N` line must be dropped (`read;` in shell, `<>;`/`gets` in perl/ruby). Kept, it acts as a zero-length interval at day `N` and moves `e`: validators 12 fails by +1
+- shell form: `sort -nr`, then awk with only a pattern (prints taken lines), count with `wc -l`. Pattern `$1+$2>e&&e?0:e=$1` (17 chars): ternary in pattern, assignment yields `J > 0` = truthy. Shorter than `{...;c++}END{print c}` by 8
+- ruby/perl count with `count{...}` / `~~grep{...}` over the sorted lines, same ternary
+- shell core 43 bytes (bash top 45). System wrapper cells (`lang/_shared/system-wrapper.md`): core + wrapper reached locally c 62 `main(){system("...");}` (top 64), ruby 49 `exec"..."`, perl 51 `exec q(...)`, python 66 `os.system`
+- native reached: perl 55, ruby 81, python 108 (end-ascending with `key=sum` on `[J,D]` lists beats start-descending `[::-1]` + `9e9`/sentinel in python)
+
+Alternative, no sort (for languages where sort with comparator is expensive): bucket by end. `m[J+D] = max J`, sweep `t` ascending over `2^21` days with `e=1` (starts >= 1 so empty bucket `0` never passes `m[t]>=e`), take iff `m[t]>=e`, then `e=t`. Verified python 139, c 142; longer than the wrapper in c.
+
+Rejected:
+
+- strict `J+D < e` / `>` off-by-one: wrong (see Rules)
+- replacement greedy on ascending start (`sort -n`, keep `min` end when overlapping, no sentinel needed): awk 55 vs 43
+- precomputing end key for `sort -n` in shell: extra awk stage, longer
+- tops below any general method (c 64 tie only via wrapper; lua 58, ocaml 59, python 59, perl/ruby 39, php 40) are likely hardcodes keyed on the hidden CG validators (unverified, same pattern as `dwarfs-standing-on-the-shoulders-of-giants`). Local validators are synthetic and reject hardcodes; matching them needs the user's go-ahead to probe CG
