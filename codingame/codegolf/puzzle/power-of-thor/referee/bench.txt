@@ -1,0 +1,10 @@
+case wall_ms solution_cpu_ms referee_cpu_ms (median of 5)
+tests/01 22.6 22.4 0.6
+tests/02 22.8 22.5 0.6
+tests/03 22.9 22.6 0.7
+tests/04 23.6 23.2 0.7
+validators/01 22.7 22.4 0.7
+validators/02 22.7 22.4 0.7
+validators/03 22.9 22.4 0.6
+validators/04 22.7 22.4 0.6
+suite wall_ms 185.0 solution_cpu_ms 182.6 referee_cpu_ms 5.3 pass
