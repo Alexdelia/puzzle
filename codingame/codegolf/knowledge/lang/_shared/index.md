@@ -4,3 +4,4 @@
 - [output-compare](output-compare.md): exact line match, trailing spaces and CR fail, trailing empty lines and missing final newline free, verified
 - [io-time-limit](io-time-limit.md): io puzzle run limit about 6000 ms per test, startup included, verified
 - [crash-exit](crash-exit.md): io puzzles ignore exit status, crash after output passes, verified
+- [best-kept](best-kept.md): CG keeps best submission per language, longer submit harmless but unconfirmable, verified
