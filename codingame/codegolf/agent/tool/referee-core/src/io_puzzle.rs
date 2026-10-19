@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 
 use crate::compare;
 use crate::process::{ReadError, Solution};
-use crate::suite::{Case, RunOptions, Runner, Verdict};
+use crate::suite::{Case, Played, RunOptions, Runner, Verdict};
 
 pub struct IoPuzzle {
 	pub limit: Duration,
@@ -23,7 +23,14 @@ impl Default for IoPuzzle {
 impl Runner for IoPuzzle {
 	const EXTENSION: &'static str = "in";
 
-	fn run(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Verdict> {
+	fn run(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Played> {
+		self.judge(case, launcher, options)
+			.map(|verdict| Played { verdict, turns: 1 })
+	}
+}
+
+impl IoPuzzle {
+	fn judge(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Verdict> {
 		let input = fs::read_to_string(&case.file)
 			.with_context(|| format!("read {file}", file = case.file.display()))?;
 		let expected_file = case.file.with_extension("out");

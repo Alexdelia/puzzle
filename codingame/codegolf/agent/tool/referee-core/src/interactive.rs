@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use serde::de::DeserializeOwned;
 
 use crate::process::{ReadError, Solution};
-use crate::suite::{Case, RunOptions, Runner, Verdict};
+use crate::suite::{Case, Played, RunOptions, Runner, Verdict};
 
 pub enum Step {
 	Continue,
@@ -45,7 +45,20 @@ impl<G> Default for Interactive<G> {
 impl<G: Game> Runner for Interactive<G> {
 	const EXTENSION: &'static str = "json";
 
-	fn run(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Verdict> {
+	fn run(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Played> {
+		let mut turns = 0;
+		let verdict = Self::play(case, launcher, options, &mut turns)?;
+		Ok(Played { verdict, turns })
+	}
+}
+
+impl<G: Game> Interactive<G> {
+	fn play(
+		case: &Case,
+		launcher: &Path,
+		options: &RunOptions,
+		turn: &mut usize,
+	) -> Result<Verdict> {
 		let text = fs::read_to_string(&case.file)
 			.with_context(|| format!("read {file}", file = case.file.display()))?;
 		let test: G::Test = serde_json::from_str(&text)
@@ -55,7 +68,7 @@ impl<G: Game> Runner for Interactive<G> {
 		let started = Instant::now();
 		let mut input = game.initial_input() + &game.turn_input();
 		let mut limit = G::FIRST_TURN;
-		let mut turn = 1_usize;
+		*turn = 1;
 		loop {
 			if started.elapsed() > options.hard_cap {
 				return Ok(Verdict::Timeout(format!("turn {turn}: hard cap reached")));
@@ -95,7 +108,7 @@ impl<G: Game> Runner for Interactive<G> {
 				Step::Continue => {
 					input = game.turn_input();
 					limit = G::TURN;
-					turn += 1;
+					*turn += 1;
 				}
 			}
 		}

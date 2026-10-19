@@ -38,8 +38,16 @@ for _ in $(seq 60); do
 done
 sleep 30
 
-row=$(leaderboard_rows "$puzzle" KEYWORD "$nickname" |
-	jq -c --arg language "$cg_name" '[.[] | select(.language == $language)] | first')
+own_row() {
+	leaderboard_rows "$puzzle" KEYWORD "$nickname" |
+		jq -c --arg language "$cg_name" '[.[] | select(.language == $language)] | first'
+}
+row=$(own_row)
+for _ in $(seq 6); do
+	[[ $(jq -r '.length // empty' <<<"$row") == "$length" ]] && break
+	sleep 30
+	row=$(own_row)
+done
 if [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; then
 	json_update "$(ensure_status referee "$puzzle" -)" '.status = "suspect"'
 	"$tool_dir/enqueue.sh" referee "$puzzle" - --reason "CG rejected $relative length $length: row $row" >/dev/null

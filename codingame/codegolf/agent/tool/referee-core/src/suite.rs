@@ -43,10 +43,23 @@ pub struct RunOptions {
 	pub hard_cap: Duration,
 }
 
+pub struct Played {
+	pub verdict: Verdict,
+	pub turns: usize,
+}
+
 pub trait Runner {
 	const EXTENSION: &'static str;
 
-	fn run(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Verdict>;
+	fn run(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Played>;
+}
+
+const REFEREE_BASE_BUDGET: Duration = Duration::from_millis(2);
+const REFEREE_TURN_BUDGET: Duration = Duration::from_micros(20);
+const SUITE_WALL_BUDGET: Duration = Duration::from_secs(5);
+
+fn referee_budget(turns: usize) -> Duration {
+	REFEREE_BASE_BUDGET + REFEREE_TURN_BUDGET * u32::try_from(turns).unwrap_or(u32::MAX)
 }
 
 fn discover(root: &Path, set: &str, extension: &str) -> Vec<Case> {
@@ -81,15 +94,16 @@ fn run_confirmed<R: Runner>(
 	case: &Case,
 	launcher: &Path,
 	options: &RunOptions,
-) -> Result<Verdict> {
-	match runner.run(case, launcher, options)? {
+) -> Result<Played> {
+	let played = runner.run(case, launcher, options)?;
+	match played.verdict {
 		Verdict::Timeout(_) => runner.run(case, launcher, options),
-		verdict => Ok(verdict),
+		_ => Ok(played),
 	}
 }
 
-fn report(name: &str, verdict: &Result<Verdict>) -> bool {
-	match verdict {
+fn report(name: &str, played: &Result<Played>) -> bool {
+	match played.as_ref().map(|played| &played.verdict) {
 		Ok(Verdict::Pass) => {
 			println!("test {name} pass");
 			true
@@ -120,6 +134,7 @@ fn verify<R: Runner>(runner: &R, cases: &[Case], launcher: &Path, options: &RunO
 }
 
 struct Sample {
+	turns: usize,
 	wall: Duration,
 	solution_cpu: Duration,
 	referee_cpu: Duration,
@@ -149,19 +164,45 @@ fn bench<R: Runner>(
 			let referee_before = process::referee_cpu();
 			let solution_before = process::solutions_cpu();
 			let started = Instant::now();
-			let verdict = runner.run(case, launcher, options);
+			let played = runner.run(case, launcher, options);
 			let wall = started.elapsed();
-			all_passed &= matches!(verdict, Ok(Verdict::Pass));
+			all_passed &= matches!(
+				&played,
+				Ok(Played {
+					verdict: Verdict::Pass,
+					..
+				})
+			);
 			case_samples.push(Sample {
+				turns: played.as_ref().map_or(0, |played| played.turns),
 				wall,
 				solution_cpu: process::solutions_cpu().saturating_sub(solution_before),
 				referee_cpu: process::referee_cpu().saturating_sub(referee_before),
 			});
 		}
 	}
-	println!("case wall_ms solution_cpu_ms referee_cpu_ms (median of {runs})");
+	println!(
+		"case turns wall_ms solution_cpu_ms referee_cpu_ms referee_budget_ms gate (median of {runs})"
+	);
+	let mut gate_passed = true;
 	for (case, case_samples) in cases.iter().zip(&samples) {
 		let name = &case.name;
+		let turns = case_samples
+			.iter()
+			.map(|sample| sample.turns)
+			.max()
+			.unwrap_or(0);
+		let referee_cpu_median = median(
+			case_samples
+				.iter()
+				.map(|sample| sample.referee_cpu)
+				.collect(),
+		);
+		let budget = referee_budget(turns);
+		let within_budget = referee_cpu_median <= budget;
+		gate_passed &= within_budget;
+		let gate = if within_budget { "ok" } else { "over" };
+		let budget_ms = milliseconds(budget);
 		let wall = milliseconds(median(
 			case_samples.iter().map(|sample| sample.wall).collect(),
 		));
@@ -171,13 +212,10 @@ fn bench<R: Runner>(
 				.map(|sample| sample.solution_cpu)
 				.collect(),
 		));
-		let referee_cpu = milliseconds(median(
-			case_samples
-				.iter()
-				.map(|sample| sample.referee_cpu)
-				.collect(),
-		));
-		println!("{name} {wall:.1} {solution_cpu:.1} {referee_cpu:.1}");
+		let referee_cpu = milliseconds(referee_cpu_median);
+		println!(
+			"{name} {turns} {wall:.1} {solution_cpu:.1} {referee_cpu:.1} {budget_ms:.1} {gate}"
+		);
 	}
 	let per_run = |pick: fn(&Sample) -> Duration| {
 		let total: Duration = samples.iter().flatten().map(pick).sum();
@@ -186,11 +224,15 @@ fn bench<R: Runner>(
 	let wall = per_run(|sample| sample.wall);
 	let solution_cpu = per_run(|sample| sample.solution_cpu);
 	let referee_cpu = per_run(|sample| sample.referee_cpu);
-	let verdict = if all_passed { "pass" } else { "fail" };
+	let suite_wall_budget_ms = milliseconds(SUITE_WALL_BUDGET);
+	gate_passed &= wall <= suite_wall_budget_ms;
+	let gate = if gate_passed { "ok" } else { "over" };
+	let passed = all_passed && gate_passed;
+	let verdict = if passed { "pass" } else { "fail" };
 	println!(
-		"suite wall_ms {wall:.1} solution_cpu_ms {solution_cpu:.1} referee_cpu_ms {referee_cpu:.1} {verdict}"
+		"suite wall_ms {wall:.1} solution_cpu_ms {solution_cpu:.1} referee_cpu_ms {referee_cpu:.1} gate {gate} {verdict}"
 	);
-	all_passed
+	passed
 }
 
 pub fn main<R: Runner>(runner: R) -> ExitCode {
