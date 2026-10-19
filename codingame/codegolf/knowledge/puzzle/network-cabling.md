@@ -26,3 +26,27 @@ pretty_id `network-cabling-codesize`, leaderboard `network-cabling-codesize`, io
 ## Shortest known
 
 - ours Python 232 (plain reference, 2026-10-19), rank 499
+
+Method (verified 21/21 local, Python and bash+gawk, 2026-10-19): answer = `max(x)-min(x) + f(Y)`, `f(Y)` = sum of absolute deviations of `y` from its median. Only one sort, on `y`; `x` needs min and max only, never sorted, never paired with its `y`.
+
+Equivalent forms of `f` on `Y` sorted ascending (`n` items, 0-based), pick per language:
+
+- pair ends: `sum over i < n/2 of Y[n-1-i] - Y[i]` (loop `i<n/2` also fine: odd middle pair is `m-m=0`); suits awk/C loops, stack langs (pop both ends)
+- slices: `sum(Y[floor(n/2):]) - sum(Y[:ceil(n/2)])`; both slices hold the median when `n` odd, it cancels. Python `sum(y[n//2:])-sum(y[:-~n//2])`
+- median: `sum |v - Y[n div 2]|`; one char longer in Python, likely shorter where map/abs is cheap (vector langs, Ruby `sum{}`), unmeasured there
+- doubled list: sort `Y` twice over (`2n` items, always even), `(sum(top n) - sum(bottom n))/2`; no odd case, costs the `/2`
+- asc vs desc: `f = sum over i of max(Ydesc[i]-Yasc[i], 0)` = `sum |Ydesc[i]-Yasc[i]|/2`; zip of a list with its reverse, or `paste <(sort -n) <(sort -nr)` in shell (unmeasured)
+
+`n` itself is never needed: the count of read lines works (awk `NR`, `len`). In shell `read` drops the header, then `sort -nk2` orders lines by `y` and awk keeps `y[NR]` plus running min/max of `$1`.
+
+Lengths reached (local, not submitted, scratch of journal `puzzle.network-cabling.-.1792440302676785517`):
+
+- Python 113 (doubled list), 114 (slices, median), 116 (all inline), 121 (pair-end genexpr); top 88 (Lydxn): the `n,*a=map(int,open(0).read().split())` + `max(x)-min(x)` + `sorted` skeleton alone is about 100, so 88 needs a reading or structure trick not found here
+- bash 116 (`read` + `sort -nk2|awk` pair ends + running min/max), tested with local bash 5.3 / gawk 5.4, not the CG toolchain (CG_BASH unset in that shell); top 79
+
+Rejected:
+
+- `sum(Y[n//2:])-sum(Y[:n//2])`: off by the median for odd `n`, fails 8/21
+- mean instead of median: fails tests 02, 05, 09
+- min over candidate `m` of `sum |y-m|` without sort: O(n^2), validators 04/10 have N about 100000
+- folding the `x` range into the `y` sum (adding `min x - C`, `max x + C` to `Y` keeps the median, adds `range + 2C`): needs min/max anyway, longer
