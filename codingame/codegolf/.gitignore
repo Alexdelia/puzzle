@@ -1,12 +1,5 @@
 .direnv/
-agent/state/queue/
-agent/state/running/
-agent/state/journal/
-agent/state/leaderboard/
-agent/state/build/
-agent/state/lock/
-agent/state/STOP
-agent/state/worker/
-agent/state/last_cell_lang
+agent/state/*
+!agent/state/time.log
 !puzzle/*/referee/tests/*.out
 !puzzle/*/referee/validators/*.out
