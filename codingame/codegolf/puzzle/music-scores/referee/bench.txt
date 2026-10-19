@@ -1,0 +1,24 @@
+case wall_ms solution_cpu_ms referee_cpu_ms (median of 5)
+tests/01 20.8 20.4 0.4
+tests/02 24.4 24.1 0.4
+tests/03 23.0 22.7 0.4
+tests/04 20.8 20.4 0.4
+tests/05 27.9 27.5 0.4
+tests/06 27.6 27.2 0.4
+tests/07 30.0 29.6 0.3
+tests/08 27.7 27.4 0.4
+tests/09 27.1 26.8 0.4
+tests/10 24.0 23.6 0.4
+tests/11 127.0 125.9 0.4
+tests/12 151.0 149.4 0.4
+validators/01 33.0 32.5 0.4
+validators/02 46.8 46.3 0.3
+validators/03 27.0 26.7 0.4
+validators/04 27.1 26.7 0.3
+validators/05 28.2 27.8 0.3
+validators/06 29.9 29.5 0.4
+validators/07 33.2 32.7 0.4
+validators/08 24.8 24.4 0.3
+validators/09 132.5 131.2 0.4
+validators/10 157.3 156.0 0.4
+suite wall_ms 1242.6 solution_cpu_ms 1159.6 referee_cpu_ms 8.5 pass
