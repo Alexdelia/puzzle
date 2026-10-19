@@ -25,4 +25,23 @@ pretty_id `ascii-art-codesize`, leaderboard `ascii-art-codesize`, io.
 
 ## Shortest known
 
-- ours Python 117 (2026-10-19); top Python 58
+Method (verified on local referee 13/13, 2026-10-19): for each font row (loop over all remaining lines, `H` never read), print the concatenation over the chars of `T` (final newline dropped) of `row[L*i .. L*i+L]`, `i` = glyph index. No other state.
+
+Ignorable input: `H` (loop to EOF). `L` can be read or derived: `len(row)//27` (row with or without its `\n`: `27L+1` floor-divided by 27 is `L`); deriving only pays when skipping a line is cheaper than parsing an int (Python: `int(l)` once is 4 chars shorter than `len(r)//27` per row).
+
+Glyph index `i`, all forms checked against every printable char 32..126:
+- bulk rewrite of `T` once, then a plain offset: Perl `lc` + `y/a-z\n/{/c` (non-letters -> `{`, newline kept so `s/./.../` leaves it in place and the print needs no `\n`), then `ord-97`; Ruby/sed-like `tr('^a-z','{')` same idea; `[` with `ord%32-1` or `ord-65` after uppercasing also gives 26. Needs a complement-class transliteration (`tr`/`y` with `c` or `^`), else regex replace `[^A-Za-z]`
+- branchless arithmetic `y = c&95^64` (precedence: `&` before `^`): letters of both cases -> 1..26, `@` and backtick -> 0, every other printable -> 27..31 or 64..95. So `min(y or 27, 27)` is `i+1`; slice `row[L*k-L : L*k]` with `k = that` avoids the `-1`. Python `w*min(ord(c)&95^64or 27,27)` + `r[x-w:x]`: 113 (cell ours 117)
+- unsigned clamp `u = (c&95)-65; u>25 (unsigned) ? 26 : u` (C, C-likes). Compare must be unsigned: assigning `-65u` to an `int` then `>25` is signed and fails
+- alpha test `ord%32*isalpha - 1` -> -1 for non-letters: only works with a glyph array indexed from the end (`g[-1]` = `?`), not with a substring of the raw row (row ends with `\n`, slice `[-L:0]` is empty)
+- per-row output by regex substitution over `T` (`s/./.../ger` Perl, `gsub` Ruby, `replace(/./g,...)` JS) instead of map+join: Perl 81 with the bulk rewrite
+
+Lengths reached locally (method demos, not cells): Python 113, Perl 81 (system perl 5.42), C 151 (ungolfed, `gets` + `printf("%.*s",L,row+L*i)`).
+
+Leaderboard bounds (2026-10-19): Python 58 (player `Validator_sucks.More.Edge.Random`: likely exploits weak CG validators, unverified), Perl 61, bash 64, Ruby 73. Gap Perl 61 vs 81 unexplained: a shorter legit method may exist (unverified ideas: switches on the `#!perl` line, building a per-row `eval` string).
+
+Rejected:
+- `re.findall('.'*L,row)` glyph list in Python: needs `import re`, 127+
+- Perl `/.{$l}/` with `$l=<>` unchomped: newline inside the quantifier, 0/13
+- C `scanf("...\n%[^\n]\n")`: `\n` in format skips leading spaces of the first font row; use `%[^\n]%*c`
+- python `*_,t,*R=open(0)`: two starred targets, syntax error
