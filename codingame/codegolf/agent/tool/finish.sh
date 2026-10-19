@@ -81,7 +81,7 @@ fi
 
 prefix=$(git -C "$root" rev-parse --show-prefix)
 changed_paths() {
-	git -C "$root" status --porcelain=v1 --untracked-files=all -- "$@" | cut -c4- | sed "s|^$prefix||"
+	git -C "$root" --no-optional-locks status --porcelain=v1 --untracked-files=all -- "$@" | cut -c4- | sed "s|^$prefix||"
 }
 
 { changed_paths knowledge/puzzle | grep -o '^knowledge/puzzle/[^/]*\.md' | sort -u || true; } | while read -r file; do

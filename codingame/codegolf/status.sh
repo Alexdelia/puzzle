@@ -41,7 +41,13 @@ echo "== work"
 queued=("$state"/queue/*.json)
 echo "queued: ${#queued[@]}"
 for running in "$state"/running/*.json; do
-	jq -r '"running: \(.id) worker \(.worker) since \(.started_at)"' "$running"
+	read -r id worker started_at < <(jq -r '[.id, .worker, .started_at] | @tsv' "$running")
+	minutes=$((($(date +%s) - $(date -d "$started_at" +%s)) / 60))
+	echo "running: w$worker ${minutes}m $id"
+	journal=$state/journal/$id.md
+	if [[ -s $journal ]]; then
+		echo "    $(grep -v '^[[:space:]]*$' "$journal" | tail -n 1 | cut -c1-150)"
+	fi
 done
 [[ -e $state/STOP ]] && echo "STOP set: workers stop after their current task"
 
@@ -61,5 +67,5 @@ if [[ -n $reviews$attention ]]; then
 	echo "== needs you"
 	[[ -z $attention ]] || echo "$attention"
 	[[ -z $reviews ]] || echo "$reviews"
-	git -C "$root" status --short -- . | grep -v -E ' agent/state/|^\?\? agent/state/' | head -20 || true
+	git -C "$root" --no-optional-locks status --short -- . | grep -v -E ' agent/state/|^\?\? agent/state/' | head -20 || true
 fi
