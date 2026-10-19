@@ -31,7 +31,7 @@ paint() {
 }
 
 section() {
-	paint "$bold" "== $1"
+	paint "$bold" "# $1"
 	echo
 }
 
@@ -263,11 +263,6 @@ print_event() {
 	echo "$(paint "$dim" "$timestamp") $(paint "$(event_sgr "$kind")" "$kind") $rest"
 }
 
-print_change() {
-	local line=$1
-	echo "$(paint "$yellow" "${line:0:2}") ${line:3}"
-}
-
 section env
 echo "langs:    $(status_counts "$state/lang")"
 echo "referees: $(status_counts "$state/referee")"
@@ -310,8 +305,4 @@ if [[ -n $reviews$attention ]]; then
 	while IFS= read -r event_line; do
 		[[ -z $event_line ]] || print_event "$event_line"
 	done <<<"$attention"$'\n'"$reviews"
-	changes=$(git -C "$root" --no-optional-locks status --short -- . | grep -v -E ' agent/state/|^\?\? agent/state/' | head -20 || true)
-	while IFS= read -r change_line; do
-		[[ -z $change_line ]] || print_change "$change_line"
-	done <<<"$changes"
 fi
