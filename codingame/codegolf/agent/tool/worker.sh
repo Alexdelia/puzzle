@@ -41,7 +41,7 @@ while [[ ! -e $state/STOP ]]; do
 	CG_TASK_ID=$id command time -f '%e %U %S' -o "$output.time" \
 		timeout --kill-after=60 "$task_wall_seconds" \
 		direnv exec "$root" claude -p "$(<"$output.prompt")" --model "$model" --effort "$effort" \
-		--output-format stream-json --verbose --permission-mode dontAsk --max-budget-usd "$task_budget_usd" \
+		--output-format stream-json --verbose --permission-mode auto --max-budget-usd "$task_budget_usd" \
 		>"$output.jsonl" 2>"$output.err" </dev/null
 	code=$?
 	jq -c 'select(.type == "result")' "$output.jsonl" | tail -n 1 >"$output.json"
