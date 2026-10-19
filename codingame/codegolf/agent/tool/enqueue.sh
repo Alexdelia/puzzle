@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+usage="usage: enqueue.sh lang|referee|puzzle|cell <puzzle|-> <lang|-> [--reason text] [--trigger file] [--depth n]"
+kind=${1:?$usage}
+puzzle=${2:?$usage}
+lang=${3:?$usage}
+shift 3
+reason=manual
+trigger=
+depth=0
+while (($#)); do
+	case $1 in
+	--reason) reason=$2 ;;
+	--trigger) trigger=$2 ;;
+	--depth) depth=$2 ;;
+	*) echo "$usage" >&2 && exit 2 ;;
+	esac
+	shift 2
+done
+
+case $kind in
+lang) [[ $puzzle == - && -n $(tsv_field lang "$lang" slug) ]] ;;
+referee | puzzle) [[ $lang == - && -n $(tsv_field puzzle "$puzzle" slug) ]] ;;
+cell) [[ -n $(tsv_field puzzle "$puzzle" slug) && -n $(tsv_field lang "$lang" slug) ]] ;;
+*) false ;;
+esac || { echo "enqueue.sh: bad target $kind $puzzle $lang" >&2; exit 2; }
+
+if ((depth > propagation_max_depth)); then
+	echo "enqueue.sh: refused $kind $puzzle $lang: depth $depth > $propagation_max_depth"
+	exit 0
+fi
+
+enqueue() {
+	local key="$kind/$puzzle/$lang"
+	local queued
+	queued=$(grep -l -F "\"key\": \"$key\"" "$state"/queue/*.json 2>/dev/null | head -1 || true)
+	if [[ -n $queued ]]; then
+		json_update "$queued" --arg reason "$reason" --arg trigger "$trigger" \
+			'.reasons += [$reason] | if $trigger != "" then .triggers += [$trigger] else . end'
+		echo "enqueue.sh: merged into $(basename "$queued" .json)"
+		return
+	fi
+	local status_path status
+	status_path=$(ensure_status "$kind" "$puzzle" "$lang")
+	status=$(jq -r .status "$status_path")
+	if [[ $kind == cell && $status == first ]]; then
+		echo "enqueue.sh: refused $key: already first"
+		return
+	fi
+	if [[ $kind == cell && $status == plateau && -z $trigger && $reason != plateau-retry && $reason != dropped ]]; then
+		echo "enqueue.sh: refused $key: plateau without new trigger"
+		return
+	fi
+	local id="$kind.$puzzle.$lang.$(date +%s%N)"
+	jq -n --arg id "$id" --arg key "$key" --arg kind "$kind" --arg puzzle "$puzzle" --arg lang "$lang" \
+		--arg reason "$reason" --arg trigger "$trigger" --argjson depth "$depth" --arg queued_at "$(now)" \
+		'{id: $id, key: $key, kind: $kind, puzzle: $puzzle, lang: $lang, reasons: [$reason],
+		  triggers: (if $trigger == "" then [] else [$trigger] end), depth: $depth, queued_at: $queued_at}' \
+		>"$state/queue/$id.json"
+	event "enqueue $id reason=$reason trigger=${trigger:--} depth=$depth"
+	echo "enqueue.sh: queued $id"
+}
+
+with_lock queue enqueue

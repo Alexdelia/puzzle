@@ -1,0 +1,10 @@
+workers=8
+model=claude-opus-5-5
+effort=high
+task_wall_seconds=3600
+cost_cap_usd=10
+cost_window_hours=5
+task_budget_usd=2.5
+sync_max_age_days=7
+propagation_max_depth=2
+nickname=Alexdelia

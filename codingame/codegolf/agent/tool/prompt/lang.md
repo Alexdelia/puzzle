@@ -1,0 +1,12 @@
+Make language `{{LANG}}` ready: CG version `{{CG_VERSION}}` (`data/lang.tsv`, from the CG help center page "languages versions", update 2024-09-25), CG name `{{CG_NAME}}`, extension `{{EXTENSION}}`.
+
+Scope: `agent/tool/lang/{{LANG}}/` only.
+
+1. `agent/tool/lang/{{LANG}}/package.nix`: a function of `{ pkgs, inputs, system, fetchNixpkgs }` returning one derivation (or `symlinkJoin`) with the toolchain under `bin/`. Same minor version as CG is mandatory (syntax and builtins are golf tricks), patch best effort. Pin older versions with `fetchNixpkgs { rev; sha256; }` (a nixpkgs revision that carried that version: search nixhub or the nixpkgs git history) or with `inputs.rust-overlay` / `inputs.nixpkgs-python`. Never edit `flake.nix` or `flake.lock`. Include the libraries CG lists for this language. JVM languages: OpenJDK 8 replaces Oracle JVM 1.8. Template: `agent/tool/lang/python/`.
+2. Your shell started before the package existed, so `CG_{{LANG_VAR}}` is unset: build with `nix build .#{{LANG}} --no-link --print-out-paths` and export `CG_{{LANG_VAR}}=<that path>` in the commands that need it.
+3. `agent/tool/lang/{{LANG}}/build.sh <file>`: compile once into `cache_dir` (see `agent/tool/lang/cache.sh`), print a launcher path that runs the program stdin -> stdout. Compile flags and run command as close to CG as known (C/C++ link flags, C# `-unsafe`, ...). Compile time stays outside the launcher.
+4. `agent/tool/lang/{{LANG}}/smoke/`: `main.{{EXTENSION}}` reading 2 ints from one line and printing their sum, `input`, `expected`; `agent/tool/lang/smoke.sh {{LANG}}` passes.
+5. Same behavior locally and on CG: write a correct solution for `chuck-norris` in `{{LANG}}` in your scratch space, run `puzzle/chuck-norris/referee/run.sh <file> --lang {{LANG}}` locally (all pass), then run the 9 CG tests with `test-games` (`{"language": "{{CG_NAME}}", "code": ..., "testcase": n}` through `cg.sh`): all succeed. Make the same program print its runtime version to stderr once, compare CG `output` with local: any difference is drift.
+6. Startup time: note launcher wall time of the smoke program (`time`), it eats turn limits.
+
+Report `ready "<drift or 'exact'>"` when 1-5 hold. If the version cannot be pinned in nix within your time (expected risk: Haskell GHC 8.4.3, Swift 5.3.3), report `blocked "<what failed, what you tried>"`: Docker or any other fallback is the user's decision only, never yours.
