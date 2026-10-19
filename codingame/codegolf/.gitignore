@@ -6,3 +6,7 @@ agent/state/leaderboard/
 agent/state/build/
 agent/state/lock/
 agent/state/STOP
+agent/state/worker/
+agent/state/last_cell_lang
+!puzzle/*/referee/tests/*.out
+!puzzle/*/referee/validators/*.out

@@ -17,11 +17,12 @@
     { nixpkgs, rust-overlay, ... }@inputs:
     let
       system = "x86_64-linux";
+      inherit (nixpkgs) lib;
       pkgs = import nixpkgs {
         inherit system;
         overlays = [ rust-overlay.overlays.default ];
+        config.allowUnfreePredicate = package: lib.getName package == "claude-code";
       };
-      inherit (pkgs) lib;
 
       fetchNixpkgs =
         { rev, sha256 }:
@@ -59,6 +60,7 @@
 
       devShells.${system}.default = pkgs.mkShell {
         packages = with pkgs; [
+          claude-code
           refereeRust
           jq
           curl
