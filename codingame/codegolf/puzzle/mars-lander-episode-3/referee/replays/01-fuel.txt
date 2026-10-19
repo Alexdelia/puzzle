@@ -1,0 +1,1636 @@
+game 910119461
+agents:
+  0 Alexdelia (me, agent_id -1)
+frame 0
+  referee: Landing phase starting
+      X=6500m, Y=2600m, HSpeed=-20m/s VSpeed=0m/s
+      Fuel=1000l, Angle=45°, Power=0 (0.0m/s2)
+frame 1 agent 0
+  referee: Landing in progress...
+      X=6480m, Y=2599m, HSpeed=-21m/s VSpeed=-3m/s
+      Fuel=999l, Angle=30°, Power=1 (1.0m/s2)
+  stderr: 6500 2600 -20 0 1000 45 0
+  stdout: -30 4
+frame 2 agent 0
+  referee: Landing in progress...
+      X=6459m, Y=2595m, HSpeed=-21m/s VSpeed=-5m/s
+      Fuel=997l, Angle=15°, Power=2 (2.0m/s2)
+  stderr: 6480 2599 -21 -3 999 30 1
+  stdout: -30 4
+frame 3 agent 0
+  referee: Landing in progress...
+      X=6438m, Y=2590m, HSpeed=-21m/s VSpeed=-5m/s
+      Fuel=994l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6459 2595 -21 -5 997 15 2
+  stdout: -30 4
+frame 4 agent 0
+  referee: Landing in progress...
+      X=6417m, Y=2585m, HSpeed=-20m/s VSpeed=-5m/s
+      Fuel=990l, Angle=-15°, Power=4 (4.0m/s2)
+  stderr: 6438 2590 -21 -5 994 0 3
+  stdout: -30 4
+frame 5 agent 0
+  referee: Landing in progress...
+      X=6398m, Y=2579m, HSpeed=-18m/s VSpeed=-5m/s
+      Fuel=986l, Angle=-30°, Power=4 (4.0m/s2)
+  stderr: 6417 2585 -20 -5 990 -15 4
+  stdout: -30 4
+frame 6 agent 0
+  referee: Landing in progress...
+      X=6382m, Y=2574m, HSpeed=-16m/s VSpeed=-6m/s
+      Fuel=982l, Angle=-30°, Power=4 (4.0m/s2)
+  stderr: 6398 2579 -18 -5 986 -30 4
+  stdout: -30 4
+frame 7 agent 0
+  referee: Landing in progress...
+      X=6367m, Y=2568m, HSpeed=-14m/s VSpeed=-6m/s
+      Fuel=978l, Angle=-30°, Power=4 (4.0m/s2)
+  stderr: 6382 2574 -16 -6 982 -30 4
+  stdout: -30 4
+frame 8 agent 0
+  referee: Landing in progress...
+      X=6353m, Y=2562m, HSpeed=-12m/s VSpeed=-6m/s
+      Fuel=974l, Angle=-28°, Power=4 (4.0m/s2)
+  stderr: 6367 2568 -14 -6 978 -30 4
+  stdout: -28 4
+frame 9 agent 0
+  referee: Landing in progress...
+      X=6342m, Y=2556m, HSpeed=-10m/s VSpeed=-6m/s
+      Fuel=970l, Angle=-24°, Power=4 (4.0m/s2)
+  stderr: 6353 2562 -12 -6 974 -28 4
+  stdout: -24 4
+frame 10 agent 0
+  referee: Landing in progress...
+      X=6332m, Y=2550m, HSpeed=-9m/s VSpeed=-6m/s
+      Fuel=966l, Angle=-20°, Power=4 (4.0m/s2)
+  stderr: 6342 2556 -10 -6 970 -24 4
+  stdout: -20 4
+frame 11 agent 0
+  referee: Landing in progress...
+      X=6324m, Y=2544m, HSpeed=-8m/s VSpeed=-6m/s
+      Fuel=962l, Angle=-18°, Power=4 (4.0m/s2)
+  stderr: 6332 2550 -9 -6 966 -20 4
+  stdout: -18 4
+frame 12 agent 0
+  referee: Landing in progress...
+      X=6317m, Y=2538m, HSpeed=-7m/s VSpeed=-6m/s
+      Fuel=958l, Angle=-16°, Power=4 (4.0m/s2)
+  stderr: 6324 2544 -8 -6 962 -18 4
+  stdout: -16 4
+frame 13 agent 0
+  referee: Landing in progress...
+      X=6310m, Y=2532m, HSpeed=-6m/s VSpeed=-6m/s
+      Fuel=954l, Angle=-14°, Power=4 (4.0m/s2)
+  stderr: 6317 2538 -7 -6 958 -16 4
+  stdout: -14 4
+frame 14 agent 0
+  referee: Landing in progress...
+      X=6305m, Y=2526m, HSpeed=-5m/s VSpeed=-6m/s
+      Fuel=950l, Angle=-12°, Power=4 (4.0m/s2)
+  stderr: 6310 2532 -6 -6 954 -14 4
+  stdout: -12 4
+frame 15 agent 0
+  referee: Landing in progress...
+      X=6300m, Y=2521m, HSpeed=-4m/s VSpeed=-5m/s
+      Fuel=946l, Angle=-10°, Power=4 (4.0m/s2)
+  stderr: 6305 2526 -5 -6 950 -12 4
+  stdout: -10 4
+frame 16 agent 0
+  referee: Landing in progress...
+      X=6296m, Y=2516m, HSpeed=-4m/s VSpeed=-5m/s
+      Fuel=942l, Angle=-8°, Power=4 (4.0m/s2)
+  stderr: 6300 2521 -4 -5 946 -10 4
+  stdout: -8 4
+frame 17 agent 0
+  referee: Landing in progress...
+      X=6293m, Y=2511m, HSpeed=-3m/s VSpeed=-5m/s
+      Fuel=938l, Angle=-8°, Power=4 (4.0m/s2)
+  stderr: 6296 2516 -4 -5 942 -8 4
+  stdout: -8 4
+frame 18 agent 0
+  referee: Landing in progress...
+      X=6290m, Y=2506m, HSpeed=-3m/s VSpeed=-5m/s
+      Fuel=934l, Angle=-6°, Power=4 (4.0m/s2)
+  stderr: 6293 2511 -3 -5 938 -8 4
+  stdout: -6 4
+frame 19 agent 0
+  referee: Landing in progress...
+      X=6287m, Y=2502m, HSpeed=-2m/s VSpeed=-4m/s
+      Fuel=930l, Angle=-6°, Power=4 (4.0m/s2)
+  stderr: 6290 2506 -3 -5 934 -6 4
+  stdout: -6 4
+frame 20 agent 0
+  referee: Landing in progress...
+      X=6285m, Y=2498m, HSpeed=-2m/s VSpeed=-4m/s
+      Fuel=926l, Angle=-4°, Power=4 (4.0m/s2)
+  stderr: 6287 2502 -2 -4 930 -6 4
+  stdout: -4 4
+frame 21 agent 0
+  referee: Landing in progress...
+      X=6283m, Y=2494m, HSpeed=-2m/s VSpeed=-4m/s
+      Fuel=922l, Angle=-4°, Power=4 (4.0m/s2)
+  stderr: 6285 2498 -2 -4 926 -4 4
+  stdout: -4 4
+frame 22 agent 0
+  referee: Landing in progress...
+      X=6282m, Y=2490m, HSpeed=-1m/s VSpeed=-3m/s
+      Fuel=918l, Angle=-4°, Power=4 (4.0m/s2)
+  stderr: 6283 2494 -2 -4 922 -4 4
+  stdout: -4 4
+frame 23 agent 0
+  referee: Landing in progress...
+      X=6280m, Y=2487m, HSpeed=-1m/s VSpeed=-3m/s
+      Fuel=914l, Angle=-2°, Power=4 (4.0m/s2)
+  stderr: 6282 2490 -1 -3 918 -4 4
+  stdout: -2 4
+frame 24 agent 0
+  referee: Landing in progress...
+      X=6279m, Y=2484m, HSpeed=-1m/s VSpeed=-3m/s
+      Fuel=910l, Angle=-2°, Power=4 (4.0m/s2)
+  stderr: 6280 2487 -1 -3 914 -2 4
+  stdout: -2 4
+frame 25 agent 0
+  referee: Landing in progress...
+      X=6278m, Y=2481m, HSpeed=-1m/s VSpeed=-3m/s
+      Fuel=906l, Angle=-2°, Power=4 (4.0m/s2)
+  stderr: 6279 2484 -1 -3 910 -2 4
+  stdout: -2 4
+frame 26 agent 0
+  referee: Landing in progress...
+      X=6277m, Y=2479m, HSpeed=-1m/s VSpeed=-2m/s
+      Fuel=902l, Angle=-2°, Power=4 (4.0m/s2)
+  stderr: 6278 2481 -1 -3 906 -2 4
+  stdout: -2 4
+frame 27 agent 0
+  referee: Landing in progress...
+      X=6276m, Y=2477m, HSpeed=-1m/s VSpeed=-2m/s
+      Fuel=898l, Angle=-2°, Power=4 (4.0m/s2)
+  stderr: 6277 2479 -1 -2 902 -2 4
+  stdout: -2 4
+frame 28 agent 0
+  referee: Landing in progress...
+      X=6275m, Y=2475m, HSpeed=-1m/s VSpeed=-2m/s
+      Fuel=894l, Angle=-2°, Power=4 (4.0m/s2)
+  stderr: 6276 2477 -1 -2 898 -2 4
+  stdout: -2 4
+frame 29 agent 0
+  referee: Landing in progress...
+      X=6275m, Y=2473m, HSpeed=-1m/s VSpeed=-1m/s
+      Fuel=890l, Angle=-2°, Power=4 (4.0m/s2)
+  stderr: 6275 2475 -1 -2 894 -2 4
+  stdout: -2 4
+frame 30 agent 0
+  referee: Landing in progress...
+      X=6274m, Y=2472m, HSpeed=0m/s VSpeed=-1m/s
+      Fuel=886l, Angle=-2°, Power=4 (4.0m/s2)
+  stderr: 6275 2473 -1 -1 890 -2 4
+  stdout: -2 4
+frame 31 agent 0
+  referee: Landing in progress...
+      X=6274m, Y=2471m, HSpeed=0m/s VSpeed=-1m/s
+      Fuel=882l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6274 2472 0 -1 886 -2 4
+  stdout: 0 4
+frame 32 agent 0
+  referee: Landing in progress...
+      X=6273m, Y=2470m, HSpeed=0m/s VSpeed=-1m/s
+      Fuel=878l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6274 2471 0 -1 882 0 4
+  stdout: 0 4
+frame 33 agent 0
+  referee: Landing in progress...
+      X=6273m, Y=2470m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=874l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6273 2470 0 -1 878 0 4
+  stdout: 0 4
+frame 34 agent 0
+  referee: Landing in progress...
+      X=6273m, Y=2470m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=870l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6273 2470 0 0 874 0 4
+  stdout: 0 4
+frame 35 agent 0
+  referee: Landing in progress...
+      X=6272m, Y=2470m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=866l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6273 2470 0 0 870 0 4
+  stdout: 0 4
+frame 36 agent 0
+  referee: Landing in progress...
+      X=6272m, Y=2471m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=862l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6272 2470 0 0 866 0 4
+  stdout: 0 4
+frame 37 agent 0
+  referee: Landing in progress...
+      X=6272m, Y=2471m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=859l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6272 2471 0 1 862 0 4
+  stdout: 0 3
+frame 38 agent 0
+  referee: Landing in progress...
+      X=6271m, Y=2471m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=855l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6272 2471 0 0 859 0 3
+  stdout: 0 4
+frame 39 agent 0
+  referee: Landing in progress...
+      X=6271m, Y=2471m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=851l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6271 2471 0 0 855 0 4
+  stdout: 0 4
+frame 40 agent 0
+  referee: Landing in progress...
+      X=6270m, Y=2472m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=847l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6271 2471 0 0 851 0 4
+  stdout: 0 4
+frame 41 agent 0
+  referee: Landing in progress...
+      X=6270m, Y=2472m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=844l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6270 2472 0 1 847 0 4
+  stdout: 0 3
+frame 42 agent 0
+  referee: Landing in progress...
+      X=6270m, Y=2472m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=840l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6270 2472 0 0 844 0 3
+  stdout: 0 4
+frame 43 agent 0
+  referee: Landing in progress...
+      X=6269m, Y=2473m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=836l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6270 2472 0 0 840 0 4
+  stdout: 0 4
+frame 44 agent 0
+  referee: Landing in progress...
+      X=6269m, Y=2473m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=833l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6269 2473 0 1 836 0 4
+  stdout: 0 3
+frame 45 agent 0
+  referee: Landing in progress...
+      X=6269m, Y=2473m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=829l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6269 2473 0 0 833 0 3
+  stdout: 0 4
+frame 46 agent 0
+  referee: Landing in progress...
+      X=6268m, Y=2474m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=825l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6269 2473 0 0 829 0 4
+  stdout: 0 4
+frame 47 agent 0
+  referee: Landing in progress...
+      X=6268m, Y=2474m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=822l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6268 2474 0 1 825 0 4
+  stdout: 0 3
+frame 48 agent 0
+  referee: Landing in progress...
+      X=6267m, Y=2474m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=818l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6268 2474 0 0 822 0 3
+  stdout: 0 4
+frame 49 agent 0
+  referee: Landing in progress...
+      X=6267m, Y=2474m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=814l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6267 2474 0 0 818 0 4
+  stdout: 0 4
+frame 50 agent 0
+  referee: Landing in progress...
+      X=6267m, Y=2475m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=810l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6267 2474 0 0 814 0 4
+  stdout: 0 4
+frame 51 agent 0
+  referee: Landing in progress...
+      X=6266m, Y=2475m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=807l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6267 2475 0 1 810 0 4
+  stdout: 0 3
+frame 52 agent 0
+  referee: Landing in progress...
+      X=6266m, Y=2475m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=803l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6266 2475 0 0 807 0 3
+  stdout: 0 4
+frame 53 agent 0
+  referee: Landing in progress...
+      X=6266m, Y=2475m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=799l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6266 2475 0 0 803 0 4
+  stdout: 0 4
+frame 54 agent 0
+  referee: Landing in progress...
+      X=6265m, Y=2475m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=796l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6266 2475 0 1 799 0 4
+  stdout: 0 3
+frame 55 agent 0
+  referee: Landing in progress...
+      X=6265m, Y=2475m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=792l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6265 2475 0 0 796 0 3
+  stdout: 0 4
+frame 56 agent 0
+  referee: Landing in progress...
+      X=6264m, Y=2476m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=788l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6265 2475 0 0 792 0 4
+  stdout: 0 4
+frame 57 agent 0
+  referee: Landing in progress...
+      X=6264m, Y=2476m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=784l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6264 2476 0 0 788 0 4
+  stdout: 0 4
+frame 58 agent 0
+  referee: Landing in progress...
+      X=6264m, Y=2477m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=781l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6264 2476 0 1 784 0 4
+  stdout: 0 3
+frame 59 agent 0
+  referee: Landing in progress...
+      X=6263m, Y=2477m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=777l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6264 2477 0 0 781 0 3
+  stdout: 0 4
+frame 60 agent 0
+  referee: Landing in progress...
+      X=6263m, Y=2477m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=773l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6263 2477 0 0 777 0 4
+  stdout: 0 4
+frame 61 agent 0
+  referee: Landing in progress...
+      X=6263m, Y=2477m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=770l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6263 2477 0 1 773 0 4
+  stdout: 0 3
+frame 62 agent 0
+  referee: Landing in progress...
+      X=6262m, Y=2477m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=766l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6263 2477 0 0 770 0 3
+  stdout: 0 4
+frame 63 agent 0
+  referee: Landing in progress...
+      X=6262m, Y=2478m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=762l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6262 2477 0 0 766 0 4
+  stdout: 0 4
+frame 64 agent 0
+  referee: Landing in progress...
+      X=6261m, Y=2478m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=758l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6262 2478 0 0 762 0 4
+  stdout: 0 4
+frame 65 agent 0
+  referee: Landing in progress...
+      X=6261m, Y=2478m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=755l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6261 2478 0 1 758 0 4
+  stdout: 0 3
+frame 66 agent 0
+  referee: Landing in progress...
+      X=6261m, Y=2479m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=751l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6261 2478 0 0 755 0 3
+  stdout: 0 4
+frame 67 agent 0
+  referee: Landing in progress...
+      X=6260m, Y=2479m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=747l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6261 2479 0 0 751 0 4
+  stdout: 0 4
+frame 68 agent 0
+  referee: Landing in progress...
+      X=6260m, Y=2479m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=744l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6260 2479 0 1 747 0 4
+  stdout: 0 3
+frame 69 agent 0
+  referee: Landing in progress...
+      X=6260m, Y=2479m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=740l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6260 2479 0 0 744 0 3
+  stdout: 0 4
+frame 70 agent 0
+  referee: Landing in progress...
+      X=6259m, Y=2480m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=736l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6260 2479 0 0 740 0 4
+  stdout: 0 4
+frame 71 agent 0
+  referee: Landing in progress...
+      X=6259m, Y=2480m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=732l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6259 2480 0 0 736 0 4
+  stdout: 0 4
+frame 72 agent 0
+  referee: Landing in progress...
+      X=6258m, Y=2480m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=729l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6259 2480 0 1 732 0 4
+  stdout: 0 3
+frame 73 agent 0
+  referee: Landing in progress...
+      X=6258m, Y=2481m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=725l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6258 2480 0 0 729 0 3
+  stdout: 0 4
+frame 74 agent 0
+  referee: Landing in progress...
+      X=6258m, Y=2481m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=721l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6258 2481 0 0 725 0 4
+  stdout: 0 4
+frame 75 agent 0
+  referee: Landing in progress...
+      X=6257m, Y=2481m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=718l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6258 2481 0 1 721 0 4
+  stdout: 0 3
+frame 76 agent 0
+  referee: Landing in progress...
+      X=6257m, Y=2481m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=714l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6257 2481 0 0 718 0 3
+  stdout: 0 4
+frame 77 agent 0
+  referee: Landing in progress...
+      X=6257m, Y=2482m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=710l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6257 2481 0 0 714 0 4
+  stdout: 0 4
+frame 78 agent 0
+  referee: Landing in progress...
+      X=6256m, Y=2482m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=706l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6257 2482 0 0 710 0 4
+  stdout: 0 4
+frame 79 agent 0
+  referee: Landing in progress...
+      X=6256m, Y=2483m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=703l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6256 2482 0 1 706 0 4
+  stdout: 0 3
+frame 80 agent 0
+  referee: Landing in progress...
+      X=6256m, Y=2483m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=699l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6256 2483 0 0 703 0 3
+  stdout: 0 4
+frame 81 agent 0
+  referee: Landing in progress...
+      X=6255m, Y=2483m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=695l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6256 2483 0 0 699 0 4
+  stdout: 0 4
+frame 82 agent 0
+  referee: Landing in progress...
+      X=6255m, Y=2484m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=692l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6255 2483 0 1 695 0 4
+  stdout: 0 3
+frame 83 agent 0
+  referee: Landing in progress...
+      X=6254m, Y=2484m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=688l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6255 2484 0 0 692 0 3
+  stdout: 0 4
+frame 84 agent 0
+  referee: Landing in progress...
+      X=6254m, Y=2484m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=684l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6254 2484 0 0 688 0 4
+  stdout: 0 4
+frame 85 agent 0
+  referee: Landing in progress...
+      X=6254m, Y=2485m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=680l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6254 2484 0 0 684 0 4
+  stdout: 0 4
+frame 86 agent 0
+  referee: Landing in progress...
+      X=6253m, Y=2485m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=677l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6254 2485 0 1 680 0 4
+  stdout: 0 3
+frame 87 agent 0
+  referee: Landing in progress...
+      X=6253m, Y=2485m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=673l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6253 2485 0 0 677 0 3
+  stdout: 0 4
+frame 88 agent 0
+  referee: Landing in progress...
+      X=6253m, Y=2486m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=669l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6253 2485 0 0 673 0 4
+  stdout: 0 4
+frame 89 agent 0
+  referee: Landing in progress...
+      X=6252m, Y=2486m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=666l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6253 2486 0 1 669 0 4
+  stdout: 0 3
+frame 90 agent 0
+  referee: Landing in progress...
+      X=6252m, Y=2486m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=662l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6252 2486 0 0 666 0 3
+  stdout: 0 4
+frame 91 agent 0
+  referee: Landing in progress...
+      X=6251m, Y=2487m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=658l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6252 2486 0 0 662 0 4
+  stdout: 0 4
+frame 92 agent 0
+  referee: Landing in progress...
+      X=6251m, Y=2487m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=655l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6251 2487 0 1 658 0 4
+  stdout: 0 3
+frame 93 agent 0
+  referee: Landing in progress...
+      X=6251m, Y=2487m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=651l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6251 2487 0 0 655 0 3
+  stdout: 0 4
+frame 94 agent 0
+  referee: Landing in progress...
+      X=6250m, Y=2487m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=647l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6251 2487 0 0 651 0 4
+  stdout: 0 4
+frame 95 agent 0
+  referee: Landing in progress...
+      X=6250m, Y=2487m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=643l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6250 2487 0 0 647 0 4
+  stdout: 0 4
+frame 96 agent 0
+  referee: Landing in progress...
+      X=6250m, Y=2488m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=640l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6250 2487 0 1 643 0 4
+  stdout: 0 3
+frame 97 agent 0
+  referee: Landing in progress...
+      X=6249m, Y=2488m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=636l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6250 2488 0 0 640 0 3
+  stdout: 0 4
+frame 98 agent 0
+  referee: Landing in progress...
+      X=6249m, Y=2488m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=632l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6249 2488 0 0 636 0 4
+  stdout: 0 4
+frame 99 agent 0
+  referee: Landing in progress...
+      X=6248m, Y=2488m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=629l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6249 2488 0 1 632 0 4
+  stdout: 0 3
+frame 100 agent 0
+  referee: Landing in progress...
+      X=6248m, Y=2488m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=625l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6248 2488 0 0 629 0 3
+  stdout: 0 4
+frame 101 agent 0
+  referee: Landing in progress...
+      X=6248m, Y=2489m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=621l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6248 2488 0 0 625 0 4
+  stdout: 0 4
+frame 102 agent 0
+  referee: Landing in progress...
+      X=6247m, Y=2489m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=617l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6248 2489 0 0 621 0 4
+  stdout: 0 4
+frame 103 agent 0
+  referee: Landing in progress...
+      X=6247m, Y=2489m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=614l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6247 2489 0 1 617 0 4
+  stdout: 0 3
+frame 104 agent 0
+  referee: Landing in progress...
+      X=6247m, Y=2490m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=610l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6247 2489 0 0 614 0 3
+  stdout: 0 4
+frame 105 agent 0
+  referee: Landing in progress...
+      X=6246m, Y=2490m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=606l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6247 2490 0 0 610 0 4
+  stdout: 0 4
+frame 106 agent 0
+  referee: Landing in progress...
+      X=6246m, Y=2490m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=603l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6246 2490 0 1 606 0 4
+  stdout: 0 3
+frame 107 agent 0
+  referee: Landing in progress...
+      X=6245m, Y=2490m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=599l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6246 2490 0 0 603 0 3
+  stdout: 0 4
+frame 108 agent 0
+  referee: Landing in progress...
+      X=6245m, Y=2490m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=595l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6245 2490 0 0 599 0 4
+  stdout: 0 4
+frame 109 agent 0
+  referee: Landing in progress...
+      X=6245m, Y=2491m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=591l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6245 2490 0 0 595 0 4
+  stdout: 0 4
+frame 110 agent 0
+  referee: Landing in progress...
+      X=6244m, Y=2491m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=588l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6245 2491 0 1 591 0 4
+  stdout: 0 3
+frame 111 agent 0
+  referee: Landing in progress...
+      X=6244m, Y=2492m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=584l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6244 2491 0 0 588 0 3
+  stdout: 0 4
+frame 112 agent 0
+  referee: Landing in progress...
+      X=6244m, Y=2492m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=580l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6244 2492 0 0 584 0 4
+  stdout: 0 4
+frame 113 agent 0
+  referee: Landing in progress...
+      X=6243m, Y=2492m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=577l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6244 2492 0 1 580 0 4
+  stdout: 0 3
+frame 114 agent 0
+  referee: Landing in progress...
+      X=6243m, Y=2492m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=573l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6243 2492 0 0 577 0 3
+  stdout: 0 4
+frame 115 agent 0
+  referee: Landing in progress...
+      X=6242m, Y=2492m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=569l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6243 2492 0 0 573 0 4
+  stdout: 0 4
+frame 116 agent 0
+  referee: Landing in progress...
+      X=6242m, Y=2493m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=565l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6242 2492 0 0 569 0 4
+  stdout: 0 4
+frame 117 agent 0
+  referee: Landing in progress...
+      X=6242m, Y=2493m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=562l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6242 2493 0 1 565 0 4
+  stdout: 0 3
+frame 118 agent 0
+  referee: Landing in progress...
+      X=6241m, Y=2494m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=558l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6242 2493 0 0 562 0 3
+  stdout: 0 4
+frame 119 agent 0
+  referee: Landing in progress...
+      X=6241m, Y=2494m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=554l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6241 2494 0 0 558 0 4
+  stdout: 0 4
+frame 120 agent 0
+  referee: Landing in progress...
+      X=6241m, Y=2494m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=551l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6241 2494 0 1 554 0 4
+  stdout: 0 3
+frame 121 agent 0
+  referee: Landing in progress...
+      X=6240m, Y=2494m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=547l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6241 2494 0 0 551 0 3
+  stdout: 0 4
+frame 122 agent 0
+  referee: Landing in progress...
+      X=6240m, Y=2495m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=543l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6240 2494 0 0 547 0 4
+  stdout: 0 4
+frame 123 agent 0
+  referee: Landing in progress...
+      X=6239m, Y=2495m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=539l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6240 2495 0 0 543 0 4
+  stdout: 0 4
+frame 124 agent 0
+  referee: Landing in progress...
+      X=6239m, Y=2496m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=536l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6239 2495 0 1 539 0 4
+  stdout: 0 3
+frame 125 agent 0
+  referee: Landing in progress...
+      X=6239m, Y=2496m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=532l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6239 2496 0 0 536 0 3
+  stdout: 0 4
+frame 126 agent 0
+  referee: Landing in progress...
+      X=6238m, Y=2496m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=528l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6239 2496 0 0 532 0 4
+  stdout: 0 4
+frame 127 agent 0
+  referee: Landing in progress...
+      X=6238m, Y=2497m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=525l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6238 2496 0 1 528 0 4
+  stdout: 0 3
+frame 128 agent 0
+  referee: Landing in progress...
+      X=6238m, Y=2497m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=521l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6238 2497 0 0 525 0 3
+  stdout: 0 4
+frame 129 agent 0
+  referee: Landing in progress...
+      X=6237m, Y=2497m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=517l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6238 2497 0 0 521 0 4
+  stdout: 0 4
+frame 130 agent 0
+  referee: Landing in progress...
+      X=6237m, Y=2498m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=513l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6237 2497 0 0 517 0 4
+  stdout: 0 4
+frame 131 agent 0
+  referee: Landing in progress...
+      X=6236m, Y=2498m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=510l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6237 2498 0 1 513 0 4
+  stdout: 0 3
+frame 132 agent 0
+  referee: Landing in progress...
+      X=6236m, Y=2498m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=506l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6236 2498 0 0 510 0 3
+  stdout: 0 4
+frame 133 agent 0
+  referee: Landing in progress...
+      X=6236m, Y=2499m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=502l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6236 2498 0 0 506 0 4
+  stdout: 0 4
+frame 134 agent 0
+  referee: Landing in progress...
+      X=6235m, Y=2499m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=499l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6236 2499 0 1 502 0 4
+  stdout: 0 3
+frame 135 agent 0
+  referee: Landing in progress...
+      X=6235m, Y=2499m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=495l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6235 2499 0 0 499 0 3
+  stdout: 0 4
+frame 136 agent 0
+  referee: Landing in progress...
+      X=6235m, Y=2500m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=491l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6235 2499 0 0 495 0 4
+  stdout: 0 4
+frame 137 agent 0
+  referee: Landing in progress...
+      X=6234m, Y=2500m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=488l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6235 2500 0 1 491 0 4
+  stdout: 0 3
+frame 138 agent 0
+  referee: Landing in progress...
+      X=6234m, Y=2500m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=484l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6234 2500 0 0 488 0 3
+  stdout: 0 4
+frame 139 agent 0
+  referee: Landing in progress...
+      X=6233m, Y=2500m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=480l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6234 2500 0 0 484 0 4
+  stdout: 0 4
+frame 140 agent 0
+  referee: Landing in progress...
+      X=6233m, Y=2500m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=476l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6233 2500 0 0 480 0 4
+  stdout: 0 4
+frame 141 agent 0
+  referee: Landing in progress...
+      X=6233m, Y=2501m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=473l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6233 2500 0 1 476 0 4
+  stdout: 0 3
+frame 142 agent 0
+  referee: Landing in progress...
+      X=6232m, Y=2501m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=469l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6233 2501 0 0 473 0 3
+  stdout: 0 4
+frame 143 agent 0
+  referee: Landing in progress...
+      X=6232m, Y=2501m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=465l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6232 2501 0 0 469 0 4
+  stdout: 0 4
+frame 144 agent 0
+  referee: Landing in progress...
+      X=6232m, Y=2501m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=462l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6232 2501 0 1 465 0 4
+  stdout: 0 3
+frame 145 agent 0
+  referee: Landing in progress...
+      X=6231m, Y=2501m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=458l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6232 2501 0 0 462 0 3
+  stdout: 0 4
+frame 146 agent 0
+  referee: Landing in progress...
+      X=6231m, Y=2502m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=454l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6231 2501 0 0 458 0 4
+  stdout: 0 4
+frame 147 agent 0
+  referee: Landing in progress...
+      X=6230m, Y=2502m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=450l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6231 2502 0 0 454 0 4
+  stdout: 0 4
+frame 148 agent 0
+  referee: Landing in progress...
+      X=6230m, Y=2503m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=447l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6230 2502 0 1 450 0 4
+  stdout: 0 3
+frame 149 agent 0
+  referee: Landing in progress...
+      X=6230m, Y=2503m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=443l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6230 2503 0 0 447 0 3
+  stdout: 0 4
+frame 150 agent 0
+  referee: Landing in progress...
+      X=6229m, Y=2503m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=439l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6230 2503 0 0 443 0 4
+  stdout: 0 4
+frame 151 agent 0
+  referee: Landing in progress...
+      X=6229m, Y=2503m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=436l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6229 2503 0 1 439 0 4
+  stdout: 0 3
+frame 152 agent 0
+  referee: Landing in progress...
+      X=6229m, Y=2503m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=432l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6229 2503 0 0 436 0 3
+  stdout: 0 4
+frame 153 agent 0
+  referee: Landing in progress...
+      X=6228m, Y=2504m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=428l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6229 2503 0 0 432 0 4
+  stdout: 0 4
+frame 154 agent 0
+  referee: Landing in progress...
+      X=6228m, Y=2504m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=424l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6228 2504 0 0 428 0 4
+  stdout: 0 4
+frame 155 agent 0
+  referee: Landing in progress...
+      X=6227m, Y=2504m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=421l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6228 2504 0 1 424 0 4
+  stdout: 0 3
+frame 156 agent 0
+  referee: Landing in progress...
+      X=6227m, Y=2505m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=417l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6227 2504 0 0 421 0 3
+  stdout: 0 4
+frame 157 agent 0
+  referee: Landing in progress...
+      X=6227m, Y=2505m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=413l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6227 2505 0 0 417 0 4
+  stdout: 0 4
+frame 158 agent 0
+  referee: Landing in progress...
+      X=6226m, Y=2505m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=410l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6227 2505 0 1 413 0 4
+  stdout: 0 3
+frame 159 agent 0
+  referee: Landing in progress...
+      X=6226m, Y=2505m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=406l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6226 2505 0 0 410 0 3
+  stdout: 0 4
+frame 160 agent 0
+  referee: Landing in progress...
+      X=6226m, Y=2506m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=402l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6226 2505 0 0 406 0 4
+  stdout: 0 4
+frame 161 agent 0
+  referee: Landing in progress...
+      X=6225m, Y=2506m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=398l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6226 2506 0 0 402 0 4
+  stdout: 0 4
+frame 162 agent 0
+  referee: Landing in progress...
+      X=6225m, Y=2507m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=395l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6225 2506 0 1 398 0 4
+  stdout: 0 3
+frame 163 agent 0
+  referee: Landing in progress...
+      X=6225m, Y=2507m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=391l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6225 2507 0 0 395 0 3
+  stdout: 0 4
+frame 164 agent 0
+  referee: Landing in progress...
+      X=6224m, Y=2507m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=387l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6225 2507 0 0 391 0 4
+  stdout: 0 4
+frame 165 agent 0
+  referee: Landing in progress...
+      X=6224m, Y=2508m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=384l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6224 2507 0 1 387 0 4
+  stdout: 0 3
+frame 166 agent 0
+  referee: Landing in progress...
+      X=6223m, Y=2508m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=380l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6224 2508 0 0 384 0 3
+  stdout: 0 4
+frame 167 agent 0
+  referee: Landing in progress...
+      X=6223m, Y=2508m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=376l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6223 2508 0 0 380 0 4
+  stdout: 0 4
+frame 168 agent 0
+  referee: Landing in progress...
+      X=6223m, Y=2508m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=372l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6223 2508 0 0 376 0 4
+  stdout: 0 4
+frame 169 agent 0
+  referee: Landing in progress...
+      X=6222m, Y=2509m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=369l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6223 2508 0 1 372 0 4
+  stdout: 0 3
+frame 170 agent 0
+  referee: Landing in progress...
+      X=6222m, Y=2509m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=365l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6222 2509 0 0 369 0 3
+  stdout: 0 4
+frame 171 agent 0
+  referee: Landing in progress...
+      X=6222m, Y=2510m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=361l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6222 2509 0 0 365 0 4
+  stdout: 0 4
+frame 172 agent 0
+  referee: Landing in progress...
+      X=6221m, Y=2510m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=358l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6222 2510 0 1 361 0 4
+  stdout: 0 3
+frame 173 agent 0
+  referee: Landing in progress...
+      X=6221m, Y=2510m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=354l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6221 2510 0 0 358 0 3
+  stdout: 0 4
+frame 174 agent 0
+  referee: Landing in progress...
+      X=6220m, Y=2510m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=350l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6221 2510 0 0 354 0 4
+  stdout: 0 4
+frame 175 agent 0
+  referee: Landing in progress...
+      X=6220m, Y=2511m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=346l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6220 2510 0 0 350 0 4
+  stdout: 0 4
+frame 176 agent 0
+  referee: Landing in progress...
+      X=6220m, Y=2511m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=343l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6220 2511 0 1 346 0 4
+  stdout: 0 3
+frame 177 agent 0
+  referee: Landing in progress...
+      X=6219m, Y=2512m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=339l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6220 2511 0 0 343 0 3
+  stdout: 0 4
+frame 178 agent 0
+  referee: Landing in progress...
+      X=6219m, Y=2512m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=335l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6219 2512 0 0 339 0 4
+  stdout: 0 4
+frame 179 agent 0
+  referee: Landing in progress...
+      X=6219m, Y=2512m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=332l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6219 2512 0 1 335 0 4
+  stdout: 0 3
+frame 180 agent 0
+  referee: Landing in progress...
+      X=6218m, Y=2512m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=328l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6219 2512 0 0 332 0 3
+  stdout: 0 4
+frame 181 agent 0
+  referee: Landing in progress...
+      X=6218m, Y=2513m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=324l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6218 2512 0 0 328 0 4
+  stdout: 0 4
+frame 182 agent 0
+  referee: Landing in progress...
+      X=6217m, Y=2513m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=321l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6218 2513 0 1 324 0 4
+  stdout: 0 3
+frame 183 agent 0
+  referee: Landing in progress...
+      X=6217m, Y=2513m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=317l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6217 2513 0 0 321 0 3
+  stdout: 0 4
+frame 184 agent 0
+  referee: Landing in progress...
+      X=6217m, Y=2513m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=313l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6217 2513 0 0 317 0 4
+  stdout: 0 4
+frame 185 agent 0
+  referee: Landing in progress...
+      X=6216m, Y=2514m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=309l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6217 2513 0 0 313 0 4
+  stdout: 0 4
+frame 186 agent 0
+  referee: Landing in progress...
+      X=6216m, Y=2514m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=306l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6216 2514 0 1 309 0 4
+  stdout: 0 3
+frame 187 agent 0
+  referee: Landing in progress...
+      X=6216m, Y=2514m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=302l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6216 2514 0 0 306 0 3
+  stdout: 0 4
+frame 188 agent 0
+  referee: Landing in progress...
+      X=6215m, Y=2515m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=298l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6216 2514 0 0 302 0 4
+  stdout: 0 4
+frame 189 agent 0
+  referee: Landing in progress...
+      X=6215m, Y=2515m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=295l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6215 2515 0 1 298 0 4
+  stdout: 0 3
+frame 190 agent 0
+  referee: Landing in progress...
+      X=6214m, Y=2515m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=291l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6215 2515 0 0 295 0 3
+  stdout: 0 4
+frame 191 agent 0
+  referee: Landing in progress...
+      X=6214m, Y=2515m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=287l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6214 2515 0 0 291 0 4
+  stdout: 0 4
+frame 192 agent 0
+  referee: Landing in progress...
+      X=6214m, Y=2516m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=283l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6214 2515 0 0 287 0 4
+  stdout: 0 4
+frame 193 agent 0
+  referee: Landing in progress...
+      X=6213m, Y=2516m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=280l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6214 2516 0 1 283 0 4
+  stdout: 0 3
+frame 194 agent 0
+  referee: Landing in progress...
+      X=6213m, Y=2516m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=276l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6213 2516 0 0 280 0 3
+  stdout: 0 4
+frame 195 agent 0
+  referee: Landing in progress...
+      X=6213m, Y=2516m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=272l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6213 2516 0 0 276 0 4
+  stdout: 0 4
+frame 196 agent 0
+  referee: Landing in progress...
+      X=6212m, Y=2517m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=269l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6213 2516 0 1 272 0 4
+  stdout: 0 3
+frame 197 agent 0
+  referee: Landing in progress...
+      X=6212m, Y=2517m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=265l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6212 2517 0 0 269 0 3
+  stdout: 0 4
+frame 198 agent 0
+  referee: Landing in progress...
+      X=6211m, Y=2517m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=261l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6212 2517 0 0 265 0 4
+  stdout: 0 4
+frame 199 agent 0
+  referee: Landing in progress...
+      X=6211m, Y=2517m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=257l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6211 2517 0 0 261 0 4
+  stdout: 0 4
+frame 200 agent 0
+  referee: Landing in progress...
+      X=6211m, Y=2518m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=254l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6211 2517 0 1 257 0 4
+  stdout: 0 3
+frame 201 agent 0
+  referee: Landing in progress...
+      X=6210m, Y=2518m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=250l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6211 2518 0 0 254 0 3
+  stdout: 0 4
+frame 202 agent 0
+  referee: Landing in progress...
+      X=6210m, Y=2518m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=246l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6210 2518 0 0 250 0 4
+  stdout: 0 4
+frame 203 agent 0
+  referee: Landing in progress...
+      X=6210m, Y=2519m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=243l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6210 2518 0 1 246 0 4
+  stdout: 0 3
+frame 204 agent 0
+  referee: Landing in progress...
+      X=6209m, Y=2519m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=239l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6210 2519 0 0 243 0 3
+  stdout: 0 4
+frame 205 agent 0
+  referee: Landing in progress...
+      X=6209m, Y=2519m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=235l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6209 2519 0 0 239 0 4
+  stdout: 0 4
+frame 206 agent 0
+  referee: Landing in progress...
+      X=6208m, Y=2520m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=231l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6209 2519 0 0 235 0 4
+  stdout: 0 4
+frame 207 agent 0
+  referee: Landing in progress...
+      X=6208m, Y=2520m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=228l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6208 2520 0 1 231 0 4
+  stdout: 0 3
+frame 208 agent 0
+  referee: Landing in progress...
+      X=6208m, Y=2520m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=224l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6208 2520 0 0 228 0 3
+  stdout: 0 4
+frame 209 agent 0
+  referee: Landing in progress...
+      X=6207m, Y=2521m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=220l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6208 2520 0 0 224 0 4
+  stdout: 0 4
+frame 210 agent 0
+  referee: Landing in progress...
+      X=6207m, Y=2521m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=217l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6207 2521 0 1 220 0 4
+  stdout: 0 3
+frame 211 agent 0
+  referee: Landing in progress...
+      X=6207m, Y=2521m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=213l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6207 2521 0 0 217 0 3
+  stdout: 0 4
+frame 212 agent 0
+  referee: Landing in progress...
+      X=6206m, Y=2521m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=209l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6207 2521 0 0 213 0 4
+  stdout: 0 4
+frame 213 agent 0
+  referee: Landing in progress...
+      X=6206m, Y=2522m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=205l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6206 2521 0 0 209 0 4
+  stdout: 0 4
+frame 214 agent 0
+  referee: Landing in progress...
+      X=6205m, Y=2522m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=202l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6206 2522 0 1 205 0 4
+  stdout: 0 3
+frame 215 agent 0
+  referee: Landing in progress...
+      X=6205m, Y=2523m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=198l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6205 2522 0 0 202 0 3
+  stdout: 0 4
+frame 216 agent 0
+  referee: Landing in progress...
+      X=6205m, Y=2523m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=194l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6205 2523 0 0 198 0 4
+  stdout: 0 4
+frame 217 agent 0
+  referee: Landing in progress...
+      X=6204m, Y=2523m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=191l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6205 2523 0 1 194 0 4
+  stdout: 0 3
+frame 218 agent 0
+  referee: Landing in progress...
+      X=6204m, Y=2523m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=187l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6204 2523 0 0 191 0 3
+  stdout: 0 4
+frame 219 agent 0
+  referee: Landing in progress...
+      X=6204m, Y=2524m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=183l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6204 2523 0 0 187 0 4
+  stdout: 0 4
+frame 220 agent 0
+  referee: Landing in progress...
+      X=6203m, Y=2524m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=180l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6204 2524 0 1 183 0 4
+  stdout: 0 3
+frame 221 agent 0
+  referee: Landing in progress...
+      X=6203m, Y=2524m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=176l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6203 2524 0 0 180 0 3
+  stdout: 0 4
+frame 222 agent 0
+  referee: Landing in progress...
+      X=6202m, Y=2524m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=172l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6203 2524 0 0 176 0 4
+  stdout: 0 4
+frame 223 agent 0
+  referee: Landing in progress...
+      X=6202m, Y=2525m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=168l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6202 2524 0 0 172 0 4
+  stdout: 0 4
+frame 224 agent 0
+  referee: Landing in progress...
+      X=6202m, Y=2525m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=165l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6202 2525 0 1 168 0 4
+  stdout: 0 3
+frame 225 agent 0
+  referee: Landing in progress...
+      X=6201m, Y=2525m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=161l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6202 2525 0 0 165 0 3
+  stdout: 0 4
+frame 226 agent 0
+  referee: Landing in progress...
+      X=6201m, Y=2525m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=157l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6201 2525 0 0 161 0 4
+  stdout: 0 4
+frame 227 agent 0
+  referee: Landing in progress...
+      X=6201m, Y=2525m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=154l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6201 2525 0 1 157 0 4
+  stdout: 0 3
+frame 228 agent 0
+  referee: Landing in progress...
+      X=6200m, Y=2525m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=150l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6201 2525 0 0 154 0 3
+  stdout: 0 4
+frame 229 agent 0
+  referee: Landing in progress...
+      X=6200m, Y=2526m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=146l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6200 2525 0 0 150 0 4
+  stdout: 0 4
+frame 230 agent 0
+  referee: Landing in progress...
+      X=6199m, Y=2526m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=142l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6200 2526 0 0 146 0 4
+  stdout: 0 4
+frame 231 agent 0
+  referee: Landing in progress...
+      X=6199m, Y=2527m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=139l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6199 2526 0 1 142 0 4
+  stdout: 0 3
+frame 232 agent 0
+  referee: Landing in progress...
+      X=6199m, Y=2527m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=135l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6199 2527 0 0 139 0 3
+  stdout: 0 4
+frame 233 agent 0
+  referee: Landing in progress...
+      X=6198m, Y=2527m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=131l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6199 2527 0 0 135 0 4
+  stdout: 0 4
+frame 234 agent 0
+  referee: Landing in progress...
+      X=6198m, Y=2527m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=128l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6198 2527 0 1 131 0 4
+  stdout: 0 3
+frame 235 agent 0
+  referee: Landing in progress...
+      X=6198m, Y=2527m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=124l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6198 2527 0 0 128 0 3
+  stdout: 0 4
+frame 236 agent 0
+  referee: Landing in progress...
+      X=6197m, Y=2528m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=120l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6198 2527 0 0 124 0 4
+  stdout: 0 4
+frame 237 agent 0
+  referee: Landing in progress...
+      X=6197m, Y=2528m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=116l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6197 2528 0 0 120 0 4
+  stdout: 0 4
+frame 238 agent 0
+  referee: Landing in progress...
+      X=6197m, Y=2528m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=113l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6197 2528 0 1 116 0 4
+  stdout: 0 3
+frame 239 agent 0
+  referee: Landing in progress...
+      X=6196m, Y=2529m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=109l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6197 2528 0 0 113 0 3
+  stdout: 0 4
+frame 240 agent 0
+  referee: Landing in progress...
+      X=6196m, Y=2529m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=105l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6196 2529 0 0 109 0 4
+  stdout: 0 4
+frame 241 agent 0
+  referee: Landing in progress...
+      X=6195m, Y=2529m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=102l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6196 2529 0 1 105 0 4
+  stdout: 0 3
+frame 242 agent 0
+  referee: Landing in progress...
+      X=6195m, Y=2529m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=98l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6195 2529 0 0 102 0 3
+  stdout: 0 4
+frame 243 agent 0
+  referee: Landing in progress...
+      X=6195m, Y=2529m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=94l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6195 2529 0 0 98 0 4
+  stdout: 0 4
+frame 244 agent 0
+  referee: Landing in progress...
+      X=6194m, Y=2530m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=90l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6195 2529 0 0 94 0 4
+  stdout: 0 4
+frame 245 agent 0
+  referee: Landing in progress...
+      X=6194m, Y=2530m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=87l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6194 2530 0 1 90 0 4
+  stdout: 0 3
+frame 246 agent 0
+  referee: Landing in progress...
+      X=6194m, Y=2531m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=83l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6194 2530 0 0 87 0 3
+  stdout: 0 4
+frame 247 agent 0
+  referee: Landing in progress...
+      X=6193m, Y=2531m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=79l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6194 2531 0 0 83 0 4
+  stdout: 0 4
+frame 248 agent 0
+  referee: Landing in progress...
+      X=6193m, Y=2531m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=76l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6193 2531 0 1 79 0 4
+  stdout: 0 3
+frame 249 agent 0
+  referee: Landing in progress...
+      X=6192m, Y=2531m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=72l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6193 2531 0 0 76 0 3
+  stdout: 0 4
+frame 250 agent 0
+  referee: Landing in progress...
+      X=6192m, Y=2532m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=68l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6192 2531 0 0 72 0 4
+  stdout: 0 4
+frame 251 agent 0
+  referee: Landing in progress...
+      X=6192m, Y=2532m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=64l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6192 2532 0 0 68 0 4
+  stdout: 0 4
+frame 252 agent 0
+  referee: Landing in progress...
+      X=6191m, Y=2533m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=61l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6192 2532 0 1 64 0 4
+  stdout: 0 3
+frame 253 agent 0
+  referee: Landing in progress...
+      X=6191m, Y=2533m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=57l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6191 2533 0 0 61 0 3
+  stdout: 0 4
+frame 254 agent 0
+  referee: Landing in progress...
+      X=6191m, Y=2533m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=53l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6191 2533 0 0 57 0 4
+  stdout: 0 4
+frame 255 agent 0
+  referee: Landing in progress...
+      X=6190m, Y=2534m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=50l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6191 2533 0 1 53 0 4
+  stdout: 0 3
+frame 256 agent 0
+  referee: Landing in progress...
+      X=6190m, Y=2534m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=46l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6190 2534 0 0 50 0 3
+  stdout: 0 4
+frame 257 agent 0
+  referee: Landing in progress...
+      X=6189m, Y=2534m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=42l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6190 2534 0 0 46 0 4
+  stdout: 0 4
+frame 258 agent 0
+  referee: Landing in progress...
+      X=6189m, Y=2535m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=38l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6189 2534 0 0 42 0 4
+  stdout: 0 4
+frame 259 agent 0
+  referee: Landing in progress...
+      X=6189m, Y=2535m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=35l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6189 2535 0 1 38 0 4
+  stdout: 0 3
+frame 260 agent 0
+  referee: Landing in progress...
+      X=6188m, Y=2535m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=31l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6189 2535 0 0 35 0 3
+  stdout: 0 4
+frame 261 agent 0
+  referee: Landing in progress...
+      X=6188m, Y=2536m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=27l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6188 2535 0 0 31 0 4
+  stdout: 0 4
+frame 262 agent 0
+  referee: Landing in progress...
+      X=6188m, Y=2536m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=24l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6188 2536 0 1 27 0 4
+  stdout: 0 3
+frame 263 agent 0
+  referee: Landing in progress...
+      X=6187m, Y=2536m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=20l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6188 2536 0 0 24 0 3
+  stdout: 0 4
+frame 264 agent 0
+  referee: Landing in progress...
+      X=6187m, Y=2536m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=16l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6187 2536 0 0 20 0 4
+  stdout: 0 4
+frame 265 agent 0
+  referee: Landing in progress...
+      X=6186m, Y=2537m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=13l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6187 2536 0 1 16 0 4
+  stdout: 0 3
+frame 266 agent 0
+  referee: Landing in progress...
+      X=6186m, Y=2536m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=9l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6186 2537 0 0 13 0 3
+  stdout: 0 4
+frame 267 agent 0
+  referee: Landing in progress...
+      X=6186m, Y=2537m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=5l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6186 2536 0 0 9 0 4
+  stdout: 0 4
+frame 268 agent 0
+  referee: Landing in progress...
+      X=6185m, Y=2537m, HSpeed=0m/s VSpeed=1m/s
+      Fuel=1l, Angle=0°, Power=4 (4.0m/s2)
+  stderr: 6186 2537 0 0 5 0 4
+  stdout: 0 4
+frame 269 agent 0
+  referee: Landing in progress...
+      X=6185m, Y=2538m, HSpeed=0m/s VSpeed=0m/s
+      Fuel=0l, Angle=0°, Power=3 (3.0m/s2)
+  stderr: 6185 2537 0 1 1 0 4
+  stdout: 0 3
+frame 270 agent 0
+  referee: Landing in progress...
+      X=6185m, Y=2536m, HSpeed=0m/s VSpeed=-4m/s
+      Fuel=0l, Angle=0°, Power=0 (0.0m/s2)
+  stderr: 6185 2538 0 0 0 0 3
+  stdout: 0 4
+frame 271 agent 0
+  referee: ¤RED¤Expected power to be between 0 and 4 but found 5§RED§
+      X=6185m, Y=2536m, HSpeed=0m/s VSpeed=-4m/s
+      Fuel=0l, Angle=0°, Power=0 (0.0m/s2)
+  stderr: 6185 2536 0 -4 0 0 0
+  stdout: 0 5
+result
+  scores: 0=0
+
