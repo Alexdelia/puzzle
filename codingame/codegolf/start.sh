@@ -20,6 +20,12 @@ if [[ -z ${CG_PYTHON:-} ]]; then
 	exec direnv exec "$root" "$0" "${arguments[@]}"
 fi
 
+refresh_usage
+if over_weekly_pace; then
+	read -r used elapsed < <(weekly_pace)
+	echo "start.sh: weekly usage ${used}% >= ${elapsed}% of the week elapsed (margin ${weekly_pace_margin_percent}%): not starting" >&2
+	exit 1
+fi
 rm -f "$state/STOP"
 commit_time_log
 [[ -n $(ls "$state"/lang/*.json 2>/dev/null) ]] || agent/tool/rebuild.sh
@@ -27,7 +33,7 @@ for running in "$state"/running/*.json; do
 	pid=$(jq -r '.worker_pid // 0' "$running")
 	if ! kill -0 "$pid" 2>/dev/null; then
 		read -r id kind puzzle lang < <(jq -r '[.id, .kind, .puzzle, .lang] | @tsv' "$running")
-		jq 'del(.started_at, .worker, .worker_pid, .budget_usd, .outcome, .note)' "$running" >"$state/queue/$id.json"
+		jq 'del(.started_at, .worker, .worker_pid, .outcome, .note)' "$running" >"$state/queue/$id.json"
 		rm -f "$running"
 		json_update "$(ensure_status "$kind" "$puzzle" "$lang")" '.status = "todo"'
 		event "requeue orphan $id"

@@ -19,9 +19,14 @@ while [[ ! -e $state/STOP ]]; do
 		continue
 		;;
 	3)
-		log "budget cap reached, waiting"
-		sleep 300
+		resume_at=$(rejected_until || date +%s)
+		log "rate limited until $(date -d "@$resume_at" +%FT%T)"
+		sleep $((resume_at - $(date +%s) + 30))
 		continue
+		;;
+	4)
+		log "over weekly pace, STOP set"
+		break
 		;;
 	*)
 		log "next.sh failed"
@@ -35,9 +40,12 @@ while [[ ! -e $state/STOP ]]; do
 	"$tool_dir/prompt.sh" "$running" >"$output.prompt"
 	CG_TASK_ID=$id command time -f '%e %U %S' -o "$output.time" \
 		timeout --kill-after=60 "$task_wall_seconds" \
-		direnv exec "$root" claude -p "$(<"$output.prompt")" --model "$model" --effort "$effort" --output-format json \
-		--permission-mode dontAsk --max-budget-usd "$task_budget_usd" >"$output.json" 2>"$output.err" </dev/null
+		direnv exec "$root" claude -p "$(<"$output.prompt")" --model "$model" --effort "$effort" \
+		--output-format stream-json --verbose --permission-mode dontAsk --max-budget-usd "$task_budget_usd" \
+		>"$output.jsonl" 2>"$output.err" </dev/null
 	code=$?
+	jq -c 'select(.type == "result")' "$output.jsonl" | tail -n 1 >"$output.json"
+	record_usage "$output.jsonl"
 	"$tool_dir/finish.sh" "$running" "$output.json" "$output.time" "$code"
 	log "end $id exit=$code"
 	[[ -n $once ]] && break

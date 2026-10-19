@@ -105,7 +105,7 @@ jq --arg ended_at "$(now)" --arg outcome "$outcome" --arg exit_code "$exit_code"
 	--argjson tokens_in "$tokens_in" --argjson tokens_out "$tokens_out" --argjson cost "$cost_usd" \
 	'. + {ended_at: $ended_at, outcome: $outcome, exit_code: ($exit_code | tonumber), wall_s: $wall,
 	      cpu_user_s: $cpu_user, cpu_sys_s: $cpu_sys, tokens_in: $tokens_in, tokens_out: $tokens_out, cost_usd: $cost}
-	 | del(.budget_usd, .worker_pid)' "$running" >"$state/done/$id.json"
+	 | del(.worker_pid)' "$running" >"$state/done/$id.json"
 rm -f "$running"
 printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(now)" "$id" "$kind" "$puzzle" "$lang" \
 	"$wall_s" "$cpu_user_s" "$cpu_sys_s" "$tokens_in" "$tokens_out" "$cost_usd" "$outcome" "$(printf '%s' "$note" | tr '\t\n' '  ')" \

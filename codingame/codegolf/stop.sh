@@ -13,7 +13,7 @@ fi
 for running in "$state"/running/*.json; do
 	read -r id kind puzzle lang pid < <(jq -r '[.id, .kind, .puzzle, .lang, .worker_pid] | @tsv' "$running")
 	kill -TERM -- "-$pid" 2>/dev/null || true
-	jq 'del(.started_at, .worker, .worker_pid, .budget_usd, .outcome, .note)' "$running" >"$state/queue/$id.json"
+	jq 'del(.started_at, .worker, .worker_pid, .outcome, .note)' "$running" >"$state/queue/$id.json"
 	rm -f "$running"
 	json_update "$(ensure_status "$kind" "$puzzle" "$lang")" '.status = "todo"'
 	event "requeue killed $id"

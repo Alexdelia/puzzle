@@ -78,14 +78,47 @@ commit_scope() {
 	) 8>"$state/lock/git.lock"
 }
 
-budget_spent() {
-	local since
-	since=$(date -u -d "-$cost_window_hours hours" +%Y-%m-%dT%H:%M:%SZ)
-	awk -F'\t' -v since="$since" 'NR > 1 && $1 >= since { total += $11 } END { printf "%.4f\n", total + 0 }' "$state/time.log" 2>/dev/null || echo 0
+usage_file=$state/usage.json
+week_seconds=$((7 * 24 * 3600))
+
+record_usage() {
+	local info
+	info=$(jq -c 'select(.type == "rate_limit_event") | .rate_limit_info' "$1" 2>/dev/null | tail -n 1)
+	[[ -n $info ]] || return 0
+	jq -n --argjson info "$info" --argjson at "$(date +%s)" '$info + {recorded_at: $at}' >"$usage_file.tmp"
+	mv "$usage_file.tmp" "$usage_file"
 }
 
-budget_reserved() {
-	jq -s 'map(.budget_usd // 0) | add // 0' "$state"/running/*.json 2>/dev/null || echo 0
+refresh_usage() {
+	local age=$((usage_max_age_minutes * 60))
+	if [[ -s $usage_file ]] && (($(date +%s) - $(jq .recorded_at "$usage_file") < age)); then
+		return 0
+	fi
+	local probe
+	probe=$(mktemp)
+	(cd "$state" && claude -p ok --model "$usage_probe_model" --output-format stream-json --verbose \
+		--max-budget-usd 0.05 --no-session-persistence </dev/null >"$probe" 2>/dev/null) || true
+	record_usage "$probe"
+	rm -f "$probe"
+}
+
+weekly_pace() {
+	jq -r --argjson now "$(date +%s)" --argjson week "$week_seconds" '
+		.unifiedWindows.seven_day as $window
+		| [($window.utilization * 100 | floor), (100 - ($window.resetsAt - $now) * 100 / $week | floor)] | @tsv
+	' "$usage_file"
+}
+
+over_weekly_pace() {
+	[[ -s $usage_file ]] || return 1
+	local used elapsed
+	read -r used elapsed < <(weekly_pace)
+	((used + weekly_pace_margin_percent >= elapsed))
+}
+
+rejected_until() {
+	[[ -s $usage_file ]] || return 1
+	jq -e -r --argjson now "$(date +%s)" 'select(.status == "rejected" and .resetsAt > $now) | .resetsAt' "$usage_file"
 }
 
 services_query() {

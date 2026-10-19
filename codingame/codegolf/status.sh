@@ -49,7 +49,10 @@ echo
 echo "== time and cost (from agent/state/time.log)"
 awk -F'\t' 'NR > 1 { wall[$3] += $6; cpu[$3] += $7 + $8; cost[$3] += $11; tasks[$3]++ }
 	END { for (k in tasks) printf "  %-8s tasks %4d  wall %7.1f h  cpu %7.1f h  cost $%8.2f\n", k, tasks[k], wall[k] / 3600, cpu[k] / 3600, cost[k] }' "$state/time.log"
-echo "  last ${cost_window_hours}h cost: \$$(budget_spent) of \$$cost_cap_usd cap"
+if [[ -s $usage_file ]]; then
+	read -r used elapsed < <(weekly_pace)
+	echo "  weekly usage ${used}% vs ${elapsed}% of week elapsed (stop at used + ${weekly_pace_margin_percent} >= elapsed), as of $(date -d "@$(jq .recorded_at "$usage_file")" +%FT%T)"
+fi
 
 reviews=$(grep -P '\treview ' "$state/events.log" 2>/dev/null | tail -5 || true)
 attention=$(grep -P '\t(attention|rejected) ' "$state/events.log" 2>/dev/null | tail -5 || true)

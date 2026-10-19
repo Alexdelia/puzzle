@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 shopt -s nullglob
 
-usage="usage: next.sh <worker-id> <worker-pid>; exit 0 claimed (prints running file), 1 nothing claimable, 3 budget exhausted"
+usage="usage: next.sh <worker-id> <worker-pid>; exit 0 claimed (prints running file), 1 nothing claimable, 3 rate limited, 4 over weekly pace (STOP set)"
 worker=${1:?$usage}
 worker_pid=${2:?$usage}
 
@@ -41,11 +41,12 @@ pick() {
 claim() {
 	local queued=("$state"/queue/*.json)
 	((${#queued[@]})) || return 1
-	local spent reserved
-	spent=$(budget_spent)
-	reserved=$(budget_reserved)
-	if awk -v spent="$spent" -v reserved="$reserved" -v budget="$task_budget_usd" -v cap="$cost_cap_usd" \
-		'BEGIN { exit !(spent + reserved + budget > cap) }'; then
+	if over_weekly_pace; then
+		touch "$state/STOP"
+		event "attention weekly usage $(weekly_pace | tr '\t' ' ') (used elapsed %): over pace, STOP set, restart by hand"
+		return 4
+	fi
+	if rejected_until >/dev/null; then
 		return 3
 	fi
 	local work id
@@ -65,8 +66,7 @@ claim() {
 	local running=$state/running/$id.json
 	mv "$state/queue/$id.json" "$running"
 	json_update "$running" --arg started_at "$(now)" --arg worker "$worker" --argjson worker_pid "$worker_pid" \
-		--argjson budget "$task_budget_usd" \
-		'. + {started_at: $started_at, worker: $worker, worker_pid: $worker_pid, budget_usd: $budget}'
+		'. + {started_at: $started_at, worker: $worker, worker_pid: $worker_pid}'
 	local kind puzzle lang status_path
 	read -r kind puzzle lang < <(jq -r '[.kind, .puzzle, .lang] | @tsv' "$running")
 	status_path=$(ensure_status "$kind" "$puzzle" "$lang")
@@ -88,6 +88,7 @@ missing_referees() {
 }
 
 missing_referees
+refresh_usage
 status=0
 with_lock queue claim || status=$?
 exit "$status"
