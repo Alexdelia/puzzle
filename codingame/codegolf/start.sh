@@ -5,6 +5,7 @@ source agent/tool/lib.sh
 shopt -s nullglob
 
 usage="usage: start.sh [--workers n] [--once]"
+arguments=("$@")
 count=$workers
 once=
 while (($#)); do
@@ -16,7 +17,7 @@ while (($#)); do
 done
 
 if [[ -z ${CG_PYTHON:-} ]]; then
-	exec direnv exec "$root" "$0" "$@"
+	exec direnv exec "$root" "$0" "${arguments[@]}"
 fi
 
 rm -f "$state/STOP"
@@ -42,6 +43,6 @@ for ((worker = 1; worker <= count; worker++)); do
 	sleep 2
 done
 echo "start.sh: $count workers, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
-wait "${pids[@]}"
+wait "${pids[@]}" || true
 event "all workers stopped"
 commit_time_log
