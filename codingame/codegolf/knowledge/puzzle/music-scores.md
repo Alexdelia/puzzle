@@ -23,3 +23,28 @@ pretty_id `music-scores-codesize`, leaderboard `music-scores-codesize`, io.
 
 - statement example matches test 1 layout (120x176, line thickness 4)
 - no extra symbols (clef, bars) in any test image
+
+## Image facts for golf (verified on 12 tests + 10 validators)
+
+- hollow (half) head ERASES staff and ledger lines inside it: the head center pixel is white for H, black for Q, even for heads on a line
+- a hollow head border can coincide with a staff line: a column through the head may show only one border (test 10), so top/bottom of the mid column is not the center
+- the head edge column opposite the tail (leftmost column of a tail-up note, rightmost of a tail-down note) holds a short run centred on the head center; the tail end column holds a long run
+- low C ledger is wider than the head: it touches (test 11) or overlaps (test 12, validators 9, 10) the columns of neighbour notes
+- tails: up on the right side, down on the left side
+
+## Shortest known (method, not yet golfed per language)
+
+Verified 22/22 on local referee, Python prototype 502 bytes (far from top python 206: leaders use something cheaper, not found).
+
+1. decode RLE to flat string, columns `s[x::w]`; staff column `S` = first column holding a black pixel
+2. `a`,`r` = first/last black row of `S`, `k` = black count / 5 (line thickness), spacing `q=(r-a+1-k)//4`; truncate every column (and `S`) at the ledger top `l=r+q-k+1`. Cut must be exact: `l=r+(r-a)//6..8` fails (16/22)
+3. notes = maximal runs of columns with `'B' in c and c != S` (blank margins excluded by the `'B'` test)
+4. center row `y`: of the two end columns of the run, take the one with fewer rows differing from `S`; `y` = mid of its first and last differing row
+5. letter `"FEDCBAG"[round(8*(y-a)/(r-a))%7]`; type `H` iff the run's middle column is white at row `y`
+
+Needs: string slicing with step (or 2D index), no regex, no big ints.
+
+Rejected:
+- mid column top/bottom diff as center: hollow border merged into a line (test 10)
+- group by black count > staff count, or by diff count > line thickness: hollow heads split into several groups
+- no ledger handling: notes merge in tests 11, 12, validators 9, 10
