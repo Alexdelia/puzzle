@@ -1,27 +1,33 @@
 # Mars Lander - Episode 3
 
-pretty_id `mars-lander-episode-3-codesize`, interactive. 2 tests (01 cave correct side, 02 cave wrong side), 2 validators.
+pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-codesize`, interactive.
 
 ## Rules (as referee)
 
-- init: `surfaceN`, then `surfaceN` lines `landX landY`. Each turn: `X Y hSpeed vSpeed fuel rotate power`, answer `rotate power`
-- rotate clamped to previous +-15, power to previous +-1, applied before physics
-- fuel -= power (power applied in full even if fuel < power, fuel shown 0); at fuel 0 power drops to 0 at once, no ramp
-- physics in doubles: `ax = -p sin(a)`, `ay = p cos(a) - 3.711`, `x += hs + ax/2`, `hs += ax` (same for y); shown values round half away from zero
+- init: `N` then `N` lines `x y` (surface polyline, x 0..6999). Each turn: `X Y hSpeed vSpeed fuel rotate power`, answer `rotate power`
+- zone 7000 x 3000, gravity 3.711. rotate step <= 15 per turn, power step <= 1 per turn
+- physics in doubles: `ax=-p*sin(a)`, `ay=p*cos(a)-3.711`, `x+=hs+ax/2`, `hs+=ax` (same for y). Input values rounded half away from zero, no `-0`
+- fuel: decreases by applied power; fuel 1 with power 3 still applies power 3 (fuel shown 0); at fuel 0 power drops to 0 at once (no ramp)
 - answer rotate outside -90..90 or power outside 0..4: loss
-- touchdown = segment old->new position crosses the surface. Flat ground + rotate 0 + |hs| <= 20 + |vs| <= 40: win, else crash. Leaving 0..7000 x 0..3000: loss
-- landing speed check on exact doubles (UNVERIFIED: rounded vs exact never probed at the limit)
-- test 01: start (6500,2600) hs -20 fuel 1000 rotate 45, flat 2200..3200 y 150 under an overhang. test 02: start (6500,2000) fuel 1200, flat 3700..4700 y 220 under a ridge, must climb over the ridge top (y 2100) first
+- landing: movement segment crosses flat segment with rotate 0, |hs|<=20, |vs|<=40 (doubles; rounded vs exact at the boundary UNVERIFIED). Crossing a non-flat segment or leaving the zone: loss
+- tests: 01 "cave, correct side" (6500 2600 -20 0 1000 45 0), 02 "cave, wrong side" (6500 2000 0 0 1200 0 0). Full fixtures in `referee/tests/`
 
 ## Timing (probed on CG 2026-10-19)
 
-- first turn: 1000 ms (0.95 s pass, 1.05 s timeout)
-- next turns: 150 ms (0.14 s pass, 0.16 s timeout); statement says 100 ms, wrong
+- first turn 1000 ms (0.95 s pass, 1.05 s timeout), next turns 150 ms (0.14 pass, 0.16 timeout); statement says 100 ms, wrong
 
-## Traps
+## Validator trap
 
-- validator surfaces differ from test surfaces: a route chosen by `surface[0] == (0,450)` / `(0,1800)` failed one validator (CG 50%). Choosing by landing zone position (flat segment right end < 3500 or not) passed both
-- crash frame in the CG log shows the interpolated hit point; Y can differ by 1 from a naive port, irrelevant to the solution (no input after the crash)
-- test 02 fuel is tight: climbing to y 2550 left too little for a slow controller; y 2350 is enough over the ridge
-- full thrust upright only gives +0.289 m/s2 upward: any tilt while falling loses height, vertical speed must be held near 0 during transfers
-- a waypoint passed at a distance (momentum) must be dropped, not chased back
+- 2 hidden validators, NOT equal to the tests. A route hard-coded per map (waypoints keyed on landing zone x) passed both CG tests and scored 50% on submit
+- a generic planner (visibility graph over terrain vertex offsets + waypoint controller) scored 100%: plan from the surface, do not hard-code coordinates
+- local `referee/validators/` hold only perturbed starts on the test maps: they do not catch overfit to the map shape. Stress with jittered terrain (+-80) and mirrored maps before submitting
+
+## Controller traps (verified locally)
+
+- tilt 15 at power 4 gives only +0.15 m/s2 vertical: climbing with a horizontal target sinks the lander into the peak at (4900,2050) on test 02
+- capping descent speed below the leg slope makes the lander fly above a steep leg: hits the overhang tip (3150,1550) on test 01
+- rotate must reach 0 one turn before touchdown (rate 15/turn)
+
+## Shortest known
+
+- ours: Python 1952 (generic planner, not golfed hard). Top Python 57 (Waffle3z): far shorter approach exists, unknown
