@@ -1,13 +1,13 @@
-case wall_ms solution_cpu_ms referee_cpu_ms (median of 5)
-tests/01 25.5 24.4 0.6
-tests/02 19.9 19.3 0.4
-tests/03 22.7 21.6 0.4
-tests/04 32.2 30.9 1.0
-validators/01 25.7 24.8 0.5
-validators/02 24.0 23.1 0.4
-validators/03 24.1 23.7 0.5
-validators/04 34.2 32.3 0.9
-validators/05 28.9 26.9 0.8
-validators/06 22.8 22.3 0.5
-validators/07 21.6 21.0 0.5
-suite wall_ms 312.7 solution_cpu_ms 287.6 referee_cpu_ms 7.0 pass
+case turns wall_ms solution_cpu_ms referee_cpu_ms referee_budget_ms gate (median of 5)
+tests/01 17 25.2 23.6 0.8 2.3 ok
+tests/02 9 19.4 18.2 0.6 2.2 ok
+tests/03 11 21.9 20.6 0.7 2.2 ok
+tests/04 39 32.1 28.8 1.2 2.8 ok
+validators/01 17 25.3 23.6 0.8 2.3 ok
+validators/02 9 19.3 18.2 0.6 2.2 ok
+validators/03 11 21.2 20.1 0.6 2.2 ok
+validators/04 39 31.3 28.3 1.2 2.8 ok
+validators/05 31 26.6 24.3 1.0 2.6 ok
+validators/06 17 22.2 20.7 0.7 2.3 ok
+validators/07 11 21.4 20.0 0.6 2.2 ok
+suite wall_ms 266.3 solution_cpu_ms 247.5 referee_cpu_ms 8.8 gate ok pass

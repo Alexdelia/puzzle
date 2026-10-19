@@ -1,27 +1,27 @@
-case wall_ms solution_cpu_ms referee_cpu_ms (median of 5)
-tests/01 17.7 17.2 0.4
-tests/02 19.8 19.3 0.4
-tests/03 19.6 18.9 0.5
-tests/04 17.4 17.0 0.3
-tests/05 18.7 17.9 0.3
-tests/06 18.0 17.6 0.4
-tests/07 19.1 18.1 0.4
-tests/08 18.3 17.8 0.3
-tests/09 18.6 17.8 0.3
-tests/10 19.7 18.9 0.4
-tests/11 20.0 19.4 0.3
-validators/01 17.9 17.2 0.3
-validators/02 18.2 17.6 0.3
-validators/03 20.8 19.8 0.4
-validators/04 19.6 19.1 0.4
-validators/05 18.0 17.3 0.4
-validators/06 18.2 17.6 0.4
-validators/07 19.2 18.6 0.4
-validators/08 18.6 18.3 0.4
-validators/09 18.3 17.6 0.4
-validators/10 21.0 19.8 0.5
-validators/11 19.6 18.8 0.4
-validators/12 18.0 17.3 0.4
-validators/13 23.7 22.8 0.6
-validators/14 18.2 17.5 0.3
-suite wall_ms 483.4 solution_cpu_ms 466.9 referee_cpu_ms 9.8 pass
+case turns wall_ms solution_cpu_ms referee_cpu_ms referee_budget_ms gate (median of 5)
+tests/01 4 17.5 16.8 0.4 2.1 ok
+tests/02 4 17.3 16.8 0.4 2.1 ok
+tests/03 7 18.9 18.1 0.5 2.1 ok
+tests/04 4 17.3 16.7 0.4 2.1 ok
+tests/05 6 17.9 17.3 0.5 2.1 ok
+tests/06 5 17.7 17.1 0.4 2.1 ok
+tests/07 6 18.9 18.1 0.5 2.1 ok
+tests/08 5 18.1 17.3 0.5 2.1 ok
+tests/09 7 18.1 17.4 0.5 2.1 ok
+tests/10 9 19.5 18.5 0.6 2.2 ok
+tests/11 7 19.7 18.9 0.5 2.1 ok
+validators/01 4 17.4 16.7 0.4 2.1 ok
+validators/02 4 17.3 16.7 0.4 2.1 ok
+validators/03 7 18.8 18.2 0.4 2.1 ok
+validators/04 4 17.3 16.7 0.4 2.1 ok
+validators/05 6 18.1 17.5 0.5 2.1 ok
+validators/06 5 17.9 17.1 0.3 2.1 ok
+validators/07 6 18.8 17.9 0.5 2.1 ok
+validators/08 5 17.9 17.1 0.4 2.1 ok
+validators/09 7 18.2 17.4 0.4 2.1 ok
+validators/10 9 19.2 18.3 0.5 2.2 ok
+validators/11 7 19.6 18.7 0.4 2.1 ok
+validators/12 4 17.5 16.9 0.4 2.1 ok
+validators/13 12 23.6 22.5 0.6 2.2 ok
+validators/14 5 17.6 16.8 0.4 2.1 ok
+suite wall_ms 461.3 solution_cpu_ms 443.4 referee_cpu_ms 11.2 gate ok pass
