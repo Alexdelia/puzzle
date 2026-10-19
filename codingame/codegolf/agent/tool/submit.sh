@@ -40,7 +40,7 @@ sleep 30
 
 row=$(leaderboard_rows "$puzzle" KEYWORD "$nickname" |
 	jq -c --arg language "$cg_name" '[.[] | select(.language == $language)] | first')
-if [[ $(jq -r '.length // empty' <<<"$row") != "$length" || $(jq -r '.score // 0' <<<"$row") != 100 ]]; then
+if [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; then
 	json_update "$(ensure_status referee "$puzzle" -)" '.status = "suspect"'
 	"$tool_dir/enqueue.sh" referee "$puzzle" - --reason "CG rejected $relative length $length: row $row" >/dev/null
 	event "rejected $puzzle $lang length=$length row=$row"
