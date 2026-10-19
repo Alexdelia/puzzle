@@ -30,3 +30,33 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 ## Shortest known
 
 - ours Python 905 (plain reference, 2026-10-19); top Python 106 (Zylo)
+
+### Cost facts (verified 2026-10-19, scratch of journal `puzzle.roller-coaster.-.*`)
+
+- naive per-ride walk = total group boardings: test 06 1.64e9, val 05 2e8, val 04 1e8. C at CG flags (`-O0`) takes 17 s on test 06: naive fails in EVERY language
+- state = start index `i` of the queue (only thing that changes); pre-period <= 48, period <= 1000 rides on all tests (val 06: 651)
+- ride count up to 1e7 (val 03, 04, 05): a plain O(C) loop with per-start memo is 2.5-4 s standalone in CPython (4.0 s test 06), times out under referee load: too slow for Python, likely OK for compiled langs, Perl/Ruby/JS unmeasured
+
+### Method A: cycle skip (any lang, needed in slow interpreters), Python 183 verified 16/16, max 116 ms
+
+- loop while `c`: memo `d[i]=(c,s)` (remaining rides, total so far) at ride start, `c-=1`, board while next group fits, then if new `i` is in `d` with `(a,b)`: period `q=a-c`, `s+=(s-b)*(c//q)`, `c%=q`
+- no need to clear the memo after the skip: later hits have `q>c`, so the skip is a no-op
+- store before the ride and test after it: one `if`, no special case for `c` reaching 0 mid-skip
+- cap "each group once per ride": cap capacity at `min(L,sum(p))` instead of counting groups; with the cap the ride takes exactly all groups when sum <= L (the next group cannot fit at 0 room). Inline `t=s+min(l,sum(p))` per ride beats a separate assignment by 2 chars in Python (rides simulated <= ~2000)
+- walk with ride end target: `t=s+cap`, board while `s+p[i]<=t` (no separate ride sum); index wrap `i=-~i%n` (Python) cheaper than unbounded `i` with `p[i%n]` thrice
+- needs: dict/map or two arrays of size N, 64-bit ints
+
+### Method B: lazy per-start memo + O(C) loop (compiled langs), C 217 verified on test 06 (0.03 s)
+
+- arrays `g[i]` gain, `x[i]` next start; `g[i]==0` means not yet computed (gain >= 1 since `Pi <= L`); loop `c` times `s+=g[i],i=x[i]`
+- shorter than cycle skip only where a 1e7 loop is cheap
+
+### Rejected
+
+- naive simulation: 17 s in C on test 06 (above)
+- state = total `s`, gain table keyed by `s%S` over doubled prefix sums (one map, no next-index array): Python 174 with O(C) loop (times out), 224 with cycle skip: prefix list costs more than the index walk
+- one-shot closed form `h[a+(C-a)%P]+...` with a ride-history list: needs the `C < a` case, longer than in-loop skip
+
+### Gap
+
+- tops (C 110, Perl 84, Ruby 85, Python 106, bash 91) are far below A/B here: an unknown trick exists. Unexplored: two-pointer O(N) table (start monotone in end), binary search per ride on doubled prefix sums (O(C log N)), packing gain and next into one memo value (`v=G*n+next`, `s+=v//n;i=v%n`), unbounded group counter `I` with `s=I//n*S+sum(p[:I%n])` at the end
