@@ -1,0 +1,12 @@
+[package]
+name = "surface-referee"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+referee-core = { path = "../../../agent/tool/referee-core" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
