@@ -15,7 +15,7 @@ echo "== env"
 echo "langs:    $(count_status "$state/lang")"
 echo "referees: $(count_status "$state/referee")"
 echo "puzzles:  $(count_status "$state/puzzle")"
-blocked=$(grep -l '"status": "blocked"' "$state"/lang/*.json "$state"/referee/*.json 2>/dev/null | xargs -r -n1 basename | sed 's/\.json$//' | tr '\n' ' ')
+blocked=$(grep -l '"status": "blocked"' "$state"/lang/*.json "$state"/referee/*.json 2>/dev/null | xargs -r -n1 basename | sed 's/\.json$//' | tr '\n' ' ' || true)
 [[ -z $blocked ]] || echo "blocked:  $blocked"
 
 cells=("$state"/cell/*/*.json)

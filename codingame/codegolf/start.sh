@@ -20,6 +20,8 @@ if [[ -z ${CG_PYTHON:-} ]]; then
 fi
 
 rm -f "$state/STOP"
+commit_time_log
+[[ -n $(ls "$state"/lang/*.json 2>/dev/null) ]] || agent/tool/rebuild.sh
 for running in "$state"/running/*.json; do
 	pid=$(jq -r '.worker_pid // 0' "$running")
 	if ! kill -0 "$pid" 2>/dev/null; then
@@ -42,3 +44,4 @@ done
 echo "start.sh: $count workers, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
 wait "${pids[@]}"
 event "all workers stopped"
+commit_time_log

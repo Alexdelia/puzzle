@@ -107,12 +107,7 @@ jq --arg ended_at "$(now)" --arg outcome "$outcome" --arg exit_code "$exit_code"
 	      cpu_user_s: $cpu_user, cpu_sys_s: $cpu_sys, tokens_in: $tokens_in, tokens_out: $tokens_out, cost_usd: $cost}
 	 | del(.budget_usd, .worker_pid)' "$running" >"$state/done/$id.json"
 rm -f "$running"
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(now)" "$id" "$kind" "$puzzle" "$lang" \
-	"$wall_s" "$cpu_user_s" "$cpu_sys_s" "$tokens_in" "$tokens_out" "$cost_usd" "$outcome" >>"$state/time.log"
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(now)" "$id" "$kind" "$puzzle" "$lang" \
+	"$wall_s" "$cpu_user_s" "$cpu_sys_s" "$tokens_in" "$tokens_out" "$cost_usd" "$outcome" "$(printf '%s' "$note" | tr '\t\n' '  ')" \
+	>>"$state/time.log"
 event "finish $id outcome=$outcome wall_s=$wall_s cost_usd=$cost_usd"
-
-state_paths=()
-for path in agent/state/{cell,lang,referee,puzzle,done} agent/state/time.log agent/state/events.log agent/state/last_sync; do
-	[[ -e $root/$path ]] && state_paths+=("$path")
-done
-commit_scope "chore(golf): state" "${state_paths[@]}"

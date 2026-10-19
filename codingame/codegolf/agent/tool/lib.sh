@@ -118,3 +118,7 @@ leaderboard_summary() {
 		   best_tie_rank: (if $mine then ([$valid[] | select(.length < $mine.value.length)] | length) + 1 else null end),
 		   players: ($rows | length)}'
 }
+
+commit_time_log() {
+	commit_scope "chore(golf): time" agent/state/time.log
+}
