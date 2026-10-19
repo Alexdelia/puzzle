@@ -1,28 +1,28 @@
-slug	cg_name	extension	cg_version
-bash	Bash	sh	GNU Bash 5.1.16
-c	C	c	gcc 11.2.0 mode C17
-cpp	C++	cpp	g++ 11.2.0 mode C++20
-csharp	C#	cs	C# 12.0 (.NET Runtime 8.0.401)
-clojure	Clojure	clj	1.11.1 - Oracle JVM 1.8
-d	D	d	DMD 2.099.0
-dart	Dart	dart	3.9.4
-fsharp	F#	fs	F# 8.0 (.NET Runtime 8.0.401)
-go	Go	go	1.18.1
-groovy	Groovy	groovy	3.0.8 - Oracle JVM 1.8
-haskell	Haskell	hs	Haskell Platform 8.4.3
-java	Java	java	Oracle JDK 21.0.4
-javascript	Javascript	js	Node 20.9.0
-kotlin	Kotlin	kt	Kotlin 1.7.10
-lua	Lua	lua	5.4.4
-objective-c	ObjectiveC	m	Clang 13.0.1
-ocaml	OCaml	ml	4.14.2
-pascal	Pascal	pas	Free Pascal Compiler 3.2.2
-perl	Perl	pl	5.34.0
-php	PHP	php	7.3.9
-python	Python3	py	3.11.5
-ruby	Ruby	rb	3.1.2
-rust	Rust	rs	1.90.0
-scala	Scala	scala	2.13.5 - Oracle JVM 1.8
-swift	Swift	swift	5.3.3
-typescript	TypeScript	ts	5.6.2 - Node 20.9.0
-vbnet	VB.NET	vb	VB 16.9 (.NET Runtime 8.0.401)
+slug	cg_name	extension	cg_version	icon	color
+bash	Bash	sh	GNU Bash 5.1.16		#4eaa25
+c	C	c	gcc 11.2.0 mode C17		#a8b9cc
+cpp	C++	cpp	g++ 11.2.0 mode C++20		#00599c
+csharp	C#	cs	C# 12.0 (.NET Runtime 8.0.401)		#9b4f96
+clojure	Clojure	clj	1.11.1 - Oracle JVM 1.8		#5881d8
+d	D	d	DMD 2.099.0		#b03931
+dart	Dart	dart	3.9.4		#0175c2
+fsharp	F#	fs	F# 8.0 (.NET Runtime 8.0.401)		#378bba
+go	Go	go	1.18.1		#00add8
+groovy	Groovy	groovy	3.0.8 - Oracle JVM 1.8		#4298b8
+haskell	Haskell	hs	Haskell Platform 8.4.3		#5d4f85
+java	Java	java	Oracle JDK 21.0.4		#f89820
+javascript	Javascript	js	Node 20.9.0		#f7df1e
+kotlin	Kotlin	kt	Kotlin 1.7.10		#7f52ff
+lua	Lua	lua	5.4.4		#51a0cf
+objective-c	ObjectiveC	m	Clang 13.0.1		#438eff
+ocaml	OCaml	ml	4.14.2		#ec6813
+pascal	Pascal	pas	Free Pascal Compiler 3.2.2	󰬗	#e3f171
+perl	Perl	pl	5.34.0		#0298c3
+php	PHP	php	7.3.9		#777bb4
+python	Python3	py	3.11.5		#3776ab
+ruby	Ruby	rb	3.1.2		#cc342d
+rust	Rust	rs	1.90.0		#d34416
+scala	Scala	scala	2.13.5 - Oracle JVM 1.8		#dc322f
+swift	Swift	swift	5.3.3		#f05138
+typescript	TypeScript	ts	5.6.2 - Node 20.9.0		#3178c6
+vbnet	VB.NET	vb	VB 16.9 (.NET Runtime 8.0.401)		#945db7
