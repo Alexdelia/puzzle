@@ -24,3 +24,36 @@ pretty_id `dwarfs-standing-on-the-shoulders-of-giants-codesize`, io.
 ## Unverified
 
 - hidden validator sizes unknown; local validators stay under 40 edges and depth 7, so a deep-recursion solution passes locally, risk only if CG hides a long chain
+
+## Shortest known
+
+### Method: peel roots, count passes
+
+- repeat: keep only edges `X Y` whose `X` is some edge's `Y` (drop edges leaving a root); count passes until no edge left
+- answer = passes + 1. Proof: each pass shortens the longest path by exactly its first edge (every later edge keeps an incoming edge, any surviving path extends one edge back)
+- no node map, no max, no recursion: state is the edge list (or the raw lines) only
+- text form: keep line `X Y\n` iff the joined text contains ` X\n`. Leading space needed (` 3\n` must not match `13\n`), trailing newline relies on the final `\n` the tests have
+- the `N` line can stay in the list: it has no space, never matches, falls out in pass 1 without adding a pass. Skips the read-and-discard of line 1
+- needs: filter/grep over a list, string contains (or regex with interpolation), join
+
+### Lengths reached (local referee, tests + validators pass)
+
+- perl 57: grep on raw lines, `"@e"=~/ $`\n/` as the target test, `N` line kept (run with system perl 5.42 by hand: no `CG_PERL` in this shell, run.sh refused)
+- python 93: `_,*e=map(str.split,open(0))`, filter `p[0]in[*zip(*e)][1]` (zip column of targets), while loop with counter
+- python 99 (any) / 105 (recursive `f=lambda x:1+max([f(b)for a,b in e if a==x]+[0])`): longer
+
+### Ideas, untested
+
+- ruby: `e.rassoc(a)` finds an edge whose `Y` is `a`: `e=e.select{|a,|e.rassoc a}` per pass
+- regex-only peel on one string (lookahead over the doubled text): not tried, likely longer than grep
+
+### Rejected
+
+- DFS recursion: needs a max with empty default, longer in every lang tried
+- Bellman-Ford relaxation (`d[y]=max(d[y],d[x]+1)` N times): needs node map, max and a final max: longer than peel
+- `N`-only formula: local validators map `N=4` to both 3 and 5, so impossible locally. On the 4 CG tests alone `(n*n+1)//33+3` fits (no `n*a%b+c` form fits)
+
+### Leaderboard gap (unverified)
+
+- tops ruby 20, perl 21, php 21, bash 27, python 47 (all Icebox / Eric_[EGU]) sit far below any general method (perl general 57). They almost surely hardcode the answer from a property of the input (N, length, checksum) tuned to the hidden CG validators
+- local validators are synthetic and reject such hardcodes, so `submit.sh` refuses them. Matching those tops needs the hidden validator inputs or the user's go-ahead to probe CG by submit: user decision, not a cell worker's
