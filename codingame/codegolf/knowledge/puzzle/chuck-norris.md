@@ -7,7 +7,48 @@ pretty_id `chuck-norris-codesize`, leaderboard `chuck-norris-codesize`, io.
 - 1 line, `0 < N < 100` ASCII chars, no CR; some tests have no final newline
 - each char as 7 bits, runs of same bit: `0 <0*len>` for 1s, `00 <0*len>` for 0s, blocks separated by single spaces
 - io limit 6000 ms per test
+- all test and validator chars are printable ASCII 32..126 (validator 02 = single space, validator 04 = every printable char): 7 bits exact, no char >= 128, so `c>10` / `c>31` stops at newline and EOF
+- output: no leading or trailing space allowed (see `knowledge/lang/_shared/output-compare.md`), final newline free
 
 ## Shortest known
 
-- Python 119: `re.findall('0+|1+', ''.join(f'{ord(c):07b}' for c in input()))`, then `'0'*(g<'1')+'0 '+'0'*len(g)` per run
+Two families, pick by what the language makes cheap.
+
+### A. Regex two-pass (Perl, Ruby, PHP, JS, sed, bash, any cheap global regex replace)
+
+1. bit string: replace each char by its 7-bit binary (`sprintf"%07b",ord`, `"%07b"%ord`, `padStart(7,0)`)
+2. `0+` runs -> ` 00 ` + run, THEN `1+` runs -> ` 0 ` + run. Order matters: the zeros pass first, so the zeros it inserts in headers are never re-matched; the ones pass inserts no 1
+3. translate every `1` to `0` (`y/1/0/`, `tr`)
+4. drop the first char (always the leading space of the first header)
+
+Why short: no per-run length arithmetic, no lambda, no state. Needs: global regex replace with whole-match reference (`$&`, `\0`, `$&` in JS), char translate.
+Measured: Perl 76 with `#!perl -p` shebang (perl honors switches on the `#!` line), 78 with `$_=<>`/`print`; 14/14 with local perl (not the official referee, no `CG_PERL` in shell).
+Newline: `.` does not match `\n`, so the input's final newline survives untouched to the end of output, free.
+
+Variant rejected: one-pass backref `(.)\1*` -> `" 0".0 x!$1." ".0 x length$&` with `/e`: Perl 85, longer.
+Variant rejected: one-pass `(.)\1*` -> ` 0$1 $&` then fix the `01 ` header: +3 over two-pass.
+
+### B. Per-bit loop with previous bit (C-likes, Python, any language where regex costs an import)
+
+For each char, for each of its 7 bits b (MSB first), with p = previous bit:
+- b == p: emit `0`
+- b != p: emit ` ` + header(b) + ` 0`, where header(b) = `"00 "` offset by b (`"00 "+b` in C, `'00 '[b>'0':]` in Python): `"00 "` for 0, `"0 "` for 1
+- start with p = a third value (2 in C, `''` in Python) so the first bit is a boundary; drop the leading space once: C `" %s0"+(p>1)`, Python accumulate then `o[1:]`
+
+Identity used: header(b) is a suffix of `"00 "` of length 3-b, so one string literal plus offset replaces a conditional.
+C needs `c>>i&1` for `i=7..1`, i.e. `for(i=7;i--;)`, and stops on `c>10` (newline or EOF).
+C trap: if b is assigned inside one printf argument and read in another, gcc evaluates args right to left: assign b in the LAST argument (assigning in the first argument gave 0/14).
+Measured: C 103, Python 101 (nested `for c`/`for b in f'{ord(c):07b}'`, beats a single loop over `''.join(...)` by 5). Both 14/14 on the referee.
+
+Python string compare trick, verified on paper, not shorter in Python: init p to `'00'`; then `b<p` iff a 0-run starts, `b>p` iff a 1-run starts (`'0'<'00'<'1'`), lets the header pick by comparison without a boundary test.
+
+### Rejected
+
+- pure str.replace at boundaries (`01`->`0 0 1`, `10`->`1 00 0`, then `1`->`0`): interior correct, but the first header needs the complement of the first bit prepended, which costs more than the regex import it saves (Python estimate 120+, not measured)
+- Python `re.findall('0+|1+')` + per-run format: 119; two-pass `re.sub` in Python: 133 (import and `\g<0>` cost)
+- packing bits through one big int (`n=n<<7|ord(c)`, `bin(n)[3:]`): longer than per-char format in Python (counted on paper, not run)
+- `unpack"B*"` in Perl: 8 bits per char, removing the leading 0 of each byte costs more than `s/./sprintf.../ge`
+
+### Gap to leaderboard (2026-10-19)
+
+Tops: bash 64, perl 65, php 73, ruby 71, python 89, c 85, javascript 95. Our method lengths above are 11 (perl), 12 (python), 18 (c) chars over the top: the lang workers must find language tricks; the top Python 89 and C 85 likely use the per-bit loop (B) with tighter emission, unverified.
