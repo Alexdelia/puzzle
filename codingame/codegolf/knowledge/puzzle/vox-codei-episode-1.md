@@ -73,3 +73,11 @@ Guesses (unverified):
 
 Probes spent: 2 of 10 (task puzzle.vox-codei-episode-1.-.1792516443190153296).
 
+
+## Perl random-restart (2026-10-20, local only, not yet CG-verified)
+
+- perl port of the random-restart search: 398 B, 25/25 local x3 (puzzle/vox-codei-episode-1/solution/perl/main.pl). State is one string `$r` (`#.@`), blast applied on a copy `$t` with 4-arg `substr$t,$j,1,'.'`, score = `y/@//` difference
+- no tail `WAIT`s needed: once `$r` has no `@`, the draw loop keeps accepting any `.` cell (`N<=b*0`), so ~900 junk lines follow the plan and act as waits/harmless bombs (risk: success in the last 3 of 999 draws, ~0.3%)
+- dropping `$|=1` and the final `1while<>` (-14 B, plan flushed at exit) passes local; unverified on CG (script exits while game still reads)
+- `int$i/$W."\n"` parses as `int(($i/$W)."\n")`: newline lost, use `int($i/$W)."\n"`
+- submit.sh refused (agent cap 90/5h) so no CG row from this task
