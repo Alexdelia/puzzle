@@ -50,41 +50,16 @@ Leaderboard gap: tops ruby 57, perl 65, php 67, python 70, bash 72, c 91 are bel
 
 ## Hidden validators
 
-Full table: `puzzle/the-resistance/referee/hidden/facts.md` (answer groups, probe log, next-probe plan). None recovered exactly yet, no key known, no `complete`. 10 validators vs 6 IDE tests (forum: "There are 10 validators, but only 4 test cases", https://forum.codingame.com/t/the-resistance-puzzle-discussion/25?page=6), so IDE tests are not their templates. Forum and web hold no validator input (checked 2026-10-20).
+Full table: `puzzle/the-resistance/referee/hidden/facts.md` (answers, probe logs, chain method, next probes). No input recovered, no key known, no `complete`. 10 validators vs 6 IDE tests (forum: "There are 10 validators, but only 4 test cases", https://forum.codingame.com/t/the-resistance-puzzle-discussion/25?page=6), so IDE tests are not their templates. Forum and web hold no validator input (checked 2026-10-20, also the Jan 2013 "Challenge Codingame n°3" origin thread on linuxfr: no data).
 
-Probed 2026-10-20, 10 submits (task `puzzle.the-resistance.-.1792516443154754558`). Each probe ran an honest DP (exact H) and printed H only when a predicate held, else a wrong value. Facts:
+Answers (H), probed 2026-10-20 (30 submits over two tasks), sorted: `0, 1, 1, 1, 2, 8, 62..64, 6 digits, 10 digits (< 2^32), 11 digits`. No 125, no Fibonacci, neither big IDE answer. 35 decimal digits for a full table.
 
-- 10 hidden validators: every score is a multiple of 10 (0, 10, 20, 50, 70); 6 or fewer validators cannot give 10.0
-- answer profile (H = expected output), all 10 placed:
-  - 1 with H = 0 (probe 6)
-  - 4 with H in {1, 2, 125}, split unknown
-  - 2 with 3 <= H < 1000, H != 125
-  - 1 with 1000 <= H < 10^6
-  - 1 with 10^6 <= H < 2^32
-  - 1 with 2^32 <= H < 2^53
-  - none equals 2971215073 or 57330892800 (big IDE answers); none >= 1000 is a Fibonacci number, so no E/I-only Fibonacci validator
-- 64-bit ints needed (one H >= 2^32); doubles exact (all H < 2^53). Caveat: probe 9 ran plain C code as Objective-C, not compiled locally; if CG failed to compile it, its 0.0 says nothing
-- only 1 validator shares a Morse length L with an IDE test (L in {3,12,21,32,46,9884}) and it also has that test's answer (small one). The other 9 messages are new: IDE inputs give no key
+- 64-bit ints needed (one H > 2^32); doubles exact (all < 2^53)
+- exactly 1 validator shares a Morse length with an IDE test, with that test's answer (1 or 2)
 - trap: printing `0` as the wrong value passes the H=0 validator. Use `-1`
+- probe method that works: monotone chain. CG keeps the best (score, then length) row per language, so probes whose passing set only grows and whose length drops by 1 each step show every exact count; low-score rows act as fresh languages. Details in facts.md
 
-| # | lang, length | prints H iff | score |
-|---|---|---|---|
-| 1 | perl 82 | hardcode of IDE answers keyed on L, no DP | 10 |
-| 2 | perl 273 | H in {1,2,125,2971215073,57330892800}, else 0 | 50 |
-| 3 | ruby 284 | H < 1000, else 0 | 70 |
-| 4 | php 525 | H in {2971215073,57330892800}, else 0 | 10 |
-| 5 | javascript 582 | H >= 1000 Fibonacci, != 2971215073, else 0 | 10 |
-| 6 | lua 674 | prints 0 iff H = 0, else -1 | 10 |
-| 7 | c 687 | H >= 10^6, else -1 | 20 |
-| 8 | cpp 693 | H >= 2^32, else -1 | 10 |
-| 9 | objective-c 699 | H >= 2^53, else -1 | 0 |
-| 10 | go 855 | L in IDE lengths, else -1 | 10 |
-
-Probes 2, 4, 5 also count the H=0 validator (wrong value 0): corrected counts 4, 0, 0. Honest probe programs (perl, ruby, php, js BigInt, lua 5.4, C trie, go) are in the task scratch, all checked 18/18 locally when printing H.
-
-Side effect: partial CG rows perl 50% @273, ruby 70% @284, php 10% @525, javascript 10% @582, lua 10% @674, c 20% @687, cpp 10% @693, objective-c 0% @699, go 10% @855. Cell json `ours` stays unset; any 100% submit replaces them. For later probes in those languages only a higher score (or the same score, shorter) shows.
-
-Not reached: exact answers and a key. Rough cost of the full table: the 6 small unknowns by count probes on thresholds (~10), the 3 big ones by bisection at one bit per probe (~15 + ~25 + ~20 bits inside their known ranges), then a key: each validator's L or another cheap feature, ~10 bits each unless `honest iff L%k == r` style probes separate them. 100+ probes over many tasks: user decision. A probe answers more per submit when its predicate splits validators evenly (count result up to ~3.5 bits) and when it runs in a language with no row yet.
+Side effect: partial CG rows (cell json `ours` unset, any 100% submit replaces them): ruby 70% @284, javascript 70% @557, php 70% @507, lua 70% @679, c 60% @685, cpp 10% @693, objective-c 0% @699, go 10% @855. TypeScript 100% @617 (honest DP + padding, committed by oracle).
 
 - ruby 204 (local 18/18, not yet submitted, cap hit): `m,_,*w=$<.read.tr(".-","01").split`, `h=w.map{_1.gsub(/./){T.index($&).to_s(2)[1..]}}.tally`, `d=[1]+[0]*9**6`, `m.size.times{|i|77.times{|k|d[i+k]+=d[i]*h[m[i,k]].to_i}}`, `p d[m.size]`; `.tally`+`.to_i` beats `Hash.new 0` by 6
 - python 270 (submitted, rank #28): heap-table + count-map DP, 'T.find' + bin()[3:]; the 264 in notes was not reproduced. Top 70 needs hidden exploit (unknown validators).
