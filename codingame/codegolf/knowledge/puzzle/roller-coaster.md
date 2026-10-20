@@ -74,6 +74,8 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 - hardcode of the 6 IDE answers keyed on L (perl 81, `-0p` + `$_={3,7,...}->{$_+0}`): 21.74 = 5/23 (IDE tests are 5 validators, rest are other inputs): hardcode alone cannot pass
 - naive per-ride walk in perl (109 bytes, unbounded index, walk bound `k<n`): 73.9 = 17/23; the 6 others time out (test 06 among them), so 6 validators are heavy (C large, N large) and need memo/cycle skip
 - lazy memo perl 150: 100% (rank 10 on 2026-10-20). A top of 84 in perl stays unexplained: no general method below ~140 found; the 6 heavy validators' inputs are unknown (test games only reach IDE tests)
+- validator task 2026-10-20 (details, sources: `puzzle/roller-coaster/referee/hidden/facts.md`): 5 validators are verbatim IDE tests 01, 02, 04, 05, 06 (test 03 is not); the 18 others by naive cost `W` (groups boarded): 12 under 1e4, 3 in 1e4..1e6, 3 in 1e8..3e8; 4 of them have sum <= L
+- naive walk + test 06 hardcoded fails even in C (20/23: the 3 heavy hidden ones time out on CG): a memo or cycle skip is needed in every language; no full hardcode possible (18 inputs unknown)
 
 ### Ruby 135 (local 16/16, 2026-10-20, not yet on CG)
 
