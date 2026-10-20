@@ -17,3 +17,4 @@
 - [init-slurp-head](init-slurp-head.md): `a=($(head -4))` swallows init lines + first turn line of an interactive puzzle in 15 bytes, verified
 - [response-word-as-arith-var](response-word-as-arith-var.md): `COLDER=1` makes `r` ("WARMER"/"COLDER") a 0/1 in `(( ))`, `r^q>t` precedence, ternary-else parens, `--s/2`, verified
 - [loop-body-function-stale](loop-body-function-stale.md): `e(){ echo;read;update;}` reused for loop and final jump, stale update harmless, verified
+- [perl-regex-bfs](perl-regex-bfs.md): regex flood BFS with plain marks, direction from `$#-`, tr-list phase state, 5.34 variable lookbehind bug, verified
