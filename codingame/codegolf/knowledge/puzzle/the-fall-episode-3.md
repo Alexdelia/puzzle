@@ -73,3 +73,9 @@ Not recovered exactly. Facts and probe answers: `puzzle/the-fall-episode-3/refer
 - rows now: python 100%, bash 75%, perl 50%, ruby/php/c 25%: those give a visible answer only above their score (or same score, shorter). Fresh languages (all others) show the exact count once
 - our solver uses >= 7 rotations even on IDE tests: "rotation count <= k" probes measure solver waste, not the validator
 - next (unverified plan): bits of each validator keyed on (W,H), e.g. "6x6 validator: exit x == k", "class-matched validator is the 6x6 one"; one bit per probe in languages with a row, a 0-4 count in a fresh one. Exact recovery needs grid + exit + rock schedule: many probes, plan a multi-task campaign
+
+## JavaScript general solver (2026-10-20)
+
+- node port of the DFS: 951 B, 11/11 local, CG submit rank #11 (js row 951). Encodings: flat grid stride w+1 (sentinel 0 col, out of range reads undefined = wall), state p=cell*3+side, E = 42-digit string (0 down,1 right,2 left,3 stuck,4 no opening), rotation LEFT = RIGHT applied 3 times for every type (cycles 2 and 4), WAIT = return 1 sentinel
+- candidate filter needs both `c!=X` (exit cell) and no rock in cell: dropping either fails local (8/11, 6/11)
+- ASI trap: `R=readline` newline `[w,h]=` parses as index; write `[w,h]=(R=readline)().split` ``
