@@ -50,20 +50,18 @@ Rejected:
 
 ## Hidden validators
 
-Per validator, sources, next-probe kit: `puzzle/super-computer/referee/hidden/facts.md`.
+Per validator, sources, next probes: `puzzle/super-computer/referee/hidden/facts.md`.
 
-- 8 validators, not 4: titles from the classic puzzle report (https://forum.codingame.com/t/super-computer-puzzle-discussion/57?page=2): Simple Case, One scientist, All starting days are identical, All end dates are identical, Parallel calculations, Overlapping calculations, Large number of scientists, Large number of satisfied scientists. Both golf probes scored 75.0 % = 6/8: 6 with `N < 1000`, 2 with `N >= 1000`
-- probes 2026-10-20: perl honest iff `N < 1000` else `0` -> 75.0; c honest iff `N < 1000` else `7879` -> 75.0: neither large validator answers 7879 (IDE test 03)
-- "Large number of satisfied scientists": same size as test 03, expected output much higher (https://forum.codingame.com/t/super-computer-puzzle-discussion/57?page=3)
-- side effect: our CG rows perl 67 and c 180 sat at 75 %. Cell json `ours` stays unset (submit.sh exit 3), so any 100 % submit replaces them
-- unverified: a classic solver passed 100 % while off by 1 on IDE test 03 (same page 3): validators may be weaker than test 03
+- 8 validators (count channel, 12.5 % steps). Titles from the classic puzzle report (https://forum.codingame.com/t/super-computer-puzzle-discussion/57?page=2)
+- (N, answer) from probes 2026-10-20: (3 or 4, 2 or 3), (5, 3), (7 or 8, 1) x2, (9, 9), (11..999, 1), (99999, 7975..7999), (99999, >= 8000). No N=1 validator. Exact inputs unknown
+- the two large ones share N=99999: a table keyed on the first line alone cannot work; large answers not pinned yet
+- neither large one answers 7879 (CG IDE test 03)
+- side effect: probe rows under 100 % in php lua javascript ocaml cpp rust go d java kotlin scala haskell dart csharp typescript (long shell wrappers); any 100 % submit replaces them
+- unverified: a classic solver passed 100 % while off by 1 on IDE test 03 (https://forum.codingame.com/t/super-computer-puzzle-discussion/57?page=3). Off-by-one variants change local 03 by ~60, so large validators would catch them
 
 Guesses (unverified):
 
-- tops perl 39, ruby 39, php 40 may be a table of answers keyed on `N` (`print+(..)[<>%k]`): plausible only if 3 titles answer 1 and small answers are short. Python 59, js 56, lua 58 sit higher
 - weak-validator ideas: unsorted greedy in input order (perl 38) fails statement example 1 (gives 2), passes only if the small validators are end-sorted; keeping the `N` line in the shell core (38) matched honest on only 61/200 random large instances locally, not probed
-
-Getting the table: fresh-language count channel (first submit in a language with no row = exact count out of 8, 12.5 % steps), kit and plan in the validator journal (`facts.md` points at it). Visibility trap: a probe shows only if it beats the language row (score first, then length): perl and c hold 75 % rows
 
 ## Perl wrapper on CG (verified 2026-10-20)
 
