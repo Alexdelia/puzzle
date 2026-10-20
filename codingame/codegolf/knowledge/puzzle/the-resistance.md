@@ -50,6 +50,8 @@ Leaderboard gap: tops ruby 57, perl 65, php 67, python 70, bash 72, c 91 are bel
 
 ## Hidden validators
 
+Full table: `puzzle/the-resistance/referee/hidden/facts.md` (answer groups, probe log, next-probe plan). None recovered exactly yet, no key known, no `complete`. 10 validators vs 6 IDE tests (forum: "There are 10 validators, but only 4 test cases", https://forum.codingame.com/t/the-resistance-puzzle-discussion/25?page=6), so IDE tests are not their templates. Forum and web hold no validator input (checked 2026-10-20).
+
 Probed 2026-10-20, 10 submits (task `puzzle.the-resistance.-.1792516443154754558`). Each probe ran an honest DP (exact H) and printed H only when a predicate held, else a wrong value. Facts:
 
 - 10 hidden validators: every score is a multiple of 10 (0, 10, 20, 50, 70); 6 or fewer validators cannot give 10.0
