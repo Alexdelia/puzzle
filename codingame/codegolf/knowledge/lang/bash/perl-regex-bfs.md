@@ -1,4 +1,4 @@
-# Perl regex flood BFS in a bash wrapper (the-labyrinth, 256, CG #3)
+# Perl regex flood BFS in a bash wrapper (the-labyrinth, 246, CG #3)
 
 Verified 17/17 local, accepted on CG. `perl -anE` one-liner, interactive.
 
@@ -11,3 +11,4 @@ Verified 17/17 local, accepted on CG. `perl -anE` one-liner, interactive.
 - TRAP: CG perl 5.34 variable-length lookbehind `(?<=X|X.{N})` compiles with a warning and matches wrongly (acts like `X.{0,N}`): use two fixed lookbehinds
 - TRAP: `for 0,1` aliases `$_` to a constant, `$_=reverse` in it dies; `$_=reverse` double-sweep trick is longer anyway
 - hardcoding 15x30 impossible: validators 07 (21x41) and 09 (10x20)
+- later 246 version: phase state as regex class `$s=T if$1eq C;s/[$s?]/X/g` (unset `$s` interpolates empty), `/s` flags instead of mapping `\n`, one `[.T]` prefix with lookaround alternatives `[.T](?:(?<=X.)|(?<=X.{C}.)|(?=X|.{C}X))`, answer `say+(a,LEFT,RIGHT,UP,DOWN)[$#-]`, header as ternary `$r?do{BODY}:(($r,$d)=@F,$|++)`
