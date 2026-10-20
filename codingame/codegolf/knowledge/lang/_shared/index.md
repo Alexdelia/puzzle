@@ -6,3 +6,4 @@
 - [crash-exit](crash-exit.md): io puzzles ignore exit status, crash after output passes, verified
 - [best-kept](best-kept.md): CG keeps best submission per language, longer submit harmless but unconfirmable, verified
 - [system-wrapper](system-wrapper.md): `os.system("bash -c ...")` runs bash on CG, interactive io works; cell length = wrapper + shortest core, verified on Python
+- [hidden-validators](hidden-validators.md): hardcode/exploits allowed (user rule), `submit.sh --probe`, best-kept makes each probe a 1-bit oracle when shorter than our row, local validators synthetic
