@@ -38,7 +38,7 @@ Why short:
 
 Cross-language: rank 1 lengths match a `system()` wrapper around a short shell core (C 72 = `main(){system("");}` 19 + bash 53; Java 159 fits a ProcessBuilder wrapper + 53). Python `import os;os.system('''bash -c '...' ''')` running the bash core won CG test 7 (verified 2026-10-19). See `knowledge/lang/_shared/system-wrapper.md`. Every non-bash cell should compare its native solution with wrapper + shortest core.
 
-Lengths reached: bash core 121 bytes (2 lines, ungolfed, CG verified via Python wrapper); python native uniform loop ~150 (not golfed). Top bash 53 implies a much shorter core than 121: unknown, cell workers to find (ideas: `${e[f]=$p}` set-if-unset, `read` of the init line inside the loop, arithmetic on `${#d}`).
+Lengths reached: bash 103 (CG accepted 2026-10-20, rank 28; tricks in `knowledge/lang/bash/` read-in-order, missing-command-print, word-as-arith-var; 102 with `for((;;))` instead of while, untested on CG). Earlier: bash core 121 bytes (2 lines, ungolfed, CG verified via Python wrapper); python native uniform loop ~150 (not golfed). Top bash 53 implies a much shorter core than 121: unknown, cell workers to find (ideas: `${e[f]=$p}` set-if-unset, `read` of the init line inside the loop, arithmetic on `${#d}`).
 
 Rejected (local referee, python):
 
