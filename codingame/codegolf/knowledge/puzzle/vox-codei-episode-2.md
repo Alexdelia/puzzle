@@ -30,7 +30,7 @@ pretty_id `vox-codei-episode-2-codesize`, interactive, 10 tests.
 
 Method (python 1557 ungolfed, CG 100% 2026-10-20, local 20/20 in 5/5 runs): offline weighted random greedy with restarts.
 
-- WAIT turns 1 and 2. For each `@` of map0, try deltas self, R, L, D, U; keep the first whose walk is `@` in map1 and in map2. Precompute each path to rounds+4 (step rule below). Index nodes from map0, not map1: on 08 two nodes share a cell on map1
+- WAIT turns 1 and 2. For each `@` of map0, try deltas self, R, L, D, U; keep the first whose walk is `@` in map1 and in map2. Precompute each path to rounds+4. Step: if next cell is off grid or `#`, reverse; then move if the (new) next cell is open, else stay (covers static, edge bounce, both sides blocked; `@` cells count as open). Index nodes from map0, not map1: on 08 two nodes share a cell on map1
 - rollout from current turn: alive = all, `u` = first allowed turn. Candidates = (w in u..u+3, open cell c not on any node's position at w) killing the set h = alive nodes whose path at w+3 lies in blast(c), with `h` non-empty and `|h|*bombs >= |alive|`. Pick one at random with weight `|h|^3`, alive -= h, bombs -= 1, u = w+3 (gap 3 avoids the chain trap). Fail when bombs or time run out or no candidate
 - restart rollouts until one succeeds (~95 rollouts on t10, <0.1 s once kill sets are cached). Spread search over turns: 0.1 s per turn, WAIT and search from the next turn if none found. Then play the plan, WAIT otherwise, keep answering until the win
 - needs: 2D or flat grid, list of paths, set/bitmask intersect, weighted random (`random.choices` or pick max of `rand()*h^3`-like key). Kill sets `(w,c)` cached; in fast languages compute them inline
