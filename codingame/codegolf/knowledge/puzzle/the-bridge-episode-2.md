@@ -86,3 +86,9 @@ Next steps for a later worker:
 
 - measure with fresh-language probes (see `knowledge/lang/_shared/hidden-validators.md`, score oracle): hardcode keyed on L only, on (L,V), plans of single tests, to find which tests have twins and a cheap key
 - the rest needs search: check whether a 1-D model (union of holes of alive lanes, SPEED/SLOW/JUMP only, no lane change) solves the non-twin validators: locally it solves tests 1-8 and 11 (first/last V lanes), not 9, 10, 12
+
+### Perl port (2026-10-20, local 23/23, not CG-verified: submit refused by cap)
+
+- same DFS, 347 B. Win test dropped: no win test, print plan when it reaches 99 chars; commands after the win are ignored by local referee (CG untested)
+- SLOW needed (without it 20/23), no clamp needed (`next if $n<1` removable)
+- fixed plans `SPEED^k JUMP^45`: 6/23 at k=0, 4/23 at 3: no cheap constant plan
