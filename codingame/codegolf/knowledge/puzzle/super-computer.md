@@ -70,3 +70,7 @@ Guesses (unverified):
 ## Wrapper core without `read a;` (verified 2026-10-20, python)
 
 - awk pattern `$1+$2>e&&e?0:$2&&e=$1` skips the `N` line (no `$2`) instead of `read a;`: core `sort -nr|awk '$1+$2>e&&e?0:$2&&e=$1'|wc -l` is 3 bytes shorter than `read a;`+old pattern and dash-proof. Python `import os;os.system("<core>")` = 65 passes 15/15 local, CG row 65 (rank 7, top 59). Same core applies to perl `exec q()`, ruby `exec""`, c `system("")` wrappers
+
+## Javascript native (verified local 15/15, 2026-10-20)
+
+- 125 bytes: `e=c=0;[...Array(+readline())].map(_=>readline().split` `).sort((a,b)=>b[0]-a[0]).map(([j,d])=>e&&j- -d>e||(e=j,c++));print(c)`. `j- -d` = numeric sum of strings. Top 56: gap only closable by exploit or unknown trick. `sort` comparator on "J D" strings gives NaN (needs split or parseInt)
