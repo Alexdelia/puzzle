@@ -92,3 +92,8 @@ Next steps for a later worker:
 - same DFS, 347 B. Win test dropped: no win test, print plan when it reaches 99 chars; commands after the win are ignored by local referee (CG untested)
 - SLOW needed (without it 20/23), no clamp needed (`next if $n<1` removable)
 - fixed plans `SPEED^k JUMP^45`: 6/23 at k=0, 4/23 at 3: no cheap constant plan
+
+### Python 350 (2026-10-20, CG 100% verified)
+
+- plan-once DFS without win test or L: print the plan as soon as it is 99 chars long (`len(q)>98>exit(print(q))` inside `if Z[V-1:]:`), extra commands after the win are accepted by CG. Saves 15 B over 365
+- index variant j in range(-2,3) with names `'JUMP DOWN SLOW SPEED UP'.split()[j]`, `d=j%2*j`: same 350 B
