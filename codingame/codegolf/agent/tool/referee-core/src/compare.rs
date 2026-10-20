@@ -10,9 +10,16 @@ fn without_trailing_empty(lines: &[String]) -> &[String] {
 	&lines[..kept]
 }
 
+fn without_one_trailing_empty(lines: &[String]) -> &[String] {
+	match lines.split_last() {
+		Some((last, rest)) if last.is_empty() => rest,
+		_ => lines,
+	}
+}
+
 pub fn first_difference(expected: &[String], actual: &[String]) -> Option<String> {
 	let expected = without_trailing_empty(expected);
-	let actual = without_trailing_empty(actual);
+	let actual = without_one_trailing_empty(actual);
 	let length = expected.len().max(actual.len());
 	(0..length).find_map(|index| {
 		let wanted = expected.get(index);
@@ -35,12 +42,17 @@ mod tests {
 	}
 
 	#[test]
-	fn trailing_empty_lines_are_free() {
+	fn one_trailing_empty_line_is_free() {
+		assert_eq!(first_difference(&owned(&["a", ""]), &owned(&["a"])), None);
 		assert_eq!(
-			first_difference(&owned(&["a", ""]), &owned(&["a", "", ""])),
+			first_difference(&owned(&["a", ""]), &owned(&["a", ""])),
 			None
 		);
-		assert_eq!(first_difference(&owned(&["a", ""]), &owned(&["a"])), None);
+	}
+
+	#[test]
+	fn two_trailing_empty_lines_fail() {
+		assert!(first_difference(&owned(&["a", ""]), &owned(&["a", "", ""])).is_some());
 	}
 
 	#[test]
