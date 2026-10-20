@@ -1,0 +1,1 @@
+- [alias-input](alias-input.md) - `I=input`, split/int, >> precedence, ^ for bool compare
