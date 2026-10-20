@@ -12,3 +12,4 @@
 - the-fall-episode-3 native port of the python solver is 791 B; interactive Ruby needs `$>.sync=1` (piped stdout buffers, timeouts), `x ?a:b` with a constant `W:` parses as label
 - [rle-gsub-rows](rle-gsub-rows.md): gsub RLE decode, `w=gets.to_i`+`h=s.size/w`, `$q` nil-default flag (music-scores ruby 191)
 - [interactive-bisect-idioms](interactive-bisect-idioms.md): init read, bare-regex response test, chained compare, sync required
+- [min-by-string-key](min-by-string-key.md): min_by{x=_1.to_i;..} beats map(&:to_i), nil.to_i=0 for empty
