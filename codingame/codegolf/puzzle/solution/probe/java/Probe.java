@@ -1,1 +1,0 @@
-import java.util.*;class Solution{public static void main(String[] z){Scanner s=new Scanner(System.in);int a=s.nextInt(),b=s.nextInt(),c=s.nextInt(),d=s.nextInt();boolean o=a>c;while(true){s.nextInt();String v=d<b?"S":d>b?"N":"",h=c<a?"E":c>a?"W":"";d+=d<b?1:d>b?-1:0;c+=c<a?1:c>a?-1:0;System.out.println(o?v+h:"X");}}}

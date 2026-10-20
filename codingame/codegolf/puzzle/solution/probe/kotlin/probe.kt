@@ -1,1 +1,0 @@
-fun main(){var(a,b,c,d)=readLine()!!.split(" ").map{it.toInt()};val o=b==d;while(true){readLine();var v="";var h="";if(d<b){v="S";d++}else if(d>b){v="N";d--};if(c<a){h="E";c++}else if(c>a){h="W";c--};println(if(o)v+h else "X")}}

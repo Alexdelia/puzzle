@@ -1,1 +1,0 @@
-import 'dart:io';main(){var n=int.parse(stdin.readLineSync()!.trim());var l=n>0?stdin.readLineSync()!:'';var r=0;for(var s in l.split(' ')){if(s.trim()=='')continue;var t=int.parse(s.trim());if(r==0||t*t<r*r||t*t==r*r&&t>0)r=t;}print(r.abs()<10?r:'X');}

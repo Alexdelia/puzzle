@@ -1,1 +1,0 @@
-long s,t,k,i,l,c,n,p[1000];main(){scanf("%ld%ld%ld",&l,&c,&n);for(;i<n;)scanf("%ld",p+i++);if(c==9e6)return!puts("89744892565569");for(i=0;c--;s+=t)for(t=k=0;k++<n&&t+p[i]<=l;i=++i%n)t+=p[i];printf("%ld",s);}
