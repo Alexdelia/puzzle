@@ -11,6 +11,7 @@ Rules:
 
 - Journal: append what you try, measure and learn to `agent/state/journal/{{ID}}.md` as you go, so a later worker can resume if you are cut off (wall limit {{WALL_MINUTES}} min, budget ${{BUDGET}}).
 - Scratch files (probes, captures, drafts, API responses) go only in `agent/state/journal/{{ID}}.scratch/` (git-ignored). Never write files at the `codegolf/` root or anywhere outside your scope, and remember your shell's current directory when using relative paths.
+- Memory: this task (you, every build, run and script you start) has {{MEMORY_MAX}} of RAM; beyond it pages go to swap (hundreds of GB, slow disk), so deep searches may grow large but slow down once they spill. Prefer memory-lean search (generators, per-length passes, dedupe by value/hash) and check a script's peak with `command time -f %M` on a small instance before scaling it.
 - Never run `git commit`, `git add`, `git stash`, `git checkout` or anything that changes git state: `finish.sh` commits after you exit, by predefined scopes.
 - Change only the paths of your scope (below), plus `knowledge/` and your journal. Anything else (`agent/tool/*` scripts, `agent/tool/referee-core`, prompts, `flake.nix`, `data/`, `.doc/`, other puzzles or langs) is the user's: write the proposal in your journal and report `blocked` (lang, referee) or keep going without it.
 - CodinGame API only through `agent/tool/cg.sh` (one shared token and rate budget for all workers). Test games are scarce: about 600 per 24 h for all workers together. Never call the API for something the local referee answers.

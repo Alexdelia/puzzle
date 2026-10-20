@@ -54,6 +54,7 @@ while [[ ! -e $state/STOP ]]; do
 	"$tool_dir/prompt.sh" "$running" >"$output.prompt"
 	CG_TASK_ID=$id command time -f '%e %U %S' -o "$output.time" \
 		timeout --kill-after=60 "$task_wall_seconds" \
+		systemd-run --user --scope --quiet --slice=codegolf.slice -p MemoryMax="$task_memory_max" \
 		direnv exec "$root" claude -p "$(<"$output.prompt")" --model "$task_model" --effort "$task_effort" \
 		--output-format stream-json --verbose --permission-mode auto --max-budget-usd "$task_budget_usd" \
 		>"$output.jsonl" 2>"$output.err" </dev/null

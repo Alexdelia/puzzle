@@ -43,6 +43,7 @@ for running in "$state"/running/*.json; do
 done
 agent/tool/sync.sh --if-stale
 
+systemctl --user set-property --runtime codegolf.slice MemoryMax="$workers_memory_max" MemorySwapMax=infinity
 export CG_BEST_MODEL=$best
 event "start workers=$count ${once:+once} ${best:+best}"
 pids=()
