@@ -19,10 +19,10 @@ cell=$(ensure_status cell "$puzzle" "$lang")
 
 length=$("$tool_dir/count.sh" "$solution")
 ours=$(jq -r '.ours // empty' "$cell")
-recent_submits=$(awk -F'\t' -v since="$(date -u -d '5 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
-	'$1 >= since && $3 == "POST" && $4 ~ /\/submissions$/' "$state/cg.log" 2>/dev/null | wc -l)
+recent_submits=$(awk -F'\t' -v since="$(date -u -d '5 hours ago' +%Y-%m-%dT%H:%M:%SZ)" -v path="/puzzles/$pretty_id/submissions" \
+	'$1 >= since && $3 == "POST" && $4 == path' "$state/cg.log" 2>/dev/null | wc -l)
 if ((recent_submits >= submit_cap_5h)); then
-	echo "submit.sh: refused, $recent_submits agent submits in the last 5 h (cap $submit_cap_5h, rest kept for the user): note it in the journal and move on" >&2
+	echo "submit.sh: refused, $recent_submits agent submits on $puzzle in the last 5 h (cap $submit_cap_5h per puzzle, rest kept for the user): note it in the journal and move on" >&2
 	exit 1
 fi
 hidden_complete=$root/puzzle/$puzzle/referee/hidden/complete
