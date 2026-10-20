@@ -49,3 +49,5 @@ Rejected (local referee, python):
 - output other than exact WAIT/BLOCK: CG answers `invalid input. Expected 'WAIT, BLOCK' but found ''` for an empty line (verified test 2)
 
 C 109 (CG accepted 2026-10-20, rank 21): `main(){system("perl -anE'%e=(@F[0,1,3,4],%e);say+($F[1]-$e{$F[0]})*($F[2]cmp M)>0?BLOCK:WAIT if$|+=@F==3'");}`. Perl core (80 bytes) beats bash core 103; native C needs a flush and is ~170. Top 72 implies a 43 byte core: unknown. Perl core is a candidate for every lang with a process spawn, see `knowledge/lang/c/system-perl.md`.
+
+Python 112 (CG accepted 2026-10-20): `import os;os.system("perl -anE'%e=(@F[0,1,3,4],%e);say+($F[1]-$e{$F[0]})*($F[2]cmp M)>0?BLOCK:WAIT if$|=@F==3'")`. `$|=` works instead of `$|+=` (1 byte shorter perl core, applies to the C 109 too). Python top 69 implies a ~46 byte core: unknown.
