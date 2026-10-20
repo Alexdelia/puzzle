@@ -26,7 +26,7 @@ pretty_id `dwarfs-standing-on-the-shoulders-of-giants-codesize`, io.
 Exact inputs (validator task 2026-10-20, details in `puzzle/dwarfs-standing-on-the-shoulders-of-giants/referee/hidden/facts.md`): 4 of 10 recovered, files in `referee/hidden/` (`run.sh <sol> --hidden` checks them; not `complete`):
 
 - `1`/`1 2` -> 2, `2`/`1 2`/`2 3` -> 3, `2`/`2 3`/`1 2` -> 3, `2`/`1 2`/`1 3` -> 2
-- `2`/`1 3`/`2 3` is NOT a validator. The other 2 low (`N<=2`) validators answer 2: one with ids in 1..3, one with an id > 3. The 4 high ones (`N` in {3,4,8,9}) all use some id > 3
+- `2`/`1 3`/`2 3` is NOT a validator. The other 2 low (`N<=2`) validators answer 2: a fork on ids 1..3 (10 candidates, in facts.md), and one with an id > 3 (single or fork). The 4 high ones (`N` in {3,4,8,9}) all use some id > 3
 - a key must split the two chains (same edges, other line order, answer 3) from `1 2` and the fork `1 2`/`1 3` (answer 2)
 
 Key found (run 4, 2026-10-20), proven on CG:
