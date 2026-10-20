@@ -55,3 +55,7 @@ Same method as above, tie rank #1 on CG. Bash specifics in `lang/bash/` (init-sl
 ## python 276 (2026-10-20)
 
 Same method; python 276 on CG (#7, top 240). Gains in `lang/python/alias-input.md`; `s=p+q>>1` shared by `l=h=s` and `l=s+1`, `h=p+q-1>>1`. Not found: the further 36 bytes.
+
+## Hidden validators
+
+8 validators, bombs random per run (statement + forum https://forum.codingame.com/t/shadows-of-the-knight-episode-2-puzzle-discussion/1676?page=4): no bomb hardcode, no exact recovery. Probed 2026-10-20 (14 probes, `oracle.sh --log`): 6 validators keep a test size and its N, 1 is test 1 transposed (16x5, N80), 1 odd small map (2 <= W < H <= 40, N >= 27, not 45/80, generous); 2 of 8 have an exact test config (start included). Tight budgets stay those of the test sizes, so the general method's ~1% random fail is the only risk. Details: `puzzle/shadows-of-the-knight-episode-2/referee/hidden/facts.md`.
