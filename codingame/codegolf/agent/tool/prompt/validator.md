@@ -1,6 +1,6 @@
 Recover the hidden CG validators of golf puzzle `{{PUZZLE}}` (CG `{{PRETTY_ID}}`, "{{TITLE}}", {{PUZZLE_KIND}}), once for every language.
 
-Scope: `puzzle/{{PUZZLE}}/referee/hidden/`, `knowledge/puzzle/{{PUZZLE}}.md` section "Hidden validators", probe files under `puzzle/{{PUZZLE}}/solution/`, scratch files in your journal directory.
+Scope: `puzzle/{{PUZZLE}}/referee/hidden/`, `knowledge/puzzle/{{PUZZLE}}.md` section "Hidden validators", probe files in `puzzle/{{PUZZLE}}/probe/`, scratch files in your journal directory.
 
 Hardcoding and exploits are allowed and part of the challenge (user rule): the leaders often key on the hidden validators. Recovering them exactly lets every cell hardcode and check locally instead of burning submits.
 
@@ -11,7 +11,7 @@ Known structure:
 
 Sources, cheapest first:
 1. Web research (WebSearch, WebFetch): forum thread of the puzzle (`forum.codingame.com`, "validator N fails" posts often quote the input), GitHub repos with CG tests or golf solutions (hardcoded tables reveal keys and answers), code.golf / golf.shinh.org / codegolf.stackexchange. Source URL next to every fact.
-2. Probes on the golf leaderboard: `agent/tool/oracle.sh <solution-file> "<question>"` (submits through `submit.sh --probe`, logs the question and answer in `agent/state/oracle/{{PUZZLE}}.tsv`, refuses a question already asked in that language; read past answers first with `agent/tool/oracle.sh --log {{PUZZLE}}`). At most {{PROBE_CAP}} submits this task; CG counts submits per puzzle (5 / 5 min, 20 / 30 min, 40 / 1 h, 100 / 5 h), agents stop at 90 per puzzle per 5 h, cells of this puzzle share them: plan every probe, ask questions that split the most hypotheses.
+2. Probes on the golf leaderboard: `agent/tool/oracle.sh puzzle/{{PUZZLE}}/probe/<lang>/<name>.<ext> "<question>"` (submits through `submit.sh --probe`, logs the question and answer in `puzzle/{{PUZZLE}}/probe/probes.tsv`, committed with the probe sources, refuses a question already asked in that language; read past answers first with `agent/tool/oracle.sh --log {{PUZZLE}}`). At most {{PROBE_CAP}} submits this task; CG counts submits per puzzle (5 / 5 min, 20 / 30 min, 40 / 1 h, 100 / 5 h), agents stop at 90 per puzzle per 5 h, cells of this puzzle share them: plan every probe, ask questions that split the most hypotheses.
    - CG keeps only our best row per language. A probe shorter than our row is a yes/no on "every validator satisfies my predicate" (row moves and commits iff 100%). The first submit in a language where we have no row yet shows its exact score (how many validators pass): a multi-bit answer. Public rows under 100% are allowed (user).
    - typical probe: our correct general solution that answers correctly only when the input matches a hypothesis (candidate transform of test k, a feature in a range, an answer bit), garbage otherwise
    - prefer probes that are themselves a candidate exploit (hardcode keyed on the hypothesized validators): a yes is then also a gain

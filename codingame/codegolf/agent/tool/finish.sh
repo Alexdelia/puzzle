@@ -107,6 +107,12 @@ done
 	fi
 done
 
+{ changed_paths puzzle | grep -o '^puzzle/[^/]*/probe/' | sort -u || true; } | while read -r dir; do
+	probe_puzzle=$(basename "$(dirname "$dir")")
+	[[ -n $(tsv_field puzzle "$probe_puzzle" slug) ]] || continue
+	commit_scope "chore(golf): probes $probe_puzzle" "$dir"
+done
+
 in_progress_pattern() {
 	local patterns=('^agent/state/' '^knowledge/' '^puzzle/[^/]*/solution/')
 	local file

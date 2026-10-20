@@ -2,7 +2,7 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-usage="usage: submit.sh [--probe] <puzzle/<p>/solution/<lang>/file>"
+usage="usage: submit.sh <puzzle/<p>/solution/<lang>/main.<ext>> | submit.sh --probe <puzzle/<p>/probe/<lang>/<name>.<ext>>"
 probe=
 if [[ ${1:-} == --probe ]]; then
 	probe=1
@@ -10,9 +10,15 @@ if [[ ${1:-} == --probe ]]; then
 fi
 solution=$(realpath "${1:?$usage}")
 relative=${solution#"$root"/}
-[[ $relative =~ ^puzzle/([^/]+)/solution/([^/]+)/[^/]+$ ]] || { echo "$usage" >&2; exit 2; }
+[[ $relative =~ ^puzzle/([^/]+)/(solution|probe)/([^/]+)/[^/]+$ ]] || { echo "$usage" >&2; exit 2; }
 puzzle=${BASH_REMATCH[1]}
-lang=${BASH_REMATCH[2]}
+area=${BASH_REMATCH[2]}
+lang=${BASH_REMATCH[3]}
+if [[ -n $probe && $area != probe ]] || [[ -z $probe && $area != solution ]]; then
+	echo "submit.sh: probes live in puzzle/$puzzle/probe/$lang/<name>.<ext> and go with --probe; solutions are puzzle/$puzzle/solution/$lang/main.<ext> without it" >&2
+	echo "$usage" >&2
+	exit 2
+fi
 pretty_id=$(tsv_field puzzle "$puzzle" pretty_id)
 cg_name=$(tsv_field lang "$lang" cg_name)
 cell=$(ensure_status cell "$puzzle" "$lang")
@@ -91,6 +97,11 @@ best_tie_rank=$(jq -r '.best_tie_rank // empty' "$cell")
 message="feat(golf): solution $puzzle $lang $length #$rank"
 if [[ -n $best_tie_rank && $best_tie_rank != "$rank" ]]; then
 	message+=" (tie #$best_tie_rank)"
+fi
+main=$root/puzzle/$puzzle/solution/$lang/main.$(tsv_field lang "$lang" extension)
+if [[ $solution != "$main" ]]; then
+	mkdir -p "$(dirname "$main")"
+	cp "$solution" "$main"
 fi
 commit_scope "$message" "puzzle/$puzzle/solution/$lang"
 event "gain $puzzle $lang length=$length rank=$rank best_tie_rank=${best_tie_rank:--}"
