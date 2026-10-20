@@ -1,2 +1,3 @@
 - [alias-input](alias-input.md) - `I=input`, split/int, >> precedence, ^ for bool compare
 - [linear-regression](linear-regression.md) - statistics.linear_regression()[0] slope, N token skipped via a[1::2],a[2::2]
+- [perl-wrapper](perl-wrapper.md) - os.system("perl -e'...'") = core+23, beats native python when perl core is short, verified mayan-calculation
