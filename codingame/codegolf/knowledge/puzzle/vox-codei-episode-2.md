@@ -28,14 +28,31 @@ pretty_id `vox-codei-episode-2-codesize`, interactive, 10 tests.
 
 ## Shortest known
 
-No short trick found. Leaderboard tops (ruby 153, perl 161, python 164) are far below anything below; their method is unknown. Verified building blocks, all on local referee, tests + validators:
+Method (python 1557 ungolfed, CG 100% 2026-10-20, local 20/20 in 5/5 runs): offline weighted random greedy with restarts.
 
-- prediction of t+3 is mandatory: greedy on current map (no movement model) passes 2/20
-- node state = pair (prev, cur), cells as 2D or flat index. Step: `next = 2*cur-prev` if that cell is open (in grid, not `#`), else `prev` if open, else `cur`. Covers static (prev=cur), bounce with one-turn edge stay, both sides blocked. Only `#` matters for open, `@` cells are open
-- direction from 2 maps is ambiguous (test 05/07: nodes on a diagonal, two nodes meet on one cell). Reliable pairing on all 20: WAIT turns 1 and 2, for each `@` p of map0 try deltas self, R, L, D, U; accept the first q with `@` in map1 whose next step lands on `@` in map2. Then never re-read the map (except to skip cells showing `@` now): own simulation, kill nodes in the blast at placement time
-- chain trap: a bomb inside the blast of a pending bomb detonates early (test 07). Fix: no bomb within 3 turns of another (cooldown or `|u-v|>=4` between planned times)
-- online greedy: each turn cell with max hits at t+3, place if `hits*bombs >= alive` and cooldown over: 18/20, fails test/validator 10 (26 nodes, 10 bombs, 10 movers isolated at the end). Stricter thresholds (`>`, `+1`, `+r//k`, `*1.2`) break 01/04/06/08/09; rarity weighting (sum 1/k_i) and tie-break changes: still fail 10; restricting to cells that hit node 0: fails 09+10
-- offline DFS at turn 3: precompute each path to rounds+4, target first alive node, candidates = (u, cell in blast of target at u+3, cell not occupied at u), sorted by hits desc, keep top k, recurse with bombs-1. Monotone time (u+4) or free time with gap 4: k=2..5 passes 10 but not 09 ("Patience", 14 nodes, 3 bombs, plan not found); k>=5 with free time or with pruning `hits*b>=alive` times out on 09/10 in Python (150 ms turn, planning on turn 3)
-- full DFS of `solution/python/main.py` (mask dedup, conflict check) passes 20/20 at 3833 chars
+- WAIT turns 1 and 2. For each `@` of map0, try deltas self, R, L, D, U; keep the first whose walk is `@` in map1 and in map2. Precompute each path to rounds+4 (step rule below). Index nodes from map0, not map1: on 08 two nodes share a cell on map1
+- rollout from current turn: alive = all, `u` = first allowed turn. Candidates = (w in u..u+3, open cell c not on any node's position at w) killing the set h = alive nodes whose path at w+3 lies in blast(c), with `h` non-empty and `|h|*bombs >= |alive|`. Pick one at random with weight `|h|^3`, alive -= h, bombs -= 1, u = w+3 (gap 3 avoids the chain trap). Fail when bombs or time run out or no candidate
+- restart rollouts until one succeeds (~95 rollouts on t10, <0.1 s once kill sets are cached). Spread search over turns: 0.1 s per turn, WAIT and search from the next turn if none found. Then play the plan, WAIT otherwise, keep answering until the win
+- needs: 2D or flat grid, list of paths, set/bitmask intersect, weighted random (`random.choices` or pick max of `rand()*h^3`-like key). Kill sets `(w,c)` cached; in fast languages compute them inline
+- why short: no DFS, no backtracking, no conflict bookkeeping; the threshold `|h|*b>=|alive|` + `h^3` weight + window of 4 turns does the pruning
 
-Promising, untested: hybrid (greedy pass then DFS fallback), planning with all 5 direction hypotheses on turn 1 (1000 ms budget), or a faster language for wide DFS. Validators equal tests mirrored/shifted, so a heuristic passing all 10 tests likely passes validators (true for every variant above).
+Rejected, all measured locally:
+
+- greedy, no prediction (hits on current map): 2/20
+- deterministic greedy max hits at t+3, threshold `h*b>=n`, cooldown 3 (several pairings): 18/20, fails t10/v10; NOT 100% on CG (probe 1), so pure greedy golf is ruled out
+- pairing from 2 maps only, node counted iff all candidate predictions in blast: 18/20 (t10: static clusters on row 0 give 7 ambiguous nodes). Counting any prediction or the first one: 16/20
+- online random choice among cells with `h*b>=n`: t10 fails 5/5 runs
+- offline random restarts with uniform turn in [u, last] or window u..u+16, uniform cell, rejection on `h*b>=alive`: t10 never solved in 20 s. Weight `h^3` + window 4 is what makes it work
+- full DFS (old `solution/python/main.py`, 3833) 20/20 but long
+
+Leaderboard tops (ruby 153, perl 161, python 164) still far below 1557 ungolfed; a golfed form of this method is probably 400-600 python. Their method is unknown.
+
+## Hidden validators
+
+Facts (CG probes 2026-10-20, python, row was 3833):
+
+- probe 1: deterministic greedy (pairing-free "all predictions" counting, max hits at t+3, `h*b>=n`, cooldown 3), local 18/20 failing t10/v10: NOT 100%. At least one hidden validator holds a t10-like trap
+- probe 2: weighted random greedy restarts above: 100%, python 3833 -> 1557 (#18)
+- `/progress` shows the best row only, so the failing count of probe 1 is unknown
+
+Guesses (unverified): tops near 150 likely hardcode or use an even smaller randomized heuristic resubmitted until lucky; not tested. Probes spent: 2 of 10 (task puzzle.vox-codei-episode-2.-.1792516443225523771).
