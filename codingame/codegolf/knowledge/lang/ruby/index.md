@@ -8,3 +8,4 @@
 - [mayan-tokens](mayan-tokens.md): token read, default-arg recursive lambda, send operator, digits(20) printer
 - [slice-sign-letter](slice-sign-letter.md): `" SN"[v,v*v]` sign->S/N/"", `$.` is 2 on first line of -alp file
 - [prefix-hash-gsub](prefix-hash-gsub.md): `_1.gsub(/./){h[$`+$&]=1}` all prefixes of a line, 51 bytes total
+- [map-growing-list](map-growing-list.md): `k.map{}` + `<<` chain flood work list, verified surface
