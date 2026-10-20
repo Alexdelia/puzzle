@@ -65,6 +65,8 @@ More rejected (local referee, 2026-10-20):
 
 ## Hidden validators
 
+Summary (count probes 2026-10-20, details and sources in `puzzle/the-fall-episode-2/referee/hidden/facts.md`): probably 50 validators (all scores even, 58 and 90 seen, so not 25); 8 are exact copies of IDE tests 1-5, 42 are maps of sizes no IDE test has (all W<=16: 8 with W<=8, 18 with W 9..12, 16 with W 13..16; 21 with H<=8); 10 have rocks, all new maps with W<=10, none a copy of tests 6-7. No hardcode possible: a general solver with rock handling is needed. Earlier lines below that read 16% as "4 of 25" mean 8 of 50.
+
 Facts (CG probes in python, row 5431, 2026-10-20; a probe "fails" = row did not move to the probe's length):
 
 - probe 1: full method without rock kill (790 B, local 17/23, passes tests 1-5, fails 6-7): FAILED. Rocks hit Indy on at least one hidden validator, rock handling is required on CG too
