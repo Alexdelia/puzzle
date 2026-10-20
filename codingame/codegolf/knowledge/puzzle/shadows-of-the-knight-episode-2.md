@@ -51,3 +51,7 @@ Variants measured (sum of fail prob over 8 configs, uniform + edge-bomb, lower i
 ## bash 224 (2026-10-20)
 
 Same method as above, tie rank #1 on CG. Bash specifics in `lang/bash/` (init-slurp-head, response-word-as-arith-var). Refuted by sim: forcing t+q odd so SAME never occurs (fail sum 0.5-1.8); making only h inclusive (`h=s/2`) costs +3% fail sum (0.0405 vs 0.0100); no edge rule at all fails (position leaves the interval after COLDER).
+
+## python 276 (2026-10-20)
+
+Same method; python 276 on CG (#7, top 240). Gains in `lang/python/alias-input.md`; `s=p+q>>1` shared by `l=h=s` and `l=s+1`, `h=p+q-1>>1`. Not found: the further 36 bytes.
