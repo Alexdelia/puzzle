@@ -96,6 +96,13 @@ done
 	commit_scope "doc(golf): knowledge lang $(basename "$dir")" "$dir"
 done
 
+{ changed_paths puzzle | grep -E '^puzzle/[^/]+/referee/bench\.txt$' || true; } | while read -r file; do
+	bench_puzzle=$(basename "$(dirname "$(dirname "$file")")")
+	if [[ $(jq -r .status "$(ensure_status referee "$bench_puzzle" -)") == done ]] && grep -q '^suite .* pass$' "$root/$file"; then
+		commit_scope "chore(golf): bench $bench_puzzle" "$file"
+	fi
+done
+
 in_progress_pattern() {
 	local patterns=('^agent/state/' '^knowledge/' '^puzzle/[^/]*/solution/')
 	local file
