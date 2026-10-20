@@ -1,0 +1,1 @@
+a[1<<21],w,h,m,n,c,x,y,P,u,f,g,L,B,C,Y,Z,o;main(){scanf("%d%d",&w,&h);for(;scanf(" %c%d",&c,&n)>0;)for(;n--;)a[m++]=c&1;P=(2*h-35)/13;u=6*P+10;for(;x<=w;x++){for(f=y=0;y<u;y++)a[y*w+x]<a[y*w+10]&&(f||(f=y),g=y);if(f)L||(L=x,B=g-f,Y=f+g),C=g-f,Z=f+g;else if(L){y=B<C?Y:Z;printf(" %c%c"+!o++,71-(y-2*P-20+P*3/2)/P%7,81-9*a[y/2*w+L+5]);L=0;}}}
