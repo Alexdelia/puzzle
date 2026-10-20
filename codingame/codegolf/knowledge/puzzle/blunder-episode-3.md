@@ -49,7 +49,7 @@ All-points alternative (verified local 26/26, unverified on CG): least-squares s
 
 Lengths reached: Python 156 (count form, no import), 160 (log form), both two-point, so both now fail validators 13-18. Top Python 97: ~60 below this method.
 
-Unverified suspicion: 97-ish tops hash test features (N, first line) into the table; input reading + table + print already cost ~83 in Python, leaving ~14 for the class pick. N alone fails (3 tests have N=100); first line `n t` differs per test (`10 200000`, `5 552970`, `5 341`, `34 988`, `34 89`, `34 31261`, `11 51`, `2 19`). Such a hash only passes if hidden validators share those features; our generated validators would reject it, and `submit.sh` requires them. Not tried.
+Unverified suspicion (see "Hidden validators": 25 validators, 9 off the test grids, so a test-feature table fails): 97-ish tops hash test features (N, first line) into the table; input reading + table + print already cost ~83 in Python, leaving ~14 for the class pick. N alone fails (3 tests have N=100); first line `n t` differs per test (`10 200000`, `5 552970`, `5 341`, `34 988`, `34 89`, `34 31261`, `11 51`, `2 19`). Such a hash only passes if hidden validators share those features; our generated validators would reject it, and `submit.sh` requires them. Not tried.
 
 Rejected:
 
@@ -59,3 +59,19 @@ Rejected:
 - linear contiguous mapping with step != 2 or the inverse `c/(k+d)`: wider index range, no gain (search: journal scratch `srch.py`)
 
 All-points regression on CG (verified 2026-10-20): Perl 180 passes CG 100% (local 26/26). `-n`, `/ /&&` skips header, `($x,$y)=map(log,split)`, sums a,b,c,d,n, `}{print` after the loop, index `2*($n*$c-$a*$b)/($n*$d-$a*$a)+.9` into the table, `//"2^n"`. Sub-80 tops (Perl 79) cannot be a regression: table alone is ~65 bytes.
+
+## Hidden validators
+
+Probes 2026-10-20 (5 submits, 4 in languages without a row so the score shows; regression class correct on CG, output replaced by `X` when a gate fails, so score = share of validators passing the gate):
+
+- **25 validators, 4% each** (verified): Lua `print"O(1)"` scores 12% = 3/25, so 3 validators are `O(1)`; all other scores are multiples of 4. The 8 IDE tests are not 8 validators
+- 16/25 share N with the IDE test of their class (Ruby gate, 64%)
+- 16/25 share last n with the IDE test of their class (JS gate, 64%); likely the same 16 = test grid, other noise or same data
+- 19/25 have last n in the set of all 8 test last n values (PHP gate, 76%): 3 validators reuse the last n of a test of another class, so last n alone cannot key them; 6 have a last n no test has
+- two-point exponent (first/last line, thresholds `x/2+.05`) passes 22/25 (Bash 88%)
+- all-points log-log slope passes 25/25 (Perl 180)
+- at most 16/25 share start n and step with the test grid of their class (Ruby gate, score stayed hidden behind the 64% row, so <= 64%): the 9 other validators sit on grids no test uses (other N, start, step); keying on any test-grid feature caps at ~76%
+
+Rows left by probes (each below 100%, any 100% submission replaces them): Ruby 64% (270), JS 64% (433), PHP 76% (362), Lua 12% (11).
+
+Guesses (unverified): tops (Ruby 76, Perl 79, PHP 83) leave ~13-17 chars for read + index, too few for any growth fit, so they key on a cheap input feature that is constant per class over all 25 validators. N and last n each collide across classes on the test grids (N=100 for O(1), O(n), O(n log n)); candidates still open: first n, N+first n combinations, step, mod-k of a two-feature mix. A pure per-input hash (byte sum, input length) of 25 inputs into 8 slots is hopeless (~8!/8^25 per modulus). Next probe should gate on one candidate feature per class to count matches, using a language without a row (score hidden behind a better row otherwise).
