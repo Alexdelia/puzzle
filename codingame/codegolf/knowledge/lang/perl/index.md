@@ -12,3 +12,4 @@
 - [shebang-no-E](shebang-no-E.md): `#!perl -anE` refused, use `-anl` + print; hash slice with undef index harmless, array slice clobbers [0], verified
 - [shebang-no-E](shebang-no-E.md): `-E` on `#!` line is fatal; use `print` with `-nl`, verified locally
 - [p-loop-header-first-iteration](p-loop-header-first-iteration.md): `-alp` loop, init from header on `$#F`, `$|=(list assign)` autoflush for free, `("",S,N)[$v]`, verified on CG
+- [scalar-list-assign-autoflush](scalar-list-assign-autoflush.md): `$|=($a,$b)=<>=~/\d+/g;` merges autoflush into the header read; `for<>=~/./g` chars of next line, verified
