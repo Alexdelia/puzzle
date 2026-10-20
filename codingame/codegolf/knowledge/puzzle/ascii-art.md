@@ -66,3 +66,10 @@ Guesses (unverified):
 Probes spent: 1 (2026-10-20, Python 58 single-letter, fail). Next useful probe only if a new no-loop hypothesis appears; every loop-based exploit lands near 80 in Python, above the legit 91 floor only by restricting cases (uppercase-only / letters-only / `L=4` hardcode), and each such restriction is a 1-bit probe worth trying in a cell below its own row
 
 Python 107 (CG, 2026-10-20): `w,h,t,*R=open(0);w=int(w)` / `for r in R:print("".join(r[(x:=w*min(ord(c)&95^64or 27,27))-w:x]for c in t[:-1]))`. Walrus in slice, see lang/python/walrus-in-slice.md.
+
+Recovered by validator task (2026-10-20, 7 count probes, details and sources in `puzzle/ascii-art/referee/hidden/facts.md`):
+- 10 validators (score grain 10 in every partial row), 6 IDE tests; no validator reuses an IDE `T`
+- fonts: all 10 use an IDE font: 9 the `#` font `L=4 H=5`, 1 the test-5 font `L=20 H=11`
+- `T`: 7 uppercase-only `^[A-Z]+$`, 1 more letters-only with lowercase, 2 with non-letters
+- exact: `HELLOWORLD` (2 identical validators) and `WMADXESFGIJVTHKNOBPLYQRUZC` (1), both `#` font; 7 `T` still unknown, validator numbers unknown
+- golf: case handling and `?` mapping both still needed (1 and 2 validators); `L=4` hardcode passes 9/10
