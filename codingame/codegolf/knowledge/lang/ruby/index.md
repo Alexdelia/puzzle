@@ -13,3 +13,4 @@
 - [rle-gsub-rows](rle-gsub-rows.md): gsub RLE decode, `w=gets.to_i`+`h=s.size/w`, `$q` nil-default flag (music-scores ruby 191)
 - [interactive-bisect-idioms](interactive-bisect-idioms.md): init read, bare-regex response test, chained compare, sync required
 - [min-by-string-key](min-by-string-key.md): min_by{x=_1.to_i;..} beats map(&:to_i), nil.to_i=0 for empty
+- [random-restart-search](random-restart-search.md): flat-string blast search, loop-break-value output, vox-codei-episode-1 322
