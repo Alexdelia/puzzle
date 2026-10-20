@@ -4,3 +4,4 @@
 - [readline-map-skip](readline-map-skip.md): w.map(R) rereads h lines, float printer p(r/20) with |0, putstr throws, verified
 - [flat-index-column-scan](flat-index-column-scan.md): music-scores 227 B tricks: stride-w scan, (R=readline)(), print(...o), x=q=o=[], i<m>q
 - [sort-abs-tie](sort-abs-tie.md): sort((a,b)=>a*a-b*b||b), readline(readline()) skip line, split` `, [0]|0
+- [exec-perl-wrapper](exec-perl-wrapper.md): execSync perl -anle core, stdio:[0,1], template escapes, 55 B overhead, verified
