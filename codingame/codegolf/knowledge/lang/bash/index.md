@@ -8,3 +8,4 @@
 - [missing-command-print](missing-command-print.md): `${d:+echo} $out` prints only if d set, else not-found on stderr; expansion arith error aborts whole loop, verified
 - [word-as-arith-var](word-as-arith-var.md): `LEFT=-1` then `d=LEFT` is -1 in arithmetic; `(x^s)>s` sign test, verified
 - [perl-flood-worklist](perl-flood-worklist.md): perl -0777nE grid flood with growing `for@k` list, 4-arg substr mark+test, `~-@k/4` count, verified
+- [subshell-loop](subshell-loop.md): `f()(BODY;f);f` endless loop, 2-4 bytes under `for((;;)){ }`; unset/empty var in `(($c=..,1))` as trigger, verified
