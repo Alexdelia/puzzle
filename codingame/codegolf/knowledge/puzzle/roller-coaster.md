@@ -74,3 +74,8 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 - hardcode of the 6 IDE answers keyed on L (perl 81, `-0p` + `$_={3,7,...}->{$_+0}`): 21.74 = 5/23 (IDE tests are 5 validators, rest are other inputs): hardcode alone cannot pass
 - naive per-ride walk in perl (109 bytes, unbounded index, walk bound `k<n`): 73.9 = 17/23; the 6 others time out (test 06 among them), so 6 validators are heavy (C large, N large) and need memo/cycle skip
 - lazy memo perl 150: 100% (rank 10 on 2026-10-20). A top of 84 in perl stays unexplained: no general method below ~140 found; the 6 heavy validators' inputs are unknown (test games only reach IDE tests)
+
+### Ruby 135 (local 16/16, 2026-10-20, not yet on CG)
+
+- `l,c,n,*q=$<.read.split.map &:to_i` / `i=0` / `g=[]` / `p c.times.sum{v=g[i]||=(t=0;j=i;(t+=q[j%n];j+=1)while j<i+n&&t+q[j%n]<=l;t*n+j%n);i=v%n;v/n}`: lazy memo packed `t*n+next`, bignum-safe, 1e7 loop passes locally
+- array not named `p` so `p` prints; `#!ruby -0an` + `$F` is 1 byte worse; take_while over `q.rotate(i)` 5 bytes worse
