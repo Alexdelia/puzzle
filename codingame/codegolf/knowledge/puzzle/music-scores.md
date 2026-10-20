@@ -57,3 +57,12 @@ Rejected:
 - the head center column for the H/Q test can be a fixed index in the run (5 passes 22/22, 3 fails): heads are P-2 wide; fixed index for the edge-diff column fails (tail wider on P=34, hollow on P=9)
 - letter index without lookup: `chr(71-(half_steps+1.4)%7)` with `half_steps=(2*center-2*top_of_line1)/spacing`, float `%` truncates, any offset in 1.2..1.7 passes 22/22 (1.0 fails 6), it absorbs line thickness and the cut C head
 - tail column near end sits within 0.12 spacing of the head center, but the tail direction is not derivable from the stem convention (test 9 has short tails)
+
+## Hardcode facts for golf (verified on the 12 tests; validators 01,02,04,05,07,10 break them: they pad left/top and shuffle)
+
+- the 12 real tests have staff left column x0 = 10 and only 3 heights: 176 (P=24, line1 top A=34), 78 (P=9, A=19), 241 (P=34, A=44): A = P+10, P = (2*h-35)/13 (int division) exact on all 12
+- with those, no staff scan is needed: staff column is `a[y*w+10]`, cut rows `y < 6*P+10`
+- "black where staff column is white" (a[y][x] not black-vs-staff diff) is enough for flagging note columns and for first/last row: 12/12 pass with end-column span compare (smaller span = head-edge column), no black count needed
+- center index: `71-(f+g-20-P/2)/P%7` (f+g = 2*center row of head-edge column), `P/2` coefficient may be 0.2..0.9 of P
+- min-span over ALL note columns as head-edge picker FAILS test 10 (hollow thin heads leave single-pixel columns); compare only first and last column of the note
+- C port of the perl method with these hardcodes is ~333 bytes (leader 202): plateau for this method, generic (validator-passing) version is ~85 bytes longer
