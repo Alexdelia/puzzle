@@ -20,3 +20,4 @@
 - [foreach-alias-position](foreach-alias-position.md): `for$t(@p)` aliases the coordinate, `/S/?:/W/==..` response test, `$q-$q%$S` out-of-range test, verified
 - [abs-precedence](abs-precedence.md): `abs$a-abs$b` mis-parses, use squares in sort comparator, verified
 - [chop-list-argmax](chop-list-argmax.md): `chop(@a=sort map<>.$_,0..7)` returns index of max, `$|=@a=...` flush for free, verified locally
+- [interactive-init-read](interactive-init-read.md): list-context <> hangs, `scalar<>` in call args, `(A.B)!~/0/` precedence, $1 aliasing in map, `0 x99`, verified locally
