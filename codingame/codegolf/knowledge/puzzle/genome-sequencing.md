@@ -44,3 +44,5 @@ Rejected (fail local validators, lengths not shorter anyway):
 
 - CG tops (php 32, ruby 33, perl 34, python 51, bash 54, js 64) are far below any exact method (python 132 here, `from itertools import*` alone is 22): they must exploit weak CG validators (CG tests: N<=3, length<=7), unverified what exactly
 - submit.sh requires local validators (N up to 5, containment, cyclic overlaps), so such hacks cannot be submitted: rank 1 in those langs is out of reach with the current validators; the user decides whether validators should mirror CG more closely
+
+- Perl 132 (CG accepted 2026-10-20, rank 12): `#!perl -a0`, `sub f{my$s=pop;(sort{$a-$b}map{my$t=$_;$s=~$t?():map{$u=$s.substr$t,$_;$u=~$t?f($u):()}0..9}@F)[0]||length$s}` then `print f()-1`; `my$t` needed (recursion clobbers), `$u` global is fine, empty list falls to `length$s`
