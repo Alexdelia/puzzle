@@ -15,6 +15,11 @@ cell_map() {
 	jq -n 'reduce inputs as $entry ({}; . + {(input_filename | split("/") | .[-2:] | join("/") | rtrimstr(".json")): $entry})' "$@" </dev/null
 }
 
+lang_priority() {
+	awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) column[$i] = i; next } { print $1 "\t" $column["priority"] }' "$root/data/lang.tsv" |
+		jq -R -n '[inputs | split("\t") | {(.[0]): (.[1] | tonumber)}] | add'
+}
+
 pick() {
 	jq -r -s --slurpfile context_file "$1" '
 		def ready($context):
@@ -31,6 +36,7 @@ pick() {
 			| {id: $task.id, key: [
 				($task | kind_rank),
 				($cell.plateau_count // 0),
+				($context.lang_priority[$task.lang] // 99),
 				(if $task.lang == $context.last_lang then 0 else 1 end),
 				(if $cell.ours != null and $cell.top != null then $cell.top - $cell.ours else -1000000 end),
 				$task.queued_at]})
@@ -59,11 +65,12 @@ claim() {
 	status_map "$state"/lang/*.json >"$work/langs.json"
 	status_map "$state"/referee/*.json >"$work/referees.json"
 	cell_map "$state"/cell/*/*.json >"$work/cells.json"
+	lang_priority >"$work/lang_priority.json"
 	jq -n --slurpfile langs "$work/langs.json" --slurpfile referees "$work/referees.json" \
-		--slurpfile cells "$work/cells.json" \
+		--slurpfile cells "$work/cells.json" --slurpfile lang_priority "$work/lang_priority.json" \
 		--arg last_lang "$(cat "$state/last_cell_lang" 2>/dev/null || true)" \
 		--argjson lang_count "$(langs | wc -l)" \
-		'{langs: $langs[0], referees: $referees[0], cells: $cells[0], last_lang: $last_lang, lang_count: $lang_count,
+		'{langs: $langs[0], referees: $referees[0], cells: $cells[0], last_lang: $last_lang, lang_count: $lang_count, lang_priority: $lang_priority[0],
 		  ready_langs: ([$langs[0][] | select(. == "ready")] | length)}' >"$work/context.json"
 	id=$(pick "$work/context.json")
 	rm -rf "$work"

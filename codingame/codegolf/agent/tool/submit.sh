@@ -2,7 +2,12 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-usage="usage: submit.sh <puzzle/<p>/solution/<lang>/file>"
+usage="usage: submit.sh [--probe] <puzzle/<p>/solution/<lang>/file>"
+probe=
+if [[ ${1:-} == --probe ]]; then
+	probe=1
+	shift
+fi
 solution=$(realpath "${1:?$usage}")
 relative=${solution#"$root"/}
 [[ $relative =~ ^puzzle/([^/]+)/solution/([^/]+)/[^/]+$ ]] || { echo "$usage" >&2; exit 2; }
@@ -12,13 +17,18 @@ pretty_id=$(tsv_field puzzle "$puzzle" pretty_id)
 cg_name=$(tsv_field lang "$lang" cg_name)
 cell=$(ensure_status cell "$puzzle" "$lang")
 
-"$root/puzzle/$puzzle/referee/run.sh" "$solution" --validators >/dev/null || {
-	echo "submit.sh: refused, local referee fails: run puzzle/$puzzle/referee/run.sh $relative --validators" >&2
-	exit 1
-}
 length=$("$tool_dir/count.sh" "$solution")
 ours=$(jq -r '.ours // empty' "$cell")
-if [[ -n $ours ]] && ((length >= ${ours%.*})); then
+if [[ -n $probe ]]; then
+	task_submits=$(awk -F'\t' -v id="${CG_TASK_ID:--}" '$2 == id && $3 == "POST" && $4 ~ /\/submissions$/' "$state/cg.log" 2>/dev/null | wc -l)
+	if ((task_submits >= probe_submits_per_task)); then
+		echo "submit.sh: refused, this task already used $task_submits submits (probe cap $probe_submits_per_task)" >&2
+		exit 1
+	fi
+elif ! "$root/puzzle/$puzzle/referee/run.sh" "$solution" --validators >/dev/null; then
+	echo "submit.sh: refused, local referee fails: run puzzle/$puzzle/referee/run.sh $relative --validators (hidden-validator exploit: use --probe)" >&2
+	exit 1
+elif [[ -n $ours ]] && ((length >= ${ours%.*})); then
 	echo "submit.sh: refused, length $length not below ours $ours" >&2
 	exit 1
 fi
@@ -27,7 +37,7 @@ body=$(mktemp)
 trap 'rm -f "$body"' EXIT
 jq -n --rawfile code "$solution" --arg language "$cg_name" '{language: $language, code: $code}' >"$body"
 submission=$("$tool_dir/cg.sh" POST "/puzzles/$pretty_id/submissions" "$body" | jq -r .submission_id)
-event "submit $puzzle $lang length=$length submission=$submission"
+event "${probe:+probe }submit $puzzle $lang length=$length submission=$submission"
 
 for _ in $(seq 60); do
 	progress=$("$tool_dir/cg.sh" GET "/puzzles/$pretty_id/progress")
@@ -48,6 +58,11 @@ for _ in $(seq 6); do
 	sleep 30
 	row=$(own_row)
 done
+if [[ -n $probe ]] && { [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; }; then
+	echo "submit.sh: probe result, progress $(jq -c 'del(.limits)' <<<"$progress"), own row $row"
+	echo "submit.sh: CG keeps the best submission per language: a lower score than the row shown stays hidden"
+	exit 3
+fi
 if [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; then
 	json_update "$(ensure_status referee "$puzzle" -)" '.status = "suspect"'
 	"$tool_dir/enqueue.sh" referee "$puzzle" - --reason "CG rejected $relative length $length: row $row" >/dev/null
