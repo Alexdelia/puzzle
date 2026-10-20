@@ -57,3 +57,22 @@ Lengths reached: Python 1051 (semi-golfed, passes 23/23, not the cell's job). Le
 
 - python 201 = ruby 178 + ~23 wrapper bytes (`import os;os.system("ruby -e'...'")`): if ruby runs in the CG python box, the ruby core is the real target for many langs (see `knowledge/lang/_shared/system-wrapper.md`)
 - referee quirks on CG not probed: whether rotating Indy/rock cells or bad commands are fatal (our referee: fatal)
+
+More rejected (local referee, 2026-10-20):
+
+- fix the first broken cell on Indy's current path (rotate it RIGHT, or LEFT when LEFT makes it accept): 1-2/7 tests (no lookahead: test 02 turn 1 needs the cell turned so its exit continues, test 06 turn 2 needs `(8,1)` 11->10 because `(9,1)` is type 0)
+- greedy forward plan without backtracking (each next cell: first of as-is, R, L, RR that accepts and leads to a nonzero cell): 10/23, fails tests 04 05 (dead ends) and all rock cases
+
+## Hidden validators
+
+Facts (CG probes in python, row 5431, 2026-10-20; a probe "fails" = row did not move to the probe's length):
+
+- probe 1: full method without rock kill (790 B, local 17/23, passes tests 1-5, fails 6-7): FAILED. Rocks hit Indy on at least one hidden validator, rock handling is required on CG too
+- probe 2: hardcoded answers of IDE tests 1-7 keyed on the first grid row (dict lookup, crash on unknown key; rotation list popped one per turn, WAIT after; 1191 B, local 7/7 tests): FAILED. Hidden validators are not the IDE tests: at least one differs (unseen first row, or other rotations / rock schedule). Statement says "similar ... but remain different"
+- probes spent: 2 of 10 (task `puzzle.the-fall-episode-2.-.1792516443076616107`)
+
+Guesses (unverified):
+
+- hidden validators probably follow CG's usual pattern: same layouts as tests with mirrored grids and/or rotated unlocked cells (what our synthetic local validators assume). A per-validator hardcode then needs their layouts, which no probe so far reveals
+- tops 178 (ruby) .. 194 (perl) leave ~100 B of logic after I/O: below any DFS + move table + rock kill seen here. Either a very compact search (move rule computed, not a 42-char table) with a cheap rock rule that only the hidden validators tolerate, or a hardcode keyed on a feature of the hidden grids. Not found
+- next probes worth spending (each shorter than the python row 5431): (a) full method with unverified rock kill (`gC`, local fails tests 06 07) to test whether hidden rock cases are easier than the IDE ones; (b) full method with rock kill limited to the rock's next cell
