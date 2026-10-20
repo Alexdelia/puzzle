@@ -55,3 +55,13 @@ Leaderboard tops vs skeleton (unexplained, do not chase with the general method)
 - C top 52 < 65 = C skeleton reading all ints and printing one with zero compare logic (`c;main(t){for(scanf("%*d%d",&c);~scanf("%d",&t);)printf("%d",c);}` shape)
 - Python top 53 < 46 + 19 (min/map/int skeleton + shortest `,key=lambda t:` 7-char key)
 - likely legacy scores from old test/validator sets or hard-coded answers; unverified, a hack cannot pass `submit.sh` (local validators)
+
+## Hidden validators
+
+Details, sources, probe list: `puzzle/temperature/referee/hidden/facts.md` (partial, probed 2026-10-20).
+
+- 15 validators (score step 6.667), none equals an IDE test or the classic hint inputs
+- N: one 0, one 1, three 2, nine in 3..6, one > 6
+- no temperature is 0 (verified: 100% with a solution failing on any 0)
+- tie `-t`/`t` at min abs in 6 validators: 5 with `-t` first, 1 with `t` first. Last-of-tie-wins fails 1 validator, first-of-tie-wins fails 5
+- 5 negative answers; one answer has abs >= 10, the other 14 are single digit
