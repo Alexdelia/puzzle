@@ -47,6 +47,12 @@
       );
       envName = name: "CG_" + lib.toUpper (builtins.replaceStrings [ "-" ] [ "_" ] name);
 
+      dash =
+        (fetchNixpkgs {
+          rev = "eabc38219184cc3e04a974fe31857d8e0eac098d";
+          sha256 = "04ffwp2gzq0hhz7siskw6qh9ys8ragp7285vi1zh8xjksxn1msc5";
+        }).dash;
+
       refereeRust = pkgs.rust-bin.stable.latest.default.override {
         extensions = [
           "clippy"
@@ -78,7 +84,10 @@
           coreutils
         ];
 
-        env = lib.mapAttrs' (name: package: lib.nameValuePair (envName name) "${package}") langPackages;
+        env = lib.mapAttrs' (name: package: lib.nameValuePair (envName name) "${package}") langPackages // {
+          CG_DASH = "${dash}";
+          CG_BWRAP = "${pkgs.bubblewrap}";
+        };
       };
     };
 }
