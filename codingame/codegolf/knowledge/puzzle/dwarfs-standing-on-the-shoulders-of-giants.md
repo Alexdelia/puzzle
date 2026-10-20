@@ -90,7 +90,7 @@ Run 7 (2026-10-20), no probe (cap still full at 18:32Z), offline:
 Run 8 (2026-10-20), probes on CG (submit cap is per puzzle, 90 per 5 h: dwarfs had used 15, so the "cap full" of runs 5-7 no longer holds):
 
 - `` `cat` `` works in CG backticks: ruby `2+L` reading `` t=`cat` `` scored 100% (ruby row 15@40% -> 51@100%)
-- class key `47` is dead: perl `` print`cat`=~y/47//+2 `` (20) left the perl row unchanged, so < 100%. `45`, `04`, `46` probed the same way: results under "Class probes" below
+- class key `47` is dead: perl `` print`cat`=~y/47//+2 `` (20) left the perl row unchanged, so < 100%. `45`, `04`, `46` probed the same way (perl 20 each, row stayed 38): all < 100%. The 2-class char-count family is weak now: 4 of its best candidates are dead
 - perl `2+L` 38 (`\n` escape) scored 100%: perl row 68 -> 38
 - C bounds the top key (exact lengths, 2026-10-20, all 100%): Icebox 46, Eric_[EGU] 47, then 50, 53. In C a loop over all tokens costs at least 47 (`main(a){for(;~scanf("%d",&a););printf("%d",a);}` prints the last token in exactly 47), char counting at least 54 (`read` loop). So Icebox C 46 reads a fixed prefix or the whole input once (`read(0,s,99)` byte length, `read(0,&s,4)` first bytes as int): the keys likely differ per language, not one shape
 - per-line class count is ruled out: php `` <?=`grep -c [47]`+2; `` = 21 fits php, but bash `` echo $[`grep -c [47]`+2] `` = 24 would beat bash top 27. Whole-input class count does not fit php (23 via `tr|wc`)
