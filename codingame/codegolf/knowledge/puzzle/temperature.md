@@ -6,7 +6,7 @@ pretty_id `temperature-code-golf`, leaderboard `temperatures-codesize`, io.
 
 - line 1 `N` (0 <= N < 10000), line 2 N ints in [-273, 5526], single spaces
 - print the value with least `|t|`; tie `-t`/`t`: positive wins; N = 0: print `0`
-- output compared line by line, trailing empty lines free, trailing space fails
+- output compared line by line, at most one trailing empty line free (see `knowledge/lang/_shared/output-compare.md`), trailing space fails
 
 ## Input quirks (captured 2026-10-19)
 
