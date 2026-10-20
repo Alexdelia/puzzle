@@ -7,3 +7,4 @@
 - [read-in-order](read-in-order.md): `read f e[f] a` binds names in order, subscript sees the f just read; throwaway last name, verified
 - [missing-command-print](missing-command-print.md): `${d:+echo} $out` prints only if d set, else not-found on stderr; expansion arith error aborts whole loop, verified
 - [word-as-arith-var](word-as-arith-var.md): `LEFT=-1` then `d=LEFT` is -1 in arithmetic; `(x^s)>s` sign test, verified
+- [perl-flood-worklist](perl-flood-worklist.md): perl -0777nE grid flood with growing `for@k` list, 4-arg substr mark+test, `~-@k/4` count, verified
