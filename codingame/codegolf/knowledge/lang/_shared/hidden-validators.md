@@ -8,3 +8,6 @@ User rule (2026-10-20): hardcoding and exploits are allowed and part of the chal
 - CG keeps our best submission per language: a lower score stays hidden behind an existing better row. A probe is informative when it is shorter than our row: the row moves (and commits) iff it scores 100%, so each probe is a 1-bit oracle on a hypothesis about all validators
 - test games (`POST /puzzles/<id>/test-games`) only reach IDE tests (validators answer `INVALID_TESTCASE`)
 - every fact learned (validator count, value ranges, which input keys separate them, answers) goes in the puzzle's "Hidden validators" section so every language reuses it
+- `/progress` score is the best row's score, so a probe's exact score shows only in a language with no row yet (or when it beats the row): spend count probes there, one per language
+- validator count from the score grain (verified blunder-episode-3): a constant-output probe (`print"O(1)"`) gives the share of one answer; there 12% plus other scores all multiples of 4 meant 25 validators for 8 IDE tests. Never assume validators = tests
+- gate probe: a known-good general method whose output is replaced by garbage when an input feature differs from the IDE test of the same answer; the score counts validators sharing that feature
