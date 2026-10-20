@@ -36,6 +36,9 @@ Glyph index `i`, all forms checked against every printable char 32..126:
 - alpha test `ord%32*isalpha - 1` -> -1 for non-letters: only works with a glyph array indexed from the end (`g[-1]` = `?`), not with a substring of the raw row (row ends with `\n`, slice `[-L:0]` is empty)
 - per-row output by regex substitution over `T` (`s/./.../ger` Perl, `gsub` Ruby, `replace(/./g,...)` JS) instead of map+join: Perl 81 with the bulk rewrite
 
+- per-row list slice (Perl, verified 13/13 + CG, 2026-10-20): glyph indices of `T` computed once into `@t`, each row printed as `(/.{$l}/g)[@t]` (27 glyphs, row chomped by `-l`, index `-1` = `?` glyph). Index without uppercasing: `map-1+ord()%32,/(\pL)|./g` (non-letter capture undef -> `ord` 0 -> `-1`) or `map{ord()%32*/\pL/-1}/./g`, same length. `ord%32` without `()` fails (parsed as hash). With `-lnE`: `$l||=$_;$.<4?@t=...:say+(/.{$l}/g)[@t]` = 59 core bytes
+- no `-n` variant `$l=<>` fails: `/.{$l}/` with `$l="4\n"` is not a quantifier
+
 Lengths reached locally (method demos, not cells): Python 113, Perl 81 (system perl 5.42), C 151 (ungolfed, `gets` + `printf("%.*s",L,row+L*i)`).
 
 Leaderboard bounds (2026-10-19): Python 58 (player `Validator_sucks.More.Edge.Random`: likely exploits weak CG validators, unverified), Perl 61, bash 64, Ruby 73. Gap Perl 61 vs 81 unexplained: a shorter legit method may exist (unverified ideas: switches on the `#!perl` line, building a per-row `eval` string).
