@@ -31,6 +31,8 @@ pretty_id `blunder-episode-3`, leaderboard `blunder-episode-3-codesize`, io.
 
 Method (verified local 20/20, tests + validators): two-point growth exponent, first and last measure only.
 
+**CG refuted 2026-10-20: this method scores 88% on CG** (Bash cell, perl one-liner, `int(2k+.9)` = thresholds `x/2+.05`, local 20/20): one hidden validator (likely 1 of 8) misclassified. CG gives no per-validator detail. First/last points alone are not robust enough for CG: cells using it must change method (all points, more points, other thresholds), and local validators do not reproduce the failure, so a validator closer to CG's is needed before trusting any variant.
+
 - `k = log(t_last/t_first) / log(n_last/n_first)`; middle lines ignored, `N` only skipped
 - measured k (8 tests + 12 validators, min..max): `O(1)` -.007..-.001, `O(log n)` .132, `O(n)` .869..0.874, `O(n log n)` 1.20..1.21, `O(n^2)` 1.80..1.81, `O(n^2 log n)` 2.25..2.26, `O(n^3)` 2.90..2.91, `O(2^n)` 5.06..6.17
 - uniform thresholds `x/2 + e`, x = 0..6, any `e` in (.03, .13) separates all 8; `e` .05..0.1 balanced (margin ~.05 in k). class index = count of thresholds passed = `int(2k + 1 - 2e)` capped at 7
