@@ -48,3 +48,5 @@ Rejected:
 - Perl `/.{$l}/` with `$l=<>` unchomped: newline inside the quantifier, 0/13
 - C `scanf("...\n%[^\n]\n")`: `\n` in format skips leading spaces of the first font row; use `%[^\n]%*c`
 - python `*_,t,*R=open(0)`: two starred targets, syntax error
+
+Perl cell reached 73 total bytes incl. `#!perl -nl\n` (CG rank 10, 2026-10-20): `$l||=$_;$.<4?@t=map{ord()%32*/\pL/-1}/./g:print+(/.{$l}/g)[@t]`. `-E` can't go on the shebang (see lang/perl/shebang-no-E.md), so the "59 core" figure excludes switches and `say` -> `print`. Top 61 unexplained (probably no shebang).
