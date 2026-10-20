@@ -81,3 +81,10 @@ Probes spent: 2 of 10 (task puzzle.vox-codei-episode-1.-.1792516443190153296).
 - dropping `$|=1` and the final `1while<>` (-14 B, plan flushed at exit) passes local; unverified on CG (script exits while game still reads)
 - `int$i/$W."\n"` parses as `int(($i/$W)."\n")`: newline lost, use `int($i/$W)."\n"`
 - submit.sh refused (agent cap 90/5h) so no CG row from this task
+
+## Python 501 (2026-10-20, CG-verified 100%, rank 14)
+
+- blast sets need no node filter: `T[i]&r` filters; `T=[o[i]>'#'and S(i)...]` keeps `T[i]and` as the `#` guard
+- plan as a string (`p+='WAIT\n'*2*(o[i]>'.')+f'{i%W} {i//W}\n'`), print `p+'WAIT\n'*3`: trailing blank line accepted
+- `r=1` then `while r:` with `r` rebuilt at the top of the body drops the `if not r:break` (-11 B)
+- still 3x the top (160): no new exploit found this task
