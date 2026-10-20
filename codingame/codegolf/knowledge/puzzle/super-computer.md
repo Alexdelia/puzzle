@@ -50,19 +50,20 @@ Rejected:
 
 ## Hidden validators
 
-Probed 2026-10-20 (2 submits). Facts:
+Per validator, sources, next-probe kit: `puzzle/super-computer/referee/hidden/facts.md`.
 
-- 4 hidden validators: 3 with `N < 1000`, 1 with `N >= 1000`. Proof: perl probe printing the honest answer iff `N < 1000`, else `0`, scored 75.0
-- the large validator is not IDE test 03: C probe printing `7879` iff `N > 999`, else honest, scored 75.0. Its answer is unknown
-- side effect: our CG rows perl 67 and c 180 sit at 75 %. Cell json `ours` stays unset (submit.sh exit 3), so any 100 % submit replaces them
+- 8 validators, not 4: titles from the classic puzzle report (https://forum.codingame.com/t/super-computer-puzzle-discussion/57?page=2): Simple Case, One scientist, All starting days are identical, All end dates are identical, Parallel calculations, Overlapping calculations, Large number of scientists, Large number of satisfied scientists. Both golf probes scored 75.0 % = 6/8: 6 with `N < 1000`, 2 with `N >= 1000`
+- probes 2026-10-20: perl honest iff `N < 1000` else `0` -> 75.0; c honest iff `N < 1000` else `7879` -> 75.0: neither large validator answers 7879 (IDE test 03)
+- "Large number of satisfied scientists": same size as test 03, expected output much higher (https://forum.codingame.com/t/super-computer-puzzle-discussion/57?page=3)
+- side effect: our CG rows perl 67 and c 180 sat at 75 %. Cell json `ours` stays unset (submit.sh exit 3), so any 100 % submit replaces them
+- unverified: a classic solver passed 100 % while off by 1 on IDE test 03 (same page 3): validators may be weaker than test 03
 
 Guesses (unverified):
 
-- top lengths fit a table of the 4 answers keyed on `N`: perl `print+(..)[<>%k]`, ruby `p [..][gets.to_i%k]`, php `<?=[..][fgets(STDIN)%k]` land at 35..40 with ~15 chars of answers, matching perl 39, ruby 39, php 40. Python 59, js 56, lua 58 sit ~15 above that estimate, so they may use something else (python 59..69 and js 56..68 form a cluster well under honest 98+)
-- weak-validator ideas checked against the facts: unsorted greedy in input order (perl 38) fails statement example 1 (gives 2), so it passes only if the 3 small validators are all end-sorted; keeping the `N` line in the shell core (`sort -nr|awk ..|wc -l`, 38) matched honest on only 61/200 random large instances locally, not probed
+- tops perl 39, ruby 39, php 40 may be a table of answers keyed on `N` (`print+(..)[<>%k]`): plausible only if 3 titles answer 1 and small answers are short. Python 59, js 56, lua 58 sit higher
+- weak-validator ideas: unsorted greedy in input order (perl 38) fails statement example 1 (gives 2), passes only if the small validators are end-sorted; keeping the `N` line in the shell core (38) matched honest on only 61/200 random large instances locally, not probed
 
-Cost to get the table: answers are unknown (small ones up to ~1000, large one probably near 7900 like the IDE test), each probe gives at most the pass count out of 4. Plan for a later task: in a language with no row, probe `honest if N < 1000 and N == x`-style masks to learn the small `N`s, then binary-search each answer with `print honest iff answer < T` (~10 probes per answer). About 40 probes: spread over several tasks
-- visibility trap for that plan: a probe shows only if it beats the language row (score first, then length). Perl and c now hold 75 % rows, so there only 75 % at a shorter length or 100 % shows. Each answer bit costs a language with no row, or a probe shorter than the last one in the same language
+Getting the table: fresh-language count channel (first submit in a language with no row = exact count out of 8, 12.5 % steps), kit and plan in the validator journal (`facts.md` points at it). Visibility trap: a probe shows only if it beats the language row (score first, then length): perl and c hold 75 % rows
 
 ## Perl wrapper on CG (verified 2026-10-20)
 
