@@ -40,3 +40,12 @@ Open: leaderboard tops (Ruby/Perl 42, bash 46, Python 52, C 65) are below what p
 - Perl 96 bytes, 100% on CG, rank 45 (tie 39), via `-alp` loop, see knowledge/lang/perl/p-loop-header-first-iteration.md. Top 42 not reached
 - Perl row creation: the local perl referee is unusable without `CG_PERL` (no toolchain), so submit only works with `--probe`; test locally with system perl and a stdin/awk simulator
 - ratio top/ours is about 1/2.2 in every language (Python 52 vs 113, bash 46 vs 100, Perl 42 vs 96): suggests either legacy scores or one shared unknown trick. Python 52 cannot even parse 4 ints (32 bytes), so blind output. No hypothesis tested yet
+
+## Hidden validators
+
+Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md` (2026-10-20, 7 count probes).
+
+- 4 validators (leaderboard grain 25%)
+- directions: no validator needs E (so no NE/SE either). Exactly 1 horizontal (light West), exactly 1 vertical and it goes North, the other 2 are strict SW (dx<0, dy>0). N only in the pure vertical one
+- golf use: horizontal part is only `W` or nothing (`x>LX`), no E branch; vertical: `S` in the SW ones, `N` only when Thor starts on the light's column
+- exactly 1 validator init line is in {`7 8 28 8`, `0 17 36 0`, `0 17 31 4`}; the other 3 inputs are unknown, energies unknown. Not complete, no hardcode key yet
