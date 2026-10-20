@@ -61,3 +61,7 @@ Tops: bash 64, perl 65, php 73, ruby 71, python 89, c 85, javascript 95. Our met
 
 C 101 (#29 on CG, top 85), verified 14/14: `main(c,p,b,i){for(p=2;(c=getchar())>10;)for(i=7;i--;p=b)b=c>>i&1,printf(" %s0"+(b-p?p/2:3),"00 "+b);}`. Format offset `p/2` (1 only when p=2 = first bit) beats `p>1`; assigning b in a comma expression avoids the arg-order trap.
 Rejected: one literal with `\0` separators (" 00 \0 0 ") so `printf("%s0",L+f(p,b))`: needs linear f like `5*p-3*b+3` with 19-byte literal, longer; exhaustive expression search up to length 9 found no f. `%0*d` zero-width header: same length. Gap to 85 unexplained.
+
+### Python cell (2026-10-20)
+
+Python 101 (was 119), 14/14: `p=o=''` / `for c in input():` / ` for b in f'{ord(c):07b}':o+=(b!=p)*(' '+'00 '[b>'0':])+'0';p=b` / `print(o[1:])`. Every bit appends `0`; a boundary prefixes ` `+header, so no ternary (the `b==p and'0'or...` form is 105). Top 89 not found.
