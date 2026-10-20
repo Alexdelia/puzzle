@@ -50,3 +50,13 @@ Rejected:
 - mean instead of median: fails tests 02, 05, 09
 - min over candidate `m` of `sum |y-m|` without sort: O(n^2), validators 04/10 have N about 100000
 - folding the `x` range into the `y` sum (adding `min x - C`, `max x + C` to `Y` keeps the median, adds `range + 2C`): needs min/max anyway, longer
+
+## Hidden validators
+
+Details, sources and open probes: `puzzle/network-cabling/referee/hidden/facts.md` (2026-10-20).
+
+- 12 validators, not 9 (probe grain 1/12: typescript exact-match probe 3/12 = 25 %)
+- 4 recovered exactly (forum 2015 submit-report names quote them, https://forum.codingame.com/t/network-cabling-puzzle-discussion/41?page=4, confirmed by probes): `(0 0)(2 2)(4 4)` -> 8, `(2 3)(1 1)(4 4)` -> 6, `(1 2)(0 0)(2 2)(5 3)` -> 8, `(-5 -3)(-9 2)(9 -4)` -> 24; in `referee/hidden/01 02 03 05`
+- other 8: 4 with N <= 11 (likely N = 1, a large-L one, a dispersed one, one unnamed), 4 with N >= 99999; none in 12..99998
+- no separating key or answers for the 8 unknown: a full hardcode is not possible yet; weak algorithms must still pass N = 1, large coordinates and N about 100000
+- probe rows (sub-100 %, to be replaced by real solutions): php 380, lua 375, typescript 475, ruby 161, perl 209
