@@ -68,3 +68,5 @@ Rejected:
 bash 88 submitted (local referee 16/16): `read L U;head -3>&2` then `f()((($c=${c,},1))||echo $[l=r=R+L>>1] $[u=d=D+U>>1];read -n1 c;f);f`. Loop trick: `knowledge/lang/bash/subshell-loop.md`. `$[l=r=R+L>>1]` shift precedence works, shorter than `(R+L)/2`.
 
 C (2026-10-20): 116 submitted and CG-validated (#4): `main(){system("bash -c 'read L U;sed 3q>&2;f()((($c=${c,},1))||echo $[l=r=R+L>>1] $[u=d=D+U>>1];read -n1 c;f);f'");}` (bash core 87 with `sed 3q>&2`, 1 byte under `head -3>&2`, + 29 wrapper). Top 111 needs core <= 82. Native C measured 165 (4-slot array, `c%13` index, getchar); perl core inside system 138; dash-only core with sed `\L` lowercase 132 (untested on real dash). Ideas not found to save 5: dropping the skip via `_`-prefixed vars fails (spaces and newlines of lines 2-4 trigger echo).
+
+perl (2026-10-20): 96 submitted and CG-validated (#7), native, no wrapper: `$|=($L,$U)=<>=~/\d+/g;<>;<>;<>;{@m=($R+$L>>1,$D+$U>>1);print"@m\n";$$_=$m[/U|D/]for<>=~/./g;redo}` (literal newline in string). Top 81. Letter-var + mid array beat lowercase vars by 7. Not found: how to skip the gates a -n/-p form needs.
