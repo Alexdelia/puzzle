@@ -62,3 +62,13 @@ Verified pieces (local 21/21, CG accepted bash 193 = rank 1):
 - reverse hash built in the same loop: `$g{$G[$i++%20].=$_.$/}=$i%20` - partial (prefix) glyphs also land in `%g` but never collide with full glyphs (different length); RHS is evaluated before the key, both see the old `$i`
 - Horner on both numbers through foreach aliases: `for$a($x,$y){$a=$a*20+$g{join"",map~~<>,1..$h}for 1..<>/$h}` then `eval$x.<>.$y`
 - printer `do{s/^/$G[$r%20]/}while$r/=20` under `-Minteger` (validator result > 2^53 needs exact division), output in `$_` emptied by `($l,$h,$_)=@F` under `-ap`
+
+## Hidden validators
+
+Probed 2026-10-20 (count probes, details and sources in `puzzle/mayan-calculation/referee/hidden/facts.md`):
+
+- `L == H` in all 12 validators: one of the two numbers is enough (`$h` can be `$l`)
+- every validator font is one of the 3 IDE fonts (`.o_` 4x4, `0-9A-J` 1x1, `.X` 11x11)
+- no validator repeats an IDE test's numbers; 11/12 keep the font, operator and digit counts of some IDE test; the odd one is a `.o_`-font multiplication (validator 3, 8, 9 or 10) with other digit counts
+- no exact validator recovered, no hardcode key: hardcoding results is not worth it here
+- perl is installed in the php, ruby, lua and typescript CG containers (probe wrappers called it)
