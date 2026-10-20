@@ -78,3 +78,5 @@ python (2026-10-20): 120 submitted and CG-validated (#5, top 114): `import os;os
 ## Hidden validators
 
 7 validators (score step 14.3), not recovered: 5 have a `(W,H)` no IDE test has, 1 has a test size with another N, 1 has a test `(W,H,N)` (50x50 N6 or 100x100 N7) with another start; no validator init equals a test init; forum claim of a "Lesser jumps" validator 40x60 start 38,38 bomb 6,6 is false. Hardcoding is out of reach: write a bisection. Details, probes and sources: `puzzle/shadows-of-the-knight-episode-1/referee/hidden/facts.md`.
+
+javascript (2026-10-20): 153 submitted (#20, top 114): `for(readline(readline(readline([L,U]=readline().split` `))),U*=M=2e4,R=D=0;;){print(x=(+L+R)%M>>1,y=(D+U)/M>>1);p=x+y*M;for(c of readline())eval(c+"=p")}` (packed p variant; nested `readline(readline(...))` evaluates args first, skips lines inside for-init). `+L` needed (L still a string). 4-slot `charCodeAt()%5` array variant 169. Child_process wrapper overhead >50: no.
