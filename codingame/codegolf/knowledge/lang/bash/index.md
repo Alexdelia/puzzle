@@ -14,3 +14,6 @@
 - [perl-column-stream](perl-column-stream.md): perl -0ne one-liner tricks: s///ge RLE transpose, \31 octal in regex, bool index, float % chr, verified on music-scores
 - [source-self-loop](source-self-loop.md): `;. $0` endless loop for 5 bytes, 4 under `f()(..;f);f`, verified on CG
 - [pipeline-argmax](pipeline-argmax.md): `sed 8q|nl -v0 -w1|rev|sort|tail -c2` argmax of one-char lines, `split --filter` lazy trap, verified
+- [init-slurp-head](init-slurp-head.md): `a=($(head -4))` swallows init lines + first turn line of an interactive puzzle in 15 bytes, verified
+- [response-word-as-arith-var](response-word-as-arith-var.md): `COLDER=1` makes `r` ("WARMER"/"COLDER") a 0/1 in `(( ))`, `r^q>t` precedence, ternary-else parens, `--s/2`, verified
+- [loop-body-function-stale](loop-body-function-stale.md): `e(){ echo;read;update;}` reused for loop and final jump, stale update harmless, verified
