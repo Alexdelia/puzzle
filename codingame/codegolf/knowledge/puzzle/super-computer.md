@@ -68,3 +68,7 @@ Getting the table: fresh-language count channel (first submit in a language with
 ## Perl wrapper on CG (verified 2026-10-20)
 
 - `exec q(read;...)` at 51 passes locally (local sh = bash) but CG did not reach 100 %: CG `sh` is dash: verified locally with dash 0.5.13, `read;` prints `read: arg count` and consumes nothing, so the `N` line enters the sort and the answer is +1 on validators 01 02 04-09 12 (tests 01 02 still pass, local 03 +1). Local referee cannot catch it: local `/bin/sh` is bash (launcher gap, see referee journal 1792518133483410708). `exec q(read a;sort -nr|awk '$1+$2>e&&e?0:e=$1'|wc -l)` 53 bytes passes CG at 100 %, rank 5 (top 39). Same trap for any wrapper (ruby `exec`, c `system`, python `os.system`): use `read a;`
+
+## Wrapper core without `read a;` (verified 2026-10-20, python)
+
+- awk pattern `$1+$2>e&&e?0:$2&&e=$1` skips the `N` line (no `$2`) instead of `read a;`: core `sort -nr|awk '$1+$2>e&&e?0:$2&&e=$1'|wc -l` is 3 bytes shorter than `read a;`+old pattern and dash-proof. Python `import os;os.system("<core>")` = 65 passes 15/15 local, CG row 65 (rank 7, top 59). Same core applies to perl `exec q()`, ruby `exec""`, c `system("")` wrappers
