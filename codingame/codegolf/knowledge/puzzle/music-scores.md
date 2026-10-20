@@ -66,3 +66,10 @@ Rejected:
 - center index: `71-(f+g-20-P/2)/P%7` (f+g = 2*center row of head-edge column), `P/2` coefficient may be 0.2..0.9 of P
 - min-span over ALL note columns as head-edge picker FAILS test 10 (hollow thin heads leave single-pixel columns); compare only first and last column of the note
 - C port of the perl method with these hardcodes is ~333 bytes (leader 202): plateau for this method, generic (validator-passing) version is ~85 bytes longer
+
+## Perl golf notes (verified, perl cell 2026-10-20)
+
+- `-0n` slurp port of the bash method: 321 B general (22/22), rank 8 on CG; `($S)=@c=grep/Q/,@c` drops blank margin columns so the note flag is just `$_ ne$S`
+- `$c[$i++%$_]` inside `s///ge` breaks (`$_` is not the original string there): copy width first
+- hardcoded P/S (see above) saves only 13 B in perl (310)
+- dead ends: centroid (mean diff row) of the mid column t[5] as head center fails test 10 (P=9: hollow thin heads leave 1-3 diff pixels) and low C when cut; head-edge column pick is required
