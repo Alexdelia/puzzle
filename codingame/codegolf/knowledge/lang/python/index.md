@@ -1,1 +1,2 @@
 - [alias-input](alias-input.md) - `I=input`, split/int, >> precedence, ^ for bool compare
+- [linear-regression](linear-regression.md) - statistics.linear_regression()[0] slope, N token skipped via a[1::2],a[2::2]
