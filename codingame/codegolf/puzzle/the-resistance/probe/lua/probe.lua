@@ -30,5 +30,5 @@ for i=0,L do
   end
 end
 local H=d[L]
-print((H<65 or ({[1073741824]=1,[1054084064]=1})[H]) and H or -1)
+print((H<65 or H==1073741824) and H or -1)
 --x
