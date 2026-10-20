@@ -67,3 +67,4 @@ Probes 2026-10-20 (6 of 10 spent; python row 465 -> 151 -> 120 -> 116, perl row 
 - submit.sh requires local validators (N up to 5, containment, cyclic overlaps): the input-order fold must go through `submit.sh --probe`
 
 - Perl 132 (CG accepted 2026-10-20, rank 12): `#!perl -a0`, `sub f{my$s=pop;(sort{$a-$b}map{my$t=$_;$s=~$t?():map{$u=$s.substr$t,$_;$u=~$t?f($u):()}0..9}@F)[0]||length$s}` then `print f()-1`; `my$t` needed (recursion clobbers), `$u` global is fine, empty list falls to `length$s`
+- Ruby 101 (local 6/7, CG untested, submit refused by quota 2026-10-20): `s=''` / `$<.read.split[1..].each{|t|s=""if t[s];s+=t[t.size.downto(0).find{|k|(s+t[k..])[t]}..]}` / `p s.size`
