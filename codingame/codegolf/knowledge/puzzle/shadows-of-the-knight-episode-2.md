@@ -25,3 +25,25 @@ pretty_id `shadows-of-the-knight-episode-2`, leaderboard `shadows-of-the-knight-
 
 - `solution/python/main.py` 1793 chars, 100% on CG: per axis interval, 3-ply minimax over a few candidate jumps; second axis starts with x fixed and uses the exact half-plane `2B.(P-Q) < |P|^2-|Q|^2` with the known x
 - once one coordinate is known, any jump (both coordinates changing) still gives a 1D threshold on the other: no wasted transition jump needed
+
+## Shortest known
+
+Method (verified: local referee 46/46 tests+validators, python 277 chars; failure probabilities from an exact per-axis sim over every bomb cell): per-axis reflection bisection, x then y, no minimax.
+
+- loop `for i in x,y`: `l=0`, `h=S-1` (S = W or H), `while l<h`: jump, read, update; after the loop set coordinate i to `l`, print, read (and ignore) one line. For x this is one extra "move onto the known column" jump (always spent, even if already there); for y the same print is the winning jump. No special transition code, response after a jump always belongs to the axis that moved
+- jump: `q = l+h-p` (p = current coordinate on axis i). If `q` outside `0..S-1`: `q = (p + S*(q>0)) >> 1` (halfway from p to the edge it overshot, `p/2` or `(p+S)/2`). Then `q -= q==p` (reflection landed on p: p is the interval center)
+- update, `s = p+q`, response first letter: `S` -> `l=h=s/2`; else if `(r=='W') == (q>p)` -> `l = s/2+1` (floor); else `h = (s-1)/2` (floor). No `max`/`min` with the old bounds needed
+- input: line 2 (`N`) ignored, start `X0 Y0` needed (it is p), line 4 `UNKNOWN` read and dropped before the loop
+- needs: integer floor division (or `>>1`, all values non-negative), 2-element mutable position (array or two vars + axis switch), first-char compare of the response. No regex, eval, big ints
+
+Fail probability (x+y jumps > N): budgets are tight, no simple rule is worst-case safe (1000x1000: 14+14 > 27 for every rule tried). This method: test 7 (1000x1000) 0.65% uniform bombs / 0.2% bombs within 16 of edges, test 8 (8000x8000) 0.16% / 0%, other tests 0. So one submit fails with ~1% chance: resubmit if a validator fails on jump count.
+
+Variants measured (sum of fail prob over 8 configs, uniform + edge-bomb, lower is better; method above = 0.010):
+
+- out-of-range rule: `(l+h)/2 - overshoot/2` (C) and `(clamp(q)+p+1)/2` (D1) also ~0.010-0.018; `(clamp(q)+p)/2` 0.014; jump to center `(l+h)/2` 0.35 (62-80% fail on 8000 edge bombs with loose bounds); plain clamp to edge: 24+23 jumps worst case on 8000, hopeless; mirror `abs(q)` 0.65 fail on 8000 edge bombs
+- fix of `q==p`: `q-1` = `q^1` 0.010 < `q+1` 0.014; no fix 2.3 (fails small grids)
+- merging the q==p fix into the out-of-range branch: 0.25-1.0, rejected
+- inclusive bounds (`l=ceil(s/2)`, `h=floor(s/2)`, SAME falls in a branch for free): 0.68-0.78 (8000 edge bombs 62%), rejected: interval stops shrinking
+- SAME one-sided (only one bound): 0.33-0.40 with max/min, 2.8-3.1 without, rejected. SAME must set both bounds
+- `max(l, ...)`/`min(h, ...)` on the bound update: no gain (0.068 vs 0.014 with the D rule), drop it
+- y first: 0.038 vs 0.010, x first
