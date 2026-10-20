@@ -42,3 +42,5 @@ Constraints that shape the method:
 - answers need no memo for speed (repeat queries are rare on big lakes), the `g[i]=k` mark is about length, not speed
 
 Rejected (Python): token split + set of `O` indices with per-query set copy (230); set-frontier flood on complex keys (building the set alone is ~65 chars); dict `pop(i,0)` mark (needs `dict(enumerate(...))`, +13); unconditional one-line mark `k+=[...]*('O'==g[i]);g[i]=k` (marks land beside the lake, a later land query reads the lake size); slicing queries as `r[int(H):]` (the `N` line evals to an index and prints an extra line)
+
+Perl 158 (local 17/17, CG rank 3, 2026-10-20), `-ln0`: strip header + `$w=L+1` in one `s`, `@g=split//`, `while(/(.+) (.+)/g)` over queries, `for(@{$k=[$s=$1+$2*$w]})` growing list, mark `$g[$_]=$k` when `$g[$_]=~O`, `print@{$g[$s]}>>2` (land '#' = symbolic empty array = 0, no pad needed: out of range cells are undef). Rejected: regex-spread flood on the string (`o(.{L})\KO|O(?=.{L}o)`, lookbehind capped at 255 so use `\K`; needs /s): correct but times out on 360k lake and 1M grid.
