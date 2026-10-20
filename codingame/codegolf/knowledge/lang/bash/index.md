@@ -12,3 +12,5 @@
 - [awk-big-number-print](awk-big-number-print.md): mawk print of >=2^31 gives exponent form, use printf"%.0f"; n from header as sign weight beats array+END, verified
 - [perl-sort-slurp-min](perl-sort-slurp-min.md): `perl -0aE` slurp, shift N, sort comparator min, `say 0+(..)[0]` empty fallback; abs precedence trap, verified
 - [perl-column-stream](perl-column-stream.md): perl -0ne one-liner tricks: s///ge RLE transpose, \31 octal in regex, bool index, float % chr, verified on music-scores
+- [source-self-loop](source-self-loop.md): `;. $0` endless loop for 5 bytes, 4 under `f()(..;f);f`, verified on CG
+- [pipeline-argmax](pipeline-argmax.md): `sed 8q|nl -v0 -w1|rev|sort|tail -c2` argmax of one-char lines, `split --filter` lazy trap, verified
