@@ -19,6 +19,12 @@ cell=$(ensure_status cell "$puzzle" "$lang")
 
 length=$("$tool_dir/count.sh" "$solution")
 ours=$(jq -r '.ours // empty' "$cell")
+recent_submits=$(awk -F'\t' -v since="$(date -u -d '5 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
+	'$1 >= since && $3 == "POST" && $4 ~ /\/submissions$/' "$state/cg.log" 2>/dev/null | wc -l)
+if ((recent_submits >= submit_cap_5h)); then
+	echo "submit.sh: refused, $recent_submits agent submits in the last 5 h (cap $submit_cap_5h, rest kept for the user): note it in the journal and move on" >&2
+	exit 1
+fi
 if [[ -n $probe ]]; then
 	task_submits=$(awk -F'\t' -v id="${CG_TASK_ID:--}" '$2 == id && $3 == "POST" && $4 ~ /\/submissions$/' "$state/cg.log" 2>/dev/null | wc -l)
 	if ((task_submits >= probe_submits_per_task)); then

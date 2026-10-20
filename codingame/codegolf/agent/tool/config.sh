@@ -7,6 +7,7 @@ cell_escalate_after_plateaus=1
 task_wall_seconds=3600
 task_budget_usd=2.5
 probe_submits_per_task=10
+submit_cap_5h=90
 task_memory_max=4G
 workers_memory_max=10G
 weekly_pace_margin_percent=0
