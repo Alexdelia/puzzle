@@ -31,3 +31,13 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 ## Shortest known
 
 - ours: Python 1952 (generic planner, not golfed hard). Top Python 57 (Waffle3z): far shorter approach exists, unknown
+- short method NOT FOUND yet (2 search sessions). Tops: Perl 37, Ruby 48, bash 51, JS 52, Python 57: a 10-20 char formula over one or two input fields, likely power 4 constant or near
+- facts that bound the method (verified on CG): answers queue, one per input line, so answering every line (surface lines too) makes turn t use line t (lag N+1: 23 on test 01, 19 on test 02); Perl needs `$|=1;` (block-buffered stdout, timeout turn 1 without it); Y>=3000 is a loss ("lost in outer space": `0 4` forever dies frame 107 on test 02)
+- length hint: `$|=1;print int($_/D-C)," 4\n"while<>` is 37-38 chars, and Perl `$_` numeric = first field (X, surface x, or N), so rotate=f(X) with power 4 fits the Perl top exactly. The sim says no such constant pair lands both tests (below)
+- rejected in the sim (`sim.c` in scratch of journals ...1792440302536411339 and ...1792441435385604734; lag on and off; must land tests 01 and 02):
+  - rotate trunc((X-C)/D), every C 0..6999, D 1..400, power 3 or 4 const (lag on); floor variant, C step 5 (lag on and off)
+  - rotate X/D-C, X%M-C, (X/D)%M-C, C-(X/D)%M, power 3|4 const
+  - rotate (aX+bY-C)/D, a,b in -2..2; power const 4, linear in X,Y, or X,Y threshold 3|4 (random, ~1e8 tries)
+  - rotate (a hs+b vs+c Y/100-C)/D, power 4 or vs/Y threshold 3|4 (random)
+  - prior session: (x+k f-C)/D+(a h+b v)/E, power threshold on v and y (80M random)
+- untested next: several answers per line (`print"..."x k` bursts = open-loop schedule keyed on surface lines), Perl regex captures surviving failed matches (surface vs turn lines), per-word answers (`$/=$"`), rotate keyed on fuel or `$.`. Or the sim misses a CG rule: run the best sim near-miss on CG before trusting sim rejections
