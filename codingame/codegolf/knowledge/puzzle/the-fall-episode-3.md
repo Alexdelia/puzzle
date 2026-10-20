@@ -77,3 +77,5 @@ Guesses not tested (next worker, each needs probes; count probes work in any lan
 - extracting the actual answers needs per-validator bits: predicate probes keyed on W ("fail if W==11 and first command != ..."), 1 bit per probe, too slow at 10 submits per task; plan a multi-task campaign or ask the user for more probes
 - answers as one burst printed on the first line (CG queues answers one per turn, see mars-lander-episode-3) would remove the turn loop: unverified on this puzzle
 
+
+Probe 2026-10-20 (perl): pure `WAIT` loop scores 0%: every hidden validator needs at least one rotation (or rock avoidance). A tops-style "print nothing special" cannot pass any.
