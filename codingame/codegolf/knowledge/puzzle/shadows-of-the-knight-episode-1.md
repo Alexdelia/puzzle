@@ -64,3 +64,5 @@ Rejected:
 - python list `"RDLU".find(c)` + 4-slot array: 152 vs 132
 - python packed `p`: 156 vs 132
 - python tuple per letter `exec(c+'=p')` with `R[0]+L[0]`: 146
+
+bash 88 submitted (local referee 16/16): `read L U;head -3>&2` then `f()((($c=${c,},1))||echo $[l=r=R+L>>1] $[u=d=D+U>>1];read -n1 c;f);f`. Loop trick: `knowledge/lang/bash/subshell-loop.md`. `$[l=r=R+L>>1]` shift precedence works, shorter than `(R+L)/2`.
