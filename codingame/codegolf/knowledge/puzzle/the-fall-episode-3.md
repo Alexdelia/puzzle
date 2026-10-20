@@ -30,3 +30,27 @@ pretty_id `the-fall-episode-3`, leaderboard `the-fall-episode-3-codesize`, inter
 
 - rotating a locked/0/Indy/rock/exit cell or a malformed command: referee loses with an error; CG behavior not probed (could be ignored there)
 - swap (Indy and rock exchanging cells in one move) counts as no collision in the referee; not observed on CG
+
+## Shortest known
+
+General method (passes local 4 tests + 7 validators, python 869 B, 2026-10-20). Tops (python 117, perl/ruby 122, bash 129, js/php 139) are far below any solver: almost surely hardcoded answers keyed on the hidden CG validators (unverified, same pattern as `dwarfs-standing-on-the-shoulders-of-giants`, `mars-lander-episode-3`). Local validators are synthetic (mirrored + spawn-shifted), so `submit.sh` refuses such hardcodes; probing hidden validators by submit is the user's decision. The general method gives a first submission, not rank 1.
+
+Method: replan every turn with a plain DFS over turns, return the first action of the first plan that reaches the exit.
+
+- state: grid, Indy (cell, entry side), visible rocks. Future spawns are unknown: replanning each turn plus candidate order below is enough on all 11 local cases
+- candidates per turn, in this order: rotate RIGHT then LEFT each of: Indy's next cell, the cell after it, each rock's next cell; WAIT last. Skip cells with type <= 1 (covers locked negatives, 0, 1), Indy's cell, rock cells, exit cell. Duplicates harmless
+- candidate cells come from the path WITHOUT checking that the cell accepts the entry (the cell to fix does not accept yet)
+- simulate: rotate, Indy step (must have opening on entry side), win if Indy enters exit cell (before any rock check), rocks that share a cell in the current state vanish without moving, other rocks step (gone if no opening), Indy loses if any moved rock is in his new cell, recurse
+- table per (type, entry side): exit direction, or "opening without exit" (type 4 from LEFT, 5 from RIGHT, 6 from TOP), or "no opening". The middle state matters: a stuck rock stays one turn and crushes Indy entering it (test 04 turn 24). Encode exit direction d so the new entry side equals d: 0 = down (enter TOP), 1 = right (enter LEFT), 2 = left (enter RIGHT); entry side from input word = `len(word)-3`
+- no memo and no depth limit needed (Indy never makes a U-turn, so depth <= cells). Python without memo: worst game 60 ms local total; a memo (set of str(state)) makes it ~3x faster on 01 if a hidden case is slow
+- golf shapes that help: flat grid with a 0 sentinel column (stride W+1) and a 0 padding row, so left/right/down moves are `k-1`, `k+1`, `k+W` with no bounds check; rotation by a 28-char lookup string (RIGHT row + LEFT row, `ord-48`), exit table as one 42-char digit string indexed `abs(t)*3+side`; `"RLIEGFHTT"[D::2]` gives RIGHT/LEFT
+- language features: recursion, list copy (or rotate/undo in place), no regex/eval/bigints
+
+Rejected (each fails local suite):
+
+- WAIT first in candidate order: 02 + mirror no plan, 04 crushed by an unseen later rock
+- RIGHT only (no LEFT): 03, validators 02/07 no plan
+- only Indy's path as candidates (no rock cells): 01/02 + mirrors (rocks must be blocked by rotating their next cell)
+- only Indy's next cell: fails 01/02 (double rotations need 2 cells ahead)
+- dropping rocks that share a cell after moving instead of before: 02 turn 7 (two rocks meeting above Indy's next cell)
+- stuck rock dropped at once: 04 turn 24
