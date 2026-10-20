@@ -53,3 +53,8 @@ Rejected:
 - sed `:a;s/.$//p;ta` (print after the cut): drops full numbers that are no proper prefix of another, 6/15
 - sed `ta;1d` at end instead of `1d` first: N line already printed by the loop, 0/15
 - counting suffixes instead (`s/.//`, `rev`): suffix count differs from prefix count
+
+## Perl (2026-10-20)
+
+- native 37, CG row #11: `<>;s/./$h{$`.$&}++/ge for<>;print~~%h` (see `lang/perl/prefix-set-subst.md`); top 31 unexplained, not reached
+- hardcoding 5 test answers keyed on N cannot fit 31 (tests 2 and 3 both have N=2 with answers 20 and 10) and local validators differ anyway; not probed
