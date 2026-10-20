@@ -25,6 +25,10 @@ Why short: no per-run length arithmetic, no lambda, no state. Needs: global rege
 Measured: Perl 76 with `#!perl -p` shebang (perl honors switches on the `#!` line), 78 with `$_=<>`/`print`; 14/14 with local perl (not the official referee, no `CG_PERL` in shell).
 Newline: `.` does not match `\n`, so the input's final newline survives untouched to the end of output, free.
 
+One-pass beats the two-pass: `s/(0)+|1+/ 0$1 $&/g` (the group holds `0` only on zero runs, stays empty on one runs, so the header is `0` + group), then translate and drop the first char. Perl: 11 bytes under the two-pass, verified 14/14 (bash cell, `perl -pe`, 67). Same pattern in any flavor where an unmatched group substitutes as empty (`\1` in Ruby/PHP/sed, `$1` in JS), unverified there.
+Perl bit step: `s/./sprintf"%v07b",$&/ge` (see `knowledge/lang/perl/sprintf-vector-flag.md`).
+Perl core with both: 57 bytes. Bash top 64 and perl top 65 suggest a 54-byte perl core; not found (tries listed in the bash cell journal).
+
 Variant rejected: one-pass backref `(.)\1*` -> `" 0".0 x!$1." ".0 x length$&` with `/e`: Perl 85, longer.
 Variant rejected: one-pass `(.)\1*` -> ` 0$1 $&` then fix the `01 ` header: +3 over two-pass.
 
