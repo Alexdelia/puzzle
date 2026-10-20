@@ -7,3 +7,6 @@
 - [clear-underscore-autosplit](clear-underscore-autosplit.md): `-ap` + `($x,$y,$_)=@F` reads header and empties `$_` for `-p` output, `s/^/X/` prepend, verified
 - [integer-division](integer-division.md): exact IV `/`, `-Minteger` reaches eval strings, float `/20` breaks above 2^53, verified
 - [slurp-regex-columns](slurp-regex-columns.md): `-0p` slurp, `/ (.+)/g` column extraction, `$_=answer` as output, `sort{$a-$b}`, local-tested
+- [shebang-no-M](shebang-no-M.md): `-M` on the `#!` line dies "Too late"; use `use integer;` or exact division `($r-$r%20)/20`, verified
+- [sprintf-vector-join](sprintf-vector-join.md): `sprintf"%*v07b","",$_` whole-string 7-bit binary with empty join (needs -l), `chop` vs `s/.//` for a trailing separator, verified
+- [shebang-no-E](shebang-no-E.md): `#!perl -anE` refused, use `-anl` + print; hash slice with undef index harmless, array slice clobbers [0], verified
