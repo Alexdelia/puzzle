@@ -57,3 +57,5 @@ Rejected:
 - last two points: exponent noisy (log test gives 14.5)
 - middle and last: `O(1)` .08..0.14 vs `O(log n)` .10..0.11 overlap
 - linear contiguous mapping with step != 2 or the inverse `c/(k+d)`: wider index range, no gain (search: journal scratch `srch.py`)
+
+All-points regression on CG (verified 2026-10-20): Perl 180 passes CG 100% (local 26/26). `-n`, `/ /&&` skips header, `($x,$y)=map(log,split)`, sums a,b,c,d,n, `}{print` after the loop, index `2*($n*$c-$a*$b)/($n*$d-$a*$a)+.9` into the table, `//"2^n"`. Sub-80 tops (Perl 79) cannot be a regression: table alone is ~65 bytes.
