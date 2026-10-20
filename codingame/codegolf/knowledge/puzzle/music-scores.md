@@ -48,3 +48,12 @@ Rejected:
 - mid column top/bottom diff as center: hollow border merged into a line (test 10)
 - group by black count > staff count, or by diff count > line thickness: hollow heads split into several groups
 - no ledger handling: notes merge in tests 11, 12, validators 9, 10
+
+## Golf facts found in bash/perl (verified on 12 tests + 10 validators)
+
+- a note run (columns flagged non-staff after ledger cut) is as wide as the head: 22 (spacing 24), 36 (34), 10 (9); the tail sits inside the end columns, so there is no tail-only column
+- of the two end columns of a run, the head-edge one has fewer black pixels than the tail one (count of the char, no diff needed): picks the head side without a diff-extent compare
+- run columns can be processed as a stream: push flagged columns, on the first unflagged one process and clear (no flag string, no regex over positions); a note touching the image edge is not exercised by any test
+- the head center column for the H/Q test can be a fixed index in the run (5 passes 22/22, 3 fails): heads are P-2 wide; fixed index for the edge-diff column fails (tail wider on P=34, hollow on P=9)
+- letter index without lookup: `chr(71-(half_steps+1.4)%7)` with `half_steps=(2*center-2*top_of_line1)/spacing`, float `%` truncates, any offset in 1.2..1.7 passes 22/22 (1.0 fails 6), it absorbs line thickness and the cut C head
+- tail column near end sits within 0.12 spacing of the head center, but the tail direction is not derivable from the stem convention (test 9 has short tails)
