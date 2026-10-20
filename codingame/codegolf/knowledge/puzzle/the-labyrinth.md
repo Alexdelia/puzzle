@@ -55,7 +55,7 @@ Lengths reached: method A python 341, method B python 467, both ungolfed proofs,
 
 Rejected (each fails local validators, so `submit.sh` refuses it; CG validators may be milder, unverified):
 
-- goal = nearest of `?` or `C` (no explore-all): passes all 8 tests, fails validators 02, 07 (return over the known part too long). Saves the fallback, about 10 chars in python
+- goal = nearest of `?` or `C` (no explore-all): passes all 8 tests, fails validators 02, 07 (return over the known part too long). SUPERSEDED: synthetic validators only, passes CG 100% (see Hidden validators). Saves the fallback, about 10 chars in python
 - `C` passable during exploration (flood class `[.TC]`, also drops the Rick-cell reset): passes all 8 tests, fails validator 02 (C on a corridor, alarm starts mid-exploration)
 - sequential flood subs without layering: fails 07, 08, validator 02
 - `?` passable in forward BFS: index out of range on unscanned border, and useless (`?` is always the goal when reachable)
@@ -64,3 +64,12 @@ Rejected (each fails local validators, so `submit.sh` refuses it; CG validators 
 ## Ruby (cell worker 2026-10-20)
 
 - ruby 249 via `exec"perl -anE'..'"` (accepted), native ruby flood 275; top 197 unexplained, no exploit found. Ruby lookbehind `(?<=X|X.{#{c}})` with different-length alternatives is legal (perl 5.34 bug does not apply to native ruby)
+
+## Hidden validators
+
+Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`, details and probe log in `facts.md`): 8 validators = the 8 IDE tests flipped (01, 04 rot180; 02 flipY; 03, 05-08 flipX), same A, same size, mazes checked cell by cell on CG. `submit.sh` now gates on tests + hidden instead of the synthetic `validators/`.
+
+- explore-all NOT needed on CG: goal = nearest of `?` or `C` until Rick stands on `C`, then `T`, passes 100% (C 272 probe). Saves the phase-2 fallback (perl `||y/C/X/`) but needs the goal set to switch from `?C` to `T` only (keeping `?` in the goal after `C` fails tests 04-08)
+- validator 02 = test 2 upside down: open cells of row 0 become last row 14 with no `#` border (flat string with `\n` separator is safe; index arithmetic past the last row is not)
+- key: `A` alone separates the 8 validators (7 21 39 68 42 33 70 71); move hardcodes are not shorter than the flood
+- perl is on PATH in the C, C++, JavaScript/TypeScript (`spawnSync`), PHP (`system`), Lua (`os.execute`), Go (`exec.Command`), Rust (`Command`) boxes (all verified by 100% probes 2026-10-20)
