@@ -7,7 +7,7 @@ pretty_id `blunder-episode-3`, leaderboard `blunder-episode-3-codesize`, io.
 - input: `N`, then `N` lines `num t`, `num` unique ascending
 - output one line, exact string among `O(1)`, `O(log n)`, `O(n)`, `O(n log n)`, `O(n^2)`, `O(n^2 log n)`, `O(n^3)`, `O(2^n)`
 - 8 tests, one per class, in that order (test 01 = `O(1)` ... test 08 = `O(2^n)`); hidden validators: reference scores 100% on submit, their class order unverified
-- t values noisy; log-space least squares (variance of `log t - log f(n)` per class, pick min) passes all 8 tests and our 12 validators
+- t values noisy; log-space least squares (variance of `log t - log f(n)` per class, pick min) passes all 8 tests and our 18 validators
 
 ## Traps vs statement
 
@@ -29,19 +29,25 @@ pretty_id `blunder-episode-3`, leaderboard `blunder-episode-3-codesize`, io.
 
 ## Shortest known
 
-Method (verified local 20/20, tests + validators): two-point growth exponent, first and last measure only.
+Method (local 20/20 before validators 13-18, now 20/26): two-point growth exponent, first and last measure only.
 
-**CG refuted 2026-10-20: this method scores 88% on CG** (Bash cell, perl one-liner, `int(2k+.9)` = thresholds `x/2+.05`, local 20/20): one hidden validator (likely 1 of 8) misclassified. CG gives no per-validator detail. First/last points alone are not robust enough for CG: cells using it must change method (all points, more points, other thresholds), and local validators do not reproduce the failure, so a validator closer to CG's is needed before trusting any variant.
+**CG refuted 2026-10-20: this method scores 88% on CG** (Bash cell, perl one-liner, `int(2k+.9)` = thresholds `x/2+.05`, local 20/20): one hidden validator (likely 1 of 8) misclassified. CG gives no per-validator detail. First/last points alone are not robust enough for CG: cells using it must change method.
+
+Local validators 13-18 (added 2026-10-20) reproduce the failure: contiguous subranges of the real CG tests (O(1) n 3410..9910, O(log n) 3105..4990, O(n) 7705..9405, O(n log n) 8134..9734, O(n^2) 6234..7134, O(n^2 log n) 159..224), each picked so the reference (log-space variance) wins with margin >= 2x and the two-point exponent misclassifies; the two-point bash 116 now fails 6/26 locally. Which CG validator actually failed stays unknown (CG gives no per-validator detail, 88% = 7/8): local 26/26 is necessary, not proof of CG 100%.
+
+Endpoint noise: at full test ranges the two-point method needs a 40-50% error on the first or last t to flip (O(1) 1.49x, O(log n) 1.76x, O(n^2 log n) 1.55x, O(n^3) 1.77x); real test 02 first point already sits +30% above the fit.
+
+All-points alternative (verified local 26/26, unverified on CG): least-squares slope k of `log t` on `log n` over all measures, measured k per class: O(1) -.003..0.011, O(log n) .097..0.125, O(n) .867..1.02, O(n log n) 1.116..1.17, O(n^2) 1.793..2.027, O(n^2 log n) 2.269..2.463, O(n^3) 2.949..2.95, O(2^n) 5.62..6.35. Index `int(2k + c)` (capped at 7) is correct on all 26 for c in [.806, .946); .9 inside, margin ~.05 each side.
 
 - `k = log(t_last/t_first) / log(n_last/n_first)`; middle lines ignored, `N` only skipped
-- measured k (8 tests + 12 validators, min..max): `O(1)` -.007..-.001, `O(log n)` .132, `O(n)` .869..0.874, `O(n log n)` 1.20..1.21, `O(n^2)` 1.80..1.81, `O(n^2 log n)` 2.25..2.26, `O(n^3)` 2.90..2.91, `O(2^n)` 5.06..6.17
-- uniform thresholds `x/2 + e`, x = 0..6, any `e` in (.03, .13) separates all 8; `e` .05..0.1 balanced (margin ~.05 in k). class index = count of thresholds passed = `int(2k + 1 - 2e)` capped at 7
+- measured k (8 tests + validators 01-12, min..max): `O(1)` -.007..-.001, `O(log n)` .132, `O(n)` .869..0.874, `O(n log n)` 1.20..1.21, `O(n^2)` 1.80..1.81, `O(n^2 log n)` 2.25..2.26, `O(n^3)` 2.90..2.91, `O(2^n)` 5.06..6.17
+- uniform thresholds `x/2 + e`, x = 0..6, any `e` in (.03, .13) separated tests + validators 01-12 (not 13-18); `e` .05..0.1 balanced (margin ~.05 in k). class index = count of thresholds passed = `int(2k + 1 - 2e)` capped at 7
 - no log needed: index = count of x in 0..6 with `t_last/t_first > (n_last/n_first)^(x/2+.05)`; cap at 7 comes free (2^n passes all 7)
 - with log: `int(2*k+.9)`, 2^n gives 10..13 so needs cap (`min(7,..)`, Python `[:int(2*k+1.9)][-1]`, JS `arr[i]||"2^n"`)
 - output table in class order, index 0..7: `1,log n,n,n log n,n^2,n^2 log n,n^3,2^n`, wrap in `O(` `)`
 - needs: float division and pow (or log); integer-only langs (bash) need awk/bc or a fixed-point trick
 
-Lengths reached: Python 156 (count form, no import), 160 (log form). Top Python 97: ~60 below this method.
+Lengths reached: Python 156 (count form, no import), 160 (log form), both two-point, so both now fail validators 13-18. Top Python 97: ~60 below this method.
 
 Unverified suspicion: 97-ish tops hash test features (N, first line) into the table; input reading + table + print already cost ~83 in Python, leaving ~14 for the class pick. N alone fails (3 tests have N=100); first line `n t` differs per test (`10 200000`, `5 552970`, `5 341`, `34 988`, `34 89`, `34 31261`, `11 51`, `2 19`). Such a hash only passes if hidden validators share those features; our generated validators would reject it, and `submit.sh` requires them. Not tried.
 
