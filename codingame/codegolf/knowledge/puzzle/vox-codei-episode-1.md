@@ -25,25 +25,26 @@ pretty_id `vox-codei-episode-1`, leaderboard `vox-codei-episode-1-codesize`, int
 - first turn: 1000 ms (0.95 s pass, 1.05 s timeout)
 - next turns: ~140-150 ms (0.135 pass, 0.14 once fail once pass, 0.16 fail); statement says 100 ms. Referee uses 140 ms
 
-## Shortest known (algorithm, verified on local referee 2026-10-20, 25/25)
+## Shortest known (algorithm, CG-verified 2026-10-20)
 
-Method: offline DFS over bomb cells at turn 1, then replay the plan.
+Best method: offline random-restart search at turn 1, then replay the plan. Python 548 (ungolfed-ish) = 100% on CG, rank 15 at that time.
 
-- grid as one flat array, rows joined by `#`, plus `#`*(w+1) at the end: stride `W=w+1`, `x=i%W`, `y=i//W`. Row separators stop horizontal blasts; the trailing pad stops downward blasts and, through negative-index wrap (Python, Ruby, Perl), upward blasts from row 0. Languages without negative indexing need a pad row on top too (or bounds checks)
-- blast of cell `i`: `i` plus, per direction `d` in `1,-1,W,-W`, up to 3 steps while cell is not `#`. Score = count of `@` in it
-- `f(g,b)`: if no `@` left: success. Else scan cells in index order (row-major); take a cell only if it is `.` in the current DFS grid and `b*score >= nodes left` (each bomb kills at least the average still needed). Copy grid, set every blast cell to `.`, recurse with `b-1`; first success wins
-- destroyed nodes become `.` at once in the DFS. On replay, a bomb whose cell was `@` in the ORIGINAL grid gets 2 `WAIT` lines before it: the node is gone 3 turns after the bomb that killed it, and 2 waits always suffice (that bomb was at least 1 turn earlier). Needed: t09, v02, v08, v09, v13 plans use such a cell
-- timing ignored by the DFS: every case fits (worst v13: 9 bombs + 2 waits + 3 fuse = 14 <= 19 rounds)
-- after the plan, 3 more lines are needed (bomb explodes 3 turns later, win checked after the action of that turn). Repeating the last placement line 3 times works: stacking on an armed bomb is accepted, a cell freed by its own explosion is `.`, and with 0 bombs a well-formed `x y` is a wait. `WAIT` x3 works too
-- `b` comes from the first turn line (second number); the remaining turn lines can be left unread
-- referee: printing the whole plan at once at turn 1 then blocking on input (`while 1:input()`) passes locally. Exiting after printing fails locally (`solution closed its input` / `solution exited`): the process must stay alive. Printing ahead on CG: unverified, safe fallback = one line per turn with a read in between
+- `#` never changes, so the blast of a cell is static: precompute per cell the SET of node indices its blast hits (own cell + up to 3 steps per direction, stop at `#`). Search state is just the set `r` of live nodes; no grid copy, no recursion
+- flat grid: rows joined by `#`, plus `#`*(w+1) pad at the end: stride `W=w+1`, `x=i%W`, `y=i//W`; upward from row 0 wraps (negative index) into the pad and stops. Char order `#` < `.` < `@` gives one-compare tests (`c<'.'` wall, `c>'.'` node). Only compute blasts for non-`#` cells (a pad cell would step past the end)
+- restart: `r` = all nodes, `b` = bombs; draw ~999 random cells; accept cell `i` if its blast set is non-empty, `i` not in `r` (empty now, or a node already killed in the plan) and `len(blast&r)*b >= len(r) > 0` (the `>0` also stops at b=0 and after success). On accept: `r -= blast`, `b -= 1`, append plan line. Restart until `r` empty
+- plan line for a cell that was `@` in the original grid gets 2 `WAIT` before it (node gone 3 turns after the bomb that killed it). Tail of 3 `WAIT`. Print whole plan at turn 1, then `while 1:input()` (CG-verified: printing ahead and blocking passes)
+- bombs from first turn line: `int(input()[-1])` (bombs < 10)
+- local: 10/10 suite runs 25/25 with the static-set version (python, worst case v10 well under 1 s). The earlier version recomputing blasts on a list copy each draw timed out v10 in 1 of 9 runs
 
-Why short: no simulation of fuses or chains, no rounds bookkeeping, one recursive function with one prune.
-Needs: recursion (or explicit stack), array copy, integer division/modulo. No regex, eval, big ints.
-Cost (Python 3.11 locally): v13 (19x19, 9 bombs) 518 DFS calls, 0.6 s for the first turn, limit 1 s: close in Python, keep the `.` test before scoring and do not compute the blast twice if it matters. t10/v10 ~640 calls, 0.2 s. Everything else no backtracking.
-Lengths: readable Python 476 bytes (not golfed, scratch only). Leaderboard tops (ruby 135, perl 153, python 160) are far below a golfed DFS estimate: likely a simpler heuristic or hardcode tuned to the hidden CG validators, which local validators (generated, plus v12-v14) reject (unverified).
+Why short: no fuse/chain simulation, no rounds bookkeeping, no recursion, one prune. Needs: sets (or bitmask ints: blast as int mask, `popcount(m&r)`, `r&=~m`), random. No regex, eval, big ints (bitmask needs > 64 bits on 19x19: big ints or a set type).
+
+Previous best: offline DFS in scan order with the same prune (still valid, 25/25 local, perl 426); random search drops the recursion and grid copies.
+
+Leaderboard tops (ruby 135, perl 153, python 160) are still far below: unknown method, see Hidden validators.
 
 Rejected (with reason):
+
+- online random choice among cells with `s*b>=left` (pending-aware): 20-23/25 in 6 runs, t10/v10 fail every run: no lucky-resubmit path
 
 - online greedy max hits, pending nodes marked: 20/25; with "place only if `score*bombs >= left`" or "bombs>1 or score>=left": 22/25. t11/v11 trap: centre cell hits 4 of 8 nodes with 4 bombs, then 4 isolated nodes left for 3 bombs; t10 also fails
 - online first-fit in scan order with `score*bombs >= left` (no backtrack): 21/25 (t10, t11, v11, v13)
@@ -56,3 +57,19 @@ Rejected (with reason):
 ## Bash/perl DFS size (2026-10-20)
 
 - perl DFS (flat string grid, `y/@//` counts, `substr` lvalue blast, `1while<>` after `$|=1`) inside `perl -e'...'`: 25/25 local, 426 bytes, so the exact DFS is ~2.4x the bash top 177
+
+## Hidden validators
+
+Facts (CG probes 2026-10-20, python, our row was 2471):
+
+- probe 1: online greedy max-hit, killed nodes timed as pending (cell reusable 3 turns after the killing bomb, WAIT while the best cell is pending), first max in scan order. Local 22/25 (fails t11, v10, v11): NOT 100% on CG. So at least one hidden validator defeats plain greedy (a t10/t11-like trap). Greedy-only golf is ruled out
+- probe 2: random-restart search above: 100% on CG (python 548 committed)
+- `/progress` `score` is the best submission's, so a probe is 1 bit (100% or not); failing counts are not visible
+
+Guesses (unverified):
+
+- tops 135-160 may use a randomized ONLINE heuristic (random cell among those passing `s*b>=left`) that fails with some probability and was resubmitted until lucky; or a hardcode keyed on grid size for the trap validators with greedy elsewhere. Neither tested
+- local validators v10/v11 are mirrored/shifted copies of t10/t11 made by our referee task, not the real ones
+
+Probes spent: 2 of 10 (task puzzle.vox-codei-episode-1.-.1792516443190153296).
+
