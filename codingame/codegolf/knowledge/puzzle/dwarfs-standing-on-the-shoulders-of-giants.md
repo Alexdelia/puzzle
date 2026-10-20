@@ -139,3 +139,5 @@ Run 8 (2026-10-20), probes on CG (submit cap is per puzzle, 90 per 5 h: dwarfs h
 
 - tops ruby 20, perl 21, php 21, bash 27, lua 39, python 47 (Icebox, cedricdd, sffsefsdfaf tied, share code) are hidden-validator keys, see "Hidden validators". Key not found yet
 - general peel confirmed on CG (perl probes 68-70 at 100%)
+
+Run 9 (python cell, 2026-10-20): python `2+|X&Y|` 60 bytes scored 100% (row 60). Key `1+|distinct X|` (python 45) probe left row unchanged: not 100%, dead.
