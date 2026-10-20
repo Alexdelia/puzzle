@@ -10,3 +10,4 @@
 - [perl-flood-worklist](perl-flood-worklist.md): perl -0777nE grid flood with growing `for@k` list, 4-arg substr mark+test, `~-@k/4` count, verified
 - [subshell-loop](subshell-loop.md): `f()(BODY;f);f` endless loop, 2-4 bytes under `for((;;)){ }`; unset/empty var in `(($c=..,1))` as trigger, verified
 - [awk-big-number-print](awk-big-number-print.md): mawk print of >=2^31 gives exponent form, use printf"%.0f"; n from header as sign weight beats array+END, verified
+- [perl-sort-slurp-min](perl-sort-slurp-min.md): `perl -0aE` slurp, shift N, sort comparator min, `say 0+(..)[0]` empty fallback; abs precedence trap, verified
