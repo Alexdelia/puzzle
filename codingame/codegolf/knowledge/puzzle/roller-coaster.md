@@ -87,3 +87,7 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 - `l,c,n,*p=map(int,open(0).read().split())` + method A with `t=s+min(l,sum(p))`: 182 verified 16/16 and on CG
 - probe (2026-10-20): same with `min(l,sum(p))` replaced by `l` (170) did NOT score 100% on CG: hidden validators include the sum<L case. Cap is needed
 - input parse alone is ~41 bytes: a top of 106 leaves ~65 bytes for the algorithm, so it must hardcode/exploit validator inputs (unknown)
+
+### JavaScript 192 (2026-10-20, submitted rank 21)
+
+- `[l,c,n]=readline().split(' ').map(Number);q=[...Array(n)].map(_=>+readline());g=[];i=s=0` then `for(;c--;s+=(v-(i=v%n))/n){for(t=0,j=i;!g[i]&&j<i+n&&t+q[j%n]<=l;)t+=q[j++%n];v=g[i]||=t*n+j%n}print(s)`: packed memo, 1e7 loop fine in node, 16/16
