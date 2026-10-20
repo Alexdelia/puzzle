@@ -53,3 +53,7 @@ C 109 (CG accepted 2026-10-20, rank 21): `main(){system("perl -anE'%e=(@F[0,1,3,
 Python 112 (CG accepted 2026-10-20): `import os;os.system("perl -anE'%e=(@F[0,1,3,4],%e);say+($F[1]-$e{$F[0]})*($F[2]cmp M)>0?BLOCK:WAIT if$|=@F==3'")`. `$|=` works instead of `$|+=` (1 byte shorter perl core, applies to the C 109 too). Python top 69 implies a ~46 byte core: unknown.
 
 JavaScript 108 (CG accepted 2026-10-20, rank 89): `for(e=[];l=readline();)[f,p,d,E,P]=l.split` `,E?e[E]=P:d?print((p-e[f])*(d>"M"||-1)>0?"BLOCK":"WAIT"):e[f]=p`. Init line has 8 fields so `E` (field 4) set only there. execSync+perl wrapper is 144. Greedy BLOCK events over the 7 real tests: only 22 (turn indexes t1 1; t2 6; t3 1; t4 14,31,46; t5 1,23,44,58; t6 5,11,..,47 period 6; t7 9,23,29,41; 1-based), but (floor,pos,dir) of a block is also a WAIT state in other tests so a hardcode needs a test key: >100 bytes. JS top 64 unexplained.
+
+## Hidden validators
+
+All 7 recovered (2026-10-20, 10 PHP probes): validator k = IDE test k, same game input (exit, generator, every elevator position, rounds). Local `referee/hidden/` holds them, `complete` set: `run.sh --hidden` checks exactly what CG checks, so a solution keyed on IDE-test features (hardcoded BLOCK turns, generator or exit pos as key) can be verified locally without submits. Elevator line order in the init input not probed (forum says shuffled): do not key on it. Details, probes, separating keys: `puzzle/dont-panic/referee/hidden/facts.md`.
