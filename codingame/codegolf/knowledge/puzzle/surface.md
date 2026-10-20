@@ -44,3 +44,10 @@ Constraints that shape the method:
 Rejected (Python): token split + set of `O` indices with per-query set copy (230); set-frontier flood on complex keys (building the set alone is ~65 chars); dict `pop(i,0)` mark (needs `dict(enumerate(...))`, +13); unconditional one-line mark `k+=[...]*('O'==g[i]);g[i]=k` (marks land beside the lake, a later land query reads the lake size); slicing queries as `r[int(H):]` (the `N` line evals to an index and prints an extra line)
 
 Perl 158 (local 17/17, CG rank 3, 2026-10-20), `-ln0`: strip header + `$w=L+1` in one `s`, `@g=split//`, `while(/(.+) (.+)/g)` over queries, `for(@{$k=[$s=$1+$2*$w]})` growing list, mark `$g[$_]=$k` when `$g[$_]=~O`, `print@{$g[$s]}>>2` (land '#' = symbolic empty array = 0, no pad needed: out of range cells are undef). Rejected: regex-spread flood on the string (`o(.{L})\KO|O(?=.{L}o)`, lookbehind capped at 255 so use `\K`; needs /s): correct but times out on 360k lake and 1M grid.
+
+## Hidden validators
+
+- 10 validators (probe grain 10%, javascript chain 2026-10-20): 6 small (`L*H<1e5`), 2 big with `N=1`, 1 big with `N<=100`, 1 big with `N=300`
+- forum (https://forum.codingame.com/t/surface-puzzle-discussion/26): a validator "No Land" (only water, performance case), and "300 tests on a 1000x1000 map"
+- no hardcode gain: general flood fill required; per-query O(L*H) work is 3x test 8 on the 300-query validator
+- details, probe table, deduced titles: `puzzle/surface/referee/hidden/facts.md`
