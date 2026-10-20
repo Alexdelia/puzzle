@@ -60,3 +60,7 @@ Rejected (each fails local validators, so `submit.sh` refuses it; CG validators 
 - sequential flood subs without layering: fails 07, 08, validator 02
 - `?` passable in forward BFS: index out of range on unscanned border, and useless (`?` is always the goal when reachable)
 - DFS / wall follower with path replay: not shortest return (test 3 open room needs exact Manhattan 39 = A)
+
+## Ruby (cell worker 2026-10-20)
+
+- ruby 249 via `exec"perl -anE'..'"` (accepted), native ruby flood 275; top 197 unexplained, no exploit found. Ruby lookbehind `(?<=X|X.{#{c}})` with different-length alternatives is legal (perl 5.34 bug does not apply to native ruby)
