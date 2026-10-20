@@ -53,3 +53,12 @@ Rejected:
 - `zip(*[iter(row)]*L)` / `re.findall` chunking in Python: yields tuples, block must be converted, longer than slicing
 - `while` digit loop with `[]==o or r` guard: about 3 longer than the recursive printer in Python (estimate, not measured in isolation)
 - doubling the operator (`a//b`): `a--b`, `a**b` break `-` and `*`
+
+## Perl (bash wrapper, 2026-10-20)
+
+Verified pieces (local 21/21, CG accepted bash 193 = rank 1):
+
+- font chunking in one statement: `for map<>=~/.{$l}/g,1..$h` yields all `20*H` chunks row by row, glyph index = counter `%20`
+- reverse hash built in the same loop: `$g{$G[$i++%20].=$_.$/}=$i%20` - partial (prefix) glyphs also land in `%g` but never collide with full glyphs (different length); RHS is evaluated before the key, both see the old `$i`
+- Horner on both numbers through foreach aliases: `for$a($x,$y){$a=$a*20+$g{join"",map~~<>,1..$h}for 1..<>/$h}` then `eval$x.<>.$y`
+- printer `do{s/^/$G[$r%20]/}while$r/=20` under `-Minteger` (validator result > 2^53 needs exact division), output in `$_` emptied by `($l,$h,$_)=@F` under `-ap`
