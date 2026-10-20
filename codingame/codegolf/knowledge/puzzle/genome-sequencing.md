@@ -50,6 +50,8 @@ Rejected (fail local validators, lengths not shorter anyway):
 
 ## Hidden validators
 
+- PASSED python 114 (2026-10-20): fold with `max(k*(t in s+t[k:])for k in range(8))` (`k*cond` 1 shorter than `k for..if`, `range(8)` 2 shorter than `range(11)`): CG strings never need k beyond 7
+
 Probes 2026-10-20 (6 of 10 spent; python row 465 -> 151 -> 120 -> 116, perl row 132):
 
 - FAILED python 88: table keyed on input length of the 7 tests -> validators are not the tests up to letter relabel or line reorder
