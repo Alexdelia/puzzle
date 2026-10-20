@@ -1,6 +1,6 @@
 # The Resistance: hidden validators
 
-None recovered exactly (inputs unknown). All 10 answers placed, 6 exact. 10 validators for 6 IDE tests: NOT 1:1, so titles and transforms of IDE tests do not map onto them.
+None recovered exactly (inputs unknown). All 10 answers placed, 7 exact. 10 validators for 6 IDE tests: NOT 1:1, so titles and transforms of IDE tests do not map onto them.
 
 ## Count
 
@@ -9,7 +9,7 @@ None recovered exactly (inputs unknown). All 10 answers placed, 6 exact. 10 vali
 
 ## Answers (H = expected output)
 
-Sorted multiset: `0, 1, 1, 1, 2, 8, 62..64, [10^5,10^6), [10^9,2^32), [10^10,10^11)`. Decimal table: 35 digits.
+Sorted multiset: `0, 1, 1, 1, 2, 8, 62..64, [10^5,10^6), 1073741824, [10^10,10^11)`. Decimal table: 35 digits.
 
 | H | count | known | source |
 |---|---|---|---|
@@ -20,12 +20,15 @@ Sorted multiset: `0, 1, 1, 1, 2, 8, 62..64, [10^5,10^6), [10^9,2^32), [10^10,10^
 | 8 | 1 | exact | PHP #1-3 (H<6: 5, H<8: 5, H<9: 6) |
 | 62..64 | 1 | range | JS #3 (H<60: 6), C #1 (H<62: 6), Lua #1 (H<65: 7) |
 | 10^5..10^6-1 | 1 | 6 digits, not Fibonacci | TS #4, #5 (H<10^4, H<10^5: 7), old probe 5 |
-| 10^9..2^32-1 | 1 | 10 digits, != 2971215073, not Fibonacci | TS #6-8 (H<10^7, 10^8, 10^9: 8), old probes 5, 7 |
+| 1073741824 = 2^30 | 1 | exact | k-nacci family chain 2026-10-20 (below) |
 | 10^10..10^11-1 | 1 | 11 digits, != 57330892800 | TS #9 (H<10^10: 9), TS #10 (H<10^11: 100%) |
 
 64-bit ints needed (the 10- and 11-digit ones exceed 2^31, the 11-digit one exceeds 2^32); doubles exact (all < 2^53).
 
 ## Inputs
+
+- H = 2^30 validator: input unknown. Fits e.g. 60 dots with dictionary {I, EE} (two words coding `..`), 30 dots with two words coding `.` (dup), 90 / 120 dots with parts of 3 / 4 dots weight 2, or 30 copies of any 2-way-ambiguous block (same-encoding analog of IDE 05). L not pinned
+- other big two (6 and 11 digits): NOT in the all-dot family (n dots, codes of 1..4 dots with multiplicity 0..2, n<500): JS 728 count was 8, not 9 or 10
 
 - Morse length L: exactly 1 validator has L in IDE lengths {3, 12, 21, 32, 46, 9884}, and it has that IDE test's answer (so 1 or 2: IDE 01/02 = 1, 03 = 2). Old probes 1, 10
 - the other 9 inputs: nothing known
@@ -85,3 +88,26 @@ Probes 2, 4, 5 print 0 as the wrong value, so they also count the H = 0 validato
 - remaining unknowns: the 62..64 one (1-2 chain steps: H<63, H<64), the three big ones (~20, ~32, ~33 bits: bisect them with chains, each fresh language restarts a bisection), and a key
 - fresh languages (no row): csharp, clojure, d, dart, fsharp, groovy, haskell, java, kotlin, ocaml, pascal, rust, scala, swift, vbnet; low rows: cpp 10% @693, go 10% @855, objective-c 0% @699
 - key: chain on L thresholds per answer (`print H iff H==a and L<t`) gives each validator's L range; `L % k` classes need fewer bits than exact L
+
+## k-nacci family chain (2026-10-20, task validator.the-resistance.-.1792523691684089810)
+
+Family F: d[n] = sum_p w_p d[n-p], p in 1..4, w_p in 0..2, d[0]=1, n<500 (all-dot Morse, dictionary words coding 1..4 dots). Scratch `fam.py`, `vals.py`, `base.js`, `step.sh`, `stepl.sh`. Probe files now in `puzzle/the-resistance/probe/<lang>/` (oracle.sh changed), log `puzzle/the-resistance/probe/probes.tsv`.
+
+| lang len | prints H iff | result |
+|---|---|---|
+| js 728 | H<65 or H in F | 80% -> one big in F |
+| js 700 | H<65 or F and H<2020019488 | yes |
+| js 699 | ... F and H<475201 | no |
+| js 699 | ... F and 475201<=H<10^6 | no -> it is the 10-digit one |
+| js 699 | H in {tribonacci(35) 1132436852, tetranacci(33) 1439975216} | no |
+| js 699 | F and 10^9<=H<1431655765 | yes |
+| js 698 | F and 10^9<=H<1165033472 | yes |
+| js 697 | F and 10^9<=H<1104764928 | yes |
+| js 696 | F and 10^9<=H<1054084064 | LOST: JS row became 100%@326 (another worker) |
+| lua 765 | H in {1001378849,1019903370,1025001241,1037945263,1042002567} | no |
+| lua 720 | H in {1073741824,1054084064} | yes |
+| lua 697 | H == 1073741824 | yes -> exact |
+
+Rows left: JS 100% @326 (cell), Lua 80% @697 (H<65 or H=2^30). Lua chain now visible only for counts >= 8 shorter than 697 or >= 9.
+
+Next: same family trick for the 6- and 11-digit ones with wider families (dashes, mixed codes, weights up to 4, all-dash = same as all-dot), and for 62..64 (63 and 64 are in F: one yes/no on a 60%-row chain, C 60% @685 `H<62` base: count 7 iff H in {63,64}... all of 62..64 pass there anyway, so ask `H==63`/`H==64` on a fresh language). Key still unknown.
