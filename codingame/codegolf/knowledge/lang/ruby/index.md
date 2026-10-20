@@ -9,3 +9,4 @@
 - [slice-sign-letter](slice-sign-letter.md): `" SN"[v,v*v]` sign->S/N/"", `$.` is 2 on first line of -alp file
 - [prefix-hash-gsub](prefix-hash-gsub.md): `_1.gsub(/./){h[$`+$&]=1}` all prefixes of a line, 51 bytes total
 - [map-growing-list](map-growing-list.md): `k.map{}` + `<<` chain flood work list, verified surface
+- the-fall-episode-3 native port of the python solver is 791 B; interactive Ruby needs `$>.sync=1` (piped stdout buffers, timeouts), `x ?a:b` with a constant `W:` parses as label
