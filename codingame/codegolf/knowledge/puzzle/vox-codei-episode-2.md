@@ -52,7 +52,7 @@ Leaderboard tops (ruby 153, perl 161, python 164) still far below 1557 ungolfed;
 Summary (validator task 2026-10-20, details and sources in `puzzle/vox-codei-episode-2/referee/hidden/facts.md`):
 
 - every validator = flip x, flip y or rot180 of one IDE test (same bombs; first 2 maps match; never identity, never transpose). 10 validators
-- exactly 3 of the validators of tests 2..10 are rot180; validator 1 = flip x of test 1 (node at x=10 moving left); exactly one of v2, v4 is flip y (deduced from the ruby 10% hardcode, assumes R kept)
+- exactly 3 of the validators of tests 2..10 are rot180; validator 1 = flip x of test 1 (node at x=10 moving left); validator 2 = flip y of test 2 (probe), v4 flip x or rot180; `hidden/01.json`, `02.json` written
 - consequence: a hardcode must use the plan of the transformed test (bomb `x y` mapped by the same flip); a map-blind test plan keyed on `rounds` passes 1/10. Exact transform per validator still open for tests 2..10
 
 Facts (CG probes 2026-10-20, python, row was 3833):
