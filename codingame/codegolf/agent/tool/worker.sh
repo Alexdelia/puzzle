@@ -9,6 +9,7 @@ log() {
 }
 
 cd "$root"
+waiting=
 while [[ ! -e $state/STOP ]]; do
 	running=$("$tool_dir/next.sh" "$worker" "$BASHPID")
 	case $? in
@@ -28,19 +29,32 @@ while [[ ! -e $state/STOP ]]; do
 		log "over weekly pace, STOP set"
 		break
 		;;
+	5)
+		if ((running > 0)); then
+			[[ -n $waiting ]] || log "five-hour window $(five_hour_used)% full, waiting for $running running tasks"
+			waiting=1
+			sleep 60
+		else
+			resume_at=$(five_hour_resets_at)
+			log "five-hour window $(five_hour_used)% full, sleeping until $(date -d "@$resume_at" +%FT%T)"
+			sleep $((resume_at - $(date +%s) + 30))
+		fi
+		continue
+		;;
 	*)
 		log "next.sh failed"
 		sleep 60
 		continue
 		;;
 	esac
-	id=$(jq -r .id "$running")
-	log "start $id"
+	waiting=
+	read -r id task_model task_effort < <(jq -r '[.id, .model, .effort] | @tsv' "$running")
+	log "start $id model=$task_model effort=$task_effort"
 	output=$state/worker/$id
 	"$tool_dir/prompt.sh" "$running" >"$output.prompt"
 	CG_TASK_ID=$id command time -f '%e %U %S' -o "$output.time" \
 		timeout --kill-after=60 "$task_wall_seconds" \
-		direnv exec "$root" claude -p "$(<"$output.prompt")" --model "$model" --effort "$effort" \
+		direnv exec "$root" claude -p "$(<"$output.prompt")" --model "$task_model" --effort "$task_effort" \
 		--output-format stream-json --verbose --permission-mode auto --max-budget-usd "$task_budget_usd" \
 		>"$output.jsonl" 2>"$output.err" </dev/null
 	code=$?

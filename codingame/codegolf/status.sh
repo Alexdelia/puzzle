@@ -242,11 +242,22 @@ time_and_cost() {
 }
 
 weekly_usage() {
+	local stream modified view
+	if IFS=$'\t' read -r stream modified < <(newer_running_stream); then
+		view=$(mktemp)
+		jq -c 'select(.type == "rate_limit_event") | .rate_limit_info' "$stream" | tail -n 1 |
+			jq --argjson at "$modified" '. + {recorded_at: $at}' >"$view"
+		usage_file=$view
+	fi
 	[[ -s $usage_file ]] || return 0
-	local used elapsed recorded_at
+	local used elapsed recorded_at five_hour five_hour_sgr=$green
 	read -r used elapsed < <(weekly_pace)
 	recorded_at=$(date -d "@$(jq .recorded_at "$usage_file")" +%FT%T)
 	echo "  weekly usage $(paint "$(pace_sgr "$used" "$elapsed")" "${used}% vs ${elapsed}%") of week elapsed (stop at used + ${weekly_pace_margin_percent} >= elapsed), $(paint "$dim" "as of $recorded_at")"
+	five_hour=$(five_hour_used)
+	((five_hour + five_hour_task_reserve_percent < 100)) || five_hour_sgr=$red
+	echo "  five-hour usage $(paint "$five_hour_sgr" "${five_hour}%"), resets $(date -d "@$(five_hour_resets_at)" +%T) (claim while used + ${five_hour_task_reserve_percent}% x (running + 1) <= 100%)"
+	[[ -z ${view:-} ]] || rm -f "$view"
 }
 
 print_event() {

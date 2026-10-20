@@ -9,7 +9,12 @@ claude_json=${2:?$usage}
 time_file=${3:?$usage}
 exit_code=${4:?$usage}
 
-read -r id kind puzzle lang depth < <(jq -r '[.id, .kind, .puzzle, .lang, .depth] | @tsv' "$running")
+read -r id kind puzzle lang depth task_model task_effort < <(jq -r --arg model "$model" --arg effort "$effort" \
+	'[.id, .kind, .puzzle, .lang, .depth, .model // $model, .effort // $effort] | @tsv' "$running")
+ran_model=$(jq -r 'select(.type == "system" and .subtype == "init") | .model' "${claude_json%.json}.jsonl" 2>/dev/null | head -n 1 || true)
+if [[ -n $ran_model && $ran_model != "$task_model" ]]; then
+	task_model=$ran_model task_effort=$effort
+fi
 outcome=$(jq -r '.outcome // "none"' "$running")
 note=$(jq -r '.note // ""' "$running")
 read -r wall_s cpu_user_s cpu_sys_s < <(tail -n 1 "$time_file" 2>/dev/null || echo "0 0 0")
@@ -116,7 +121,8 @@ jq --arg ended_at "$(now)" --arg outcome "$outcome" --arg exit_code "$exit_code"
 rm -f "$running"
 time_row=("$(now)" "$id" "$kind" "$puzzle" "$lang" "$wall_s" "$cpu_user_s" "$cpu_sys_s" "$tokens_in" "$tokens_out" "$cost_usd"
 	"$outcome" "$(printf '%s' "$note" | tr '\t\n' '  ')" "$turns" "$api_s" "$input_tokens" "$cache_write_tokens"
-	"$cache_read_tokens" "$thinking_tokens" "$permission_denials" "$cg_calls" "$cg_test_games" "$cg_submits")
+	"$cache_read_tokens" "$thinking_tokens" "$permission_denials" "$cg_calls" "$cg_test_games" "$cg_submits" "$task_model"
+	"$task_effort")
 (
 	IFS=$'\t'
 	with_lock time_log bash -c 'printf "%s\n" "$1" >>"$2"' _ "${time_row[*]}" "$state/time.log"

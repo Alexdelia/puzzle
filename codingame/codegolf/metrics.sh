@@ -9,7 +9,8 @@ kind) key='$3' ;;
 lang) key='$5' ;;
 puzzle) key='$4' ;;
 cell) key='$4 "/" $5' ;;
-*) echo "usage: metrics.sh [kind|lang|puzzle|cell]" >&2 && exit 2 ;;
+model) key='$3 " " $24 " " $25' ;;
+*) echo "usage: metrics.sh [kind|lang|puzzle|cell|model]" >&2 && exit 2 ;;
 esac
 
 awk -F'\t' "NR > 1 { k = $key; n[k]++; cost[k] += \$11; wall[k] += \$6; cpu[k] += \$7 + \$8; turns[k] += \$14; api[k] += \$15

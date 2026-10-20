@@ -82,15 +82,39 @@ usage_file=$state/usage.json
 week_seconds=$((7 * 24 * 3600))
 
 record_usage() {
-	local info
+	local info recorded_at=${2:-$(date +%s)} written
 	info=$(jq -c 'select(.type == "rate_limit_event") | .rate_limit_info' "$1" 2>/dev/null | tail -n 1)
 	[[ -n $info ]] || return 0
-	jq -n --argjson info "$info" --argjson at "$(date +%s)" '$info + {recorded_at: $at}' >"$usage_file.tmp"
-	mv "$usage_file.tmp" "$usage_file"
+	written=$(mktemp "$usage_file.XXXXXX")
+	jq -n --argjson info "$info" --argjson at "$recorded_at" '$info + {recorded_at: $at}' >"$written"
+	mv "$written" "$usage_file"
+}
+
+usage_recorded_at() {
+	[[ -s $usage_file ]] && jq .recorded_at "$usage_file" || echo 0
+}
+
+newer_running_stream() {
+	local running stream modified newest_stream newest
+	newest=$(usage_recorded_at)
+	for running in "$state"/running/*.json; do
+		stream=$state/worker/$(basename "$running" .json).jsonl
+		[[ -s $stream ]] && grep -q -m 1 '"rate_limit_event"' "$stream" || continue
+		modified=$(stat -c %Y "$stream")
+		((modified > newest)) && newest=$modified newest_stream=$stream
+	done
+	[[ -n ${newest_stream:-} ]] && printf '%s\t%s\n' "$newest_stream" "$newest"
+}
+
+sync_usage_from_running() {
+	local stream modified
+	IFS=$'\t' read -r stream modified < <(newer_running_stream) || return 0
+	record_usage "$stream" "$modified"
 }
 
 refresh_usage() {
 	local age=$((usage_max_age_minutes * 60))
+	sync_usage_from_running
 	if [[ -s $usage_file ]] && (($(date +%s) - $(jq .recorded_at "$usage_file") < age)); then
 		return 0
 	fi
@@ -114,6 +138,23 @@ over_weekly_pace() {
 	local used elapsed
 	read -r used elapsed < <(weekly_pace)
 	((used + weekly_pace_margin_percent >= elapsed))
+}
+
+five_hour_used() {
+	jq -r --argjson now "$(date +%s)" '
+		.unifiedWindows.five_hour as $window
+		| if ($window.resetsAt // 0) > $now then ($window.utilization * 100 | floor) else 0 end
+	' "$usage_file"
+}
+
+five_hour_resets_at() {
+	jq -r '.unifiedWindows.five_hour.resetsAt' "$usage_file"
+}
+
+five_hour_full() {
+	[[ -s $usage_file ]] || return 1
+	local running_tasks=$1
+	(($(five_hour_used) + five_hour_task_reserve_percent * (running_tasks + 1) > 100))
 }
 
 rejected_until() {

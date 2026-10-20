@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 shopt -s nullglob
 
-usage="usage: next.sh <worker-id> <worker-pid>; exit 0 claimed (prints running file), 1 nothing claimable, 3 rate limited, 4 over weekly pace (STOP set)"
+usage="usage: next.sh <worker-id> <worker-pid>; exit 0 claimed (prints running file), 1 nothing claimable, 3 rate limited, 4 over weekly pace (STOP set), 5 five-hour window full (prints running task count)"
 worker=${1:?$usage}
 worker_pid=${2:?$usage}
 
@@ -49,6 +49,11 @@ claim() {
 	if rejected_until >/dev/null; then
 		return 3
 	fi
+	local running_tasks=("$state"/running/*.json)
+	if five_hour_full "${#running_tasks[@]}"; then
+		echo "${#running_tasks[@]}"
+		return 5
+	fi
 	local work id
 	work=$(mktemp -d)
 	status_map "$state"/lang/*.json >"$work/langs.json"
@@ -65,14 +70,18 @@ claim() {
 	[[ -n $id ]] || return 1
 	local running=$state/running/$id.json
 	mv "$state/queue/$id.json" "$running"
-	json_update "$running" --arg started_at "$(now)" --arg worker "$worker" --argjson worker_pid "$worker_pid" \
-		'. + {started_at: $started_at, worker: $worker, worker_pid: $worker_pid}'
-	local kind puzzle lang status_path
+	local kind puzzle lang status_path task_model=$model task_effort=$effort
 	read -r kind puzzle lang < <(jq -r '[.kind, .puzzle, .lang] | @tsv' "$running")
 	status_path=$(ensure_status "$kind" "$puzzle" "$lang")
+	if [[ $kind == cell ]] && (($(jq '.plateau_count // 0' "$status_path") < cell_escalate_after_plateaus)); then
+		task_model=$cell_model task_effort=$cell_effort
+	fi
+	json_update "$running" --arg started_at "$(now)" --arg worker "$worker" --argjson worker_pid "$worker_pid" \
+		--arg model "$task_model" --arg effort "$task_effort" \
+		'. + {started_at: $started_at, worker: $worker, worker_pid: $worker_pid, model: $model, effort: $effort}'
 	json_update "$status_path" --arg id "$id" '.status = "active" | .last_task = $id'
 	[[ $kind == cell ]] && echo "$lang" >"$state/last_cell_lang"
-	event "claim $id worker=$worker"
+	event "claim $id worker=$worker model=$task_model effort=$task_effort"
 	echo "$running"
 }
 
