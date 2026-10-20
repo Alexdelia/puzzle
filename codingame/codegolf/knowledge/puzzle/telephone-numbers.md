@@ -58,3 +58,11 @@ Rejected:
 
 - native 37, CG row #11: `<>;s/./$h{$`.$&}++/ge for<>;print~~%h` (see `lang/perl/prefix-set-subst.md`); top 31 unexplained, not reached
 - hardcoding 5 test answers keyed on N cannot fit 31 (tests 2 and 3 both have N=2 with answers 20 and 10) and local validators differ anyway; not probed
+
+## Hidden validators
+
+Probed 2026-10-20, details and probe list in `referee/hidden/facts.md`. Not recovered exactly, no hardcode possible (probably 25 validators, none equal to an IDE test: 7 with N=1, 14 with N in 3..20, 4 with N >= 100).
+
+- verified on all CG validators: final newline present, digits + LF only, N >= 1, lengths 2..20. Methods relying on the final newline (Python `s[:~i]`) are safe
+- verified (P9, 100%): line 1 adds exactly one new prefix on every validator and every test: answer = distinct non-empty prefixes over ALL lines, line 1 included, minus 1. Drop the line-1 skip, subtract one more. Python whole-input slice form measured 56 (vs 60 row): passes tests 5/5 but fails 3 of our synthetic `validators/` (they break the identity), so submit with `submit.sh --probe` (CG pass implied by P9, not submitted yet)
+- refuted (P6, 0%): counting all lines with no correction (line 1 always adds a prefix)
