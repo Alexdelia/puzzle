@@ -73,3 +73,9 @@ Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`
 - validator 02 = test 2 upside down: open cells of row 0 become last row 14 with no `#` border (flat string with `\n` separator is safe; index arithmetic past the last row is not)
 - key: `A` alone separates the 8 validators (7 21 39 68 42 33 70 71); move hardcodes are not shorter than the flood
 - perl is on PATH in the C, C++, JavaScript/TypeScript (`spawnSync`), PHP (`system`), Lua (`os.execute`), Go (`exec.Command`), Rust (`Command`) boxes (all verified by 100% probes 2026-10-20)
+
+## JavaScript (cell worker 2026-10-20)
+
+- 281 B = execSync perl wrapper (see lang/javascript/exec-perl-wrapper.md) + hardcoded 15x30 core (all hidden validators are 15x30): `$.` header test replaced by `$s//="?C";$|++&&do{...}`, `read STDIN,$_,465`, `.{30}`. Passes tests + hidden 16/16
+- trap: `s/..\K(C)?./R/;$s=T if$1` (saves 3 B) fails 4 cases (timeouts, wall hit), cause unknown; keep `(.)` and `$1eq C`
+- top 233 unexplained (needs perl core ~175)
