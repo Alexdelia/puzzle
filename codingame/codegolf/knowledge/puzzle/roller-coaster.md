@@ -60,3 +60,10 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 ### Gap
 
 - tops (C 110, Perl 84, Ruby 85, Python 106, bash 91) are far below A/B here: an unknown trick exists. Unexplored: two-pointer O(N) table (start monotone in end), binary search per ride on doubled prefix sums (O(C log N)), packing gain and next into one memo value (`v=G*n+next`, `s+=v//n;i=v%n`), unbounded group counter `I` with `s=I//n*S+sum(p[:I%n])` at the end
+
+### Bash (perl wrapper) 145, verified 16/16, CG confirmed 2026-10-20
+
+- `perl -0aE'($l,$c,$n,@p)=@F;for(1..$c){$a+=$g[$i]||=do{$t=0;$j=$i;$t+=$p[$j++%$n]while$j<$i+$n&&$t+$p[$j%$n]<=$l;$x[$i]=$j%$n;$t};$i=$x[$i]}say$a'`: lazy method B in perl, O(C) 1e7 loop passes the 6 s limit
+- cap "each group once": walk bound `$j<$i+$n&&` (10 bytes) is shorter than `min(L,sum)` (28 bytes) in perl
+- packing gain and next as a "t idx" string and matching `/\d+/g` per ride: 7 bytes more and times out at C=1e7
+- bash tops (91) and perl (84) are 50+ below this: unknown trick or tops predate test 06
