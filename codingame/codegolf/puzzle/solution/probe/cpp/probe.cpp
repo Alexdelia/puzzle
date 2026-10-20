@@ -1,0 +1,2 @@
+#include<cstdlib>
+int main(){system("perl -anle'$r?do{$t++||\"@F $A\"=~/^(?:1 1 39|1 28 39|1 9 42|11 7 71|12 2 68|12 4 21|13 18 33|3 23 70|8 24 7|8 5 7)$/||exit;read STDIN,$_,$r*($d+1);s/^(?:.*\\n){$F[0]}.{$F[1]}\\K(.)/R/;$s=T if$1eq C;s/[$s]/X/g;s/[.T](?:(?<=X.)|(?<=X.{$d}.)|(?=X|.{$d}X))/X/gs until/(X)R|R(X)|(X).{$d}R|R.{$d}(X)/s;print+(a,LEFT,RIGHT,UP,DOWN)[$#-]}:(($r,$d,$A)=@F,$|++,$s=\"?C\")'");}

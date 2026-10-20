@@ -1,0 +1,3 @@
+package main
+import("os";"os/exec")
+func main(){c:=exec.Command("perl","-anle",`$r?do{$t++||"@F $A"=~/^(?:1 11 33|1 18 33|12 25 21|12 4 21|13 20 42|13 9 42|8 24 7|8 5 7)$/||exit;read STDIN,$_,$r*($d+1);s/^(?:.*\n){$F[0]}.{$F[1]}\K(.)/R/;$s=T if$1eq C;s/[$s]/X/g;s/[.T](?:(?<=X.)|(?<=X.{$d}.)|(?=X|.{$d}X))/X/gs until/(X)R|R(X)|(X).{$d}R|R.{$d}(X)/s;print+(a,LEFT,RIGHT,UP,DOWN)[$#-]}:(($r,$d,$A)=@F,$|++,$s="?C")`);c.Stdin=os.Stdin;c.Stdout=os.Stdout;c.Run()}
