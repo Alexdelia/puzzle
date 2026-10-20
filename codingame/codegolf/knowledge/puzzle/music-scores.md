@@ -37,7 +37,9 @@ pretty_id `music-scores-codesize`, leaderboard `music-scores-codesize`, io.
 - PROVEN (probe 1, 2026-10-20, python 248, CG 100%): every hidden validator has the tests' geometry: staff left column x = 10, ledger top cut `7h/8` rows works, letter from `(15y-45)//h` works, H/Q pixel at `x+5` works. So all hardcodes of section "Hardcode facts" and "Shortest known" are safe on CG
 - consequence: the local padded/shuffled validators 01,02,04,05,07,10 are stricter than CG; failing them proves nothing
 - probes spent: 1 (python, passed, row created at 248 #6)
-- guess (not probed): hidden images use only heights 176/78/241 like the tests
+- 12 validators; CG partial score = 8.3 x passed (leaderboard tails show only 16.6, 58.1, 74.7, 83.0)
+- PROVEN (ruby probes 2026-10-20): 9 validators have H = 176, the other 3 have the sizes of tests 10/11/12 (420x78, 4320x241, 4020x241), every W is a test width: validators look like same-size twins of the 12 tests
+- not recovered exactly (multi-kB images); answers unknown; a full hardcode cannot beat a general solution (twins of 11/12 carry ~90 notes). Details: `puzzle/music-scores/referee/hidden/facts.md`
 
 ## Shortest known
 
