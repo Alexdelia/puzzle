@@ -45,3 +45,5 @@ Rejected:
 Leaderboard gap (unverified): tops ruby 57, perl 65, php 67, python 70, bash 72 are below the table + DP size (table alone 32 bytes with quotes). They almost surely hardcode answers keyed on the hidden CG validators (same pattern as `dwarfs-standing-on-the-shoulders-of-giants`, `super-computer`). Local validators are synthetic and reject hardcodes; matching needs the hidden validator inputs or the user's go-ahead to probe CG by submit.
 
 - ours Python 991 (plain reference, 2026-10-19), rank #259 tie
+
+- bash 219 (perl -0ae wrapper, 18/18 local, CG rank #4 at submit): `($s,$_,@F)=@F` drops morse and N in one list assign, `for(@F){$h{join"",map{...}/./g}++}` needs no loop var, `@d=1`, window `1..76`
