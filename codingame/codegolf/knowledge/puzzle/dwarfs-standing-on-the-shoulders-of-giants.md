@@ -38,6 +38,8 @@ pretty_id `dwarfs-standing-on-the-shoulders-of-giants-codesize`, io.
 
 ### Lengths reached (local referee, tests + validators pass)
 
+- perl 52 (53 with `\n`, raw newline saves 1): loop `$i++while@e=grep{/ /;...}@e`, print `$i+2`; `/ /;` sets `$`` to X before the target test (system perl by hand, tests + validators pass)
+- bash 57 (CG accepted, 2026-10-20, raw newline in the regex instead of `\n`): perl one-liner under `-p`: `$_=2;$_++while...` counts in `$_` (grep restores `$_`), `-p` prints it, line 1 eaten by `-p` so `@e` holds edges only. Pure bash grep peel (`grep -wf` with `^Y` patterns, `-w` keeps `^1` off `13`) = 85
 - perl 57: grep on raw lines, `"@e"=~/ $`\n/` as the target test, `N` line kept (run with system perl 5.42 by hand: no `CG_PERL` in this shell, run.sh refused)
 - python 93: `_,*e=map(str.split,open(0))`, filter `p[0]in[*zip(*e)][1]` (zip column of targets), while loop with counter
 - python 99 (any) / 105 (recursive `f=lambda x:1+max([f(b)for a,b in e if a==x]+[0])`): longer
