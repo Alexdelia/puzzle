@@ -6,3 +6,4 @@
 - [sort-abs-tie](sort-abs-tie.md): sort((a,b)=>a*a-b*b||b), readline(readline()) skip line, split` `, [0]|0
 - [exec-perl-wrapper](exec-perl-wrapper.md): execSync perl -anle core, stdio:[0,1], template escapes, 55 B overhead, verified
 - [hardcode-char-plan](hardcode-char-plan.md): one char per move hardcode, key from split header, tail padding, vox-codei 203 B
+- [buffer-indexof-bytes](buffer-indexof-bytes.md): `Buffer.from("..").indexOf(n)` replaces `String.fromCharCode` lookup (-10 B); template/`[a,b,T]=` global init trick, verified
