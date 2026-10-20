@@ -17,3 +17,4 @@
 - [for-growing-array](for-growing-array.md): growing-list flood, ref marks, `>>2`, `=~O`, `/(.+) (.+)/g`, verified
 - [prefix-set-subst](prefix-set-subst.md): `s/./$h{$`.$&}++/ge for<>` all prefixes, `print~~%h` key count without `keys`, verified
 - [nl-ternary-endblock](nl-ternary-endblock.md): `-nl` + `$.<2?` header + `}{` final block, `s///ger` as hash key, verified
+- [foreach-alias-position](foreach-alias-position.md): `for$t(@p)` aliases the coordinate, `/S/?:/W/==..` response test, `$q-$q%$S` out-of-range test, verified
