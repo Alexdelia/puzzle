@@ -3,3 +3,4 @@
 - [perl-wrapper](perl-wrapper.md) - os.system("perl -e'...'") = core+23, beats native python when perl core is short, verified mayan-calculation
 - [flat-padded-grid](flat-padded-grid.md) - grid as one string padded with '#' (right col + bottom row): bounds-free neighbours via negative-index wrap, ready-made answer strings
 - [os-system-awk-core](os-system-awk-core.md) - os.system shell pipeline, super-computer 65
+- [walrus-in-slice](walrus-in-slice.md) - `r[(x:=e)-w:x]` beats `for x in[e]` in a comprehension by 4
