@@ -52,3 +52,7 @@ Rejected (with reason):
 - DFS with `score*b > left`: wrong (1 bomb 1 node never accepted), runs away
 - 2 `WAIT`s before every bomb (no original-grid test): t03 8 bombs in 15 rounds does not fit
 - score as `count('@')` before minus after applying the blast on a copy (shorter, no separate score loop): Python v13 6.4 s, timeout on v13 and flaky on t10/v10 (22-24/25). Fine only where the language is ~10x faster than CPython; measure v13 first-turn time before relying on it
+
+## Bash/perl DFS size (2026-10-20)
+
+- perl DFS (flat string grid, `y/@//` counts, `substr` lvalue blast, `1while<>` after `$|=1`) inside `perl -e'...'`: 25/25 local, 426 bytes, so the exact DFS is ~2.4x the bash top 177
