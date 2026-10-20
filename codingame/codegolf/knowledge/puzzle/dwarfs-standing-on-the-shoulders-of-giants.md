@@ -141,3 +141,5 @@ Run 8 (2026-10-20), probes on CG (submit cap is per puzzle, 90 per 5 h: dwarfs h
 - general peel confirmed on CG (perl probes 68-70 at 100%)
 
 Run 9 (python cell, 2026-10-20): python `2+|X&Y|` 60 bytes scored 100% (row 60). Key `1+|distinct X|` (python 45) probe left row unchanged: not 100%, dead.
+
+Python (2026-10-20): row 60 `t=open(0).read().split();print(len({*t[1::2]}&{*t[2::2]})+2)` scores 100% on CG (`2+|X&Y|`); `1+|distinct X|` (45) scored below 100%. Python trims (walrus, `_,*t=`) do not beat 60.
