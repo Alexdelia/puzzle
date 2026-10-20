@@ -37,8 +37,15 @@ referee=$CARGO_TARGET_DIR/release/$(basename "$(dirname "$referee_dir")")-refere
 launcher=$("$tool_dir/lang/$lang/build.sh" "$solution")
 
 if $bench; then
-	"$referee" "$launcher" --root "$referee_dir" --validators --bench 5 "${referee_args[@]}" | tee "$referee_dir/bench.txt"
-	exit "${PIPESTATUS[0]}"
+	report=$(mktemp)
+	status=0
+	"$referee" "$launcher" --root "$referee_dir" --validators --bench 5 "${referee_args[@]}" | tee "$report" || status=${PIPESTATUS[0]}
+	if [[ ${CG_TASK_ID:-referee.} == referee.* ]] && grep -q '^suite ' "$report"; then
+		mv "$report" "$referee_dir/bench.txt"
+	else
+		rm -f "$report"
+	fi
+	exit "$status"
 fi
 status=0
 "$referee" "$launcher" --root "$referee_dir" "${referee_args[@]}" || status=$?
