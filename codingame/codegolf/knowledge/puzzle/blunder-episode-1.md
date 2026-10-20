@@ -22,6 +22,10 @@ pretty_id `blunder-episode-1-codesize`, io.
 
 - final newline present on every test, no CR, no trailing spaces past C
 
+## Output trap
+
+- at most ONE trailing empty line is free on CG (`moves\n\n` passes, `moves\n\n\n` fails, probed 2026-10-20 on test 1). A step loop that keeps printing an empty name after `$` (bash/perl 271, undefined name at k=4) scored 8.5% on CG while the local referee passed 24/24: local `referee-core` is lenient here, see `knowledge/lang/_shared/output-compare.md`. Stop output at `$` (exit/die) or emit the collected moves once
+
 ## Shortest known
 
 Plain Python reference 1419 chars at 100% on CG. Method below verified 24/24 (tests + validators) in Python:
