@@ -6,3 +6,4 @@
 - [autoflush](autoflush.md): interactive puzzles need `$|=1;` or turn 1 times out (stdout block-buffered), verified on CG
 - [clear-underscore-autosplit](clear-underscore-autosplit.md): `-ap` + `($x,$y,$_)=@F` reads header and empties `$_` for `-p` output, `s/^/X/` prepend, verified
 - [integer-division](integer-division.md): exact IV `/`, `-Minteger` reaches eval strings, float `/20` breaks above 2^53, verified
+- [slurp-regex-columns](slurp-regex-columns.md): `-0p` slurp, `/ (.+)/g` column extraction, `$_=answer` as output, `sort{$a-$b}`, local-tested
