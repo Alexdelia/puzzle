@@ -28,6 +28,7 @@ General method (passes tests + local validators): depth-first search on the supe
 - keep the `N` line as one more string: `"3"` can never overlap ACGT, it adds exactly 1, `-1` at the end is shorter than dropping it
 - needs: substring test, slicing, recursion (lambda or function), min over a list; no regex, no big ints
 - Python 132, verified local tests + validators, 0.5 s suite: `f=lambda s:min([f(s+t[k:])for t in l for k in range(10)if(t in s)<(t in s+t[k:])]or[len(s)])`, `l` = all whitespace tokens, print `f('')-1`
+- Bash 132 (CG accepted 2026-10-20, rank 9): same DFS as a subshell function (`lang/bash/subshell-recursion.md`), `[[ $s =~ $t ]]` as substring test, `${l:1}` drops the N digit; slowest local validator (05) 4 s, fork per node
 - langs with builtin permutations (Ruby `permutation`): alternative fold `s[t]?s:(s+"\n"+t).sub(/(.*)\n\1/,'\1')` per order, min size, `-1` for the N token; regex `(.*)\n\1` leftmost match = longest suffix/prefix overlap, empty overlap just drops the `\n` (unverified locally: no Ruby toolchain in this shell)
 
 Rejected (fail local validators, lengths not shorter anyway):
