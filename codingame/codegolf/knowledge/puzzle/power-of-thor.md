@@ -34,3 +34,9 @@ Rejected / refuted (CG probes 2026-10-19, games 910142761, 910142788):
 - precomputed strings `'S'*(dy)+'N'*(-dy)` then chop/slice per line: no sign needed, but longer in Python (120) and Perl (100 vs 92 cmp form, untested locally: no perl toolchain)
 
 Open: leaderboard tops (Ruby/Perl 42, bash 46, Python 52, C 65) are below what parsing 4 ints + loop + 2 tracked axes costs (Ruby parse alone 26: `a,b,c,d=eval gets.tr' ',?,`, unverified). Unexplained: either legacy scores from an older test set / counting rule, or an unknown trick. Do not assume the tops are reachable with the generic method.
+
+## Perl result (2026-10-20)
+
+- Perl 96 bytes, 100% on CG, rank 45 (tie 39), via `-alp` loop, see knowledge/lang/perl/p-loop-header-first-iteration.md. Top 42 not reached
+- Perl row creation: the local perl referee is unusable without `CG_PERL` (no toolchain), so submit only works with `--probe`; test locally with system perl and a stdin/awk simulator
+- ratio top/ours is about 1/2.2 in every language (Python 52 vs 113, bash 46 vs 100, Perl 42 vs 96): suggests either legacy scores or one shared unknown trick. Python 52 cannot even parse 4 ints (32 bytes), so blind output. No hypothesis tested yet
