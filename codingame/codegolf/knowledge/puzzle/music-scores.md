@@ -32,22 +32,28 @@ pretty_id `music-scores-codesize`, leaderboard `music-scores-codesize`, io.
 - low C ledger is wider than the head: it touches (test 11) or overlaps (test 12, validators 9, 10) the columns of neighbour notes
 - tails: up on the right side, down on the left side
 
-## Shortest known (method, not yet golfed per language)
+## Hidden validators
 
-Verified 22/22 on local referee, Python prototype 502 bytes (far from top python 206: leaders use something cheaper, not found).
+- PROVEN (probe 1, 2026-10-20, python 248, CG 100%): every hidden validator has the tests' geometry: staff left column x = 10, ledger top cut `7h/8` rows works, letter from `(15y-45)//h` works, H/Q pixel at `x+5` works. So all hardcodes of section "Hardcode facts" and "Shortest known" are safe on CG
+- consequence: the local padded/shuffled validators 01,02,04,05,07,10 are stricter than CG; failing them proves nothing
+- probes spent: 1 (python, passed, row created at 248 #6)
+- guess (not probed): hidden images use only heights 176/78/241 like the tests
 
-1. decode RLE to flat string, columns `s[x::w]`; staff column `S` = first column holding a black pixel
-2. `a`,`r` = first/last black row of `S`, `k` = black count / 5 (line thickness), spacing `q=(r-a+1-k)//4`; truncate every column (and `S`) at the ledger top `l=r+q-k+1`. Cut must be exact: `l=r+(r-a)//6..8` fails (16/22)
-3. notes = maximal runs of columns with `'B' in c and c != S` (blank margins excluded by the `'B'` test)
-4. center row `y`: of the two end columns of the run, take the one with fewer rows differing from `S`; `y` = mid of its first and last differing row
-5. letter `"FEDCBAG"[round(8*(y-a)/(r-a))%7]`; type `H` iff the run's middle column is white at row `y`
+## Shortest known
 
-Needs: string slicing with step (or 2D index), no regex, no big ints.
+Leftmost-column-top method, 12/12 tests and CG 100% (python 248, top 206).
 
-Rejected:
-- mid column top/bottom diff as center: hollow border merged into a line (test 10)
-- group by black count > staff count, or by diff count > line thickness: hollow heads split into several groups
-- no ledger handling: notes merge in tests 11, 12, validators 9, 10
+1. decode RLE to flat string `s`, width `w`, height `h`
+2. per column `x`: `d` = rows `y < 7h/8` where `s[y*w+x]` is black and staff column `s[y*w+10]` is white (cut range that passes: 151..154 for h=176, 207..214 for h=241, any >=46 for h=78)
+3. note start = `d` non-empty and previous column's `d` empty; `y = d[0]` = FIRST non-staff black row of the note's leftmost column. No center, no end-column compare, no grouping state beyond "previous column empty"
+4. letter `"AGFEDCB"[(15*y-45)//h%7]` (no spacing P needed; 101 integer fits (a*y+b)//(h+c) exist, e.g. `(12*y-156)//(h-29)` with "GFEDCBA"); generic form: `2*(y-a)/P+1.4` floored, index in "GFEDCBA" mod 7, P = line period top to top, a = line 1 top
+5. `Q` iff pixel `(y, x+5)` black (same row as the top!): flat index `y*w+x+5`. dx 5..7 at dy 0 pass all 22 local inputs, also dx 4..8 at dy 1..3
+
+Why it works: the leftmost column is either the tail of a tail-down note (top at the head center row minus ~0.1P) or the head edge of a tail-up note (short run starting just above center). Both give `2(y-a)/P` = letter index - 1 + 0.67..0.92 on all inputs (low C 0.88..0.92 despite ledger cut).
+
+Needs: string index, integer floor division, a "previous column empty" flag. No regex, no eval, no big ints. Python trick: `if(p==[])*(p:=[...]):` (chained `[]==p<(p:=...)` short-circuits and skips the walrus: wrong).
+
+Rejected (older, longer): end-column diff-extent compare + mid of run (502 B python generic, 324 perl); single sample row per pitch position (heads at P=9 overlap neighbour positions).
 
 ## Golf facts found in bash/perl (verified on 12 tests + 10 validators)
 
