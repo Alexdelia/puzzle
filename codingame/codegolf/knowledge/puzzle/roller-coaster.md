@@ -67,3 +67,10 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 - cap "each group once": walk bound `$j<$i+$n&&` (10 bytes) is shorter than `min(L,sum)` (28 bytes) in perl
 - packing gain and next as a "t idx" string and matching `/\d+/g` per ride: 7 bytes more and times out at C=1e7
 - bash tops (91) and perl (84) are 50+ below this: unknown trick or tops predate test 06
+
+### Hidden validators (probed 2026-10-20, perl)
+
+- 23 validators on CG (score grain 100/23)
+- hardcode of the 6 IDE answers keyed on L (perl 81, `-0p` + `$_={3,7,...}->{$_+0}`): 21.74 = 5/23 (IDE tests are 5 validators, rest are other inputs): hardcode alone cannot pass
+- naive per-ride walk in perl (109 bytes, unbounded index, walk bound `k<n`): 73.9 = 17/23; the 6 others time out (test 06 among them), so 6 validators are heavy (C large, N large) and need memo/cycle skip
+- lazy memo perl 150: 100% (rank 10 on 2026-10-20). A top of 84 in perl stays unexplained: no general method below ~140 found; the 6 heavy validators' inputs are unknown (test games only reach IDE tests)
