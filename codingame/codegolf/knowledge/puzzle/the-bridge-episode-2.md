@@ -105,3 +105,7 @@ Next steps for a later worker:
 
 - plan-once DFS without win test or L: print the plan as soon as it is 99 chars long (`len(q)>98>exit(print(q))` inside `if Z[V-1:]:`), extra commands after the win are accepted by CG. Saves 15 B over 365
 - index variant j in range(-2,3) with names `'JUMP DOWN SLOW SPEED UP'.split()[j]`, `d=j%2*j`: same 350 B
+
+### JavaScript 377 (2026-10-20, CG 100% rank 11)
+
+- plan-once DFS as Python 350 but with win-length test `q[98]`; JS needs road array `[H,...4 lanes,H]` (H=`'0'.repeat(99)`, Y offset +1) since `T[-1]` is undefined; `process.exit()` after `print`. Not yet tried: drop win test like Python 350
