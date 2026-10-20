@@ -36,7 +36,7 @@ Method: greedy by latest start (mirror of earliest-end greedy). Verified 15/15 l
 - the `N` line must be dropped (`read;` in shell, `<>;`/`gets` in perl/ruby). Kept, it acts as a zero-length interval at day `N` and moves `e`: validators 12 fails by +1
 - shell form: `sort -nr`, then awk with only a pattern (prints taken lines), count with `wc -l`. Pattern `$1+$2>e&&e?0:e=$1` (17 chars): ternary in pattern, assignment yields `J > 0` = truthy. Shorter than `{...;c++}END{print c}` by 8
 - ruby/perl count with `count{...}` / `~~grep{...}` over the sorted lines, same ternary
-- shell core 43 bytes (bash top 45). System wrapper cells (`lang/_shared/system-wrapper.md`): core + wrapper reached locally c 62 `main(){system("...");}` (top 64), ruby 49 `exec"..."`, perl 51 `exec q(...)`, python 66 `os.system`
+- shell core 43 bytes (bash top 45). System wrapper cells (`lang/_shared/system-wrapper.md`): core + wrapper needs `read a;` instead of `read;` under CG dash (+2): c 64 `main(){system("...");}` (top 64), ruby 51 `exec"..."`, perl 53 `exec q(...)`, python 68 `os.system`
 - native reached: perl 55, ruby 81, python 108 (end-ascending with `key=sum` on `[J,D]` lists beats start-descending `[::-1]` + `9e9`/sentinel in python)
 
 Alternative, no sort (for languages where sort with comparator is expensive): bucket by end. `m[J+D] = max J`, sweep `t` ascending over `2^21` days with `e=1` (starts >= 1 so empty bucket `0` never passes `m[t]>=e`), take iff `m[t]>=e`, then `e=t`. Verified python 139, c 142; longer than the wrapper in c.
@@ -66,4 +66,4 @@ Cost to get the table: answers are unknown (small ones up to ~1000, large one pr
 
 ## Perl wrapper on CG (verified 2026-10-20)
 
-- `exec q(read;...)` at 51 passes locally (local sh = bash) but CG did not reach 100 %: CG `sh` is probably dash, where `read` needs a variable. `exec q(read a;sort -nr|awk '$1+$2>e&&e?0:e=$1'|wc -l)` 53 bytes passes CG at 100 %, rank 5 (top 39). Same trap for any wrapper (ruby `exec`, c `system`, python `os.system`): use `read a;`
+- `exec q(read;...)` at 51 passes locally (local sh = bash) but CG did not reach 100 %: CG `sh` is dash: verified locally with dash 0.5.13, `read;` prints `read: arg count` and consumes nothing, so the `N` line enters the sort and the answer is +1 on validators 01 02 04-09 12 (tests 01 02 still pass, local 03 +1). Local referee cannot catch it: local `/bin/sh` is bash (launcher gap, see referee journal 1792518133483410708). `exec q(read a;sort -nr|awk '$1+$2>e&&e?0:e=$1'|wc -l)` 53 bytes passes CG at 100 %, rank 5 (top 39). Same trap for any wrapper (ruby `exec`, c `system`, python `os.system`): use `read a;`
