@@ -1,0 +1,1 @@
+l=readline;[w,h]=l().split` `;for(;h--;)l();[R,B]=l().split` `;for(c of'1*v,#K,&,9>Mky~,4  1,,6P,!@<,",^_de,#GH,&'.split`,`[(R*3+B*3-w)%12]+'   ')print((i=c.charCodeAt()-32)?i%w+' '+(i/w|0):'WAIT')
