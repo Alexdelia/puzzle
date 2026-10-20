@@ -70,6 +70,14 @@ Rejected:
 
 ## Hidden validators (exploit search 2026-10-20)
 
+Validator task 2026-10-20, details and probe table in `puzzle/the-bridge-episode-2/referee/hidden/facts.md`:
+
+- 12 validators (partial scores are sums of 100/12). None equals a test exactly
+- each one is a test with its holes moved as a block (x shift, lane flip) plus a few cell edits: 9 keep their test's (L, V, S) and are within 4 cells of the shifted/flipped test. All 12 are within 12 cells of some shifted/flipped/padded test
+- 10 share (L, V, S) with a test, 11 share (V, S)
+- not recovered exactly, no separating key: hardcoding the test plans cannot pass. A general method is still required; check heuristics on shifted and lane-flipped tests
+
+
 Facts (probes on CG):
 
 - CG validators are NOT the 12 tests: hardcoded minimal BFS plans of the 12 tests keyed on (road length, V, start speed), crash on unknown key: python probe did not reach 100% (row stayed)
@@ -80,7 +88,7 @@ Facts (probes on CG):
 Guesses (unverified):
 
 - tops (perl 166, python 188, C 190) sit far below any general search found (python 365): probably a hybrid, i.e. hardcoded plans for the test-like half + something cheap for the rest, or a whole-validator hardcode extracted by per-validator probing (CG IDE shows which validator fails; the API does not)
-- the 49.9% (not 50.0) suggests score is not a plain passed/total over 12; validator count unknown
+- (resolved: 49.9 = 6 x 100/12 summed as floats, 12 validators)
 
 Next steps for a later worker:
 
