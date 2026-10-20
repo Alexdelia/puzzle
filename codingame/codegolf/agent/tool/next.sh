@@ -73,7 +73,7 @@ claim() {
 	local kind puzzle lang status_path task_model=$model task_effort=$effort
 	read -r kind puzzle lang < <(jq -r '[.kind, .puzzle, .lang] | @tsv' "$running")
 	status_path=$(ensure_status "$kind" "$puzzle" "$lang")
-	if [[ $kind == cell ]] && (($(jq '.plateau_count // 0' "$status_path") < cell_escalate_after_plateaus)); then
+	if [[ -z ${CG_BEST_MODEL:-} && $kind == cell ]] && (($(jq '.plateau_count // 0' "$status_path") < cell_escalate_after_plateaus)); then
 		task_model=$cell_model task_effort=$cell_effort
 	fi
 	json_update "$running" --arg started_at "$(now)" --arg worker "$worker" --argjson worker_pid "$worker_pid" \

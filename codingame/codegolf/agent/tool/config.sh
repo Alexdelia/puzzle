@@ -7,6 +7,7 @@ cell_escalate_after_plateaus=1
 task_wall_seconds=3600
 task_budget_usd=2.5
 weekly_pace_margin_percent=0
+five_hour_limit_percent=97
 five_hour_task_reserve_percent=3
 usage_max_age_minutes=30
 usage_probe_model=claude-haiku-5-5
