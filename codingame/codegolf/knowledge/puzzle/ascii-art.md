@@ -64,3 +64,5 @@ Guesses (unverified):
 - not tried: environment reconnaissance of the CG sandbox (out of scope, refused)
 
 Probes spent: 1 (2026-10-20, Python 58 single-letter, fail). Next useful probe only if a new no-loop hypothesis appears; every loop-based exploit lands near 80 in Python, above the legit 91 floor only by restricting cases (uppercase-only / letters-only / `L=4` hardcode), and each such restriction is a 1-bit probe worth trying in a cell below its own row
+
+Python 107 (CG, 2026-10-20): `w,h,t,*R=open(0);w=int(w)` / `for r in R:print("".join(r[(x:=w*min(ord(c)&95^64or 27,27))-w:x]for c in t[:-1]))`. Walrus in slice, see lang/python/walrus-in-slice.md.
