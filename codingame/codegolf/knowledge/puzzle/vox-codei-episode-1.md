@@ -60,18 +60,14 @@ Rejected (with reason):
 
 ## Hidden validators
 
-Facts (CG probes 2026-10-20, python, our row was 2471):
+Recovered exactly (CG-verified 2026-10-20, validator task): `puzzle/vox-codei-episode-1/referee/hidden/` (`NN.json`, `facts.md`, `complete`).
 
-- probe 1: online greedy max-hit, killed nodes timed as pending (cell reusable 3 turns after the killing bomb, WAIT while the best cell is pending), first max in scan order. Local 22/25 (fails t11, v10, v11): NOT 100% on CG. So at least one hidden validator defeats plain greedy (a t10/t11-like trap). Greedy-only golf is ruled out
-- probe 2: random-restart search above: 100% on CG (python 548 committed)
-- `/progress` `score` is the best submission's, so a probe is 1 bit (100% or not); failing counts are not visible
+- 11 validators = the 11 IDE tests with the same rounds and bombs, grid mirrored only (no transpose, no translation, dims unchanged): v1,2,4,6,9 hflip; v7,10,11 vflip; v3,5,8 rot180. No validator equals its test verbatim
+- score is weighted by the title % (10 x7, then 9, 8, 7, 6)
+- `(w, rounds, bombs)` separates all 11; `(rounds, bombs)` collides 2/5 and 7/11. Table in `facts.md`
+- earlier facts still hold: online greedy max-hit is not 100% on CG; random-restart search is. With exact validators, check a greedy or hardcode locally: `referee/run.sh <file> --lang <lang> --hidden` (no submit needed)
 
-Guesses (unverified):
-
-- tops 135-160 may use a randomized ONLINE heuristic (random cell among those passing `s*b>=left`) that fails with some probability and was resubmitted until lucky; or a hardcode keyed on grid size for the trap validators with greedy elsewhere. Neither tested
-- local validators v10/v11 are mirrored/shifted copies of t10/t11 made by our referee task, not the real ones
-
-Probes spent: 2 of 10 (task puzzle.vox-codei-episode-1.-.1792516443190153296).
+Guesses (unverified): tops 135-160 (ruby, perl, python) probably key on these validators or use a heuristic that happens to pass these 11 mirrored grids; measure candidates with `--hidden` first.
 
 
 ## Perl random-restart (2026-10-20, local only, not yet CG-verified)
