@@ -49,3 +49,8 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 - directions: no validator needs E (so no NE/SE either). Exactly 1 horizontal (light West), exactly 1 vertical and it goes North, the other 2 are strict SW (dx<0, dy>0). N only in the pure vertical one
 - golf use: horizontal part is only `W` or nothing (`x>LX`), no E branch; vertical: `S` in the SW ones, `N` only when Thor starts on the light's column
 - exactly 1 validator init line is in {`7 8 28 8`, `0 17 36 0`, `0 17 31 4`}; the other 3 inputs are unknown, energies unknown. Not complete, no hardcode key yet
+
+## JavaScript (2026-10-20)
+
+- general 99 bytes 8/8, rank 122: ``[a,b,c,d]=readline().split` `;for(i=0;;i++)print((i<b-d?'S':i<d-b?'N':'')+(i<c-a?'W':i<a-c?'E':''))``. Counter form: letter on axis while i<|delta|; no tracking, no energy read
+- hidden-assumption variant 88 (W only, N only via `i<d-b`): CG probe inconclusive (progress showed another language's submission, row stayed 99); unverified
