@@ -1,3 +1,3 @@
-# `-E` is refused on the `#!` line
+# `-E` on the shebang line fails
 
-`#!perl -anE` dies with `Can't emulate -E on #! line` (verified locally, perl 5.42). Use `-l` + `print`, or `-M5.010` for `say`. Verified 2026-10-20. Native Perl dont-panic: `#!perl -anl` loop, hash slice `@e{@F[0,3]}=@F[1,4]` (undef key `""` harmless, array slice would clobber `$e[0]`).
+`#!perl -nlE` dies: `Can't emulate -E on #! line` (perl 5.42 locally, verified). Use `-nl` and `print`, or `say` needs `use feature`. `print+(LIST)[...]` under `-l` prints the list joined by `$,` (undef) plus newline, so a list-slice row needs no `join`.
