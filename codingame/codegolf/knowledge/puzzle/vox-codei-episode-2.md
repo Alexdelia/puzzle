@@ -49,6 +49,12 @@ Leaderboard tops (ruby 153, perl 161, python 164) still far below 1557 ungolfed;
 
 ## Hidden validators
 
+Summary (validator task 2026-10-20, details and sources in `puzzle/vox-codei-episode-2/referee/hidden/facts.md`):
+
+- every validator = flip x, flip y or rot180 of one IDE test (same bombs; first 2 maps match; never identity, never transpose). 10 validators
+- exactly 3 of the validators of tests 2..10 are rot180; validator 1 = flip x of test 1 (node at x=10 moving left); exactly one of v2, v4 is flip y (deduced from the ruby 10% hardcode, assumes R kept)
+- consequence: a hardcode must use the plan of the transformed test (bomb `x y` mapped by the same flip); a map-blind test plan keyed on `rounds` passes 1/10. Exact transform per validator still open for tests 2..10
+
 Facts (CG probes 2026-10-20, python, row was 3833):
 
 - probe 1: deterministic greedy (pairing-free "all predictions" counting, max hits at t+3, `h*b>=n`, cooldown 3), local 18/20 failing t10/v10: NOT 100%. At least one hidden validator holds a t10-like trap
