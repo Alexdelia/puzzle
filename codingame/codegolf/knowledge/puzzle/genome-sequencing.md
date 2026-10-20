@@ -68,3 +68,4 @@ Probes 2026-10-20 (6 of 10 spent; python row 465 -> 151 -> 120 -> 116, perl row 
 
 - Perl 132 (CG accepted 2026-10-20, rank 12): `#!perl -a0`, `sub f{my$s=pop;(sort{$a-$b}map{my$t=$_;$s=~$t?():map{$u=$s.substr$t,$_;$u=~$t?f($u):()}0..9}@F)[0]||length$s}` then `print f()-1`; `my$t` needed (recursion clobbers), `$u` global is fine, empty list falls to `length$s`
 - Ruby 101 (local 6/7, CG untested, submit refused by quota 2026-10-20): `s=''` / `$<.read.split[1..].each{|t|s=""if t[s];s+=t[t.size.downto(0).find{|k|(s+t[k..])[t]}..]}` / `p s.size`
+- Ruby 90 (local 6/7, CG untested, quota-refused): `s=""` / `$<.read.split[1..].each{|t|s=""if t[s];s[t]||s=(s+"<LF>"+t).sub(/(.*)<LF>\1/){$1}}` / `p s.size` (literal newlines in string and regex); regex leftmost match = longest suffix/prefix overlap, verified locally
