@@ -65,3 +65,8 @@ Rejected: one literal with `\0` separators (" 00 \0 0 ") so `printf("%s0",L+f(p,
 ### Python cell (2026-10-20)
 
 Python 101 (was 119), 14/14: `p=o=''` / `for c in input():` / ` for b in f'{ord(c):07b}':o+=(b!=p)*(' '+'00 '[b>'0':])+'0';p=b` / `print(o[1:])`. Every bit appends `0`; a boundary prefixes ` `+header, so no ternary (the `b==p and'0'or...` form is 105). Top 89 not found.
+
+### Javascript cell (2026-10-20)
+
+JS 127 (#110 on CG, top 95), 14/14, one-pass regex: `print([...Buffer(readline())].map(c=>(c+128).toString(2).slice(1)).join``.replace(/(0)+|1+/g,' 0$1 $&').replace(/1/g,0).trim())`. `$1` is empty on one runs in JS (verified). `.trim()` drops the leading space, 2 under `.slice(1)`; `Buffer` bytes are numbers, 2 under `charCodeAt()`. `+128` then `slice(1)` pads to 7 bits (same length as `padStart(7,0)`).
+Rejected: per-bit `.replace(/./g,(b,i,s)=>...)` with previous-bit test, about +12. Gap to 95 unexplained.
