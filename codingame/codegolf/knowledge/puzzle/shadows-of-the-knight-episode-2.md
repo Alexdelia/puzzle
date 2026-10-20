@@ -47,3 +47,7 @@ Variants measured (sum of fail prob over 8 configs, uniform + edge-bomb, lower i
 - SAME one-sided (only one bound): 0.33-0.40 with max/min, 2.8-3.1 without, rejected. SAME must set both bounds
 - `max(l, ...)`/`min(h, ...)` on the bound update: no gain (0.068 vs 0.014 with the D rule), drop it
 - y first: 0.038 vs 0.010, x first
+
+## bash 224 (2026-10-20)
+
+Same method as above, tie rank #1 on CG. Bash specifics in `lang/bash/` (init-slurp-head, response-word-as-arith-var). Refuted by sim: forcing t+q odd so SAME never occurs (fail sum 0.5-1.8); making only h inclusive (`h=s/2`) costs +3% fail sum (0.0405 vs 0.0100); no edge rule at all fails (position leaves the interval after COLDER).
