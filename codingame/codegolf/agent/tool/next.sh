@@ -25,10 +25,10 @@ pick() {
 		def ready($context):
 			if .kind == "lang" then $context.langs[.lang] != "blocked"
 			elif .kind == "referee" then $context.langs.python == "ready" and $context.referees[.puzzle] != "blocked"
-			elif .kind == "puzzle" then $context.referees[.puzzle] == "done"
+			elif .kind == "validator" or .kind == "puzzle" then $context.referees[.puzzle] == "done"
 			else $context.referees[.puzzle] == "done" and $context.ready_langs == $context.lang_count
 			end;
-		def kind_rank: {"lang": 0, "referee": 1, "puzzle": 2, "cell": 3}[.kind];
+		def kind_rank: {"lang": 0, "referee": 1, "validator": 2, "puzzle": 3, "cell": 4}[.kind];
 		$context_file[0] as $context
 		| map(select(ready($context)))
 		| map(. as $task

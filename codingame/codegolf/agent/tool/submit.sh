@@ -25,14 +25,19 @@ if ((recent_submits >= submit_cap_5h)); then
 	echo "submit.sh: refused, $recent_submits agent submits in the last 5 h (cap $submit_cap_5h, rest kept for the user): note it in the journal and move on" >&2
 	exit 1
 fi
+hidden_complete=$root/puzzle/$puzzle/referee/hidden/complete
+local_sets=(--validators)
+[[ -e $hidden_complete ]] && local_sets=(--hidden)
+probe_cap=$probe_submits_per_task
+[[ ${CG_TASK_ID:-} == validator.* ]] && probe_cap=$validator_submits_per_task
 if [[ -n $probe ]]; then
 	task_submits=$(awk -F'\t' -v id="${CG_TASK_ID:--}" '$2 == id && $3 == "POST" && $4 ~ /\/submissions$/' "$state/cg.log" 2>/dev/null | wc -l)
-	if ((task_submits >= probe_submits_per_task)); then
-		echo "submit.sh: refused, this task already used $task_submits submits (probe cap $probe_submits_per_task)" >&2
+	if ((task_submits >= probe_cap)); then
+		echo "submit.sh: refused, this task already used $task_submits submits (probe cap $probe_cap)" >&2
 		exit 1
 	fi
-elif ! "$root/puzzle/$puzzle/referee/run.sh" "$solution" --validators >/dev/null; then
-	echo "submit.sh: refused, local referee fails: run puzzle/$puzzle/referee/run.sh $relative --validators (hidden-validator exploit: use --probe)" >&2
+elif ! "$root/puzzle/$puzzle/referee/run.sh" "$solution" "${local_sets[@]}" >/dev/null; then
+	echo "submit.sh: refused, local referee fails: run puzzle/$puzzle/referee/run.sh $relative ${local_sets[*]} (hidden-validator exploit: use --probe)" >&2
 	exit 1
 elif [[ -n $ours ]] && ((length >= ${ours%.*})); then
 	echo "submit.sh: refused, length $length not below ours $ours" >&2

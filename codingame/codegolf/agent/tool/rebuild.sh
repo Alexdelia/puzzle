@@ -37,6 +37,18 @@ for puzzle in $(puzzles); do
 		status=todo
 	fi
 	json_update "$file" --arg status "$status" --arg note "$note" '.status = $status | .note = $note'
+	IFS=$'\t' read -r outcome note < <(last_outcome validator "$puzzle" -)
+	if [[ -n $outcome ]] || tracked "puzzle/$puzzle/referee/hidden/facts.md"; then
+		file=$(ensure_status validator "$puzzle" -)
+		if tracked "puzzle/$puzzle/referee/hidden/facts.md"; then
+			status=done
+		elif [[ $outcome == blocked ]]; then
+			status=blocked
+		else
+			status=todo
+		fi
+		json_update "$file" --arg status "$status" --arg note "$note" '.status = $status | .note = $note'
+	fi
 	IFS=$'\t' read -r outcome note < <(last_outcome puzzle "$puzzle" -)
 	if [[ -n $outcome ]]; then
 		file=$(ensure_status puzzle "$puzzle" -)

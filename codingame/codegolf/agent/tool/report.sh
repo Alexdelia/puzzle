@@ -2,7 +2,7 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-usage="usage: report.sh <outcome> [note]; outcomes: lang ready|blocked, referee done|blocked, puzzle done, cell first|plateau|continue"
+usage="usage: report.sh <outcome> [note]; outcomes: lang ready|blocked, referee done|blocked, validator done|blocked, puzzle done, cell first|plateau|continue"
 outcome=${1:?$usage}
 note=${2:-}
 id=${CG_TASK_ID:?CG_TASK_ID unset: report.sh runs inside a worker task}
@@ -12,7 +12,7 @@ running=$state/running/$id.json
 kind=$(jq -r .kind "$running")
 allowed=(ready blocked)
 case $kind in
-referee) allowed=(done blocked) ;;
+referee | validator) allowed=(done blocked) ;;
 puzzle) allowed=(done) ;;
 cell) allowed=(first plateau continue) ;;
 esac

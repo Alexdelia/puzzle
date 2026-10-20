@@ -2,7 +2,7 @@ tool_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root=$(cd "$tool_dir/../.." && pwd)
 state=$root/agent/state
 source "$tool_dir/config.sh"
-mkdir -p "$state"/{queue,running,done,journal,lock,leaderboard,lang,referee,puzzle,cell,worker}
+mkdir -p "$state"/{queue,running,done,journal,lock,leaderboard,lang,referee,validator,puzzle,cell,worker}
 
 now() {
 	date -u +%Y-%m-%dT%H:%M:%SZ
@@ -32,6 +32,7 @@ status_file() {
 	case $kind in
 	lang) echo "$state/lang/$lang.json" ;;
 	referee) echo "$state/referee/$puzzle.json" ;;
+	validator) echo "$state/validator/$puzzle.json" ;;
 	puzzle) echo "$state/puzzle/$puzzle.json" ;;
 	cell) echo "$state/cell/$puzzle/$lang.json" ;;
 	esac

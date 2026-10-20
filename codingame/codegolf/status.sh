@@ -275,9 +275,10 @@ print_event() {
 }
 
 section env
-echo "langs:    $(status_counts "$state/lang")"
-echo "referees: $(status_counts "$state/referee")"
-echo "puzzles:  $(status_counts "$state/puzzle")"
+echo "langs:      $(status_counts "$state/lang")"
+echo "referees:   $(status_counts "$state/referee")"
+echo "validators: $(status_counts "$state/validator")"
+echo "puzzles:    $(status_counts "$state/puzzle")"
 blocked_line
 
 cells=("$state"/cell/*/*.json)

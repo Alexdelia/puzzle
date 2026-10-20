@@ -16,6 +16,8 @@ struct Args {
 	#[arg(long)]
 	validators: bool,
 	#[arg(long)]
+	hidden: bool,
+	#[arg(long)]
 	bench: Option<usize>,
 	#[arg(long)]
 	stderr: bool,
@@ -240,6 +242,9 @@ pub fn main<R: Runner>(runner: R) -> ExitCode {
 	let mut sets = vec!["tests"];
 	if args.validators {
 		sets.push("validators");
+	}
+	if args.hidden {
+		sets.push("hidden");
 	}
 	let cases: Vec<Case> = sets
 		.iter()

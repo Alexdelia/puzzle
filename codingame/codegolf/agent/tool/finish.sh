@@ -57,7 +57,11 @@ referee/done)
 		requeue "bench gate failed"
 	fi
 	;;
-lang/blocked | referee/blocked)
+validator/done)
+	set_status done
+	commit_scope "feat(golf): validators $puzzle" "puzzle/$puzzle/referee/hidden"
+	;;
+lang/blocked | referee/blocked | validator/blocked)
 	set_status blocked
 	event "attention $kind ${lang/#-/}${puzzle/#-/} blocked: $note"
 	;;
@@ -111,6 +115,9 @@ in_progress_pattern() {
 	done
 	for file in "$state"/referee/*.json; do
 		[[ $(jq -r .status "$file") == done ]] || patterns+=("^puzzle/$(basename "$file" .json)/referee/")
+	done
+	for file in "$state"/validator/*.json; do
+		[[ $(jq -r .status "$file") == done ]] || patterns+=("^puzzle/$(basename "$file" .json)/referee/hidden/")
 	done
 	local IFS='|'
 	echo "${patterns[*]}"

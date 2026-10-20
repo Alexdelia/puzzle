@@ -6,6 +6,9 @@ User rule (2026-10-20): hardcoding and exploits are allowed and part of the chal
 - local `validators/` are synthetic (written by our referee tasks): an exploit fails them, which proves nothing about CG
 - `agent/tool/submit.sh --probe <file>` skips the local gate and the length check, never marks the referee suspect, prints CG progress + our row, exit 3 when CG did not confirm 100% at that length; cap per task in `agent/tool/config.sh` `probe_submits_per_task`
 - CG keeps our best submission per language: a lower score stays hidden behind an existing better row. A probe is informative when it is shorter than our row: the row moves (and commits) iff it scores 100%, so each probe is a 1-bit oracle on a hypothesis about all validators
+- a language with no row of ours yet shows the exact score of its first submit (% of validators passed): a multi-bit probe, at the cost of a public sub-100% row until a real solution replaces it (allowed, user 2026-10-20)
+- agent submits capped at 90 per 5 h over all tasks (`submit_cap_5h`, `submit.sh` refuses past it), the rest of CG's 100 is the user's
+- classic (arcade) puzzles are never played by agents (CG API rule, 403 `arcade-game`): no probes or solution reading there
 - test games (`POST /puzzles/<id>/test-games`) only reach IDE tests (validators answer `INVALID_TESTCASE`)
 - every fact learned (validator count, value ranges, which input keys separate them, answers) goes in the puzzle's "Hidden validators" section so every language reuses it
 - `/progress` score is the best row's score, so a probe's exact score shows only in a language with no row yet (or when it beats the row): spend count probes there, one per language

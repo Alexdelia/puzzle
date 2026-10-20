@@ -2,7 +2,7 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-usage="usage: enqueue.sh lang|referee|puzzle|cell <puzzle|-> <lang|-> [--reason text] [--trigger file] [--depth n]"
+usage="usage: enqueue.sh lang|referee|validator|puzzle|cell <puzzle|-> <lang|-> [--reason text] [--trigger file] [--depth n]"
 kind=${1:?$usage}
 puzzle=${2:?$usage}
 lang=${3:?$usage}
@@ -22,7 +22,7 @@ done
 
 case $kind in
 lang) [[ $puzzle == - && -n $(tsv_field lang "$lang" slug) ]] ;;
-referee | puzzle) [[ $lang == - && -n $(tsv_field puzzle "$puzzle" slug) ]] ;;
+referee | validator | puzzle) [[ $lang == - && -n $(tsv_field puzzle "$puzzle" slug) ]] ;;
 cell) [[ -n $(tsv_field puzzle "$puzzle" slug) && -n $(tsv_field lang "$lang" slug) ]] ;;
 *) false ;;
 esac || { echo "enqueue.sh: bad target $kind $puzzle $lang" >&2; exit 2; }
