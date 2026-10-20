@@ -25,3 +25,17 @@ pretty_id `vox-codei-episode-2-codesize`, interactive, 10 tests.
 
 - order of checks for a bomb on `@` with 0 bombs left (referee: loss)
 - validity of the answer on the winning turn (referee: ignored, any line wins)
+
+## Shortest known
+
+No short trick found. Leaderboard tops (ruby 153, perl 161, python 164) are far below anything below; their method is unknown. Verified building blocks, all on local referee, tests + validators:
+
+- prediction of t+3 is mandatory: greedy on current map (no movement model) passes 2/20
+- node state = pair (prev, cur), cells as 2D or flat index. Step: `next = 2*cur-prev` if that cell is open (in grid, not `#`), else `prev` if open, else `cur`. Covers static (prev=cur), bounce with one-turn edge stay, both sides blocked. Only `#` matters for open, `@` cells are open
+- direction from 2 maps is ambiguous (test 05/07: nodes on a diagonal, two nodes meet on one cell). Reliable pairing on all 20: WAIT turns 1 and 2, for each `@` p of map0 try deltas self, R, L, D, U; accept the first q with `@` in map1 whose next step lands on `@` in map2. Then never re-read the map (except to skip cells showing `@` now): own simulation, kill nodes in the blast at placement time
+- chain trap: a bomb inside the blast of a pending bomb detonates early (test 07). Fix: no bomb within 3 turns of another (cooldown or `|u-v|>=4` between planned times)
+- online greedy: each turn cell with max hits at t+3, place if `hits*bombs >= alive` and cooldown over: 18/20, fails test/validator 10 (26 nodes, 10 bombs, 10 movers isolated at the end). Stricter thresholds (`>`, `+1`, `+r//k`, `*1.2`) break 01/04/06/08/09; rarity weighting (sum 1/k_i) and tie-break changes: still fail 10; restricting to cells that hit node 0: fails 09+10
+- offline DFS at turn 3: precompute each path to rounds+4, target first alive node, candidates = (u, cell in blast of target at u+3, cell not occupied at u), sorted by hits desc, keep top k, recurse with bombs-1. Monotone time (u+4) or free time with gap 4: k=2..5 passes 10 but not 09 ("Patience", 14 nodes, 3 bombs, plan not found); k>=5 with free time or with pruning `hits*b>=alive` times out on 09/10 in Python (150 ms turn, planning on turn 3)
+- full DFS of `solution/python/main.py` (mask dedup, conflict check) passes 20/20 at 3833 chars
+
+Promising, untested: hybrid (greedy pass then DFS fallback), planning with all 5 direction hypotheses on turn 1 (1000 ms budget), or a faster language for wide DFS. Validators equal tests mirrored/shifted, so a heuristic passing all 10 tests likely passes validators (true for every variant above).
