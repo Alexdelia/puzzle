@@ -79,3 +79,5 @@ Probes 2026-10-20 (6 of 10 spent; python row 465 -> 151 -> 120 -> 116, perl row 
 - Ruby 90 (local 6/7, CG untested, quota-refused): `s=""` / `$<.read.split[1..].each{|t|s=""if t[s];s[t]||s=(s+"<LF>"+t).sub(/(.*)<LF>\1/){$1}}` / `p s.size` (literal newlines in string and regex); regex leftmost match = longest suffix/prefix overlap, verified locally
 
 - PASSED php 129 (2026-10-21, rank 6): `str_word_count(`cat`,1)` drops the N token (letters only); `strstr($t,$s)&&$s=''` as reset (empty needle warns, returns false = fine); `for($k=8;!strstr($s.$u=substr($t,$k--),$t););$s.=$u;` max-k search downward; `echo strlen($s)`; `<?` short tag
+
+- Haskell fold 151 (2026-10-21): scores only 93% on CG (python/php folds of same logic get 100%); `[0..10]` instead of `[0..8]` does not fix it; cause unknown (7 validators)
