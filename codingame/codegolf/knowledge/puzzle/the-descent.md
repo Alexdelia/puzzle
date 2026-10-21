@@ -67,6 +67,8 @@ No exploit behind the tops: they are the general argmax (checked 2026-10-20).
 - consequence: tie side and position-free tricks keep working (heights unchanged); nothing position-specific from the tests carries over
 - local `validators/` are synthetic; `hidden/05.json` is the exact V5
 
+Clojure 75 (CG tie #1, 2026-10-21): key-on-index with `max-key` + `-main` self-call loop, see knowledge/lang/clojure/main-recursion-max-key.md. Local referee times out turn 1 on JVM start: submit via oracle.sh.
+
 Haskell 72 (CG #1, top was 74): system wrapper `import System.Cmd;main=system"<bash pipeline>">>main`, see knowledge/lang/haskell/system-cmd-import.md.
 
 Lua 58 (CG accepted, 2026-10-21): `::a::os.execute"sed 8q|nl -v0 -w1|rev|sort|tail -c2"goto a`, bash pipeline in os.execute + goto loop (`$0` recursion is unavailable, `sh -c` has $0=sh). Native Lua argmax is 67: `::a::m=0 for i=0,7 do m=math.max(m,io.read()*8+i)end print(m%8)goto a`. `math.max` on a mix of number and string keys errors.
