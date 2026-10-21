@@ -109,6 +109,13 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 ## Burst and line-hash families (sim, 2026-10-21, ruby cell 1792609841854085209, scratch b.c/c.c, validated vs referee exit turns)
 
 - burst = each input line answered K times (`puts"#{F} 4\n"*K`): turn t uses line floor(t/K), so for K>=8 the whole flight is keyed on surface lines only. A and B (shifted) both required
-- rotate floor(x/D)-C (x = first field), D +-1..3000, P 3|4, K 8..13: 14.6M combos, ZERO land even A
+- rotate floor(x/D)-C (x = first field, C outside the floor), D +-1..3000, P 3|4, K 1..20: 48.7M combos, ZERO land even A (offset inside the floor, floor((x-C)/D), not swept)
+- rotate floor(linesum/D)-C, D 1..600, K 1..12: none land A
 - rotate (byte sum of line)%M-C (`gets.sum`), M 1..181, K 1..12: 2 land A, none B; line size%M: none land A
 - Ruby `k=PLAN;loop{$><<k}` open-loop (no sync, cyclic repeat) with the Lua SA schedules: 83 CG 100%
+
+## Shared schedule keyed by time offset (verified 2026-10-21, javascript 71 accepted on CG)
+
+- one open-loop piecewise-constant schedule g(i) serves both validators: start the turn counter at i0 = f(first line) (e.g. N*M: B 18M, A 22M), so A reads g from a later point than B. No branch on the key: one sorted `i<T?R:` chain, power 4 constant
+- found by SA in C (javascript journal ...1792609840716455020, scratch sh.c sim + sa.c): M=5 (A 20 turns ahead of B) lands both with 5 segments (4 thresholds); M=50 needs 6-7. Sim matches the local referee
+- never reading input after the first line is fine on CG (prints forever, the pipe blocks)
