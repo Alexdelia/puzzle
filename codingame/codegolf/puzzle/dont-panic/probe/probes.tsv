@@ -9,3 +9,4 @@
 2026-10-20T19:37:19Z	validator.dont-panic.-.1792523690577001181	php	710	validators = tests 1-6 + mirror of test 7 (set exactly these 7 keys)	progress {"submission_id":41537484,"language":"Bash","in_progress":false,"score":100.0,"rank":316,"total":15959,"criteria":"Code size","criteria_score":103.0}, own row {"pseudo":"Alexdelia","language":"PHP","length":749,"score":100.0}
 2026-10-20T19:44:48Z	validator.dont-panic.-.1792523690577001181	php	704	validators = IDE tests exactly (set t1..t7, no mirror)	yes: 100% at length 704, committed
 2026-10-21T18:53:25Z	cell.dont-panic.clojure.1792440838172667975	clojure	156	does ns Player + -main[_] + waitFor perl wrapper (core 67) pass all validators on CG	yes: 100% at length 156, committed
+2026-10-21T18:55:39Z	cell.dont-panic.clojure.1792440838172667975	clojure	155	does the -> threading form of the 156 perl wrapper pass on CG	yes: 100% at length 155, committed
