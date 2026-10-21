@@ -1,0 +1,1 @@
+s=''for t in io.read'a':gmatch'%a+'do s=t:find(s)and''or s for k=1,9 do u=t:sub(k)if(s..u):find(t)then v=u end end s=s..v end print(#s)

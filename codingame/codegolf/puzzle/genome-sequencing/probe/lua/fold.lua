@@ -1,0 +1,1 @@
+s=''for t in io.read'a':gmatch'%a+'do k=9 if t:find(s)then s=''end while not(s..t:sub(k)):find(t)do k=k-1 end s=s..t:sub(k)end print(#s)
