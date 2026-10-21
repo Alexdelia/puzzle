@@ -64,6 +64,14 @@ More rejected (local referee, 2026-10-20):
 - fix the first broken cell on Indy's current path (rotate it RIGHT, or LEFT when LEFT makes it accept): 1-2/7 tests (no lookahead: test 02 turn 1 needs the cell turned so its exit continues, test 06 turn 2 needs `(8,1)` 11->10 because `(9,1)` is type 0)
 - greedy forward plan without backtracking (each next cell: first of as-is, R, L, RR that accepts and leads to a nonzero cell): 10/23, fails tests 04 05 (dead ends) and all rock cases
 
+More encodings (python core 1022 -> 908, 26/26 local + hidden 7/7, CG 100% inside the clojure wrapper 995, 2026-10-21):
+
+- entry from the turn input: `len(word)-3` (TOP 0, LEFT 1, RIGHT 2), shorter than `'TLR'.find(w[0])`
+- dx from the move-table value d (0 down, 1 east, 2 west): `d%2-d//2`
+- locked rule "locked only as is": `c*t>-1` (cost c, type t) instead of `t>-1or c<1`
+- search returns a tuple `(x,y,dir,new_type)` instead of a command string: the main loop sets `g[y][x]=new_type` and prints `*r[:3]`, no re-parse of its own output (RR: new type = one RIGHT rotation)
+- `R,L='RIGHT','LEFT'` names pay off from 3 uses; move table as `b'...'` bytes compares to 51 (`'3'`) and subtracts 48 instead of `int()`
+
 ## Hidden validators
 
 Summary (count probes 2026-10-20, details and sources in `puzzle/the-fall-episode-2/referee/hidden/facts.md`): probably 50 validators (all scores even, 58 and 90 seen, so not 25); 8 are exact copies of IDE tests 1-5, 42 are maps of sizes no IDE test has (all W<=16: 8 with W<=8, 18 with W 9..12, 16 with W 13..16; 21 with H<=8); 10 have rocks, all new maps with W<=10, none a copy of tests 6-7. No hardcode possible: a general solver with rock handling is needed. Earlier lines below that read 16% as "4 of 25" mean 8 of 50.
