@@ -19,6 +19,7 @@ pretty_id `the-fall-episode-2-codesize`, leaderboard `the-fall-episode-2-codesiz
 
 - first turn: 1000 ms (0.95 s pass, 1.05 s timeout)
 - next turns: 150 ms (0.14 s pass, 0.16 s timeout), as statement
+- hidden validators include big maps where the DFS is costly: a PHP port (1166 B, 100% on the 7 tests) scored 84 on CG because of notice flood timeouts (`knowledge/lang/php/quiet-notices.md`). Local validators 17-19 (13x15, 15x19, 13x17, generated, no rocks; python reference max turn 36-57 ms) reproduce it: that PHP times out on turn 2 of all three. Slow langs: time the DFS on these, not only on tests 1-7
 
 ## Input
 
