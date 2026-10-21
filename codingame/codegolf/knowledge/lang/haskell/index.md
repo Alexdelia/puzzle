@@ -11,3 +11,4 @@
 - [system-wrapper](system-wrapper.md): import System.Process;main=system"..." 35 bytes overhead, super-computer 77
 - [heap-morse-codes](heap-morse-codes.md): lazy heap-order Morse code list, the-resistance 347 (slow on big validator)
 - [intset-flood](intset-flood.md): IntSet persistent flood fill, fmap not map, 242 on surface
+- [perl-wrapper-hardcoded](perl-wrapper-hardcoded.md): system wrapper around perl core, string escapes (\\K, \"), the-labyrinth 268
