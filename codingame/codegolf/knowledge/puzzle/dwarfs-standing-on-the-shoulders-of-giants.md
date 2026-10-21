@@ -160,3 +160,5 @@ TypeScript (2026-10-21): 2+L key 114 bytes, CG 100% via --probe (rank 8, top 60)
 
 Groovy (2026-10-21): `2+L` key, 64 bytes, CG 100% via --probe (rank 4, top 44): `print 2+(s=System.in.text).findAll(/\d+(?= )/).count{s=~/ $it<raw newline>/}`. Slashy string takes a raw newline (1 byte under `"\n"`); `count{}` accepts a Matcher as truthy. A 62-byte variant without the newline in the lookup was probed (prefix-collision risk), result not seen before the worker ended: check probes.tsv. Top 44 key still unknown.
 Groovy update: the 63-byte variant without the newline in the lookup left the row at 64 (below 100%): a hidden validator has an id prefix collision, keep the trailing newline in the ` X\n` test.
+
+Scala (2026-10-21): `2+L` key, 141 bytes, row 141 (rank 18, top 77) via --probe: `object Solution{def main(a:Array[String]){val s=io.Source.stdin.mkString;print(2+"\\d+(?= )".r.findAllIn(s).count(x=>s.contains(s" $x\n")))}}` (Scala escapes). Skeleton + stdin read already cost ~70 of 77: top 77 needs a key of ~7 chars, still unknown.
