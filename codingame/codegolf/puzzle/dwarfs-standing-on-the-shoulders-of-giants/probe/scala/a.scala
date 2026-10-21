@@ -1,0 +1,1 @@
+object Solution{def main(a:Array[String]){val s=io.Source.stdin.mkString;print(2+"\\d+(?= )".r.findAllIn(s).count(x=>s.contains(s" $x\n")))}}
