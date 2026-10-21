@@ -1,0 +1,1 @@
+(ns Player)(defn -main[_](-main(prn(apply max-key(fn[_](read))(range 8)))))
