@@ -15,10 +15,11 @@ let
     { name = "scala-reflect.jar"; jar = scalaJar "reflect" "sha256-gIxEuK2zIF6R1Be/V0BnFcolCK1pUvbiEy/4CZt4vXM="; }
   ];
   bootClassPath = pkgs.lib.concatMapStringsSep ":" (j: "${placeholder "out"}/lib/${j.name}") jars;
-  launcher = name: jdk: mainClass: ''
+  externalStub = "${placeholder "out"}/lib/external-stub";
+  launcher = name: jdk: classPath: mainClass: ''
     cat >$out/bin/${name} <<EOF
     #!/bin/sh
-    exec ${jdk}/bin/java -XX:ActiveProcessorCount=1 -Xmx256M -Xms32M -Xbootclasspath/a:${bootClassPath} -classpath "" -Dscala.boot.class.path=${bootClassPath} -Dscala.home=$out -Dscala.usejavacp=true ${mainClass} "\$@"
+    exec ${jdk}/bin/java -XX:ActiveProcessorCount=1 -Xmx256M -Xms32M -Xbootclasspath/a:${bootClassPath} -classpath "${classPath}" -Dscala.boot.class.path=${bootClassPath} -Dscala.home=$out -Dscala.usejavacp=true ${mainClass} "\$@"
     EOF
     chmod +x $out/bin/${name}
   '';
@@ -27,6 +28,9 @@ pkgs.runCommand "cg-scala-${version}" { } ''
   mkdir -p $out/bin $out/lib
   ${pkgs.lib.concatMapStrings (j: "ln -s ${j.jar} $out/lib/${j.name}\n") jars}
   ln -s ${pkgs.jdk21}/bin/java $out/bin/java
-  ${launcher "scalac" pkgs.jdk17 "scala.tools.nsc.Main"}
-  ${launcher "scala" pkgs.jdk21 "scala.tools.nsc.MainGenericRunner"}
+  mkdir -p stub/io/circe ${externalStub}
+  echo 'package io.circe; public class Stub {}' >stub/io/circe/Stub.java
+  ${pkgs.jdk17}/bin/javac --release 8 -d ${externalStub} stub/io/circe/Stub.java
+  ${launcher "scalac" pkgs.jdk17 externalStub "scala.tools.nsc.Main"}
+  ${launcher "scala" pkgs.jdk21 "" "scala.tools.nsc.MainGenericRunner"}
 ''
