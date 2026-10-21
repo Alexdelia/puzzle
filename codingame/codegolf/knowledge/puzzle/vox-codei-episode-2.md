@@ -104,3 +104,8 @@ Guesses (unverified): tops near 150 likely hardcode or use an even smaller rando
 - plan, 2 chars per bomb: char a gives the gap (T += ord(a)/5-4|0, T starts at -3, a = 5*gap+20, gap 3..21), char b the cell (c=ord(b)+8*T, x=c%w, y=c/w%h). 1 char per bomb is NOT enough for test 10 (restricted-cell random rollouts found nothing in 4M tries; free cells with gaps 3/4 solve in ~70 rollouts)
 - bombs needed: tests 1,2,4 one shared bomb at T=14; test 6 one bomb at T=0; tests 3,5,7,8,9 three each (test 9 needs bombs at T=0,3,6 exactly: b=3, an extra bomb loses "no bombs left"); test 10 ten. Offline search: random greedy rollouts (weight hits^3, hits*bombs_left>=alive) over decoded candidates, Rust for test 10 (44k rollouts/s)
 - the whole hardcode costs ~390 B of code for php; tops (php 207, ruby 153) must use something far smaller: unknown
+
+## TypeScript port of the php centroid hardcode (ts worker, 2026-10-21): CG 100%, 418 B (rank 9)
+
+- php plan string + normalization ported 1:1 under `//@ts-ignore` (one line): `b*(r-1)%10` replaces `b*(r+9)%10` (r is a string), `print(o[u++]||"WAIT")` with `o[t]` a `"x y"` string, `A=B=0` first, `s[i]>"?"` in `for(i in s)` over the row-concatenated map (no newlines, i/w|0 is the row). Passes 10/10 local, CG 100% (probe 3 of 10 for this cell family)
+- tops (ts 216, ruby 153) still 200 B below: plan data ~120 B + code ~300 B; needs a different, much smaller idea
