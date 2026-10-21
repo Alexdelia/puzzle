@@ -125,3 +125,22 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - rotate (X/D)%M-C or C-(X/D)%M (X = first field, lag on, power 4) LANDS A: 19 hits with D<=300, e.g. D=53 M=111 C=58 sign -. Referee `run.sh --hidden`: tests/01 and hidden/01 pass, hidden/02 crashes at (5100,951) turn 57. Perl form `$_/D%M-C` needs no int (Perl % truncates its operands) and with 2-3 digit constants the whole program `$|=1;print$_/D%M-C," 4\n"while<>` is exactly 37 = Perl top length; Ruby `$>.sync=1;loop{puts"#{C-gets.to_i/D%M} 4"}` 46, two under the Ruby top
 - zero B-landers in that family: D 1..999, M 2..min(999,7000/D+2), C -90..M+90, both signs, power 3 and 4, lag on / without the N line / off (s5.c, pruned by rotate range on the N and surface lines); also (X%M)/D-C partly swept (s6.c, M up to ~2500): zero B. Zero T02 (unshifted) landers too
 - leaderboard dates (getFilteredPuzzleLeaderboard, Ruby, fetched 2026-10-21): five Ruby rows at 48, created 2026-09-24 (Waffle3z) to 2026-10-17 (PetyFloyd), all score 100. So 48 passes the CURRENT validators: the "tops predate a validator change" hypothesis is unlikely unless the change is after 2026-10-17
+
+## 3-segment joint schedule (verified 2026-10-21, javascript cell 1792610693403990229, referee --hidden 4/4)
+
+- ONE schedule of 2 tilts + rotate-0 tail, power 4, lands A and B keyed by start offset: B flies R1=11 for 80 turns, R2=-89 for 15, then 0; A runs the same schedule 20 turns ahead (offset N*5: 110 vs 90). JS: `for(i=readline()*5;;)print(i++<170?11:i<186?-89:0,4)` = 52 (= JS top)
+- found by exhaustive tree search (scratch b4.c of that journal: simulate B once per R1 prefix, branch R2 at each T1, tail at each T2, then test A at every offset -400..400). B-landers exist for R1 10..12 (R1 10: 207, e.g. T1 102 R2 -77 T2 124); joint ones are rare (R1 11, R2 -89, offset 18..20)
+- any language with a cheap turn counter and the N-keyed offset can use it: data = 2 thresholds + 2 rotates
+
+## Ruby string schedule (verified 2026-10-21, ruby cell 1792611173849367652)
+
+- the js time-offset chain maps to Ruby string repeats: `$><<"R P⏎"*L1+"R P⏎"*L2+...+"0 4⏎"*1e5` (literal newlines, float repeat ok, the huge tail blocks the pipe and keeps the process alive); the offset-keyed first segment becomes `*(C-gets.to_i*M)`
+- SA over this form with exact Ruby char cost (scratch rs2.c/rs3.c, sim os.h from the js scratch, landing margins MG 60 MV 2): a 3-segment + tail plan lands A and B (sim and referee --hidden); the first-segment key needs B 20 turns longer than A, `gets.sum*4-C` gives that 2 chars under `C-gets.to_i*5` (see knowledge/lang/ruby/line-number-keys.md)
+- floor of this family: 3 segments + tail with the cheapest key `*gets.oct` and 1-digit rotates = 50 chars; B needs 3 segments (2 + tail never found, groovy journal), so the 48 top is another method
+
+## Joint schedule keyed by scaling N (sim + referee, 2026-10-21, javascript cell 1792610238392321841, scratch jsa.c/j3.c)
+
+- one rotate schedule S(n) serves both maps when the time counter starts at N*K (A 22K, B 18K): B gets 4K extra prefix turns (climb), then the same maneuvers as A. Power 4 const. JS shape `for(n=readline()*K;;)print(n++<T1?a:n<T2?b:...:0,4)`: 5 segments 79, 4 segments 61-69 pass `--hidden` 4/4 (K 5..19 all work)
+- 3 segments (2 thresholds, would be ~52 in JS) NOT found: SA 9 runs x ~25 restarts x 100k iters, K 3..8, power 4 and power 3 const, best penalty far from landing
+- sim trap: the shared `os.h`/`sim.h` landing test can say "lands" while the referee crashes on the slope next to the flat end (A: (3290,240) turn 83, x just past 3200). Penalize landings within 60 px of the flat ends and within 2 m/s of the speed limits; with that margin every sim lander checked passed the referee
+- 4 segments (3 thresholds, chain 29 chars) land both at M=5; 3 segments (power 4) not found in 8 x 13 min SA (M 1..10)
