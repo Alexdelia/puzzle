@@ -13,6 +13,7 @@ cyan=36
 column_gap=2
 fallback_width=120
 close_pace_points=10
+progress_ratio_width=11
 
 use_color=0
 [[ -t 1 && -z ${NO_COLOR:-} ]] && use_color=1
@@ -81,13 +82,14 @@ event_sgr() {
 }
 
 progress_ratio() {
-	local first=$1 total=$2 sgr=$yellow
-	if ((first == 0)); then
-		sgr=$dim
-	elif ((first >= total)); then
-		sgr=$green
+	local first=$1 ran=$2 total=$3
+	local tail="|$ran/$total" text
+	if ((first == 0 && ran == 0)); then
+		text=$(paint "$dim" "$first$tail")
+	else
+		text="$(paint "$bold;$green" "$first")$(paint "$dim" "|")$ran$(paint "$dim" "/$total")"
 	fi
-	paint "$sgr" "$(printf '%3d/%-3d' "$first" "$total")"
+	printf '%*s%s%*s' $((3 - ${#first})) '' "$text" $((progress_ratio_width - 3 - ${#tail})) ''
 }
 
 pace_sgr() {
@@ -159,31 +161,32 @@ blocked_line() {
 cell_rows() {
 	local key_sed=$1
 	shift
-	jq -r '[input_filename, .status] | @tsv' "$@" | sed "$key_sed" |
-		awk -F'\t' '{ total[$1]++; if ($2 == "first") first[$1]++ } END { for (key in total) printf "%s\t%d\t%d\n", key, first[key], total[key] }' |
+	jq -r '[input_filename, .status, (.attempts // 0)] | @tsv' "$@" | sed "$key_sed" |
+		awk -F'\t' '{ total[$1]++; if ($2 == "first") first[$1]++; else if ($2 != "todo" || $3 > 0) ran[$1]++ }
+			END { for (key in total) printf "%s\t%d\t%d\t%d\n", key, first[key], ran[key], total[key] }' |
 		sort
 }
 
 lang_table() {
-	local slug first total entries=() name_width=12
-	while IFS=$'\t' read -r slug first total; do
-		entries+=("$(lang_label "$slug" "$name_width") $(progress_ratio "$first" "$total")")
+	local slug first ran total entries=() name_width=12
+	while IFS=$'\t' read -r slug first ran total; do
+		entries+=("$(lang_label "$slug" "$name_width") $(progress_ratio "$first" "$ran" "$total")")
 	done < <(cell_rows 's|.*/cell/[^/]*/||; s|\.json||' "$@")
-	print_grid $((2 + name_width + 1 + 7)) "${entries[@]}"
+	print_grid $((2 + name_width + 1 + progress_ratio_width)) "${entries[@]}"
 }
 
 puzzle_table() {
-	local puzzle first total rows=() entries=() name_width=0
-	while IFS=$'\t' read -r puzzle first total; do
-		rows+=("$puzzle"$'\t'"$first"$'\t'"$total")
+	local puzzle first ran total rows=() entries=() name_width=0
+	while IFS=$'\t' read -r puzzle first ran total; do
+		rows+=("$puzzle"$'\t'"$first"$'\t'"$ran"$'\t'"$total")
 		((${#puzzle} <= name_width)) || name_width=${#puzzle}
 	done < <(cell_rows 's|.*/cell/||; s|/[^/]*\.json||' "$@")
 	local row
 	for row in "${rows[@]}"; do
-		IFS=$'\t' read -r puzzle first total <<<"$row"
-		entries+=("$(printf '%-*s' "$name_width" "$puzzle") $(progress_ratio "$first" "$total")")
+		IFS=$'\t' read -r puzzle first ran total <<<"$row"
+		entries+=("$(printf '%-*s' "$name_width" "$puzzle") $(progress_ratio "$first" "$ran" "$total")")
 	done
-	print_grid $((name_width + 1 + 7)) "${entries[@]}"
+	print_grid $((name_width + 1 + progress_ratio_width)) "${entries[@]}"
 }
 
 smallest_gaps() {
@@ -284,10 +287,10 @@ blocked_line
 cells=("$state"/cell/*/*.json)
 if ((${#cells[@]})); then
 	echo
-	section "cells first/total per lang"
+	section "cells first|ran/total per lang"
 	lang_table "${cells[@]}"
 	echo
-	section "cells first/total per puzzle"
+	section "cells first|ran/total per puzzle"
 	puzzle_table "${cells[@]}"
 	echo
 	section "smallest gaps not first (ours - top)"
