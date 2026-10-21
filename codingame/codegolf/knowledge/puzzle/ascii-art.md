@@ -16,6 +16,7 @@ pretty_id `ascii-art-codesize`, leaderboard `ascii-art-codesize`, io.
 - `T` holds spaces in test 6 (`MAN HAT TAN`), `@` in test 4, mixed case in test 3; no leading or trailing space in `T` in any CG test
 - tests 1-4 and 6 share the `#` font `L=4 H=5`; test 5 uses `L=20 H=11` (5967 chars input)
 - statement example 1 shows `5 ` (trailing space on `H`): not in captured test 1 (`5\n`)
+- `L` line has no trailing space in any hidden validator: groovy 116 parses `L` inside regex `/.{$l}/` (Java throws `Unclosed counted closure` on `.{4 }`, checked locally) and is CG-accepted 100% (2026-10-21). Strict int parse of `L` (Scala `toInt`, Rust `parse`) is safe
 
 ## Traps
 
