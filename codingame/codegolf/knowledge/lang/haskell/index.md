@@ -6,3 +6,4 @@
 - [char-index-clamp](char-index-clamp.md): glyph index 0..26 from fromEnum with mod/max/min, no import
 - [visited-list-state](visited-list-state.md): visited-position list instead of grid mutation, last(x:[y|c]) as if, lexing traps
 - [thor-counter-interact](thor-counter-interact.md): lazy interact + list-comprehension optional letters, 113 on power-of-thor
+- [section-shares-median](section-shares-median.md): (e-) shares e at -O0, doubled-list median, transpose column split
