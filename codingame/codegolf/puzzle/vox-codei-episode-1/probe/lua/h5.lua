@@ -1,0 +1,1 @@
+l=io.read w=l'n'l(l'n'*-~w+1)for c in([[!PH#_  3Gp{" . .      ^_de9>Mky~1*\g{   \W#<		9   ]]):sub((l'n'*8+l'n'*2-w*5)%45):gmatch'.'do i=c:byte()-32 print(i>0 and i%12 ..' '..i//12 or'WAIT')end
