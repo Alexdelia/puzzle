@@ -4,16 +4,18 @@ cd "$(dirname "$0")"
 source agent/tool/lib.sh
 shopt -s nullglob
 
-usage="usage: start.sh [--workers n] [--once] [--best]"
+usage="usage: start.sh [--workers n] [--once] [--best] [--full-window]"
 arguments=("$@")
 count=$workers
 once=
 best=
+full_window=
 while (($#)); do
 	case $1 in
 	--workers) count=$2 && shift 2 ;;
 	--once) once=--once && shift ;;
 	--best) best=1 && shift ;;
+	--full-window) full_window=1 && shift ;;
 	*) echo "$usage" >&2 && exit 2 ;;
 	esac
 done
@@ -44,15 +46,15 @@ done
 agent/tool/sync.sh --if-stale
 
 systemctl --user set-property --runtime codegolf.slice MemoryMax="$workers_memory_max" MemorySwapMax=infinity
-export CG_BEST_MODEL=$best
-event "start workers=$count ${once:+once} ${best:+best}"
+export CG_BEST_MODEL=$best CG_FULL_WINDOW=$full_window
+event "start workers=$count ${once:+once} ${best:+best} ${full_window:+full-window}"
 pids=()
 for ((worker = 1; worker <= count; worker++)); do
 	setsid agent/tool/worker.sh "$worker" $once >>"$state/worker/worker-$worker.log" 2>&1 &
 	pids+=($!)
 	sleep 2
 done
-echo "start.sh: $count workers${best:+, best model for every task}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
+echo "start.sh: $count workers${best:+, best model for every task}${full_window:+, five-hour window used up to 100%}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
 wait "${pids[@]}" || true
 event "all workers stopped"
 commit_time_log

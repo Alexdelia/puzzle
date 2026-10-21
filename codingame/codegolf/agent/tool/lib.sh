@@ -153,7 +153,7 @@ five_hour_resets_at() {
 }
 
 five_hour_full() {
-	[[ -s $usage_file ]] || return 1
+	[[ -s $usage_file && -z ${CG_FULL_WINDOW:-} ]] || return 1
 	local running_tasks=$1
 	(($(five_hour_used) + five_hour_task_reserve_percent * (running_tasks + 1) > five_hour_limit_percent))
 }
