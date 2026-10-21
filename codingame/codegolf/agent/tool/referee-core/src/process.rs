@@ -20,6 +20,9 @@ pub struct Solution {
 	stdin: Option<ChildStdin>,
 	lines: Receiver<String>,
 	reaped: Option<Usage>,
+	orphan_grace: Option<Duration>,
+	main_exit: Option<Instant>,
+	orphans_killed: bool,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -39,6 +42,7 @@ impl Usage {
 
 const EXIT_GRACE: Duration = Duration::from_millis(300);
 const EXIT_POLL: Duration = Duration::from_millis(1);
+const READ_SLICE: Duration = Duration::from_millis(5);
 
 impl Solution {
 	pub fn spawn(launcher: &Path, show_stderr: bool) -> Result<Self> {
@@ -80,7 +84,15 @@ impl Solution {
 			child,
 			lines,
 			reaped: None,
+			orphan_grace: None,
+			main_exit: None,
+			orphans_killed: false,
 		})
+	}
+
+	pub fn kill_orphans_after_main_exit(mut self, grace: Duration) -> Self {
+		self.orphan_grace = Some(grace);
+		self
 	}
 
 	pub fn write(&mut self, text: &str) -> bool {
@@ -98,12 +110,40 @@ impl Solution {
 		}
 	}
 
-	pub fn read_line(&self, deadline: Instant) -> Result<String, ReadError> {
-		let wait = deadline.saturating_duration_since(Instant::now());
-		self.lines.recv_timeout(wait).map_err(|error| match error {
-			RecvTimeoutError::Timeout => ReadError::Timeout,
-			RecvTimeoutError::Disconnected => ReadError::Closed,
-		})
+	pub fn read_line(&mut self, deadline: Instant) -> Result<String, ReadError> {
+		loop {
+			let now = Instant::now();
+			if now >= deadline {
+				return Err(ReadError::Timeout);
+			}
+			let wake = self
+				.orphan_watch(now)
+				.map_or(deadline, |wake| wake.min(deadline));
+			match self.lines.recv_timeout(wake - now) {
+				Ok(line) => return Ok(line),
+				Err(RecvTimeoutError::Disconnected) => return Err(ReadError::Closed),
+				Err(RecvTimeoutError::Timeout) => {}
+			}
+		}
+	}
+
+	fn orphan_watch(&mut self, now: Instant) -> Option<Instant> {
+		let grace = self.orphan_grace?;
+		if self.main_exit.is_none() && self.reap(libc::WNOHANG).is_some() {
+			self.main_exit = Some(now);
+		}
+		let Some(main_exit) = self.main_exit else {
+			return Some(now + READ_SLICE);
+		};
+		let kill_at = main_exit + grace;
+		if now < kill_at {
+			return Some(kill_at);
+		}
+		if !self.orphans_killed {
+			self.kill_group();
+			self.orphans_killed = true;
+		}
+		None
 	}
 
 	fn pid(&self) -> libc::pid_t {
@@ -152,13 +192,14 @@ impl Solution {
 	}
 
 	pub fn kill(&mut self) {
-		if self.reaped.is_some() {
-			return;
-		}
+		self.kill_group();
+		self.reap(0);
+	}
+
+	fn kill_group(&self) {
 		unsafe {
 			libc::killpg(self.pid(), libc::SIGKILL);
 		}
-		self.reap(0);
 	}
 }
 

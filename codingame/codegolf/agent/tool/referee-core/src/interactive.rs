@@ -9,6 +9,8 @@ use serde::de::DeserializeOwned;
 use crate::process::{ReadError, Solution};
 use crate::suite::{Case, Played, RunOptions, Runner, Verdict};
 
+const ORPHAN_GRACE: Duration = Duration::from_millis(50);
+
 pub enum Step {
 	Continue,
 	Win,
@@ -49,7 +51,8 @@ impl<G: Game> Runner for Interactive<G> {
 	fn run(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Played> {
 		let mut turns = 0;
 		let mut first_turn_cpu = None;
-		let mut solution = Solution::spawn(launcher, options.show_stderr)?;
+		let mut solution = Solution::spawn(launcher, options.show_stderr)?
+			.kill_orphans_after_main_exit(ORPHAN_GRACE);
 		let verdict = Self::play(
 			case,
 			&mut solution,

@@ -82,9 +82,13 @@ commit_scope() {
 usage_file=$state/usage.json
 week_seconds=$((7 * 24 * 3600))
 
+last_rate_limit_info() {
+	grep -F '"rate_limit_event"' "$1" | jq -c 'select(.type == "rate_limit_event") | .rate_limit_info' | tail -n 1
+}
+
 record_usage() {
 	local info recorded_at=${2:-$(date +%s)} written
-	info=$(jq -c 'select(.type == "rate_limit_event") | .rate_limit_info' "$1" 2>/dev/null | tail -n 1)
+	info=$(last_rate_limit_info "$1" 2>/dev/null)
 	[[ -n $info ]] || return 0
 	written=$(mktemp "$usage_file.XXXXXX")
 	jq -n --argjson info "$info" --argjson at "$recorded_at" '$info + {recorded_at: $at}' >"$written"
@@ -96,15 +100,22 @@ usage_recorded_at() {
 }
 
 newer_running_stream() {
-	local running stream modified newest_stream newest
+	local running stream modified newest streams=()
 	newest=$(usage_recorded_at)
 	for running in "$state"/running/*.json; do
-		stream=$state/worker/$(basename "$running" .json).jsonl
-		[[ -s $stream ]] && grep -q -m 1 '"rate_limit_event"' "$stream" || continue
-		modified=$(stat -c %Y "$stream")
-		((modified > newest)) && newest=$modified newest_stream=$stream
+		stream=$state/worker/${running##*/}
+		stream=${stream%.json}.jsonl
+		[[ -s $stream ]] && streams+=("$stream")
 	done
-	[[ -n ${newest_stream:-} ]] && printf '%s\t%s\n' "$newest_stream" "$newest"
+	((${#streams[@]})) || return 1
+	while read -r modified stream; do
+		((modified > newest)) || return 1
+		if grep -q -m 1 '"rate_limit_event"' "$stream"; then
+			printf '%s\t%s\n' "$stream" "$modified"
+			return 0
+		fi
+	done < <(stat -c '%Y %n' "${streams[@]}" | sort -s -k1,1nr)
+	return 1
 }
 
 sync_usage_from_running() {
