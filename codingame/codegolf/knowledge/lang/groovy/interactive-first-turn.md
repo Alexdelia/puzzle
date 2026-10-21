@@ -12,3 +12,5 @@ Measured on CG test games (stderr `java.lang.management.ManagementFactory.runtim
 Check locally before submitting an interactive Groovy cell: print `runtimeMXBean.uptime` to stderr at script start and before the first `println`; local difference must stay well under ~90 ms (first-use cost of closures, dynamic dispatch, `tokenize`, `as int` class loading counts). Safer: hand the game to a fast language via `new ProcessBuilder(...).inheritIO().start()` (see [perl-wrapper-processbuilder](perl-wrapper-processbuilder.md); shadows-of-the-knight groovy 141 bash wrapper passed CG), length permitting.
 
 Next turns (150 ms) are not affected once warm (dont-panic games that survived frame 1 won with the local turn counts).
+
+Data point the-descent (2026-10-21, games 910617668-910617754): `for(;;)println((0..15).max{System.in.read()}>>1)` local main -> answer 79-107 ms; CG main at 1162-1326 ms, answer at 1437 passed, 2/3 instrumented games timed out at frame 1, plain code 5/5 tests then 79.976 on submit (1 validator out). Range `max` with a closure is not cheap enough on a cold JVM.
