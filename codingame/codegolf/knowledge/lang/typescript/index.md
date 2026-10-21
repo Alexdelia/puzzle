@@ -8,3 +8,4 @@
 - [execsync-wrapper](execsync-wrapper.md): `require("child_process").execSync(core,{stdio:[0,1]})`, 52 B overhead, no ts-ignore, verified on CG
 - [readline-flat-grid](readline-flat-grid.md): flat char array via readline + push(...R(),0), eval query, 193 on surface, verified
 - [ts-ignore-js-port](ts-ignore-js-port.md): `//@ts-ignore` + one-line JS port costs +13 B, beats let/any declarations, verified CG
+- [param-as-local](param-as-local.md): arrow param instead of let/ts-ignore, `[...'01234567'].map(i=>readline()+i).sort()[7][1]`, the-descent 69, verified
