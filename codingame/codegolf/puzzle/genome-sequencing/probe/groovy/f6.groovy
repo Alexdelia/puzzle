@@ -1,0 +1,1 @@
+print System.in.readLines().inject(''){s,t->t>'9'?t=~s?t:s+t.drop((7..0).find{(s+t.drop(it))=~t}):s}.size()
