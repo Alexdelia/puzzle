@@ -93,3 +93,10 @@ Rejected (older, longer): end-column diff-extent compare + mid of run (502 B pyt
 - inner column scan needs no row bound: `for(i=x++;s[i]>=s[i-x+11];i+=w)` stops at the first non-staff black or at string end (`undefined>=` is false); the later `i<m` test alone rejects ledger hits (-5 B)
 - previous-column flag merged into the update: `q<(q=i<m)&&push(..)` replaces `i<m>q&&push(..),q=i<m` (-2 B)
 - JS version of both: 225 -> 220 expected (js-cell 227 not yet updated)
+
+## Scala cell facts (2026-10-21, CG 100% at 319 B, row #4)
+
+- port of the lua/js method with `while` column scan over a String: `i*15/w-52` (no row division, constant 50..56 passes the 12 tests, 45 fails) `/h%7` into `"AGFEDCB"`; H/Q `"QH"(s(i+5)%2)` (B=66 even, W=87 odd); previous column state `var p=m` + `p=i` (`i<m&p>=m` starts a note) saves 2 B over a boolean
+- `def r=Console.in.readLine.split(" ")` shared by header (`val Array(w,h)=r.map(_.toInt)`) and RLE (`r.grouped(2).map(a=>a(0)*a(1).toInt).mkString`)
+- `"A"(k)+"Q"(j)` is Char+Char = Int: the `" "+` separator prefix doubles as the String coercion
+- dead end: `(x until m by w).find(...)` per column + `filter/flatMap/mkString(" ")` pipeline is 7 B longer than the var/while/o+= loop
