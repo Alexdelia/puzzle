@@ -33,6 +33,10 @@ pretty_id `the-fall-episode-3`, leaderboard `the-fall-episode-3-codesize`, inter
 - out-of-grid cell `50 50 RIGHT`: loss "expected: 0<=x<11"; malformed line `X`: loss "expected: x y LEFT|RIGHT". No garbage-as-WAIT leniency
 - `python3` is on PATH in the CG Bash box: `python3 -c "$(base64 -d<<<B64)"` (Bash) or `main(){system("python3 -c \"$(echo B64|base64 -d)\"");}` (C, dash) run a Python solver interactively
 
+## Launcher trap (2026-10-21)
+
+- Scala/Java: CG runs main `Player` here (interactive). `object Solution` scored 0% on CG (scala 1371 rejected) though the local launcher passes it; `object Player` (CG 100%, scala 1369) fails locally with "solution exited". Local launcher hardcodes `Solution` (`knowledge/lang/scala/main-object-player.md`): until it is fixed, test locally with a `Solution` copy, ship `Player`
+
 ## Unverified
 
 - swap (Indy and rock exchanging cells in one move) counts as no collision in the referee; not observed on CG
