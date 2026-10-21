@@ -19,6 +19,7 @@ pretty_id `ascii-art-codesize`, leaderboard `ascii-art-codesize`, io.
 
 ## Traps
 
+- Scala `io.Source` passes the local referee but CG compile fails (0%, 2026-10-21): see `lang/scala/root-io-package.md`, write `scala.io.Source`
 - `capture-io.sh` truncates test 5: CG test-game output cut around 4000 chars. Captured in 3000-char slices instead (journal `referee.ascii-art.*`)
 - `ord(c)%32-1` is the glyph index for letters of both cases; non-letters near letters (`@ [ \` {`) must still map to `?`: validators 05, 07 cover them
 - uppercase-only mapping (`c.isupper()`) fails test 3 and most validators
