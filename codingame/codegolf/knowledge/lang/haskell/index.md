@@ -16,3 +16,4 @@
 - [system-cmd-import](system-cmd-import.md): `import System.Cmd` 4 bytes shorter than System.Process, the-descent 72 #1
 - [system-cmd-bash-core](system-cmd-bash-core.md): `import System.Cmd;main=system"bash -c '..'"` wrapper, 31 overhead, shadows-of-the-knight-episode-2 259
 - [doubling-iteration](doubling-iteration.md): list-table binary doubling beats O(C) loop on CG time, roller-coaster 282
+- [dfs-list-concat](dfs-list-concat.md): plan-once DFS with concat comprehension and index j in -2..2, interact EOF trap, the-bridge-episode-2 398
