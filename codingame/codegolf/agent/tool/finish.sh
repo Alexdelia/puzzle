@@ -17,6 +17,7 @@ if [[ -n $ran_model && $ran_model != "$task_model" ]]; then
 fi
 outcome=$(jq -r '.outcome // "none"' "$running")
 note=$(jq -r '.note // ""' "$running")
+[[ -s $claude_json ]] || echo '{}' >"$claude_json"
 read -r wall_s cpu_user_s cpu_sys_s < <(tail -n 1 "$time_file" 2>/dev/null || echo "0 0 0")
 read -r tokens_in tokens_out cost_usd turns api_s input_tokens cache_write_tokens cache_read_tokens thinking_tokens \
 	permission_denials < <(jq -r '
