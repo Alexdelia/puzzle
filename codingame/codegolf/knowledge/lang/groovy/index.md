@@ -10,3 +10,4 @@
 - [perl-wrapper-processbuilder](perl-wrapper-processbuilder.md): ProcessBuilder(perl,-ape,code).inheritIO().start(), no waitFor; perl exists on CG
 - [interactive-first-turn](interactive-first-turn.md): interactive frame-1 deadline ~1.5 s JVM uptime on CG, main->first answer <= ~90 ms local or timeout, local referee does not model it, verified
 - [prefix-set-take-sum](prefix-set-take-sum.md): `(1..20).sum{x*.take(it)}.toSet()` distinct prefixes; char-list inits form OOMs on CG
+- [perl-wrapper-escape-d](perl-wrapper-escape-d.md): `\d` must be `\\d` in single-quoted Groovy strings; interactive perl core wrapper, 287
