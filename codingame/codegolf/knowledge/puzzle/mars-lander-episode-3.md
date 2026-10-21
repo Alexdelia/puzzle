@@ -158,7 +158,7 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 ## Joint schedule without conditionals (verified 2026-10-21, Lua 65 accepted on CG, tie #1)
 
 - the 3-segment joint schedule above (counter N*5+t: 11 below 170, -89 below 185, then 0) written as floor-division steps: `268//i*100-283//i*89` with the counter shifted `io.read()*5+99` (see knowledge/lang/_shared/floordiv-step-chain.md). Without the +99 shift B's first turns get `184//90 = 2` (rotate -78) and B crashes
-- Lua `for i=io.read()*5+99,1e9 do print(E.." 4")end` 65; with `print(E,4)` (tab separator) 60, passes the local referee
+- Lua `for i=io.read()*5+99,1e9 do print(E.." 4")end` 65; `print(E,4)` (TAB separator) 60 passes the local referee but NOT CG (probe 2026-10-21, row stayed 65): the local referee split_whitespace is too permissive, CG wants a space
 
 ## Ruby keyed schedule search (2026-10-21, ruby cell journal ...1792610250526070424, `sr.c`/`sk.c` in its scratch)
 
@@ -176,3 +176,9 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - exhaustive scan of this family (R1 for keyed T1 turns, R2 for L2, tail 0, power 4 everywhere; R1 -40..40, R2 -90..90, L2 1..60, T1 0..249; sim margins 20 px from flat ends and 0.5 m/s, scratch ex2.c of journal cell.mars-lander-episode-3.perl.1792610249986071061): the ONLY joint landers are R1 11, R2 -89 or -90, L2 15, A T1 60, B T1 79..81. So the counter offset per N unit must be 5 (B-A 19..21 = 4K), no cheaper key (`<>`, `C/<>`) exists for it
 - earlier in that journal: cyclic repeat `print+(<>&4?A:B)x999` (schedule string repeated, x999 output keeps the process alive): A lands with 2 cyclic segments `0 4 x34, -1 2 x9`; 71 chars, superseded
 - exhaustive over this 2-segment shape (scratch ex.c + an.py of the same journal; rotate1 1..16 power 3|4, rotate2 -45..-1 power 1..4, count2 5..120, keyed count 0..159): landers exist for rotate1 5-8, rotate2 -9..-16 power 3; the shortest have one-digit rotates. B always needs ~35-45 MORE lead turns than A. Cheap keys `C-gets.oct` (B-A=17), `C-gets.hex` (10), `gets.sum-C` (5) find no lander in that domain: the ternary on the first byte stays shortest in Ruby
+
+## Char-string schedule, one string for both validators (verified 2026-10-21, php cell, local referee --hidden + CG)
+
+- power 4 constant, rotate = ord(c)-80 of char `S[(t+o)/D]` (one printable char per D turns, D 24..42), rotate 0 power 4 forever after the string: A lands with 2 chars, B with 4-5 (SA, `ch.c` in scratch of journal cell.mars-lander-episode-3.php.1792609841222013398)
+- ONE string read by both maps from a turn offset keyed on the first byte: A from offset X, B from 0 (PHP `$i=~-fgetc(STDIN)*X`, ~-"2"=1, ~-"1"=0): 4 chars suffice (D 32 and 42 found, `js.c` joint SA, fam 3). Offsets A=2X, B=X (`fgetc*X`, the cheaper key) found nothing at L4/L5 in short runs; negative offsets with string wrap nothing at L4
+- digit form rotate = digit*K-C without a tail guard (out-of-range char = -C) needs the touchdown inside the string: B never landed (tilted touchdown), dead
