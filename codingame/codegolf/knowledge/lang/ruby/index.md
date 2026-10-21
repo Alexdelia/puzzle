@@ -15,3 +15,4 @@
 - [min-by-string-key](min-by-string-key.md): min_by{x=_1.to_i;..} beats map(&:to_i), nil.to_i=0 for empty
 - [random-restart-search](random-restart-search.md): flat-string blast search, loop-break-value output, vox-codei-episode-1 322
 - [loop-print-no-sync](loop-print-no-sync.md): `k=PLAN;loop{$><<k}` open-loop interactive output, no sync needed, keeps process alive, verified CG
+- [line-number-keys](line-number-keys.md): `gets.oct`/`gets.hex`/`gets.sum` 8-char keys with other spreads than to_i, `"s"*1e5` float repeat
