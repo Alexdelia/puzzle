@@ -78,3 +78,8 @@ Rejected: per-bit `.replace(/./g,(b,i,s)=>...)` with previous-bit test, about +1
 - 4/9 end with `\n` (the three short ones and one with length >= 40), 5/9 do not: handle both, as for the IDE tests
 - 3/9 start with a char < 64 (first bit 0): the first header is not always `0 `
 - no validator is a copy of an IDE test, so a test-keyed hardcode scores 0; output size makes hardcoding pointless anyway
+
+## CG rejections not caused by the rules (2026-10-21)
+
+- scala 147 scored 0 on CG though it passed 9/9 locally: `io.StdIn` does not compile on CG (`knowledge/lang/scala/root-io-package.md`). Referee rules were right. The local pass came from a dev shell with a stale `CG_SCALA` (store path from before the io.circe stub). With `nix build .#scala` the same file fails locally with CG's error text, and `scala.io.StdIn` passes 9/9. If a scala cell passes locally with `io.X`, rebuild the toolchain before submitting
+- referee: 10 validators (06-10 added: doubled `%%` with `\n`, digit-first 31 chars, 99 chars with and without `\n`, short sentence); negative checks: missing `[1:]` 0/9, a 7 s sleep times out at 6000 ms; bench suite 691 ms, referee CPU <= 0.4 ms per case
