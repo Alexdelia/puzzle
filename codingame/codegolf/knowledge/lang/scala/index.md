@@ -14,3 +14,4 @@
 - [mean-centred-slope](mean-centred-slope.md): grouped(2) rows, centred regression slope, split table + min; blunder-episode-3 304
 - [sys-process-no-shell](sys-process-no-shell.md): `sys.process.Process("perl -anE<code>").!<` = core+52, no shell, no quotes for a spaceless core, stdin connected; verified on CG
 - [zipall-merge-columns](zipall-merge-columns.md): negative `"S"*n` = "", `for((p,q)<-v zipAll(h,"",""))println(""+p+q)` merges two runs line by line; `val Seq(..)=Array` fails; verified
+- [source-mkstring-array-pattern](source-mkstring-array-pattern.md): `scala.io.Source.stdin.mkString split "\\D"map(_.toInt)` + `val Array(l,c,n,q@_*)=`, `tails.map(..).toArray` cyclic table, `scan` < `scanLeft`, postfix-in-parens compile error; verified
