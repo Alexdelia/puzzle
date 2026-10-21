@@ -87,3 +87,7 @@ Port of the JS DFS (js 951): php 1192 B, 11/11 local, CG submitted. Trap: `$n/3|
 ## Lua general solver (2026-10-21)
 
 Port of the JS DFS: lua 1193 B, 11/11 local, CG 100% row #6 (top 147 = hardcode). Reads: `io.read("n","n","l")` gives x,y and " SIDE" (`#s-4` = 0/1/2). Recursive fns take scratch vars as extra params (no globals clobbering); f returns false on failure (0 is truthy in Lua); output must be one string (`print(a,b)` tabs).
+
+## Scala general solver (2026-10-21)
+
+Port of the JS DFS: scala 1369 B, CG 100% row #6 (top 172 = hardcode). Needs `object Player` on CG, local referee only runs `Solution`: submit through `oracle.sh` from `probe/scala/` (the passing probe becomes the solution). Without a memo of failed states (`Set[(p,rocks,Arrays.hashCode(g))]`, cleared per turn) tests 04/validators 04,05 time out on 150 ms turns (cold JVM, Seq allocations). Leading-0 sentinel layout (index `y*v+x+1`) avoids the negative-index crash of the JS layout; `N` must guard `p<0`.
