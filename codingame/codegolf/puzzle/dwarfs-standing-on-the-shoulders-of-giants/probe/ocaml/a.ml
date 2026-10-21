@@ -1,0 +1,1 @@
+List.(let e=init(read_int())(fun _->Scanf.scanf" %d %d"(fun a b->b,a))in print_int(2+length(filter(fun(_,a)->mem_assoc a e)e)))
