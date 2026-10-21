@@ -11,3 +11,4 @@
 - [interactive-byte-argmax](interactive-byte-argmax.md): `maxBy(_=>System.in.read)>>1` over 0..15 for line-per-height interactive puzzles; Player vs Solution local caveat; verified
 - [set-frontier-flood](set-frontier-flood.md): immutable Set BFS with persistent reset per query, regex extractor in for; surface 326
 - [python-wrapper-interactive](python-wrapper-interactive.md): `object Player` + `new ProcessBuilder("/usr/bin/python3","-c","""..""").inheritIO.start.waitFor`, core+100 B; `sys.process !` has no stdin; verified
+- [mean-centred-slope](mean-centred-slope.md): grouped(2) rows, centred regression slope, split table + min; blunder-episode-3 304
