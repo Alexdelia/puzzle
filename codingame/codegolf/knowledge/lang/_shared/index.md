@@ -6,5 +6,5 @@
 - [memory-limit](memory-limit.md): about 768 MiB peak RSS per test, over it = fail (Python killed silently, Haskell shown as timeout), local referee does not check it, verified
 - [crash-exit](crash-exit.md): io puzzles ignore exit status, crash after output passes, verified
 - [best-kept](best-kept.md): CG keeps best submission per language, longer submit harmless but unconfirmable, verified
-- [system-wrapper](system-wrapper.md): `os.system("bash -c ...")` runs bash on CG, interactive io works; cell length = wrapper + shortest core, verified on Python
+- [system-wrapper](system-wrapper.md): `os.system("bash -c ...")` runs bash on CG, interactive io works; cell length = wrapper + shortest core, verified on Python; TRAP: spawned `perl` locally = host 5.42, CG = 5.34 (variable-lookbehind bug), test with `PATH=$CG_PERL/bin:$PATH`
 - [hidden-validators](hidden-validators.md): hardcode/exploits allowed (user rule), `submit.sh --probe`, best-kept makes each probe a 1-bit oracle when shorter than our row, local validators synthetic; first submit in a no-row language reads passed/total via the partial row score (or sum of weights: scores can be weighted)
