@@ -2,7 +2,7 @@ Final review of every `{{LANG}}` (CG `{{CG_NAME}}`, `.{{EXTENSION}}`) golf solut
 
 Scope: `puzzle/*/solution/{{LANG}}/main.{{EXTENSION}}`, `knowledge/`.
 
-Our solutions (from `agent/state/cell/<puzzle>/{{LANG}}.json`; ours = our CG row, top = best row of another player in this language, best tie rank 1 = first or tied first):
+Our solutions (`agent/tool/cells.sh lang {{LANG}}`; `agent/tool/cells.sh puzzle <p>` shows every language of a puzzle, to find the shortest wrapper core):
 
 {{LANG_CELLS}}
 

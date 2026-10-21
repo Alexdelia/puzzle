@@ -5,6 +5,16 @@ Scope: `puzzle/{{PUZZLE}}/solution/{{LANG}}/` (one file `main.{{EXTENSION}}`), `
 Leaderboard for this cell (from `agent/state/cell/{{PUZZLE}}/{{LANG}}.json`): {{CELL}}
 Goal: length <= top (bytes, `agent/tool/count.sh`), then report `first`.
 
+Our rows of this puzzle in every language (wrapper cores: the shortest perl/python/bash/lua... solution of this puzzle is the core to embed; a first or tied first there is a proven core):
+
+{{PUZZLE_CELLS}}
+
+Our rows of `{{LANG}}` in every puzzle (firsts show the idioms that win in this language):
+
+{{LANG_CELLS}}
+
+Same tables any time: `agent/tool/cells.sh puzzle <puzzle>`, `agent/tool/cells.sh lang <lang>`.
+
 1. Read `knowledge/puzzle/{{PUZZLE}}.md`, `knowledge/lang/{{LANG}}/index.md`, `knowledge/lang/_shared/index.md`, and the trick files that apply.
 2. Iterate locally: `puzzle/{{PUZZLE}}/referee/run.sh <file> --validators` (prints `length`). Work on scratch copies; the solution file only ever holds a passing version shorter than our CG row.
 3. Each time you beat our row: write `puzzle/{{PUZZLE}}/solution/{{LANG}}/main.{{EXTENSION}}`, run `agent/tool/submit.sh puzzle/{{PUZZLE}}/solution/{{LANG}}/main.{{EXTENSION}}`. A rejection on CG means the local referee missed a rule: note it in the journal and stop submitting this cell.
