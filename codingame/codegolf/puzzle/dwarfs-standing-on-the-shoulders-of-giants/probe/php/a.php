@@ -1,0 +1,1 @@
+<?$s=substr(fread(STDIN,99),2);foreach(explode("\n",$s)as$l)$n+=strpos($s," ".strtok($l," ")."\n")>0;echo$n+2;
