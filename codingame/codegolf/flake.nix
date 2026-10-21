@@ -53,6 +53,29 @@
           sha256 = "04ffwp2gzq0hhz7siskw6qh9ys8ragp7285vi1zh8xjksxn1msc5";
         }).dash;
 
+      agentPython = pkgs.python3.withPackages (
+        python: with python; [
+          bitarray
+          matplotlib
+          more-itertools
+          networkx
+          numba
+          numpy
+          ortools
+          pillow
+          pulp
+          python-sat
+          pyyaml
+          regex
+          requests
+          scipy
+          sortedcontainers
+          sympy
+          tqdm
+          z3-solver
+        ]
+      );
+
       refereeRust = pkgs.rust-bin.stable.latest.default.override {
         extensions = [
           "clippy"
@@ -77,11 +100,45 @@
         packages = with pkgs; [
           claude-code
           refereeRust
+          agentPython
+          pypy3
+          bashInteractive
+          coreutils
+          util-linux
+          procps
+          psmisc
+          lsof
+          strace
+          gdb
+          time
+          hyperfine
+          moreutils
+          parallel
+          findutils
+          gnugrep
+          gnused
+          gawk
+          diffutils
+          ripgrep
+          fd
+          tree
+          which
+          file
+          less
+          xxd
+          bc
+          git
           jq
           curl
-          util-linux
-          time
-          coreutils
+          sqlite
+          zip
+          unzip
+          xz
+          perl
+          nodejs
+          z3
+          glpk
+          minizinc
         ];
 
         env = lib.mapAttrs' (name: package: lib.nameValuePair (envName name) "${package}") langPackages // {
