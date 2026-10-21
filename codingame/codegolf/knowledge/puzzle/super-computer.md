@@ -37,6 +37,7 @@ Method: greedy by latest start (mirror of earliest-end greedy). Verified 15/15 l
 - shell form: `sort -nr`, then awk with only a pattern (prints taken lines), count with `wc -l`. Pattern `$1+$2>e&&e?0:e=$1` (17 chars): ternary in pattern, assignment yields `J > 0` = truthy. Shorter than `{...;c++}END{print c}` by 8
 - ruby/perl count with `count{...}` / `~~grep{...}` over the sorted lines, same ternary
 - shell core 43 bytes (bash top 45). System wrapper cells (`lang/_shared/system-wrapper.md`): core + wrapper needs `read a;` instead of `read;` under CG dash (+2): c 64 `main(){system("...");}` (top 64), ruby 51 `exec"..."`, perl 53 `exec q(...)`, python 68 `os.system`
+- clojure 115 (CG 2026-10-21, rank 1, top was 117): `ProcessBuilder` `sh -c` wrapper around the `$2&&` core, `lang/clojure/dotdot-chain.md`; JVM exits before the child, output still complete on CG
 - native reached: perl 55, ruby 81, python 108 (end-ascending with `key=sum` on `[J,D]` lists beats start-descending `[::-1]` + `9e9`/sentinel in python)
 
 Alternative, no sort (for languages where sort with comparator is expensive): bucket by end. `m[J+D] = max J`, sweep `t` ascending over `2^21` days with `e=1` (starts >= 1 so empty bucket `0` never passes `m[t]>=e`), take iff `m[t]>=e`, then `e=t`. Verified python 139, c 142; longer than the wrapper in c.
