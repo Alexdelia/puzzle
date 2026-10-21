@@ -91,3 +91,7 @@ php-style skeleton (no x-final jump, `m=l` keeps x, last `print(m,l)`), `//@ts-i
 ## scala (2026-10-21)
 
 Bash core (210 bytes, local 46/46) in `import sys.process._` + `"""bash -c '<core>'""".!<` = 279 local 46/46 but 0% on CG, same for ProcessBuilder form (293): spawning from Scala fails on CG for unknown reason (unprobed: startup time vs spawn). Bash core gains valid for bash cell: `for((m=l,l=0,S=h=a[i-3]-1;l<h;${#r}<5?l=h=s/2:r^q>t?l=s/2+1:(h=--s/2))){ ((t=a[i],q=l+h-t,s=t+(a[i]=q=q<0?t/2:q>S?t+S>>1:q-(q==t))));echo ${a[@]:3:2};read r;}` (response update in for third clause, php no-final-jump trick via m=l). Postfix `!<` without dot is a compile error here.
+
+## clojure 293 (2026-10-21)
+
+Bash core (209, the scala-section core ending `echo $m $l`) in `(ns Player)(defn -main[_](..(ProcessBuilder.["bash""-c""<core>"])inheritIO start waitFor))`, CG 100% #1 (top 317). Top-level spawn (no `-main`) blocks the CG compile (0%), no `waitFor` scores 0%: see `lang/clojure/interactive-spawn.md`. Local referee times out turn 1 on JVM startup under host load: submitted through `probe/clojure/` + `oracle.sh`.
