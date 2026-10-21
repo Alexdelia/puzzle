@@ -16,3 +16,4 @@
 - [byte-read-max-key](byte-read-max-key.md): `(0..15).max{System.in.read()}>>1` argmax per turn, key called once per element, 48 bytes, CG 79.976 (timing?)
 - [native-83-timeout-big-io](native-83-timeout-big-io.md): native Groovy on 1 MB inputs = 83.0 (timeouts); python3 wrapper 309 passes, regex-header decode trick
 - [string-flood-tricks](string-flood-tricks.md): split('\n',3)[2], findAll closure, toLong index, quadratic regex trap, =~ trap, CME loop, speed of flood
+- [compilestatic-first-turn](compilestatic-first-turn.md): @groovy.transform.CompileStatic f(){...}f() cuts main->answer 50 -> 10 ms local, fixes random frame-1 timeouts; negative range index, Arrays.hashCode key, verified CG
