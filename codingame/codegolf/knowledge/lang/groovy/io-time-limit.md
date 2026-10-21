@@ -10,3 +10,4 @@ The io limit is NOT the 6000 ms of `lang/_shared/io-time-limit.md` for Groovy. P
 - way out: shell/perl wrapper, `new ProcessBuilder("sh","-c",'<core>').inheritIO().start()` read 1 MB and answered on CG test 03 at uptime ~1.1 s (`[[perl-wrapper-processbuilder]]`)
 - local referee uses 6000 ms for every language and local JVM starts 2x faster: a native Groovy solution on large input passing locally proves nothing. CG-test the largest IDE test before submit
 - unverified: other JVM langs (java, kotlin, scala, clojure) may have the same tight limit
+- second timing point (referee journal 1792592463285021254): `readLines()` variant on test 03, CG start 969, read +378 ms (local +150), `drop(1).collect{it.split()*.toInteger()}` +472 ms (local +170), timeout before the sort ends: CG ~2.5x local. Rough local bar, unverified: whole run under ~0.9 s wall on an idle machine
