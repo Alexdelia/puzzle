@@ -9,3 +9,4 @@
 - [section-shares-median](section-shares-median.md): (e-) shares e at -O0, doubled-list median, transpose column split
 - [music-scores-columns](music-scores-columns.md): g n chunker reused for rows and RLE pairs, Bool pixels, transpose columns, zip3 with shifted self (337 CG 100%)
 - [system-wrapper](system-wrapper.md): import System.Process;main=system"..." 35 bytes overhead, super-computer 77
+- [heap-morse-codes](heap-morse-codes.md): lazy heap-order Morse code list, the-resistance 347 (slow on big validator)
