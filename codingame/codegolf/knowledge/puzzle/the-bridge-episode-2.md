@@ -123,3 +123,10 @@ Next steps for a later worker:
 - plan-once DFS in a for-comprehension with `=` bindings and a trailing `if` guard; uppercase binding names (`Z=`) are stable-identifier patterns and fail: use lowercase
 - road `Seq(H)++4 lanes++Seq(H)` with y offset +1 (negative index throws); hole test `forall(_<47)` on chars ('.'=46, '0'=48); `print(q);sys.exit` flushes fine
 - gap to top 275 not closed by any general method
+
+### Clojure 467 (2026-10-21, CG 100% rank 2, top 292)
+
+- native plan-once DFS (perl wrapper 347+89 = 436 is shorter only on paper; native chosen, wrapper not probed)
+- lanes as sets of hole indices, rails via `(get R z any?)`: see `knowledge/lang/clojure/get-default-any.md`
+- TRAP (CG-verified): checking the new lane from cell x instead of x+1 (stricter model, -12 B, also kills speed-0 rail moves) passes 23/23 locally but fails one heavy validator (9..12) on CG: 91.6 at 453 B. Exact model (new lane x+1..e, old lane x+1..e-1) 100%
+- old lane looked up with `(get R k any?)` too, else a speed-0 UP/DOWN into lane -1/4 survives the model and `(R -1)` throws
