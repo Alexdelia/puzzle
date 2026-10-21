@@ -88,3 +88,7 @@ Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`
 ## Groovy (cell worker 2026-10-21)
 
 - 267 #1 (top 398): `new ProcessBuilder('perl','-anE','<typescript row core>').inheritIO().start().waitFor()`, `\\K` doubled, `\n` left as Groovy escape. Without `.waitFor()` (257) CG kills perl mid-game: 25% (see lang/groovy/perl-wrapper-processbuilder.md)
+
+## Scala (cell worker 2026-10-21)
+
+- 272, rank 1 (top was 391): `sys.process.Process("perl -anE<core>").!<` in `object Player` (perl is on PATH in the Scala box, verified CG 100%) with the lua core made whitespace-free, see `lang/scala/sys-process-no-shell.md`
