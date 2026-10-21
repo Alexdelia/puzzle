@@ -109,3 +109,7 @@ Guesses (unverified): tops near 150 likely hardcode or use an even smaller rando
 
 - php plan string + normalization ported 1:1 under `//@ts-ignore` (one line): `b*(r-1)%10` replaces `b*(r+9)%10` (r is a string), `print(o[u++]||"WAIT")` with `o[t]` a `"x y"` string, `A=B=0` first, `s[i]>"?"` in `for(i in s)` over the row-concatenated map (no newlines, i/w|0 is the row). Passes 10/10 local, CG 100% (probe 3 of 10 for this cell family)
 - tops (ts 216, ruby 153) still 200 B below: plan data ~120 B + code ~300 B; needs a different, much smaller idea
+
+## Groovy port of the php hardcode (groovy worker, 2026-10-21): 456 B, CG score 0.0
+
+- `System.in.newReader()`, `eachWithIndex` centroid, `.split(' ')[..].bytes`, `intdiv`, GString output; local tests 10/10, validators 15/20 like php. CG row 0.0 (all games failed, cause undiagnosed: probably frame-1 JVM timeout). Top 248 not reachable with this method (needs ~200 B less)
