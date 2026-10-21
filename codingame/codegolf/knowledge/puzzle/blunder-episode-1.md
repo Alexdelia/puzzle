@@ -71,3 +71,5 @@ Rejected / measured:
 - per-char `exec` dispatch table for I/B/X/T: same length as four `if` lines in Python
 - direction kept as char with `dict(S=w,...)` offsets: modifier shorter (`if c in P:d=c`) but dict + name lookup cost more, net about +7
 - `w` from newline positions (`t.find('\n',8)-t.find('\n')`, valid since header <= 8 chars and C >= 4): longer than `int(t.split()[1])+1`
+
+Python 368 submitted 2026-10-21 (exec unroll, `p=s.find('@')`, `m=[*s]`, `P=0,2,1,3`, `D=w,-w,1,-1`, dirs S N E W): CG row 1419 -> 368. Remaining gap to 215 is the lookup exploit.
