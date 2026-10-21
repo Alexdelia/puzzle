@@ -15,3 +15,4 @@
 - [sys-process-no-shell](sys-process-no-shell.md): `sys.process.Process("perl -anE<code>").!<` = core+52, no shell, no quotes for a spaceless core, stdin connected; verified on CG
 - [zipall-merge-columns](zipall-merge-columns.md): negative `"S"*n` = "", `for((p,q)<-v zipAll(h,"",""))println(""+p+q)` merges two runs line by line; `val Seq(..)=Array` fails; verified
 - [source-mkstring-array-pattern](source-mkstring-array-pattern.md): `scala.io.Source.stdin.mkString split "\\D"map(_.toInt)` + `val Array(l,c,n,q@_*)=`, `tails.map(..).toArray` cyclic table, `scan` < `scanLeft`, postfix-in-parens compile error; verified
+- [sys-process-pipe](sys-process-pipe.md): `import sys.process._;("cmd a"#|"awk PROG").!<` pipes stdin through space-split commands, no sh; postfix `!<` is a compile error; verified io (super-computer 103)
