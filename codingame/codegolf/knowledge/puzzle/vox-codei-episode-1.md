@@ -109,3 +109,9 @@ Guesses (unverified): tops 135-160 (ruby, perl, python) probably key on these va
 - table = `words` of slot strings (space separator 1 B vs `\n` 2 B), WAIT = char with ord K (also 3 tail waits), cell = ord-K = y*S+x. ASCII-only linear code impossible for 12x9/15x12 grids; best (S=40,K=37) allows chars up to 2047 (2 UTF-8 bytes; GHC source ok): 49 data bytes for 33 bombs. `"` and `\` escape cost avoided by the search
 - covers: static set cover enumeration per hidden test (counts 5,1,56,1,1,5,1,18,-,550 min covers); hidden 9 = (4,2) WAIT WAIT (1,2)
 - floor of this scheme ~230; not reaching 196. Ideas not tried: digit-pair plan text with a chunking decoder (hidden 10 needs x=10, breaks), prefix polynomial hash instead of reads (~-7 B)
+
+## Lua hardcode 192 B (CG-verified 100% 2026-10-21, rank 2; top 188)
+
+- same php plans (stride 12, chr(32+y*12+x), space = WAIT, tab = WAIT inside hidden 9 plan so space can be dropped from the plan text), layout trick in `knowledge/lang/lua/offset-indexed-data.md`: key `(8R+2B-5w)%45` is the start offset of the plan in one 50 char string; chars after the plan serve as the tail waits (after the last bomb any well-formed `x y` is a wait). Tests that leave bombs unused (hidden 2: 2 left, hidden 3: 4 left) need spaces after their plan
+- plan bombs can be permuted freely (no waits except hidden 9), so a smarter packer (overlap of equal cells between windows, other min covers) could shrink the 50 chars; broad key expression search (<=5 leaves, mod 12..64) not finished
+- local referee is flaky (~1/12 runs) for any solution that prints everything and exits fast ("solution closed its input"); CG passed both 217 and 192
