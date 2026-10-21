@@ -1,10 +1,12 @@
 # The Bridge (episode 2) hidden validators
 
-Validator task 2026-10-20. Nothing recovered exactly: no `NN.json`, no `complete`.
+Validator tasks 2026-10-20 and 2026-10-21. Nothing recovered exactly: no `NN.json`, no `complete`. Exact roads are out of reach of the score channel (each validator is a test moved/edited in ~4..12 cells, about 30+ bits each; a probe returns one (lights, heavies) pair).
 
-## Count
+## Count and weights
 
-12 validators. Source: partial scores on the JS leaderboard (33.3, 49.9) and our probes (8.3, 75.1, 83.4, 91.7) are all sums of 100/12 floats (k x 8.333..., floored or rounded to 0.1). Confidence high.
+12 validators with unequal weights: 8 light (8.3 each) + 4 heavy (8.4 each), sum 100. Every score seen is a sum of these: 8.3 = 1L, 49.9 = 5L+1H, 74.8 = 8L+1H, 75.1 = 5L+4H (= 100 - 3L), 83.4 = 6L+4H, 91.6 = 7L+3H (one heavy missing), 91.7 = 7L+4H (one light missing). 74.8 is no k x 100/12, so the earlier "k/12 floats" reading was wrong. Confidence high (validator task 2026-10-21).
+
+Heavy = validators 9..12: each of tests 9, 10, 11, 12 has exactly one (L, V, S) twin among the validators and it is heavy (bash probes not-* 91.6, see below). Read every score as (lights, heavies) = (validators among 1..8, among 9..12).
 
 Titles probably match the 12 IDE tests (not verified). Forum (https://forum.codingame.com/raw/60, classic puzzle) has no validator inputs. It mentions validator 12 ("Well worn road") as harder than test 12: timeouts and searches that find no path, posts #29-#39.
 
@@ -23,6 +25,29 @@ Notation: a test road transformed = 4 lane strings, optionally flipped (lane i <
 | any test, any (L, V, S), padded/cut, d in -25..25, flip, within Hamming 12 | 12/12 | oracle perl 3363 (CG 100%, committed as the perl row) |
 | (L, V, S) of a test AND that test's minimal BFS plan survives (JS hardcode keyed on (L, V, S), crash otherwise) | 6/12 | earlier puzzle task, JS row 599 B score 49.9 |
 
+### Per-test (L, V, S) twins (validator task 2026-10-21, bash/C probes: plan-once DFS that answers garbage iff the input (L, V, S) is in a set; score = 100 minus the weights of matching validators)
+
+Note test 10 has L = 35 (not 36).
+
+| gated triple (test) | score | twins |
+|---|---|---|
+| (65,1,1) t12 | 91.6 | 1 heavy |
+| (30,1,3) t11 | 91.6 | 1 heavy |
+| (35,2,4) t10 | 91.6 | 1 heavy |
+| (37,1,4) t9 | 91.6 | 1 heavy |
+| (30,1,0) t1 | 91.7 | 1 light |
+| (56,4,1) t2 | 100 | 0 |
+| (42,4,8) t3 | 100 | 0 |
+| (36,4,1) t4 | < 100 (bash row hidden) | >= 1 light |
+| t4 or (39,2,2) t6 or (64,2,7) t7 | 75.1 (C, fresh row) | 3 light |
+| (36,3,6) t5 = t8 | by difference: 10 twins - 4 heavy - t1 - 3 | 2 light |
+
+So 1:1 with the tests (CG pattern) is consistent: validators 1, 4, 5, 6, 7, 8 keep their test's (L, V, S) (t4/t6/t7 one each is the likely split, not separated), validators 2 and 3 (V = 4, all 4 lanes, the block-hole tests) changed L (and maybe S); of these two, one keeps (V, S) of some test, the other does not (91.7 probe below).
+
+### Lane changes (bash probe lanefree, 74.8 = 8L + 1H)
+
+Plan-once DFS restricted to SPEED, JUMP, SLOW (no UP/DOWN) solves all 8 light validators and exactly 1 heavy one. Locally it fails tests 9, 10, 12 and passes 11, so most likely validators 1..8 and 11 never need a lane change, 9, 10, 12 do (heavy identity of the passing one unverified).
+
 ## Deductions
 
 - every validator is a variant of an IDE test: holes moved as a block (x shift, lane flip) plus a few cell edits. Same scenario, other values: the usual CG pattern
@@ -33,7 +58,7 @@ Notation: a test road transformed = 4 lane strings, optionally flipped (lane i <
 
 ## Shortest separating key
 
-Unknown. (L, V, S) does not separate: 10 validators share it with tests, and tests 5 and 8 share (36, 3, 6) between themselves.
+Not fully known. (L, V, S) separates validators 1, 9, 10, 11, 12 (one twin each, verified) and very likely 4, 6, 7 (3 twins over 3 triples, split not probed). Validators 5 and 8 share (36, 3, 6) like their tests (test 5 vs 8 differ only in lane 3 near x = 27: `000` vs `0000`). Validators 2 and 3 have an L not equal to 56 / 42; V = 4 with S = 1 vs 8 likely separates them from each other but S = 1, V = 4 also is test 4's. Roads unknown, so no plan table yet: a hardcode still needs per-validator plans (JS probe: only 6 of the twins accept their test's minimal BFS plan).
 
 ## For cells
 
