@@ -113,3 +113,7 @@ Next steps for a later worker:
 ### Groovy 398 (2026-10-21, CG 100% rank 7, first attempt 91.7 flaky, resubmit passed)
 
 - `new ProcessBuilder('perl','-e','<perl 347 core>').inheritIO().start()`; newline in the plan string written `$/` (Groovy single quotes cannot hold a newline). Gap to top 239 is the perl core: needs a ~185 B perl
+
+## JVM timing (2026-10-21)
+
+- groovy 398 (perl ProcessBuilder wrapper): identical code scored 91.7 then 100% on two submits 1 min apart (submissions 41542054, 41542061). Rules fine, one validator hit the 1000 ms first-turn limit from JVM startup + perl spawn (local first answer 0.6 s). Resubmit when a JVM row lands at 91.7; see `knowledge/lang/groovy/interactive-first-turn.md`
