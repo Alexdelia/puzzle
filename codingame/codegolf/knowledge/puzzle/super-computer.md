@@ -53,8 +53,8 @@ Rejected:
 Per validator, sources, next probes: `puzzle/super-computer/referee/hidden/facts.md`.
 
 - 8 validators (count channel, 12.5 % steps). Titles from the classic puzzle report (https://forum.codingame.com/t/super-computer-puzzle-discussion/57?page=2)
-- (N, answer) from probes 2026-10-20: (3 or 4, 2 or 3), (5, 3), (7 or 8, 1) x2, (9, 9), (11..999, 1), (99999, 7991), (99999, >= 16000). No N=1 validator. Exact inputs unknown
-- the two large ones share N=99999: a table keyed on the first line alone cannot work; large answers not pinned yet
+- (N, answer) from probes 2026-10-20/21: (3 or 4, 2 or 3), (5, 3), (7 or 8, 1) x2, (9, 9), (11..999, 1), (99999, 7991), (99999, B = "Large number of satisfied scientists", B in BRANGE). No N=1 validator. Exact inputs unknown
+- the two large ones share N=99999; the start `J` of the first data line separates them: 7991 one has `J >= 500000`, B has `J < 500000` (probe 2026-10-21). Table: `n` for the small ones, `n==99999` + first `J` for the large pair
 - neither large one answers 7879 (CG IDE test 03)
 - side effect: probe rows under 100 % in php lua javascript ocaml cpp rust go d java kotlin scala haskell dart csharp typescript (long shell wrappers); any 100 % submit replaces them
 - unverified: a classic solver passed 100 % while off by 1 on IDE test 03 (https://forum.codingame.com/t/super-computer-puzzle-discussion/57?page=3). Off-by-one variants change local 03 by ~60, so large validators would catch them
