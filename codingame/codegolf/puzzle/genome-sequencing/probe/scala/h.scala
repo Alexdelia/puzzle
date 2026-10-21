@@ -1,0 +1,1 @@
+object Solution extends App{print(Console.in.lines.skip(1).reduce((s,t)=>if(t contains s)t else(s+"\n"+t).replaceFirst("(.*)\n\\1","$1")).get.size)}
