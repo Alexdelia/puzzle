@@ -1,0 +1,1 @@
+eval('w=-~(R=readline)();for(g=[],h=R();h--;)g.push(...R(),0);for(s=R();s--;print(g[t].length>>2))for(i of k=[t=eval(R().replace(" ","+w*"))])g[i]==="O"&&(g[i]=k,k.push(i-1,i+1,i-w,i+w))')
