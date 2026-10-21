@@ -11,3 +11,4 @@
 - [param-as-local](param-as-local.md): arrow param instead of let/ts-ignore, `[...'01234567'].map(i=>readline()+i).sort()[7][1]`, the-descent 69, verified
 - [eval-string-header](eval-string-header.md): `eval("js")` = 8 B overhead vs ts-ignore 13 B, bypasses tsc, temperature 74, verified on CG
 - [print-spread-for-update-body](print-spread-for-update-body.md): `print(...a)` = console.log spread, loop body folded into the for update, `l=z=` to define a var, verified on CG
+- [execsync-perl-core](execsync-perl-core.md): perl flood via execSync, 263 B; CG perl rejects merged variable-length lookbehind; 0-based $#- trick, verified
