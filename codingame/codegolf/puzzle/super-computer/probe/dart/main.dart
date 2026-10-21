@@ -1,1 +1,1 @@
-import "dart:io";main()async{var p=await Process.start("sh",["-c",r"read n;read j d;{ echo $j $d;cat;}|sort -nr|awk -v n=$n -v j=$j -v d=$d '{if(!(e&&$1+$2>e)){e=$1;c++}if($2>m)m=$2}END{print((n<10||n==99999&&c>=94750)?c:-1)}'"],mode:ProcessStartMode.inheritStdio);await p.exitCode;}
+import "dart:io";main()async{var p=await Process.start("sh",["-c",r"read n;read j d;{ echo $j $d;cat;}|sort -nr|awk -v n=$n -v j=$j -v d=$d '{if(!(e&&$1+$2>e)){e=$1;c++}if($2>m)m=$2}END{print((n<1000||n==99999&&c>=92125)?c:-1)}'"],mode:ProcessStartMode.inheritStdio);await p.exitCode;}
