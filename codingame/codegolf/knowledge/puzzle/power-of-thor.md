@@ -65,3 +65,7 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 ## TypeScript (2026-10-21)
 
 - general 123 bytes 8/8, CG rank 53: `let[a,b,c,d]=readline().split(' ').map(Number),i=0;for(;;i++)console.log((i<b-d?'S':i<d-b?'N':'')+(i<c-a?'W':i<a-c?'E':''))`. Costs vs JS 99: `let`, `.map(Number)` (strings fail type check on `-`), `console.log` (print undeclared)
+
+## Groovy (2026-10-21)
+
+- counter-form 135 bytes `(a,b,c,d)=System.in.newReader().readLine().split()*.toInteger()` + `for(i=0;;i++)println((i<b-d?"S":i<d-b?"N":"")+(i<c-a?"W":i<a-c?"E":""))`: local 8/8, IDE test 4 passes on CG, but the hidden row scored 50% (same logic is 100% in JS 99). Cause unknown, maybe timing of JVM; not reproducible with IDE tests 1-4
