@@ -83,3 +83,7 @@ Not recovered exactly. Facts and probe answers: `puzzle/the-fall-episode-3/refer
 ## PHP general solver (2026-10-21)
 
 Port of the JS DFS (js 951): php 1192 B, 11/11 local, CG submitted. Trap: `$n/3|0==$X` parses as `$n/3|(0==$X)`; `f` must end `G()&&1` (G returns f's rotation code otherwise). Tricks: knowledge/lang/php/const-define-globals.md. Still far from top 139: hardcode needs the hidden validators.
+
+## Lua general solver (2026-10-21)
+
+Port of the JS DFS: lua 1193 B, 11/11 local, CG 100% row #6 (top 147 = hardcode). Reads: `io.read("n","n","l")` gives x,y and " SIDE" (`#s-4` = 0/1/2). Recursive fns take scratch vars as extra params (no globals clobbering); f returns false on failure (0 is truthy in Lua); output must be one string (`print(a,b)` tabs).
