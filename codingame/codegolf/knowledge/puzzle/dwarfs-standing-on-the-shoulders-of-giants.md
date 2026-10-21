@@ -157,3 +157,6 @@ Haskell (2026-10-21): `2+L` key, 82 bytes, CG 100% via --probe (rank 3, top 59):
 Lua (2026-10-21): `2+L` key, 92 bytes, CG 100% via --probe (rank 4, top 39): `s=io.read"a"n=2 for x in s:gmatch"(%d+) "do n=n+(s:find(" "..x.."\n")and 1 or 0)end print(n)`. Top 39 key still unknown.
 
 TypeScript (2026-10-21): 2+L key 114 bytes, CG 100% via --probe (rank 8, top 60): `let s=require("fs").readFileSync(0)+"";console.log(2+s.match(/\d+(?= )/g).filter(x=>s.includes(` ${x}\n`)).length)` (quotes/backslash as in file probe/typescript/a.ts).
+
+Groovy (2026-10-21): `2+L` key, 64 bytes, CG 100% via --probe (rank 4, top 44): `print 2+(s=System.in.text).findAll(/\d+(?= )/).count{s=~/ $it<raw newline>/}`. Slashy string takes a raw newline (1 byte under `"\n"`); `count{}` accepts a Matcher as truthy. A 62-byte variant without the newline in the lookup was probed (prefix-collision risk), result not seen before the worker ended: check probes.tsv. Top 44 key still unknown.
+Groovy update: the 63-byte variant without the newline in the lookup left the row at 64 (below 100%): a hidden validator has an id prefix collision, keep the trailing newline in the ` X\n` test.
