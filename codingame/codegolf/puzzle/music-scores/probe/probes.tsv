@@ -6,3 +6,4 @@
 2026-10-21T13:27:36Z	cell.music-scores.haskell.1792441000876358956	haskell	336	bool pixels variant 336: 100%?	yes: 100% at length 336, committed
 2026-10-21T13:42:20Z	cell.music-scores.lua.1792441001379032638	lua	246	lua port 246 B of python method: does CG pass 100%?	yes: 100% at length 246, committed
 2026-10-21T13:45:36Z	cell.music-scores.lua.1792441001379032638	lua	241	241 B: 15*i//w-52 approx letter, 81-b%2*9 for H/Q: CG 100%?	yes: 100% at length 241, committed
+2026-10-21T13:57:41Z	cell.music-scores.typescript.1792441002546327905	typescript	233	JS-method port with //@ts-ignore, 233B, no inner row bound, q<(q=i<m) trick: does CG accept (type check suppressed, print at runtime)?	yes: 100% at length 233, committed
