@@ -71,3 +71,14 @@ Same method, with a better skeleton (php 279 #1 over top 280, verified on CG). T
 ## haskell 259 (2026-10-21)
 
 Bash 224 core wrapped via `lang/haskell/system-cmd-bash-core.md`; core golf: `s=t+(a[i]=q=...)` chain, `t+S>>1`, `h=S=size-1` with `q>S` (edge rule becomes (t+size-1)/2, passed 46/46 local and CG 100%).
+
+## lua 255 (2026-10-21)
+
+Native Lua core is 300+ bytes (table-indexed axes, no `>>`-free ternary, print needs `..' '..`: print with tab is rejected by the local referee, CG unprobed). Perl core inside `os.execute[[perl -E '<core>']]` is 24 bytes of wrapper and wins: 270 -> 255, 46/46, CG-confirmed. Core (perl 246 -> 231) gains, all valid for the perl cell too:
+
+- skip the final "move onto known column" jump (php trick), keep `$m=$l` per axis, last line `say"$m $l"`
+- `perl -E` + `say"@p"` (3 bytes shorter than `print"@p\n"`)
+- inner loop as `for($m=$l,$l=0,$h=($S=shift@S)-1;$l<$h;<update>){...}`: init and the bound update live in the for header (no `while`, no `;`)
+- `$s=$t+($q-=$q==$t)` merges the q==p fix with the sum
+- refuted by exact sim: edge rule `(p+q%S)>>1` (modulo instead of `S*(q>0)`) fails 19-86% on every config
+- reading the 4 header lines as `@_=(<>.<>.<>.<>)=~/\d+/g` + `@_[3,4]` slice is 2 bytes longer than the two-array form
