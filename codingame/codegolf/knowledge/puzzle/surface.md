@@ -7,7 +7,7 @@ pretty_id `surface-codesize`, leaderboard `surface-codesize`, io.
 - input: `L`, `H` on own lines, `H` rows of `L` chars `#` (land) / `O` (water), `N`, then `N` lines `X Y`
 - output per query: size of the 4-connected water component containing column `X`, row `Y`; `0` on land
 - `X` is the column (first), `Y` the row: transposing fails non-square tests (7: 100x50, 9: 900x400)
-- io limit 6000 ms per test (referee default, value from chuck-norris, not probed here)
+- io limit 6000 ms per test (referee default, value from chuck-norris, not probed here); Groovy: CG deadline ~1.9 s JVM uptime, referee models it as solution CPU > 2300 ms = timeout (section Groovy)
 
 ## Tests
 
@@ -49,12 +49,15 @@ Perl 158 (local 17/17, CG rank 3, 2026-10-20), `-ln0`: strip header + `$w=L+1` i
 
 - native Groovy flood fill (216, 17/17 local) scored 60 on CG: the 4 big validators (`L*H>=1e5`) time out, the 6 small pass. CG test game on IDE test 8 with the same code: `timeout:true`
 - cause: CG Groovy io deadline ~1.9 s JVM uptime (`[[../lang/groovy/io-time-limit]]`); local wall of the 216 code: test 01 0.83 s, test 08 2.37 s, test 09 1.94 s, validator 07 2.13 s, far over the ~0.9 s local bar. Local referee uses 6000 ms for every lang: passes it
+- referee (task 1792593520212191639): wall bars do not work for Groovy on this machine: 214 passes tests/08 under 1100 ms wall, and 760/850 ms wall bars time out tiny tests under load (JVM startup wall 550-1000+ ms). Child CPU (user+sys) is steady: tiny inputs 1.6-1.85 s, tests/08 2.4-2.7 s. CG test game, 214 on IDE test 8: `timeout:true`, 32/100 answers printed. Bar = 2300 ms solution CPU, Groovy only; 214 fails tests/08, 09, validators/07, 09, 10 every run
+- consequence: the 214 list-mark flood cannot pass (top 216 Pduhard- does, method unknown); CG/local compute ratio on this workload is far above the ~2.5x of super-computer (1M boxed list + GC under the 290 MB heap, unverified cause). A wrapper core is the known way out, its CPU counts too (local wall of the cores alone: python 177 tests/08 75 ms, validators/09 1.1 s, so a python wrapper sits at the bar on validators/09, whose 1M size is the harshest guess for "No Land"; perl 158 tests/08 1.7 s, validators/09 2.8-3.5 s: a perl core wrapper is over the bar)
 - way out (unverified here): ProcessBuilder wrapper around a perl or python core (`[[../lang/groovy/perl-wrapper-processbuilder]]`, `[[../lang/groovy/python-wrapper-processbuilder]]`); the Perl 158 method above fits
 
 ## Hidden validators
 
 - 10 validators (probe grain 10%, javascript chain 2026-10-20): 6 small (`L*H<1e5`), 2 big with `N=1`, 1 big with `N<=100`, 1 big with `N=300`
 - forum (https://forum.codingame.com/t/surface-puzzle-discussion/26): a validator "No Land" (only water, performance case), and "300 tests on a 1000x1000 map"
+- local validators 09 (1000x1000 all water, N=1) and 10 (1000x1000 random 50% water, N=300) stand for "No Land" and the 300-query validator (sizes guessed from the forum, unverified)
 - no hardcode gain: general flood fill required; per-query O(L*H) work is 3x test 8 on the 300-query validator
 - details, probe table, deduced titles: `puzzle/surface/referee/hidden/facts.md`
 
