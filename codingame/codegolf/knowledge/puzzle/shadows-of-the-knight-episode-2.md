@@ -67,3 +67,7 @@ Same method, with a better skeleton (php 279 #1 over top 280, verified on CG). T
 - do NOT spend the x-final "move onto the known column" jump: y bisection works with x frozen wherever the x phase left it (x never changes in y jumps, so only y moves the distance). Remember x's `l`, and the single last jump is `(lx, ly)`. Saves one jump (lower fail odds) and the per-axis final jump/read code: the loop body is the only jump site
 - stdin header in one read (`fread` + sscanf) works on CG for this puzzle (all init lines in one chunk)
 - php details in `lang/php/sscanf-fread-by-ref.md`
+
+## haskell 259 (2026-10-21)
+
+Bash 224 core wrapped via `lang/haskell/system-cmd-bash-core.md`; core golf: `s=t+(a[i]=q=...)` chain, `t+S>>1`, `h=S=size-1` with `q>S` (edge rule becomes (t+size-1)/2, passed 46/46 local and CG 100%).
