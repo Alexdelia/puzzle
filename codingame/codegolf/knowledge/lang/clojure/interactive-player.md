@@ -9,3 +9,4 @@ CG verified 2026-10-21 (power-of-thor test games 910670629, 910670752, 910670910
 - top-level `(read)` (no -main): compile blocks on stdin, "Compilation took too long and has been interrupted"
 - `(dotimes[i 99]` is 2 B shorter than `(doseq[i(range)]` for an endless-enough print loop
 - local referee: build.sh now maps interactive to Player + Bridge; needs a CG_CLOJURE with `clojure-run-interactive` (older dev shells lack it)
+- local referees with a 1000 ms first turn time out the JVM+Clojure start (~1.3 s locally) while CG passes (vox-codei-episode-2 289 at 100%): test with a scratch referee copy whose first-turn limit is raised
