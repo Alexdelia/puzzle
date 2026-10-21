@@ -98,3 +98,10 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 ### PHP 196 (2026-10-21, CG rank 5, 16/16 local)
 
 - `[$l,$c,$n]=$p=explode(" ",strtr(`cat`,"\n"," "));for(;$c--;$s+=$v/$n|0){for($t=0,$j=$i;!$g[$i]&&$j<$i+$n&&$t+$p[3+$j%$n]<=$l;)$t+=$p[3+$j++%$n];$v=$g[$i]?:$g[$i]=$t*$n+$j%$n;$i=$v%$n;}echo$s;` (newline literal in strtr): lazy packed memo, 1e7 loop fine in PHP, unset vars as 0
+
+### Groovy 182 (2026-10-21, CG rank 3, 16/16 local)
+
+- method A natively: `(l,c,n)=a=System.in.text.split()*.toLong()`, doubled list `p=a[3..-1]*2` (no wrap inside the walk, `i%=n` once per ride), `d=[i=s=0]` (d[0] is overwritten before its first read), walk bound `k=i` + `i<k+n&&` (`j=n` + `j--&&` same length; both shorter than `min(L,sum)`)
+- skip in one expression: `s+=(s-e[1])*(c-(c%=q=e[0]-c))/q` (Long `/` gives an exact BigDecimal, prints as a plain integer)
+- lazy memo + O(C) loop (164) times out: 4.7-6.2 s CPU locally on test 06 and validators 03-06, 08 (bar 2.4 s); Groovy must cycle-skip
+- top 133 (Eric_[EGU]) is about the length of a naive per-ride walk in Groovy (~120): likely predates the heavy validators, or exploits them (unknown)
