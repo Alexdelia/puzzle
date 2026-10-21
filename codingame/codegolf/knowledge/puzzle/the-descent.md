@@ -66,3 +66,5 @@ No exploit behind the tops: they are the general argmax (checked 2026-10-20).
 - validator content (probed 2026-10-20, 12 submits): each validator = its test with mountain positions permuted, heights and shot sequences kept. V5 exact: `8 7 6 5 4 0` at index 2. One of V1/V2 = test reversed, one of V3/V4 = test rotated, the other two arbitrary. Details: `puzzle/the-descent/referee/hidden/facts.md`
 - consequence: tie side and position-free tricks keep working (heights unchanged); nothing position-specific from the tests carries over
 - local `validators/` are synthetic; `hidden/05.json` is the exact V5
+
+Haskell 72 (CG #1, top was 74): system wrapper `import System.Cmd;main=system"<bash pipeline>">>main`, see knowledge/lang/haskell/system-cmd-import.md.
