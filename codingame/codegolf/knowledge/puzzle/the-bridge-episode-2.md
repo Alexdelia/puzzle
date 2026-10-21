@@ -117,3 +117,9 @@ Next steps for a later worker:
 ## JVM timing (2026-10-21)
 
 - groovy 398 (perl ProcessBuilder wrapper): identical code scored 91.7 then 100% on two submits 1 min apart (submissions 41542054, 41542061). Rules fine, one validator hit the 1000 ms first-turn limit from JVM startup + perl spawn (local first answer 0.6 s). Resubmit when a JVM row lands at 91.7; see `knowledge/lang/groovy/interactive-first-turn.md`
+
+### Scala 460 (2026-10-21, CG 100% rank 5, via oracle probe as `object Player`)
+
+- plan-once DFS in a for-comprehension with `=` bindings and a trailing `if` guard; uppercase binding names (`Z=`) are stable-identifier patterns and fail: use lowercase
+- road `Seq(H)++4 lanes++Seq(H)` with y offset +1 (negative index throws); hole test `forall(_<47)` on chars ('.'=46, '0'=48); `print(q);sys.exit` flushes fine
+- gap to top 275 not closed by any general method
