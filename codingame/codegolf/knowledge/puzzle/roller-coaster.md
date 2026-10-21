@@ -105,3 +105,10 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 - skip in one expression: `s+=(s-e[1])*(c-(c%=q=e[0]-c))/q` (Long `/` gives an exact BigDecimal, prints as a plain integer)
 - lazy memo + O(C) loop (164) times out: 4.7-6.2 s CPU locally on test 06 and validators 03-06, 08 (bar 2.4 s); Groovy must cycle-skip
 - top 133 (Eric_[EGU]) is about the length of a naive per-ride walk in Groovy (~120): likely predates the heavy validators, or exploits them (unknown)
+
+### Scala 242 (2026-10-21, CG 100%, rank 5)
+
+- eager boarded-count table `g(i)` over `(q++q).tails` (scan + `count(_<=l)-1`), unbounded Int group counter `i+=g(i%n)` over `c` rides, answer `i/n*1L*q.sum+q.take(i%n).sum`: 6 shorter than tracking gain `t` with `i` kept mod n (248)
+- unbounded counter relies on total boardings `W < 2^31` (test 06 1.64e9 max, hidden W < 3e8) and `count` on an Int scan on `S < 2^31` (tests S <= 1e8): both held on CG
+- JVM naive walk: test 06 4.0 s locally with branch wrap `if(j>n+2)j=3`, 12.5 s with `%n`: too slow and not shorter (237 before any hardcode)
+- top 162: wrapper 29 + input ~75 leaves ~58 for the algorithm, below any memo method here (same gap as every other language)
