@@ -1,0 +1,2 @@
+@groovy.transform.CompileStatic f(){def b=new byte[676];System.in.read(b);for(c in /         $! 4@"[w!u9zd&hw XYRS  S PG   /[Arrays.hashCode(b)%50..-1].bytes)println c>1?c%16+' '+(c>>4):'WAIT'}
+f()
