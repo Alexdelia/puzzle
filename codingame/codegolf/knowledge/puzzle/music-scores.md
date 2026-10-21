@@ -100,3 +100,9 @@ Rejected (older, longer): end-column diff-extent compare + mid of run (502 B pyt
 - `def r=Console.in.readLine.split(" ")` shared by header (`val Array(w,h)=r.map(_.toInt)`) and RLE (`r.grouped(2).map(a=>a(0)*a(1).toInt).mkString`)
 - `"A"(k)+"Q"(j)` is Char+Char = Int: the `" "+` separator prefix doubles as the String coercion
 - dead end: `(x until m by w).find(...)` per column + `filter/flatMap/mkString(" ")` pipeline is 7 B longer than the var/while/o+= loop
+
+## Clojure cell facts (2026-10-21)
+
+- native port of the lua method passes 12/12 locally at 411 B (`(defn -main[& _]` is required: top-level stdin read fails the compile; `[&_]` reads as one symbol; `(read)` twice for W H then `(re-seq #"(.) (\d+)"(slurp *in*))`; `(.indexOf "WB" c)` gives 0/1 pixels; letter string must be "GFEDCBA" for the lua index form)
+- ruby wrapper `(.start(.inheritIO(ProcessBuilder.["ruby" "-e" "<ruby core, ' strings, \\d>"])))` is 269 B and passes 12/12 locally (`PATH=$CG_RUBY/bin:$PATH run.sh ... --lang clojure`), but scores 0 on CG (probes 2026-10-21, with and without `.waitFor`, with and without `_1`): no `ruby` on PATH in the CG Clojure box (inferred, `/usr/bin/ruby` not tried)
+- python3/lua/perl cores through the wrapper are 310+86 or more: only a ruby (191) or node core could beat top 281
