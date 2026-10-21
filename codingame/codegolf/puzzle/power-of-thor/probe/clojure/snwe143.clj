@@ -1,0 +1,1 @@
+(ns Player)(defn -main[_](let[[a b c d](repeatedly read)](dotimes[i 99](println(apply str(map #(if(<(+ i %)%2)%3)[d b a c][b d c a]"SNWE"))))))
