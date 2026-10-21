@@ -10,3 +10,4 @@
 - [string-key-argmax](string-key-argmax.md): line+index string max in for-update clause, print(m[1]), 58 B, verified
 - [alias-readline](alias-readline.md): `(R=readline)(R(...))` first-use alias, -17 B at 4 uses, verified
 - [eval-mid-prefix](eval-mid-prefix.md): bisection bounds named by letter, mids in _L/_R/_U/_D, eval(c+"=_"+c), -14 B vs packed p, verified
+- [spawn-python-template](spawn-python-template.md): spawnSync python3 -c with raw template-literal code, 71 B overhead, interactive ok, verified
