@@ -20,3 +20,4 @@
 - [main-recursion-max-key](main-recursion-max-key.md): `(defn -main[_](-main(prn ..)))` loop 7 B vs while 9, `(apply max-key(fn[_](read))(range 8))` argmax, `#(read)` arity trap, verified (the-descent 75)
 - [get-default-any](get-default-any.md): `(get R z any?)` makes out-of-range rows fully blocked, sets of blocked indices via `#({\0 %}%2)` keep-indexed, `[M V a b c d S _ & r](repeatedly read)` header destructuring, verified (the-bridge-episode-2 467)
 - [repeatedly-read-nth-default](repeatedly-read-nth-default.md): `(repeatedly(read)read)` reads exactly N numbers, so N=0 is safe; `(nth s 0 0)` gives first-or-0; sort/sort-by are stable, min-key keeps the last of a tie; verified (temperature 95)
+- [run-length-schedule](run-length-schedule.md): `(run! #(prn % 4)S)` 19 B print loop, `(mapcat repeat[ns][vs])` RLE, key two inputs by `(drop(*(read)K)S)` into one sequence, verified (mars-lander-episode-3 112)
