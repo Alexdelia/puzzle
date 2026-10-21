@@ -1,9 +1,11 @@
-# Clojure on interactive puzzles: `ns Player`, `-main` takes 1 arg
+# Clojure on interactive puzzles: ns Player, no gen-class
 
-CG verified 2026-10-21 (power-of-thor test games 910670828, 910670850, 910671093, 910671218, referee.power-of-thor journal 1792607297208713249).
+CG verified 2026-10-21 (power-of-thor test games 910670629, 910670752, 910670910, 910671093, 910671413; submits 153 and 143 at 100%).
 
-- interactive puzzles compile the file as `Player.clj`: `(ns Solution(:gen-class))` fails at compile with `Exception: namespace 'Player' not found after loading '/Player'`, turn 1 times out, 0%. Write `(ns Player)`: no `:gen-class` needed, the bridge resolves the `Player/-main` var (CG games 910670910, 910672642 with plain `(ns Player)`)
-- the interactive runner calls `Player/-main` with one argument (`nil`): `(defn -main[]...)` dies with `ArityException: Wrong number of args (1) passed to: Player/-main`. Use `(defn -main[_]...)` (verified tests 2 and 4 pass) or `[& _]`
-- runtime there: `sun.java.command` = `Bridge`, `java.version` 1.8.0_211 (not the Java 21 of io puzzles): no Java 9+ APIs (`String/repeat`, `.lines`, `.strip`) on interactive puzzles
-- timing: JVM uptime at `-main` entry 1448 ms, first answer 1619 ms, still passed the 1000 ms first turn: the turn timer starts after the bridge is up, Clojure is not too slow for power-of-thor
-- local launcher follows this since lang.-.clojure.1792607556179713326: interactive builds compile `Player.clj` (`clojure.lang.Compile Player`, Java 8) and run a `Bridge` class on OpenJDK 8 that requires `Player` and invokes `-main` with one nil: local `sun.java.command` = `Bridge`, `-main[]` dies with the same ArityException, `ns Solution` fails at compile like CG
+- interactive puzzles compile the file as `Player` ("Compiling Player to /tmp"): `(ns Solution...)` fails with a syntax error, 0%
+- the program runs through a `Bridge` class that requires the ns and calls `Player/-main` with ONE argument: `(defn -main[]` gives ArityException, use `(defn -main[_]`
+- `:gen-class` not needed: header `(ns Player)(defn -main[_]` (26 B vs 38 for `(ns Solution(:gen-class))(defn -main[]`)
+- no ns at all: "namespace 'Player' not found after loading '/Player'"
+- top-level `(read)` (no -main): compile blocks on stdin, "Compilation took too long and has been interrupted"
+- `(dotimes[i 99]` is 2 B shorter than `(doseq[i(range)]` for an endless-enough print loop
+- local referee: build.sh now maps interactive to Player + Bridge; needs a CG_CLOJURE with `clojure-run-interactive` (older dev shells lack it)
