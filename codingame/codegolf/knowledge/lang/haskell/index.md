@@ -1,6 +1,6 @@
 # Haskell
 
-- [env](env.md): GHC 8.4.3 exact, base 4.11, CPP ok, getLine fine without final newline, verified
+- [env](env.md): GHC 8.4.3 exact, base 4.11, CG compiles without -O (local build.sh uses -O), CPP ok, getLine fine without final newline, verified
 - [regression-golf](regression-golf.md): Double length via sum(1<$x), helper g for slope, !!min 7
 - [group-unwords-runs](group-unwords-runs.md): Data.List group + unwords for run-length output, bit extraction without imports, lexing traps, verified
 - [char-index-clamp](char-index-clamp.md): glyph index 0..26 from fromEnum with mod/max/min, no import
@@ -15,6 +15,6 @@
 - [the-fall-dfs-port](the-fall-dfs-port.md): general DFS port 1086 B, NoBuffering needed on interactive, list grid with sentinels
 - [system-cmd-import](system-cmd-import.md): `import System.Cmd` 4 bytes shorter than System.Process, the-descent 72 #1
 - [system-cmd-bash-core](system-cmd-bash-core.md): `import System.Cmd;main=system"bash -c '..'"` wrapper, 31 overhead, shadows-of-the-knight-episode-2 259
-- [doubling-iteration](doubling-iteration.md): list-table binary doubling beats O(C) loop on CG time, roller-coaster 282
+- [doubling-iteration](doubling-iteration.md): list-table binary doubling beats O(C) lazy loop (that one dies on CG 768 MiB memory cap, not time), roller-coaster 282
 - [dfs-list-concat](dfs-list-concat.md): plan-once DFS with concat comprehension and index j in -2..2, interact EOF trap, the-bridge-episode-2 398
 - [foldr-pair-max](foldr-pair-max.md): foldr max over (key,value) pairs with seed, tie to larger via max, temperature 72
