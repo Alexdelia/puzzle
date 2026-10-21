@@ -79,3 +79,7 @@ Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`
 - 281 B = execSync perl wrapper (see lang/javascript/exec-perl-wrapper.md) + hardcoded 15x30 core (all hidden validators are 15x30): `$.` header test replaced by `$s//="?C";$|++&&do{...}`, `read STDIN,$_,465`, `.{30}`. Passes tests + hidden 16/16
 - trap: `s/..\K(C)?./R/;$s=T if$1` (saves 3 B) fails 4 cases (timeouts, wall hit), cause unknown; keep `(.)` and `$1eq C`
 - top 233 unexplained (needs perl core ~175)
+
+## Lua / perl core golf (cell worker 2026-10-21)
+
+- Lua 231: `os.execute"perl -anE'...'"` (`\\K` doubled), hardcoded 15x30 core. Tricks that saved bytes on the perl core, usable in php/js/bash/ruby wrappers: phase flag `$s|=$&eq C` (no init, `$&` after `s/..\K./R/` is the Rick cell, no capture group) with goal switch `$s?y/T/X/:y/?C/X/` instead of `$s//="?C"` + `s/[$s]/X/g`; unanchored `s/(?:.*\n){$F[0]}...` (drop `^`)
