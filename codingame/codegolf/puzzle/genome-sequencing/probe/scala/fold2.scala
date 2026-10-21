@@ -1,0 +1,1 @@
+object Solution extends App{print(scala.io.Source.stdin.getLines.drop(1).reduce((s,t)=>if(t contains s)t else s+(0 to 7).map(t.takeRight).find(u=>s+u contains t).get).size)}
