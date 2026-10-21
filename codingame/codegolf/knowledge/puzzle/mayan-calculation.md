@@ -72,3 +72,9 @@ Probed 2026-10-20 (count probes, details and sources in `puzzle/mayan-calculatio
 - no validator repeats an IDE test's numbers; 11/12 keep the font, operator and digit counts of some IDE test; the odd one is a `.o_`-font multiplication (validator 3, 8, 9 or 10) with other digit counts
 - no exact validator recovered, no hardcode key: hardcoding results is not worth it here
 - perl is installed in the php, ruby, lua and typescript CG containers (probe wrappers called it)
+
+## Perl without -Minteger (typescript cell, 2026-10-21, local 21/21, CG confirmed typescript 243)
+
+- drop `-Minteger `, printer `while$r/=20` -> `while($r-=$r%20)/=20` (exact IV division, valid lvalue): -1 B in any perl-wrapper cell
+- typescript = `require("child_process").execSync(`perl -ape'...'`,{stdio:[0,1]})`: wrapper 52 B + perl core, 243 total
+- `L==H` shortcut in perl gains nothing: `$_` must stay emptied by the 3-var `@F` assignment
