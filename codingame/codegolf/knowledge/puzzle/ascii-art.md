@@ -73,3 +73,5 @@ Recovered by validator task (2026-10-20, 7 count probes, details and sources in 
 - `T`: 7 uppercase-only `^[A-Z]+$`, 1 more letters-only with lowercase, 2 with non-letters
 - exact: `HELLOWORLD` (2 identical validators) and `WMADXESFGIJVTHKNOBPLYQRUZC` (1), both `#` font; 7 `T` still unknown, validator numbers unknown
 - golf: case handling and `?` mapping both still needed (1 and 2 validators); `L=4` hardcode passes 9/10
+
+Haskell 120 (CG rank 5, 2026-10-21): `main=interact$(\(l:_:t:r)->unlines[fromEnum<$>t>>= \d->take(read l)$drop(read l*min 26(mod(max 64 d-1)32))x|x<-r]).lines`, see lang/haskell/char-index-clamp.md. Probe (haskell/nopunct.hs, 113 bytes, no clamp of chars below 64 except space and `@`): CG 80%, so 2 hidden validators contain digits or punctuation (not just space and `@`), 8 pass. Local validators 02-05 also fail it.
