@@ -12,3 +12,4 @@
 - [dotdot-chain](dotdot-chain.md): `(..X inheritIO start)` beats nested `.start(.inheritIO` by 1, `["sh""-c""core"]` without spaces (super-computer 115)
 - [interactive-player](interactive-player.md): interactive puzzles = `(ns Player)(defn -main[_]`, no gen-class, Bridge passes 1 arg, top-level read hangs compile, verified (power-of-thor 143)
 - [lazy-read-iterate](lazy-read-iterate.md): `[l c n & q](repeatedly read)`, `(nth(iterate f x)c)` as 1e7 loop, step cost (mapv/juxt slow, update ok), filter for take-while (roller-coaster 221)
+- [reduce-closures](reduce-closures.md): `(reduce #(%2 %)init(for[..]#(..)))` -8 B vs fn destructuring, `(merge-with + d{j x})` default-0 add, frequencies count map (the-resistance)
