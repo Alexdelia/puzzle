@@ -24,3 +24,4 @@
 - [interactive-init-read](interactive-init-read.md): list-context <> hangs, `scalar<>` in call args, `(A.B)!~/0/` precedence, $1 aliasing in map, `0 x99`, verified locally
 - [match-vars-parse](match-vars-parse.md): `$w=/ /+$'`, `$p=$-[!/@/]`, regex-position char index, list-slice undef pitfall, verified locally
 - [list-repeat-for-print](list-repeat-for-print.md): `print"$_ 4⏎"for(r)xL,...,(0)x1e5` run-length schedule, input-keyed count `x(C-K*<>)`, no `$|` with big output, verified on CG
+- [range-counter-ternary](range-counter-ternary.md): `print$_<T1?a:$_<T2?b:0," 4⏎"for<>*K..1e5` input-keyed turn counter schedule, 2 under list-repeat, verified on CG
