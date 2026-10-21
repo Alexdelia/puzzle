@@ -87,3 +87,7 @@ Native Lua core is 300+ bytes (table-indexed axes, no `>>`-free ternary, print n
 ## typescript 257 (2026-10-21)
 
 php-style skeleton (no x-final jump, `m=l` keeps x, last `print(m,l)`), `//@ts-ignore` + one JS line; top 227 not reached (PetyFloyd JS 219, perl 203: a denser method exists, not found). Tricks in `lang/typescript/print-spread-for-update-body.md`. Same core with `h=S=size-1` and `q>S`; `s=p+(a[i]=q-=q==p)` sum form with `h=s-1>>1`, `l=s+2>>1`, `l=h=s/2`; SAME detected by `r[5]` missing.
+
+## scala (2026-10-21)
+
+Bash core (210 bytes, local 46/46) in `import sys.process._` + `"""bash -c '<core>'""".!<` = 279 local 46/46 but 0% on CG, same for ProcessBuilder form (293): spawning from Scala fails on CG for unknown reason (unprobed: startup time vs spawn). Bash core gains valid for bash cell: `for((m=l,l=0,S=h=a[i-3]-1;l<h;${#r}<5?l=h=s/2:r^q>t?l=s/2+1:(h=--s/2))){ ((t=a[i],q=l+h-t,s=t+(a[i]=q=q<0?t/2:q>S?t+S>>1:q-(q==t))));echo ${a[@]:3:2};read r;}` (response update in for third clause, php no-final-jump trick via m=l). Postfix `!<` without dot is a compile error here.
