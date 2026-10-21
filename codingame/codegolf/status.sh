@@ -87,16 +87,14 @@ event_sgr() {
 
 progress_ratio() {
 	local first=$2 ran=$3 total=$4
-	local tail="|$ran/$total" ratio_text painted_first painted_bar painted_total
-	if ((first == 0 && ran == 0)); then
-		paint ratio_text "$dim" "$first$tail"
-	else
-		paint painted_first "$bold;$green" "$first"
-		paint painted_bar "$dim" "|"
-		paint painted_total "$dim" "/$total"
-		ratio_text=$painted_first$painted_bar$ran$painted_total
-	fi
-	printf -v "$1" '%*s%s%*s' $((3 - ${#first})) '' "$ratio_text" $((progress_ratio_width - 3 - ${#tail})) ''
+	local tail="|$ran/$total" first_sgr="$bold;$green" ran_sgr= painted_first painted_bar painted_ran painted_total
+	((first)) || first_sgr=$dim
+	((ran)) || ran_sgr=$dim
+	paint painted_first "$first_sgr" "$first"
+	paint painted_bar "$dim" "|"
+	paint painted_ran "$ran_sgr" "$ran"
+	paint painted_total "$dim" "/$total"
+	printf -v "$1" '%*s%s%*s' $((3 - ${#first})) '' "$painted_first$painted_bar$painted_ran$painted_total" $((progress_ratio_width - 3 - ${#tail})) ''
 }
 
 pace_sgr() {
