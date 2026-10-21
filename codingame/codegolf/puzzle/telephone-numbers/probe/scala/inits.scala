@@ -1,0 +1,1 @@
+object Solution extends App{print(scala.io.Source.stdin.getLines.flatMap(_.inits).toSet.size-2)}
