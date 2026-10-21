@@ -44,6 +44,11 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - untested next: several answers per line (`print"..."x k` bursts = open-loop schedule keyed on surface lines), Perl regex captures surviving failed matches (surface vs turn lines), per-word answers (`$/=$"`), rotate keyed on fuel or `$.`. Or the sim misses a CG rule: run the best sim near-miss on CG before trusting sim rejections
 - ideas left for the next worker (none tried): Perl regex rewriting the input line into the answer (`s/^\S+ \S+ (\S+).*/$1 4/` gives rotate = hSpeed: with the N+1 lag that is a delayed damper that oscillates; variants on vSpeed, sign flips, sums via `eval y/ /+/r`); open-loop bursts printed on the first line and keyed on N (22 vs 18); rotate keyed on `$.` (turn counter, identical lag on both maps); fields other than X in the X-only families (hs, vs, fuel)
 
+## Search tooling trap (verified 2026-10-21, python cell)
+
+- the shared C `sim.h` (copied between journal scratches) keeps the answer queue in `static int qa[8192],qp[8192]` inside `run()`, and the lua `m.h` keeps `static double score,lx,ly`: under `#pragma omp parallel` these race, so every multi-threaded sweep reports false landers AND misses real ones. Example: `int((X-4198)/-799)`, power 4, lag: omp sweep said "lands A turn 218", single-thread sim and the referee both say "left the zone turn 79". Make the queue a local array (or `__thread`) and return the score through the pointer before trusting any omp sweep; rerun omp sweeps done with the old header
+- the single-thread sim matches the referee turn by turn on that example (Python `while 1:print(F(input()),4)`, lag N+1)
+
 ## Hidden validators
 
 - RECOVERED EXACTLY (probes 2026-10-21), files `referee/hidden/01.json`, `02.json`, `complete` set; details, probe list and sources: `referee/hidden/facts.md`
