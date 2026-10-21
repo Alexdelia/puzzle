@@ -76,3 +76,9 @@ Groovy 48 (2026-10-21): `for(;;)println((0..15).max{System.in.read()}>>1)`, loca
 ## Groovy: frame-1 timeout on CG (verified 2026-10-21)
 
 Local referee passes `(0..15).max{System.in.read()}>>1` in a `for(;;)` (48) 15/15, CG gives 79.976 (one validator timed out), twice. CG test games with JVM uptime on stderr: script main at 1162-1326 ms, first answer at 1437 passed, 2 of 3 games timed out at frame 1. Local main -> first answer 79-107 ms, over the ~90 ms safe line of `knowledge/lang/groovy/interactive-first-turn.md`. Rules are not the cause: the 5 CG tests replay the local trajectories exactly. A Groovy cell needs a cheaper first turn (or a fast-language wrapper), and a CG test-game check, not just the local referee.
+
+## Groovy: first-turn timeout (verified 2026-10-21, referee.the-descent.-.1792592993338820336)
+
+- `for(;;)println((0..15).max{System.in.read()}>>1)` (48, byte argmax: index `>>1`) passes 15/15 locally and 5/5 IDE tests once, submit got 79.976 = one 167-weight validator failed
+- cause: frame-1 timeout, not rules. CG test games with `runtimeMXBean.uptime` to stderr: script start 1053-1214 ms, first answer 1269 and 1471 ms passed, test 1 run "Timeout: your program did not write to the standard output in due time" at frame 1. Local main -> first answer 80-118 ms, at the ~90 ms budget of `knowledge/lang/groovy/interactive-first-turn.md`
+- local referee cannot see it (no per-lang JVM startup model). Same code passes or fails at random per game: resubmit is a lottery, cheaper first-answer path or wrapper is the real fix
