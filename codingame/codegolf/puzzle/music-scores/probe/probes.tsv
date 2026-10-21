@@ -4,3 +4,4 @@
 2026-10-21T13:02:17Z	cell.music-scores.php.1792441001839628969	php	256	php 256 port, hardcode x=10 + 7/8 cut: does CG accept?	yes: 100% at length 256, committed
 2026-10-21T13:25:37Z	cell.music-scores.haskell.1792441000876358956	haskell	337	general leftmost-column-top haskell 337: 100%?	yes: 100% at length 337, committed
 2026-10-21T13:27:36Z	cell.music-scores.haskell.1792441000876358956	haskell	336	bool pixels variant 336: 100%?	yes: 100% at length 336, committed
+2026-10-21T13:42:20Z	cell.music-scores.lua.1792441001379032638	lua	246	lua port 246 B of python method: does CG pass 100%?	yes: 100% at length 246, committed
