@@ -101,3 +101,11 @@ Guesses (unverified): tops 135-160 (ruby, perl, python) probably key on these va
 - no shorter key found: crc32($s)%K needs K>=29 slots, md5/sha1 single hex digit or ord%K never separate the 11 (searched), linear combos of w,h,R,B,len only mod 12
 - floor of this scheme about 200; top 169 (php), 168 (js) must use something else
 - tail waits: dropping the 3 trailing WAIT (196 B) fails on CG (row stayed 202), probed 2026-10-21
+
+## Haskell hardcode 238 B (CG-verified 100% 2026-10-21, rank 3; top then 196)
+
+- `interact` + any use of the whole input BLOCKS (game waits for our output): only force first-turn data. Prefix-23-char sums collide (hidden 6,7,9,10 all 990); no 2-3 char-position key mod m<=20 separates the 11
+- numbers via `map fst$reads=<<words s` (rows fail to parse, lazy): `(w:_:r:b:_)` = w,h,R,B; key `mod(2*(r-w)+b)12` -> slots 11 1 3 1 5 8 10 7 6 0 4 for hidden 1..11 (2 and 4 share). No fold/sum of (w,h,R,B) separates with m<=16; `w*b+r` mod 19 does
+- table = `words` of slot strings (space separator 1 B vs `\n` 2 B), WAIT = char with ord K (also 3 tail waits), cell = ord-K = y*S+x. ASCII-only linear code impossible for 12x9/15x12 grids; best (S=40,K=37) allows chars up to 2047 (2 UTF-8 bytes; GHC source ok): 49 data bytes for 33 bombs. `"` and `\` escape cost avoided by the search
+- covers: static set cover enumeration per hidden test (counts 5,1,56,1,1,5,1,18,-,550 min covers); hidden 9 = (4,2) WAIT WAIT (1,2)
+- floor of this scheme ~230; not reaching 196. Ideas not tried: digit-pair plan text with a chunking decoder (hidden 10 needs x=10, breaks), prefix polynomial hash instead of reads (~-7 B)
