@@ -79,3 +79,7 @@ Not recovered exactly. Facts and probe answers: `puzzle/the-fall-episode-3/refer
 - node port of the DFS: 951 B, 11/11 local, CG submit rank #11 (js row 951). Encodings: flat grid stride w+1 (sentinel 0 col, out of range reads undefined = wall), state p=cell*3+side, E = 42-digit string (0 down,1 right,2 left,3 stuck,4 no opening), rotation LEFT = RIGHT applied 3 times for every type (cycles 2 and 4), WAIT = return 1 sentinel
 - candidate filter needs both `c!=X` (exit cell) and no rock in cell: dropping either fails local (8/11, 6/11)
 - ASI trap: `R=readline` newline `[w,h]=` parses as index; write `[w,h]=(R=readline)().split` ``
+
+## PHP general solver (2026-10-21)
+
+Port of the JS DFS (js 951): php 1192 B, 11/11 local, CG submitted. Trap: `$n/3|0==$X` parses as `$n/3|(0==$X)`; `f` must end `G()&&1` (G returns f's rotation code otherwise). Tricks: knowledge/lang/php/const-define-globals.md. Still far from top 139: hardcode needs the hidden validators.
