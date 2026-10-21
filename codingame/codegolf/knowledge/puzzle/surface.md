@@ -53,3 +53,5 @@ Perl 158 (local 17/17, CG rank 3, 2026-10-20), `-ln0`: strip header + `$w=L+1` i
 - details, probe table, deduced titles: `puzzle/surface/referee/hidden/facts.md`
 
 JavaScript 219 (local 17/17, submitted 2026-10-20): `T=require('fs').readFileSync(0)+''`, `[L,,...r]=T.split`\n``, `w=-~L`, `g=[...r.join`\n`]` (header dropped, rows+tail share the flat array), queries via `T.match(/.+ .+/g)` (only query lines hold a space), `k=[t=eval(q.replace(' ','+w*'))]`, `for(i of k)g[i]==='O'&&(g[i]=k,k.push(i-1,i+1,i-w,i+w))`, `print(g[t].length>>2)`. No pad needed (undefined out of range). TRAP: `g[i]=='O'` (loose) with a list mark coerces the list to string each test: 360k lake does not finish in 120 s; strict `===` required (+1 B).
+
+PHP 217 (CG 100% hidden, rank 6, 2026-10-21): recursive flood on a flat string, details in knowledge/lang/php/recursive-flood.md. No memo needed on CG hidden validators (fails only local synthetic validators/07 on time). Top 179 not reached.
