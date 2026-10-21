@@ -7,3 +7,4 @@
 2026-10-20T20:03:07Z	validator.telephone-numbers.-.1792523691220569937	lua	166	P7 count: correct iff every number length <= 10	progress {"submission_id":41537684,"language":"Perl","in_progress":false,"score":100.0,"rank":17,"total":3232,"criteria":"Code size","criteria_score":37.0}, own row {"pseudo":"Alexdelia","language":"Lua","length":166,"score":56.0}
 2026-10-20T20:03:49Z	validator.telephone-numbers.-.1792523691220569937	ruby	127	P8 count: correct iff N<=20 or N>=100 (row 16% shows only if more)	yes: 100% at length 127, committed
 2026-10-20T20:04:57Z	validator.telephone-numbers.-.1792523691220569937	javascript	248	P9 count: correct iff line 1 adds exactly one new prefix (k==1)	yes: 100% at length 248, committed
+2026-10-21T13:16:09Z	cell.telephone-numbers.php.1792441430087432258	php	42	php backtick sed|sort -u|wc -w -1 without line-1 skip: 100%?	yes: 100% at length 42, committed
