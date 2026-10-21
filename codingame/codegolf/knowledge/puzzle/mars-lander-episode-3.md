@@ -119,3 +119,9 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - one open-loop piecewise-constant schedule g(i) serves both validators: start the turn counter at i0 = f(first line) (e.g. N*M: B 18M, A 22M), so A reads g from a later point than B. No branch on the key: one sorted `i<T?R:` chain, power 4 constant
 - found by SA in C (javascript journal ...1792609840716455020, scratch sh.c sim + sa.c): M=5 (A 20 turns ahead of B) lands both with 5 segments (4 thresholds); M=50 needs 6-7. Sim matches the local referee
 - never reading input after the first line is fine on CG (prints forever, the pipe blocks)
+
+## Mod-of-quotient family (sim + referee, 2026-10-21, ruby cell 1792608246982660255, scratch s4.c/s5.c/s6.c)
+
+- rotate (X/D)%M-C or C-(X/D)%M (X = first field, lag on, power 4) LANDS A: 19 hits with D<=300, e.g. D=53 M=111 C=58 sign -. Referee `run.sh --hidden`: tests/01 and hidden/01 pass, hidden/02 crashes at (5100,951) turn 57. Perl form `$_/D%M-C` needs no int (Perl % truncates its operands) and with 2-3 digit constants the whole program `$|=1;print$_/D%M-C," 4\n"while<>` is exactly 37 = Perl top length; Ruby `$>.sync=1;loop{puts"#{C-gets.to_i/D%M} 4"}` 46, two under the Ruby top
+- zero B-landers in that family: D 1..999, M 2..min(999,7000/D+2), C -90..M+90, both signs, power 3 and 4, lag on / without the N line / off (s5.c, pruned by rotate range on the N and surface lines); also (X%M)/D-C partly swept (s6.c, M up to ~2500): zero B. Zero T02 (unshifted) landers too
+- leaderboard dates (getFilteredPuzzleLeaderboard, Ruby, fetched 2026-10-21): five Ruby rows at 48, created 2026-09-24 (Waffle3z) to 2026-10-17 (PetyFloyd), all score 100. So 48 passes the CURRENT validators: the "tops predate a validator change" hypothesis is unlikely unless the change is after 2026-10-17
