@@ -1,0 +1,1 @@
+let s=require('fs').readFileSync(0)+'';console.log(2+s.match(/\d+(?= )/g).filter(x=>s.includes(` ${x}\n`)).length)
