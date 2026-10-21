@@ -1,0 +1,2 @@
+(ns Player)(defn -main[_](doseq[c(drop(mod(hash(vec(doto(byte-array 819)(#(.read System/in %)))))40)(map int"h3w$!!c9zu& 4  GP
+[w    SXYR     "))](println(if(> c 1)(str(mod c 16)" "(quot c 16))"WAIT"))))
