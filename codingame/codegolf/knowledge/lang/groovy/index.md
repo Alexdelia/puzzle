@@ -7,3 +7,4 @@
 - [stdin-chunks-clamp](stdin-chunks-clamp.md): readLines destructure, Matcher getAt, list index bounds, sum() join, verified
 - [char-keyed-map-dispatch](char-keyed-map-dispatch.md): letter-keyed direction map, closure-map dispatch, slashy lookup, verified
 - [pairs-transpose-median](pairs-transpose-median.md): header+pairs parse via collate(2).transpose(), median deviation sum, verified local
+- [perl-wrapper-processbuilder](perl-wrapper-processbuilder.md): ProcessBuilder(perl,-ape,code).inheritIO().start(), no waitFor; perl exists on CG
