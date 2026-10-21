@@ -2,7 +2,7 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-usage="usage: enqueue.sh lang|referee|validator|puzzle|cell <puzzle|-> <lang|-> [--reason text] [--trigger file] [--depth n] [--urgent]; --urgent: before every other task of its kind"
+usage="usage: enqueue.sh lang|referee|validator|puzzle|cell|review <puzzle|-> <lang|-> [--reason text] [--trigger file] [--depth n] [--urgent]; --urgent: before every other task of its kind"
 kind=${1:?$usage}
 puzzle=${2:?$usage}
 lang=${3:?$usage}
@@ -27,7 +27,7 @@ while (($#)); do
 done
 
 case $kind in
-lang) [[ $puzzle == - && -n $(tsv_field lang "$lang" slug) ]] ;;
+lang | review) [[ $puzzle == - && -n $(tsv_field lang "$lang" slug) ]] ;;
 referee | validator | puzzle) [[ $lang == - && -n $(tsv_field puzzle "$puzzle" slug) ]] ;;
 cell) [[ -n $(tsv_field puzzle "$puzzle" slug) && -n $(tsv_field lang "$lang" slug) ]] ;;
 *) false ;;

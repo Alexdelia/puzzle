@@ -2,8 +2,16 @@
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 
-worker=${1:?usage: worker.sh <worker-id> [--once]}
-once=${2:-}
+usage="usage: worker.sh <worker-id> [--once | --task <task-id>]; --task: run that queued task once, whatever its priority"
+worker=${1:?$usage}
+once=
+task=
+case ${2:-} in
+--once) once=1 ;;
+--task) task=${3:?$usage} once=1 ;;
+"") ;;
+*) echo "$usage" >&2 && exit 2 ;;
+esac
 log() {
 	echo "$(now) worker $worker: $*"
 }
@@ -11,7 +19,7 @@ log() {
 cd "$root"
 waiting=
 while [[ ! -e $state/STOP ]]; do
-	running=$("$tool_dir/next.sh" "$worker" "$BASHPID")
+	running=$("$tool_dir/next.sh" "$worker" "$BASHPID" $task)
 	case $? in
 	0) ;;
 	1)

@@ -75,9 +75,12 @@ puzzle/done)
 cell/first)
 	set_status first
 	;;
-cell/continue)
+cell/continue | review/continue)
 	set_status todo
 	requeue continue
+	;;
+review/done)
+	set_status done
 	;;
 cell/*)
 	json_update "$status_path" '.status = "plateau" | .plateau_count = ((.plateau_count // 0) + 1)'

@@ -35,6 +35,7 @@ status_file() {
 	validator) echo "$state/validator/$puzzle.json" ;;
 	puzzle) echo "$state/puzzle/$puzzle.json" ;;
 	cell) echo "$state/cell/$puzzle/$lang.json" ;;
+	review) echo "$state/review/$lang.json" ;;
 	esac
 }
 

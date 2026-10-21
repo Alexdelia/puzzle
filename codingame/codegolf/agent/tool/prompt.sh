@@ -12,6 +12,16 @@ if ((${#journals[@]})); then
 fi
 cell_json=$([[ $kind == cell ]] && jq -c . "$(ensure_status cell "$puzzle" "$lang")" || echo '{}')
 lang_var=${lang//-/_}
+lang_cells() {
+	echo "| puzzle | status | ours | top | top player | rank | best tie rank |"
+	echo "|---|---|---|---|---|---|---|"
+	local puzzle
+	for puzzle in $(puzzles); do
+		[[ -f $root/puzzle/$puzzle/solution/$lang/main.$(tsv_field lang "$lang" extension) ]] || continue
+		jq -r --arg puzzle "$puzzle" '"| \($puzzle) | \(.status) | \(.ours // "-") | \(.top // "-") | \(.top_player // "-") | \(.rank // "-") | \(.best_tie_rank // "-") |"' \
+			"$(ensure_status cell "$puzzle" "$lang")"
+	done
+}
 
 declare -A values=(
 	[ID]=$id [KIND]=$kind [PUZZLE]=$puzzle [LANG]=$lang [DEPTH]=$depth [NEXT_DEPTH]=$((depth + 1))
@@ -24,6 +34,7 @@ declare -A values=(
 	[CG_NAME]=$(tsv_field lang "$lang" cg_name) [EXTENSION]=$(tsv_field lang "$lang" extension)
 	[CG_VERSION]=$(tsv_field lang "$lang" cg_version) [LANG_VAR]=${lang_var^^}
 	[CELL]=$cell_json
+	[LANG_CELLS]=$([[ $kind == review ]] && lang_cells || true)
 )
 text=$(cat "$tool_dir/prompt/common.md" "$tool_dir/prompt/$kind.md")
 for key in "${!values[@]}"; do

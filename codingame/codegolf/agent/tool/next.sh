@@ -3,9 +3,10 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 shopt -s nullglob
 
-usage="usage: next.sh <worker-id> <worker-pid>; exit 0 claimed (prints running file), 1 nothing claimable, 3 rate limited, 4 over weekly pace (STOP set), 5 five-hour window full (prints running task count)"
+usage="usage: next.sh <worker-id> <worker-pid> [task-id]; task-id: claim that queued task instead of the best one; exit 0 claimed (prints running file), 1 nothing claimable, 3 rate limited, 4 over weekly pace (STOP set), 5 five-hour window full (prints running task count)"
 worker=${1:?$usage}
 worker_pid=${2:?$usage}
+forced_task=${3:-}
 
 status_map() {
 	jq -n 'reduce inputs as $entry ({}; . + {(input_filename | split("/") | last | rtrimstr(".json")): $entry.status})' "$@" </dev/null
@@ -24,11 +25,12 @@ pick() {
 	jq -r -s --slurpfile context_file "$1" '
 		def ready($context):
 			if .kind == "lang" then $context.langs[.lang] != "blocked"
+			elif .kind == "review" then $context.langs[.lang] == "ready"
 			elif .kind == "referee" then $context.langs.python == "ready" and $context.referees[.puzzle] != "blocked"
 			elif .kind == "validator" or .kind == "puzzle" then $context.referees[.puzzle] == "done"
 			else $context.referees[.puzzle] == "done" and $context.ready_langs == $context.lang_count
 			end;
-		def kind_rank: {"lang": 0, "referee": 1, "validator": 2, "puzzle": 3, "cell": 4}[.kind];
+		def kind_rank: {"lang": 0, "referee": 1, "validator": 2, "puzzle": 3, "cell": 4, "review": 5}[.kind];
 		$context_file[0] as $context
 		| map(select(ready($context)))
 		| map(. as $task
@@ -73,7 +75,11 @@ claim() {
 		--argjson lang_count "$(langs | wc -l)" \
 		'{langs: $langs[0], referees: $referees[0], cells: $cells[0], last_lang: $last_lang, lang_count: $lang_count, lang_priority: $lang_priority[0],
 		  ready_langs: ([$langs[0][] | select(. == "ready")] | length)}' >"$work/context.json"
-	id=$(pick "$work/context.json")
+	if [[ -n $forced_task ]]; then
+		id=$([[ -f $state/queue/$forced_task.json ]] && echo "$forced_task" || true)
+	else
+		id=$(pick "$work/context.json")
+	fi
 	rm -rf "$work"
 	[[ -n $id ]] || return 1
 	local running=$state/running/$id.json

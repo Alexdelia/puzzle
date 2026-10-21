@@ -24,6 +24,11 @@ for lang in $(langs); do
 		status=todo
 	fi
 	json_update "$file" --arg status "$status" --arg note "$note" '.status = $status | .note = $note'
+	IFS=$'\t' read -r outcome note < <(last_outcome review - "$lang")
+	if [[ -n $outcome ]]; then
+		file=$(ensure_status review - "$lang")
+		json_update "$file" --arg status "$([[ $outcome == done ]] && echo done || echo todo)" '.status = $status'
+	fi
 done
 
 for puzzle in $(puzzles); do

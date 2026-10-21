@@ -2,7 +2,7 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-usage="usage: report.sh <outcome> [note]; outcomes: lang ready|blocked, referee done|blocked, validator done|blocked, puzzle done, cell first|plateau|continue"
+usage="usage: report.sh <outcome> [note]; outcomes: lang ready|blocked, referee done|blocked, validator done|blocked, puzzle done, cell first|plateau|continue, review done|continue"
 outcome=${1:?$usage}
 note=${2:-}
 id=${CG_TASK_ID:?CG_TASK_ID unset: report.sh runs inside a worker task}
@@ -15,6 +15,7 @@ case $kind in
 referee | validator) allowed=(done blocked) ;;
 puzzle) allowed=(done) ;;
 cell) allowed=(first plateau continue) ;;
+review) allowed=(done continue) ;;
 esac
 [[ " ${allowed[*]} " == *" $outcome "* ]] || { echo "report.sh: $kind outcome must be one of: ${allowed[*]}" >&2; exit 2; }
 
