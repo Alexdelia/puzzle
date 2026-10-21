@@ -78,3 +78,7 @@ Probed 2026-10-20 (count probes, details and sources in `puzzle/mayan-calculatio
 - drop `-Minteger `, printer `while$r/=20` -> `while($r-=$r%20)/=20` (exact IV division, valid lvalue): -1 B in any perl-wrapper cell
 - typescript = `require("child_process").execSync(`perl -ape'...'`,{stdio:[0,1]})`: wrapper 52 B + perl core, 243 total
 - `L==H` shortcut in perl gains nothing: `$_` must stay emptied by the 3-var `@F` assignment
+
+## Scala (2026-10-21, worker)
+
+- perl wrapper floor: `object Solution{def main(a:Array[String])={import sys.process._;Seq("perl","-ape","core").!}}` = 94 B overhead, core 180 -> 274 > top 247; `raw"""` breaks on `$`, use `"""`; sys.process `.!` timed out locally (stdin not reaching perl, unconfirmed cause); ProcessBuilder.inheritIO ~103 B overhead
