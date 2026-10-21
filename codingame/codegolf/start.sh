@@ -30,6 +30,11 @@ if over_weekly_pace; then
 	echo "start.sh: weekly usage ${used}% >= ${elapsed}% of the week elapsed (margin ${weekly_pace_margin_percent}%): not starting" >&2
 	exit 1
 fi
+alive=$(pgrep -f -c 'agent/tool/worker.sh' || true)
+if ((alive)); then
+	echo "start.sh: $alive worker loops still alive (a soft stop lets them finish their task first): wait for them to exit, or ./stop.sh --now" >&2
+	exit 1
+fi
 rm -f "$state/STOP"
 commit_time_log
 [[ -n $(ls "$state"/lang/*.json 2>/dev/null) ]] || agent/tool/rebuild.sh

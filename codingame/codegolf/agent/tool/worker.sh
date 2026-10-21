@@ -17,9 +17,10 @@ log() {
 }
 
 cd "$root"
+worker_pid=$BASHPID
 waiting=
 while [[ ! -e $state/STOP ]]; do
-	running=$("$tool_dir/next.sh" "$worker" "$BASHPID" $task)
+	running=$("$tool_dir/next.sh" "$worker" "$worker_pid" $task)
 	case $? in
 	0) ;;
 	1)
