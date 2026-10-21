@@ -158,6 +158,12 @@ blocked_line() {
 	echo "$(paint "$red" "blocked:")  ${labels[*]}"
 }
 
+first_total_line() {
+	local langs=("$state"/lang/*.json) puzzles=("$state"/puzzle/*.json) cells=("$state"/cell/*/*.json) first=0
+	((${#cells[@]} == 0)) || first=$(jq -r 'select(.status == "first") | .status' "${cells[@]}" | wc -l)
+	echo "$(paint "$bold;$green" "$first")$(paint "$dim" /)$((${#langs[@]} * ${#puzzles[@]}))"
+}
+
 cell_rows() {
 	local key_sed=$1
 	shift
@@ -283,6 +289,7 @@ echo "referees:   $(status_counts "$state/referee")"
 echo "validators: $(status_counts "$state/validator")"
 echo "puzzles:    $(status_counts "$state/puzzle")"
 blocked_line
+first_total_line
 
 cells=("$state"/cell/*/*.json)
 if ((${#cells[@]})); then
