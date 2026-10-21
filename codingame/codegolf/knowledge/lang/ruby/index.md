@@ -14,3 +14,4 @@
 - [interactive-bisect-idioms](interactive-bisect-idioms.md): init read, bare-regex response test, chained compare, sync required
 - [min-by-string-key](min-by-string-key.md): min_by{x=_1.to_i;..} beats map(&:to_i), nil.to_i=0 for empty
 - [random-restart-search](random-restart-search.md): flat-string blast search, loop-break-value output, vox-codei-episode-1 322
+- [loop-print-no-sync](loop-print-no-sync.md): `k=PLAN;loop{$><<k}` open-loop interactive output, no sync needed, keeps process alive, verified CG
