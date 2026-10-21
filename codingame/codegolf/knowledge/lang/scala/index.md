@@ -8,3 +8,4 @@
 - [read-all-bytes](read-all-bytes.md): `System.in.readAllBytes` = whole stdin 21 chars (vs scala.io.Source 36), numeric char codes, tuple vars, `0 until 4` reversible; verified
 - [main-object-player](main-object-player.md): interactive puzzles run `Player`, not `Solution` (`ClassNotFoundException: Player$`); local launcher only knows `Solution`; verified
 - [scanner-unzip-doubled-median](scanner-unzip-doubled-median.md): Scanner+Seq.fill+unzip input, (y++y).sorted.splitAt median sum; List index O(n) trap; verified
+- [interactive-byte-argmax](interactive-byte-argmax.md): `maxBy(_=>System.in.read)>>1` over 0..15 for line-per-height interactive puzzles; Player vs Solution local caveat; verified
