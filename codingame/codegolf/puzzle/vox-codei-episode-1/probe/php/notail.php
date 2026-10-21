@@ -1,0 +1,1 @@
+<?$s=fread(STDIN,999);foreach(str_split(explode(',','1*\g{,!PH,.,^_de,<  9,.,3Gp{,#_,",9>Mky~,\W#')[((substr($s,-5)+$s[-2])*9+$s*5)%12])as$c)printf(($i=ord($c)-32)?"%d %d\n":"WAIT\n",$i%12,$i/12);
