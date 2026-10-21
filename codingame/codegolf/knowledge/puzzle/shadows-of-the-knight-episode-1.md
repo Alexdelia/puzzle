@@ -28,6 +28,7 @@ pretty_id `shadows-of-the-knight-episode-1`, leaderboard `shadows-of-the-knight-
 
 - direction with no horizontal letter means bomb column = current column: a bisection must collapse that axis to the current value, not keep the old range
 - the `N` line is never needed by a correct bisection: read and discard
+- Scala/Java: CG runs `Player` here (interactive), not `Solution`: scala wrapper 159 with `object Solution` passed local 7/7 and got 0% (`ClassNotFoundException: Player$`), with `object Player` wins CG tests 4 and 7 (2026-10-21). Local launchers run `Solution` only (`lang/scala/main-object-player.md`)
 
 ## Shortest known
 
