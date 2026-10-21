@@ -154,3 +154,13 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - 2 power-mostly-4 segments + tail `0 4` land BOTH validators (and both tests): segment 1 = one small left tilt (rotate ~8, power 4) whose LENGTH alone is keyed (B ~80 turns, A ~50), segment 2 = shared right tilt (~-16, power 3, ~55 turns), then `0 4` forever. Only the count differs between maps, so the key costs one ternary on a number
 - found in seconds by SA whose energy is the exact generated code length + landing penalty (scratch sa.c of journal cell.mars-lander-episode-3.ruby.1792610693648937839; sim = sr.c sim, matches referee). The SA from random restarts finds it; seeded from the 3-4 segment schedules it does not
 - languages with a cheap string repeat should drop two-schedule keys for this shape
+
+## Joint schedule without conditionals (verified 2026-10-21, Lua 65 accepted on CG, tie #1)
+
+- the 3-segment joint schedule above (counter N*5+t: 11 below 170, -89 below 185, then 0) written as floor-division steps: `268//i*100-283//i*89` with the counter shifted `io.read()*5+99` (see knowledge/lang/_shared/floordiv-step-chain.md). Without the +99 shift B's first turns get `184//90 = 2` (rotate -78) and B crashes
+- Lua `for i=io.read()*5+99,1e9 do print(E.." 4")end` 65; with `print(E,4)` (tab separator) 60, passes the local referee
+
+## Ruby keyed schedule search (2026-10-21, ruby cell journal ...1792610250526070424, `sr.c`/`sk.c` in its scratch)
+
+- SA with energy = exact Ruby byte count + landing penalty finds joint schedules `$><<"R P\n"*(gets<?2?LB:LA)+SEGS+"0 4\n"*1e5` (59 B and 49 B rows, 4/4 hidden)
+- keys for a length (A "22", B "18"): `gets.oct` 18/1 (8 not octal), `gets.hex` 34/24, `gets.sum` 110/115. `*(c-gets.oct)` is 13 chars vs `*(gets<?2?b:a)` 15 but fixes B-A at 17 turns: with the 2-segment shape B crashes (needs ~28). Keyed segment elsewhere not tried
