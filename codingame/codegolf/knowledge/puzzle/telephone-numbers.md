@@ -70,3 +70,7 @@ Probed 2026-10-20, details and probe list in `referee/hidden/facts.md`. Not reco
 ## PHP (2026-10-21)
 
 - 42, CG row (probe 100%): `<?=`sed ':a;p;s/.$//;ta'|sort -u|wc -w`-1;` = wrapper 6 + sed core 34 + `-1` 2. Uses P9 (no `1d`; `wc -w` gives answer+1, `-1` on the shell output string works in PHP 7.3 with a notice). Top 39 needs a 33-byte core: not found
+
+## JavaScript / TypeScript (2026-10-21)
+
+- chop loop `for(s=new Set;x=readline();)for(;x;x=x.slice(0,-1))s.add(x);print(s.size-1)` = 75 B JS (4 under the slice loop 79), P9 identity (line 1 included, `-1`). TS = `//@ts-ignore\n` + it = 88, CG probe 100%, row #15 (top 63 not explained). Replace+lookbehind capture, recursion, object keys all longer
