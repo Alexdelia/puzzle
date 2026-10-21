@@ -80,3 +80,9 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 
 - 167 bytes, CG 100%, rank 11: `object Player`, `val Array(a,b,c,d)=Console.in.readLine split " "map(_.toInt)`, then two letter runs merged with zipAll (knowledge/lang/scala/zipall-merge-columns.md). Wrapper + parse alone cost 88, so top 98 (Icebox, global rank 821; next Scala players at global ranks 870/884/1049, then 4623) is out of reach with 2.13.5 parsing: likely legacy scores
 - hidden-validator caution: java count probe (E needed = 0) ran before the Player/Solution launcher fix, Lua probe also 0: zero counts may be crashed probes. Haskell noE probe 50% says 2 validators need E. With the positive counts (1 N, 1 vertical, 1 horizontal) all four letters N/S/E/W are needed, so no branch can be dropped (inference, unverified per validator)
+
+## Clojure (2026-10-21)
+
+- 166 `(ns Solution(:gen-class))(defn -main[]...)` passed 4/4 locally, CG 0%: not timing, not rules. Interactive CG compiles `Player.clj` and calls `-main` with 1 arg. `ns Player` + `-main[_]` (165) passes CG tests 2 and 4 (games after 910671218). See knowledge/lang/clojure/interactive-player.md
+- Clojure first answer at JVM uptime ~1.6 s still passes: no cold-start problem here, unlike Groovy
+- blocked locally until agent/tool/lang/clojure/build.sh uses `main_class` (local referee rejects the CG-correct file)
