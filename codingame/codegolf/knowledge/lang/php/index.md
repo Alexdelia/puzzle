@@ -12,3 +12,4 @@
 - [recursive-flood](recursive-flood.md): userland recursion unbounded in 7.3, flat string flood fill, header explode, query regex
 - [temperature](../../puzzle/temperature.md): php 91 = `9e3` sentinel + explode(" ",explode("\n",`cat`)[1]) loop; N=0 token "" gives 0 for free
 - [system-perl-wrapper](system-perl-wrapper.md): <?system('perl -e..\'..\'') = core+15 bytes, beats backticks/nowdoc
+- [sscanf-fread-by-ref](sscanf-fread-by-ref.md): one fread header + sscanf by ref, `[$S,&$p]` foreach refs, comma-list for body, inline assignments
