@@ -72,7 +72,7 @@ Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`
 - explore-all NOT needed on CG: goal = nearest of `?` or `C` until Rick stands on `C`, then `T`, passes 100% (C 272 probe). Saves the phase-2 fallback (perl `||y/C/X/`) but needs the goal set to switch from `?C` to `T` only (keeping `?` in the goal after `C` fails tests 04-08)
 - validator 02 = test 2 upside down: open cells of row 0 become last row 14 with no `#` border (flat string with `\n` separator is safe; index arithmetic past the last row is not)
 - key: `A` alone separates the 8 validators (7 21 39 68 42 33 70 71); move hardcodes are not shorter than the flood
-- TRAP (verified 2026-10-21): merged lookbehind `(?<=X.|X.{30}.)` passes locally (host perl 5.42 spawned by the TS/JS/... launchers) but CG boxes run perl 5.34, where variable-length lookbehind matches like `X.{0,30}.`: TS 262 rejected, local with `PATH=$CG_PERL/bin:$PATH` 1/16. Keep two fixed lookbehinds `(?<=X.)|(?<=X.{30}.)` in every spawned-perl core
+- TRAP (verified 2026-10-21): merged lookbehind `(?<=X.|X.{30}.)` passes locally (host perl 5.42 spawned by the TS/JS/... launchers) but the CG TypeScript and Bash boxes run perl 5.34 (other boxes unprobed, assume the same), where variable-length lookbehind matches like `X.{0,30}.`: TS 262 rejected, local with `PATH=$CG_PERL/bin:$PATH` 1/16. Keep two fixed lookbehinds `(?<=X.)|(?<=X.{30}.)` in every spawned-perl core
 - perl is on PATH in the C, C++, JavaScript/TypeScript (`spawnSync`), PHP (`system`), Lua (`os.execute`), Go (`exec.Command`), Rust (`Command`) boxes (all verified by 100% probes 2026-10-20)
 
 ## JavaScript (cell worker 2026-10-20)
