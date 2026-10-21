@@ -1,0 +1,1 @@
+object Player extends App{while(1>0)println((0 to 15).maxBy(_=>System.in.read)>>1)}
