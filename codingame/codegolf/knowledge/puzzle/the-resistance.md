@@ -14,7 +14,8 @@ pretty_id `the-resistance-codesize`, io.
 
 - 01-03 tiny, 04: L 9884, N 9444, words mostly 5-6 letters, answer 57330892800
 - 05 same-encoding words, 06: 52 dots with dictionary `E I` (Fibonacci, 2971215073)
-- io limit 6000 ms per test (shared probe `knowledge/lang/_shared/io-time-limit.md`, not re-probed here)
+- io limit 6000 ms per test (shared probe `knowledge/lang/_shared/io-time-limit.md`); Python sleep 5.5 s, bash 2.5 s, JS 5.0 s on time here (2026-10-21)
+- Groovy limit ~1.93 s of JVM uptime (CG probes here and on 2 other puzzles, `knowledge/lang/groovy/io-time-limit.md`): referee runs Groovy with 1100 ms wall (calibrated, launcher path `lang/groovy`). Honest Groovy DP (317) times out on CG test 04 (local 1.6 s) and got 80% on submit: native Groovy needs local wall <= ~1.1 s on 04 and on L ~ 10^5 inputs, else a perl/sh wrapper
 
 ## Traps
 
