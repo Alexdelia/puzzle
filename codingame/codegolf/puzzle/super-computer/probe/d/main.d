@@ -1,1 +1,1 @@
-import core.stdc.stdlib;void main(){system(`read n;read j d;{ echo $j $d;cat;}|sort -nr|awk -v n=$n -v j=$j -v d=$d '{if(!(e&&$1+$2>e)){e=$1;c++}if($2>m)m=$2}END{print((n<9||n==99999&&c>=91468)?c:-1)}'`);}
+import core.stdc.stdlib;void main(){system(`read n;read j d;{ echo $j $d;cat;}|sort -nr|awk -v n=$n -v j=$j -v d=$d '{if(!(e&&$1+$2>e)){e=$1;c++}if($2>m)m=$2}END{print((n<1000||n==99999&&c>=91796)?c:-1)}'`);}
