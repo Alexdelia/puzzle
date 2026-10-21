@@ -1,0 +1,1 @@
+<?$w=fgets(STDIN)+0;foreach(explode(" ",fgets(STDIN))as$v)$v>0?$s.=str_repeat($c,$v):$c=$v;$h=strlen($s);for(;$x++<$w;){for($i=$x;($k=$i<$h*7/8)&&$s[$i]>=$s[$i-$x+10];$i+=$w);if(!$p&$p=$k)$o.=" ".AGFEDCB[15*($i-$x-3*$w)/$h%7].QH[$s[$i+5]>B];}echo trim($o);
