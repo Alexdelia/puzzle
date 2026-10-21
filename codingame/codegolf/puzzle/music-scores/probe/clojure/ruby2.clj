@@ -1,0 +1,1 @@
+(ns Solution(:gen-class))(.waitFor(.start(.inheritIO(ProcessBuilder.["ruby" "-e" "w=gets.to_i;s=gets.gsub(/(.) (\\d+) ?/){$1*$2.to_i};h=s.size/w;o=[];w.times{|x|y=(0..h*6/7).find{|i|s[i*w+x]<s[i*w+10]};$q||y&&o<<'AGFEDCB'[(y-3)*15/h%7]+'QH'[s[y*w+x+5]<=>?B];$q=y};puts o*' '"]))))
