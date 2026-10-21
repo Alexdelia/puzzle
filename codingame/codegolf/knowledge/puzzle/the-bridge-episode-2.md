@@ -68,15 +68,15 @@ Rejected:
 - shallow greedy + SPEED cap (SPEED only while speed < c, c 1..15, all 120 orders): 1 ply best 10 cases fail, 2 plies best 6 fail
 - simpler lane-change check (only new lane, both lanes full x+1..e, only old lane): fails 4..9 cases at 3..6 plies
 
-## Hidden validators (exploit search 2026-10-20)
+## Hidden validators (exploit search 2026-10-20, 2026-10-21)
 
-Validator task 2026-10-20, details and probe table in `puzzle/the-bridge-episode-2/referee/hidden/facts.md`:
+Details and probe tables in `puzzle/the-bridge-episode-2/referee/hidden/facts.md`:
 
-- 12 validators (partial scores are sums of 100/12). None equals a test exactly
-- each one is a test with its holes moved as a block (x shift, lane flip) plus a few cell edits: 9 keep their test's (L, V, S) and are within 4 cells of the shifted/flipped test. All 12 are within 12 cells of some shifted/flipped/padded test
-- 10 share (L, V, S) with a test, 11 share (V, S)
-- not recovered exactly, no separating key: hardcoding the test plans cannot pass. A general method is still required; check heuristics on shifted and lane-flipped tests
-
+- 12 validators, weights unequal: validators 1..8 weigh 8.3, validators 9..12 weigh 8.4 (sum 100). A partial score reads as (passed among 1..8, passed among 9..12), e.g. 74.8 = 8 + 1, 91.6 = all but one of 9..12
+- 1:1 with the tests by (L, V, S): tests 1, 9, 10, 11, 12 have exactly one twin validator each (9..12 heavy), tests 4, 6, 7 three twins together, tests 5 and 8 (both (36, 3, 6)) two. Tests 2 (56,4,1) and 3 (42,4,8) have no twin: validators 2 and 3 changed L
+- roads differ: each validator is its test with holes moved (x shift, lane flip) plus a few cell edits; none equals a test. Not recovered exactly, no plan table: hardcoding the test plans cannot pass all
+- no lane change needed (DFS on SPEED, JUMP, SLOW only) for all of validators 1..8 and one of 9..12 (likely 11); 9, 10, 12 need UP/DOWN
+- a general method is still required; check heuristics on shifted and lane-flipped tests
 
 Facts (probes on CG):
 
