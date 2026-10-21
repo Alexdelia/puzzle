@@ -14,3 +14,5 @@
 - [lazy-read-iterate](lazy-read-iterate.md): `[l c n & q](repeatedly read)`, `(nth(iterate f x)c)` as 1e7 loop, step cost (mapv/juxt slow, update ok), filter for take-while (roller-coaster 221)
 - [reduce-closures](reduce-closures.md): `(reduce #(%2 %)init(for[..]#(..)))` -8 B vs fn destructuring, `(merge-with + d{j x})` default-0 add, frequencies count map (the-resistance)
 - [python-wrapper-interactive](python-wrapper-interactive.md): `ProcessBuilder.["python3""-c""core"]` + `inheritIO start waitFor` in -main, python3 on CG PATH, core+86 B; local turn-1 timeout is JVM startup, not a fail on CG, verified (the-fall-episode-2 995)
+- [interactive-spawn](interactive-spawn.md): interactive spawn must live in `-main[_]` (top-level child blocks CG compile on open stdin pipe), local turn-1 timeout = startup artifact, verified (sotk2)
+- [doto-fn-arg](doto-fn-arg.md): `(doto(byte-array S)(#(.read System/in %)))` fills and returns a buffer without let, `(hash(vec b))` key, verified (vox-codei-episode-1 213)
