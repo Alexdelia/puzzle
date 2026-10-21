@@ -91,3 +91,7 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 ### JavaScript 192 (2026-10-20, submitted rank 21)
 
 - `[l,c,n]=readline().split(' ').map(Number);q=[...Array(n)].map(_=>+readline());g=[];i=s=0` then `for(;c--;s+=(v-(i=v%n))/n){for(t=0,j=i;!g[i]&&j<i+n&&t+q[j%n]<=l;)t+=q[j++%n];v=g[i]||=t*n+j%n}print(s)`: packed memo, 1e7 loop fine in node, 16/16
+
+### PHP 196 (2026-10-21, CG rank 5, 16/16 local)
+
+- `[$l,$c,$n]=$p=explode(" ",strtr(`cat`,"\n"," "));for(;$c--;$s+=$v/$n|0){for($t=0,$j=$i;!$g[$i]&&$j<$i+$n&&$t+$p[3+$j%$n]<=$l;)$t+=$p[3+$j++%$n];$v=$g[$i]?:$g[$i]=$t*$n+$j%$n;$i=$v%$n;}echo$s;` (newline literal in strtr): lazy packed memo, 1e7 loop fine in PHP, unset vars as 0
