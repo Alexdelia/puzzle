@@ -72,3 +72,7 @@ Haskell 72 (CG #1, top was 74): system wrapper `import System.Cmd;main=system"<b
 Lua 58 (CG accepted, 2026-10-21): `::a::os.execute"sed 8q|nl -v0 -w1|rev|sort|tail -c2"goto a`, bash pipeline in os.execute + goto loop (`$0` recursion is unavailable, `sh -c` has $0=sh). Native Lua argmax is 67: `::a::m=0 for i=0,7 do m=math.max(m,io.read()*8+i)end print(m%8)goto a`. `math.max` on a mix of number and string keys errors.
 
 Groovy 48 (2026-10-21): `for(;;)println((0..15).max{System.in.read()}>>1)`, local 15/15, CG 79.976 twice; top 46 (Icebox) not reached, see knowledge/lang/groovy/byte-read-max-key.md. The same byte idea (read 16 bytes, newline < digit, index>>1) may shorten other languages.
+
+## Groovy: frame-1 timeout on CG (verified 2026-10-21)
+
+Local referee passes `(0..15).max{System.in.read()}>>1` in a `for(;;)` (48) 15/15, CG gives 79.976 (one validator timed out), twice. CG test games with JVM uptime on stderr: script main at 1162-1326 ms, first answer at 1437 passed, 2 of 3 games timed out at frame 1. Local main -> first answer 79-107 ms, over the ~90 ms safe line of `knowledge/lang/groovy/interactive-first-turn.md`. Rules are not the cause: the 5 CG tests replay the local trajectories exactly. A Groovy cell needs a cheaper first turn (or a fast-language wrapper), and a CG test-game check, not just the local referee.
