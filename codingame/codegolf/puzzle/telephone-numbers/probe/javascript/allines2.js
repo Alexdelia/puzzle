@@ -1,0 +1,1 @@
+for(s=new Set;x=readline();)for(i=0;x[i++];)s.add(x.slice(0,i));print(s.size-1)
