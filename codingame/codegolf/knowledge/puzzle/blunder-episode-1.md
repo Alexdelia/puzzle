@@ -73,3 +73,5 @@ Rejected / measured:
 - `w` from newline positions (`t.find('\n',8)-t.find('\n')`, valid since header <= 8 chars and C >= 4): longer than `int(t.split()[1])+1`
 
 Python 368 submitted 2026-10-21 (exec unroll, `p=s.find('@')`, `m=[*s]`, `P=0,2,1,3`, `D=w,-w,1,-1`, dirs S N E W): CG row 1419 -> 368. Remaining gap to 215 is the lookup exploit.
+
+Clojure 409 submitted 2026-10-21 (CG #1, top 410): general solver, tricks in `knowledge/lang/clojure/golf-tricks.md`. Offsets as directions (`k` is the offset itself), mod map `{\S w\N n\E 1\W -1}`, names map keyed by offset.
