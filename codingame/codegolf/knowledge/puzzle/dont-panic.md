@@ -57,3 +57,5 @@ JavaScript 108 (CG accepted 2026-10-20, rank 89): `for(e=[];l=readline();)[f,p,d
 ## Hidden validators
 
 All 7 recovered (2026-10-20, 10 PHP probes): validator k = IDE test k, same game input (exit, generator, every elevator position, rounds). Local `referee/hidden/` holds them, `complete` set: `run.sh --hidden` checks exactly what CG checks, so a solution keyed on IDE-test features (hardcoded BLOCK turns, generator or exit pos as key) can be verified locally without submits. Elevator line order in the init input not probed (forum says shuffled): do not key on it. Details, probes, separating keys: `puzzle/dont-panic/referee/hidden/facts.md`.
+
+Haskell 124 (CG accepted 2026-10-21, rank 8): `import System.Process;main=system"<perl core 89>"` with the python perl core. Native Haskell needs hSetBuffering NoBuffering (interact output is block-buffered on a pipe: 0/15, turn-1 timeout). Top 89 = wrapper 36 + core 53.
