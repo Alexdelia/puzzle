@@ -1,0 +1,1 @@
+(ns Player)(defn -main[_](run! #(prn % 4)(drop(*(read)19)(mapcat repeat[418 29 33 23 6 78][1 43 -40 0 -77 0]))))
