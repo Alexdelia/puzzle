@@ -18,3 +18,4 @@
 - [string-flood-tricks](string-flood-tricks.md): split('\n',3)[2], findAll closure, toLong index, quadratic regex trap, =~ trap, CME loop, speed of flood
 - [compilestatic-first-turn](compilestatic-first-turn.md): @groovy.transform.CompileStatic f(){...}f() cuts main->answer 50 -> 10 ms local, fixes random frame-1 timeouts; negative range index, Arrays.hashCode key, verified CG
 - [stride16-byte-decode](stride16-byte-decode.md): byte y*16+x, wait=\x01, c%16+' '+(c>>4), NUL breaks slashy, CSP packing of hardcode windows, verified CG
+- [open-loop-print-burst](open-loop-print-burst.md): whole interactive plan in one print at turn 1 + `sleep 99999` keep-alive, slashy raw-newline run-lengths `/19 4<NL>/*34`, cold String `*` cost, verified CG
