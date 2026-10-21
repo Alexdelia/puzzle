@@ -112,3 +112,12 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 - unbounded counter relies on total boardings `W < 2^31` (test 06 1.64e9 max, hidden W < 3e8) and `count` on an Int scan on `S < 2^31` (tests S <= 1e8): both held on CG
 - JVM naive walk: test 06 4.0 s locally with branch wrap `if(j>n+2)j=3`, 12.5 s with `%n`: too slow and not shorter (237 before any hardcode)
 - top 162: wrapper 29 + input ~75 leaves ~58 for the algorithm, below any memo method here (same gap as every other language)
+
+### TypeScript 150 (2026-10-21, local 16/16), JS-applicable tricks
+
+- body in `eval?.("...")` (indirect eval; direct `eval(` times out on heavy tests, `knowledge/lang/typescript/indirect-eval.md`)
+- lazy line read inside the walk: the first pass of the walk touches group indices in order 0,1,2,.. (each ride starts where the previous stopped), so `R[j%n]??=-R()` reads stdin on demand: no group array, no `+n`
+- storage on the readline alias itself (`R=readline`, groups at `R[k]`, memo at `R[~i]`): function props, no `q=[]`/`g=[]` init
+- groups stored negated strings-to-number (`-R()`): `u-=R[j%n]??=-R()` adds without parens (right-assoc assignment)
+- memo `[gain,next]` array destructured in the outer for update: `[t,i]=R[~i]||=[t,j%n],s+=t`, inner walk is the loop body, no braces
+- the walk keeps the last fitting sum in `t` (`(u-=..)<=l;j++)t=u`): same length as numeric `t+q[..]<=l;)t+=q[j++%n]`
