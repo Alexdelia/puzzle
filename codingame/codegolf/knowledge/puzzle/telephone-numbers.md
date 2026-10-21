@@ -74,3 +74,7 @@ Probed 2026-10-20, details and probe list in `referee/hidden/facts.md`. Not reco
 ## JavaScript / TypeScript (2026-10-21)
 
 - chop loop `for(s=new Set;x=readline();)for(;x;x=x.slice(0,-1))s.add(x);print(s.size-1)` = 75 B JS (4 under the slice loop 79), P9 identity (line 1 included, `-1`). TS = `//@ts-ignore\n` + it = 88, CG probe 100%, row #15 (top 63 not explained). Replace+lookbehind capture, recursion, object keys all longer
+
+## Scala (2026-10-21)
+
+- 96, CG 100%, tie top: `object Solution extends App{print(scala.io.Source.stdin.getLines.flatMap(_.inits).toSet.size-2)}` (P9 identity: `inits` adds empty once, line 1 one prefix, so -2). `extends App` works when object is Solution
