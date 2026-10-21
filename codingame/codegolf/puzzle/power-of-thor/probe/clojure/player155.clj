@@ -1,0 +1,1 @@
+(ns Player)(defn -main[_](let[a(read)b(read)h(-(read)a)v[(- b(read))h]](doseq[i(range)](println(apply str(map #(cond(< i %)%2(< i(- %))%3)v"SW""NE"))))))
