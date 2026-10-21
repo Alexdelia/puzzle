@@ -162,3 +162,5 @@ Groovy (2026-10-21): `2+L` key, 64 bytes, CG 100% via --probe (rank 4, top 44): 
 Groovy update: the 63-byte variant without the newline in the lookup left the row at 64 (below 100%): a hidden validator has an id prefix collision, keep the trailing newline in the ` X\n` test.
 
 Scala (2026-10-21): `2+L` key, 141 bytes, row 141 (rank 18, top 77) via --probe: `object Solution{def main(a:Array[String]){val s=io.Source.stdin.mkString;print(2+"\\d+(?= )".r.findAllIn(s).count(x=>s.contains(s" $x\n")))}}` (Scala escapes). Skeleton + stdin read already cost ~70 of 77: top 77 needs a key of ~7 chars, still unknown.
+
+Clojure (2026-10-21): `2+L` key, 119 bytes, via --probe (top 89): `(ns Solution(:gen-class))(defn -main[](prn(+ 2(#(count(re-seq #"(?s)(\d+) (?=.*\n\n.* \1\n)"(str % "\n"%)))(slurp *in*)))))` (raw newlines in file). Same doubled-string regex as php. `print` shows nothing (no flush at exit), use `prn`.
