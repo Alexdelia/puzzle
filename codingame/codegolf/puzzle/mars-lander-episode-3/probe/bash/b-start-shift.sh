@@ -41,7 +41,7 @@ Z=0
 while 1:
  x,y,h,v,*U=I()
  if Z==0:
-  if not(((x,y)==(6500,2000))if R>3500 else(True)):print('x');exit()
+  if not(([x,y,h,v]+U==[6500,2000+S[0][1]-1800,0,0,1200,0,0])if R>3500 else(True)):print('x');exit()
   l=x;Z=Q((x,y))
  z=L+100<x<R-100
  if z and y-H<300:Z=[]
