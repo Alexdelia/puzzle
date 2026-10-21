@@ -35,6 +35,7 @@ pick() {
 			| ($context.cells[$task.puzzle + "/" + $task.lang] // {}) as $cell
 			| {id: $task.id, key: [
 				($task | kind_rank),
+				(if $task.urgent then 0 else 1 end),
 				($cell.plateau_count // 0),
 				($context.lang_priority[$task.lang] // 99),
 				(if $task.lang == $context.last_lang then 0 else 1 end),
