@@ -121,3 +121,9 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 - groups stored negated strings-to-number (`-R()`): `u-=R[j%n]??=-R()` adds without parens (right-assoc assignment)
 - memo `[gain,next]` array destructured in the outer for update: `[t,i]=R[~i]||=[t,j%n],s+=t`, inner walk is the loop body, no braces
 - the walk keeps the last fitting sum in `t` (`(u-=..)<=l;j++)t=u`): same length as numeric `t+q[..]<=l;)t+=q[j++%n]`
+
+### Method C: state = total sum only (Clojure 221, 16/16, CG confirmed 2026-10-21 rank 2)
+
+- queue position after any number of rides is determined by `s mod S` (prefix sums strictly increasing), so the whole state is the running total `s`: `s' = s + g(s mod S)`, `g(r) = max{prefix of doubled queue <= r+min(L,S)} - r`
+- `g` memoized (at most N distinct keys): no index, no next-index table, no mod-n bookkeeping. Wins where index arithmetic and pair state are verbose (Clojure: 250 -> 221); in Python the prefix list costs more (see Rejected)
+- Clojure speed: `memoize` + `(nth(iterate f 0)c)` with C=1e7 runs ~1.5 s after startup locally; memoize+`mapv` pair state was 5-7 s CPU (too slow), vector table + `update` on a pair state 1.4 s
