@@ -13,3 +13,4 @@
 2026-10-21T14:33:40Z	cell.music-scores.groovy.1792441000757453349	groovy	287	groovy 287 most python-like (readLines, y-form, m=w*h*7>>3): isolates 83 cause	progress {"submission_id":41542072,"language":"Javascript","in_progress":false,"score":100.0,"rank":30,"total":1505,"criteria":"Code size","criteria_score":227.0}, own row {"pseudo":"Alexdelia","language":"Groovy","length":253,"score":83.0}
 2026-10-21T14:35:30Z	cell.music-scores.groovy.1792441000757453349	groovy	309	groovy python3 wrapper ProcessBuilder 309: 100% (timeout cause of 83)?	yes: 100% at length 309, committed
 2026-10-21T14:36:56Z	cell.music-scores.groovy.1792441000757453349	groovy	294	groovy lua wrapper ProcessBuilder 294: is lua in the Groovy container?	yes: 100% at length 294, committed
+2026-10-21T14:51:52Z	cell.music-scores.scala.1792441002338591759	scala	319	scala port of leftmost-column-top method (x=10 staff, 7/8 cut, 15y/h, x+5): passes CG 100%?	yes: 100% at length 319, committed
