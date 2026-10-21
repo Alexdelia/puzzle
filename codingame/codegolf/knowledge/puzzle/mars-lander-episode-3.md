@@ -164,3 +164,8 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 
 - SA with energy = exact Ruby byte count + landing penalty finds joint schedules `$><<"R P\n"*(gets<?2?LB:LA)+SEGS+"0 4\n"*1e5` (59 B and 49 B rows, 4/4 hidden)
 - keys for a length (A "22", B "18"): `gets.oct` 18/1 (8 not octal), `gets.hex` 34/24, `gets.sum` 110/115. `*(c-gets.oct)` is 13 chars vs `*(gets<?2?b:a)` 15 but fixes B-A at 17 turns: with the 2-segment shape B crashes (needs ~28). Keyed segment elsewhere not tried
+
+## Joint schedule with an 18-turn B prefix (verified 2026-10-21, haskell 90 CG 100%)
+
+- B = 18 turns rotate 12 + A's schedule, A = 67:10 21:-82 18:23 then 0 (power 4): lands A turn 140, B 152 (sim and referee). Same shape as the JS 61 schedule (B 20 turns ahead) with 18 extra turns and the lead rotate 12
+- 77/78-turn B prefix + 3-segment A (2 non-tail segs): grids over a1,r1,a2,r2,r0 found 42k A-landers and zero joint landers (prefix first or after seg 1); haskell scratch g.c/gj.c
