@@ -142,6 +142,10 @@ impl Solution {
 			}
 			thread::sleep(EXIT_POLL);
 		}
+		self.stop()
+	}
+
+	pub fn stop(&mut self) -> Usage {
 		let live = self.live_usage();
 		self.kill();
 		self.reaped.unwrap_or_default().max(live)

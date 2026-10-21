@@ -57,7 +57,7 @@ impl<G: Game> Runner for Interactive<G> {
 			&mut turns,
 			&mut first_turn_cpu,
 		)?;
-		let usage = solution.finish();
+		let usage = solution.stop();
 		Ok(Played {
 			first_turn_cpu,
 			..Played::new(verdict, turns, usage)
