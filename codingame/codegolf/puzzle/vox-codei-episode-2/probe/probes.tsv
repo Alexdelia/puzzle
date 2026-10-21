@@ -7,3 +7,4 @@
 2026-10-20T20:52:13Z	cell.vox-codei-episode-2.javascript.1792513436665986399	javascript	450	same without identity variants, no bombs in key, tests 2 and 4 share plan, flips only t 1..3	yes: 100% at length 450, committed
 2026-10-20T20:55:35Z	cell.vox-codei-episode-2.javascript.1792513436665986399	javascript	430	key from raw r-line+map string hash, F order rot180/flipx/flipy, Buffer key lookup	yes: 100% at length 430, committed
 2026-10-20T20:58:01Z	cell.vox-codei-episode-2.javascript.1792513436665986399	javascript	421	test 7 reuses test 8 plan, print(a,b), inline x	yes: 100% at length 421, committed
+2026-10-21T13:40:11Z	cell.vox-codei-episode-2.php.1792513436919449375	php	490	centroid-normalized orientation hardcode 490B php: does it score 100%	yes: 100% at length 490, committed
