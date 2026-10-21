@@ -44,6 +44,11 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
   - rotate (aX+bY-C)/D, a,b in -2..2; power const 4, linear in X,Y, or X,Y threshold 3|4 (random, ~1e8 tries)
   - rotate (a hs+b vs+c Y/100-C)/D, power 4 or vs/Y threshold 3|4 (random)
   - prior session: (x+k f-C)/D+(a h+b v)/E, power threshold on v and y (80M random)
+- rejected in the sim against the EXACT validators A + B (cell php journal ...1792608246673030814, lag on, power 3|4 const): none of these lands even ONE of A, B alone:
+  - rotate trunc(S/D-C), S = sum, max or min of any subset of X,Y,h,v,f (masks 1..17), D int +-2..999, C +-200
+  - rotate trunc(X/D-C) and floor, D real +-10..500 step .5, C +-150 (partial); trunc(C+i/D), i = line counter
+  - rotate X%M-C and C-X%M (M 2..7000, C +-90), X*X/D-C; hill-climb over real linear coefs of X,Y,h,v,f (no landing in ~2000 restarts)
+  - so a constant-power, lag-on, single-expression rotate looks unable to land A at all: the tops likely vary power, skip init lines (no lag) or use a rule the sim lacks
 - rejected on CG (3 test games, see Hidden validators): landing on the cave roof over the flat x-range, landing tilted, vertical-fall tunnelling. The CG referee matches the local one on every rule probed so far
 - JS sweep vs exact A/B (2026-10-21, javascript cell journal ...1792608245697140934, `gen2.py`+`ev.c` in its scratch): templates `for(;;)[X,Y,H,..]=readline().split\` \`,print(E,4)` (JS 52-B shape, lag on, JS NaN semantics for missing fields on N/surface lines), E any infix tree over the 7 fields and <=2 const slots (1..9|10..99|100..999), ops `- * / % >> | & ^ +`, optional `|0`, power 3|4 const; |E| <= 52-38-2k (k = highest field index used). Result: no template lands A and B (~90% of 216944 templates done, the unswept tail = templates with 3+ const digits). No template with |E|<=6 lands B at all (B-first sweep, done)
 - A-only landers are rare too: `for(;;)[X,Y,H]=readline().split\` \`,print(X%H+29|H,4)` (52 B) lands A on the referee (verified `run.sh --hidden`), B gets H=0 -> NaN -> `0 4` -> leaves the top. The C sim (sim.h in that scratch) matches the referee on it
