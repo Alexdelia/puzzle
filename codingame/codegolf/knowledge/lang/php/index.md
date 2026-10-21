@@ -14,3 +14,4 @@
 - [system-perl-wrapper](system-perl-wrapper.md): <?system('perl -e..\'..\'') = core+15 bytes, beats backticks/nowdoc
 - [sscanf-fread-by-ref](sscanf-fread-by-ref.md): one fread header + sscanf by ref, `[$S,&$p]` foreach refs, comma-list for body, inline assignments
 - [system-perl-core](system-perl-core.md): <?system('perl -anE\'...\''); wrapper for interactive puzzles, 704 -> 100 on dont-panic
+- [print-all-answers-upfront](print-all-answers-upfront.md): fixed answer sequence printed at turn 0 in one loop, exit without reading further turns (CG verified)
