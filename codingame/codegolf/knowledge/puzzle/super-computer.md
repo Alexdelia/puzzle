@@ -74,3 +74,9 @@ Guesses (unverified):
 ## Javascript native (verified local 15/15, 2026-10-20)
 
 - 125 bytes: `e=c=0;[...Array(+readline())].map(_=>readline().split` `).sort((a,b)=>b[0]-a[0]).map(([j,d])=>e&&j- -d>e||(e=j,c++));print(c)`. `j- -d` = numeric sum of strings. Top 56: gap only closable by exploit or unknown trick. `sort` comparator on "J D" strings gives NaN (needs split or parseInt)
+
+## Groovy timeout (verified 2026-10-21, referee journal 1792592121873761345)
+
+- native Groovy (`System.in.text.split()*.toInteger().drop(1).collate(2).sort{-it[0]}` 116, `readLines().drop(1).collect{...}` 124) passes 15/15 locally but scores 87.5 on CG: one N=99999 validator times out. CG Groovy io deadline ~1.9 s JVM uptime (`lang/groovy/io-time-limit.md`); test 03 probe timed out during the parse
+- `new ProcessBuilder("sh","-c",'sort -nr|awk \'$1+$2>e&&e?0:$2&&e=$1\'|wc -l').inheritIO().start()` answered CG test 03 (7879) on time; core as in the wrapper section, quotes escaped in the single-quoted Groovy string
+- local referee keeps 6000 ms for every language: it does not reject native Groovy here
