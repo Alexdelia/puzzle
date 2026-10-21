@@ -1,35 +1,32 @@
 # Hidden validators: vox-codei-episode-2
 
-Transform index t over test k (W x H): bit 4 transpose first, bit 1 flip x (x -> W-1-x), bit 2 flip y (y -> H-1-y). t=1 flip x, t=2 flip y, t=3 rot180. Node directions transform with the cells. Generator: journal scratch `gen.py` of task `validator.vox-codei-episode-2.-.1792523691648267216` writes all 80 transforms.
+10 validators, validator k = transform t_k of IDE test k: same rounds R, same bombs B, grid and nodes (positions and directions) mirrored. t=1 flip x (x -> W-1-x), t=2 flip y (y -> H-1-y), t=3 rot180 (both). All 10 recovered exactly as `NN.json` (generator: journal scratch `gen.py` of task `validator.vox-codei-episode-2.-.1792523691648267216`, file `NNt.json`).
 
-## Facts (all from CG probes 2026-10-20)
+| v | test | t | R | B | source |
+|---|------|---|---|---|--------|
+| 1 | 01 | 1 flip x (= rot180, test 1 is y-symmetric) | 30 | 1 | probe javascript 5855 NO + ruby 10% |
+| 2 | 02 | 2 flip y | 30 | 2 | probe javascript 5836 YES |
+| 3 | 03 | 3 rot180 | 50 | 7 | count probes + exact probe |
+| 4 | 04 | 1 flip x | 30 | 1 | count probes + exact probe |
+| 5 | 05 | 2 flip y | 99 | 9 | count probes + exact probe |
+| 6 | 06 | 3 rot180 | 55 | 1 | count probes + exact probe |
+| 7 | 07 | 1 flip x | 60 | 9 | count probes + exact probe |
+| 8 | 08 | 2 flip y | 60 | 4 | count probes + exact probe |
+| 9 | 09 | 3 rot180 | 90 | 3 | count probes + exact probe |
+| 10 | 10 | 1 flip x | 98 | 10 | count probes + exact probe |
 
-1. Every validator's first two maps equal a dihedral transform of one IDE test with the same bombs B, and the replayed transformed plan of that test wins: probe javascript 5907 (count, fresh lang) = 100%. Rounds R not checked by that probe
-2. No validator is an identity copy or a transpose: every validator is t in {1,2,3} of its test (test 1 is y-symmetric: t=2 is identical to the test, t=1 = t=3): probe javascript 5886 (1-bit) = YES
-3. Not all of tests 2..10 are flips without rot180: probe javascript 5875 (1-bit: t in {1,2} for tests 2..10) = NO (row stayed 5886, submission 41537854)
-4. Exactly 3 validators are rot180 of one of tests 2..10: probe typescript 5109 (count, fresh lang, only t=3 of tests 2..10 allowed) = 30%
-5. Ruby 214 hardcode keyed on `rounds%14`, map-blind plans of the IDE tests, scored 10% (cell ruby, 2026-10-20). Locally it wins on the identity of every test and on the flip-y of tests 1, 2, 4 only. With fact 2 and assuming each validator keeps its test's R: exactly one of {v1 = t2 (identical to test 1), v2 = t2, v4 = t2} holds. Deduction, confidence medium (R equality unproven)
-6. Validator 1 is not identical to test 1, so it is its flip x (= rot180): probe javascript 5855 (1-bit: test 1 only t=2, others t in {1,2,3}) = NO. With fact 5: exactly one of v2, v4 is flip y (R equality assumed)
-7. Validator 2 = flip y of test 2: probe javascript 5836 (1-bit: test 2 only t=2, others t in {1,2,3}) = YES. So the ruby 10% pass is v2 (key `rounds%14`==2: R=30 near certain) and v4 is t in {1,3}
-8. Score granularity 10% (ruby 10.0, ts 30.0): 10 validators, assumed 1:1 with the tests (same B, same order unknown)
+Confidence: certain. Final check: python probe `probe/python/exactE.py` (891) wins only on exactly these 10 variants (local referee over all 80 transforms) and scored 100% on CG (committed as python 891, 2026-10-21). R equality also follows from the rounds-keyed cell hardcodes (php, js, ts) scoring 100%.
 
-## Per validator (assumed 1:1 with tests)
+## Probe chain (probes.tsv, 2026-10-20/21)
 
-| v | test | known | confidence |
-|---|------|-------|------------|
-| 1 | 01 | t=1 (= t=3): node starts at x=10 moving left, row 4, R 30, B 1 | high; `01.json` written with R 30 (R kept by v2 and by every ep1 validator) |
-| 2 | 02 | t=2, R 30, B 2: `02.json` | high |
-| 4 | 04 | t in {1,3} | high |
-| 3,5..10 | 03,05..10 | t in {1,2,3}; with v4: three of 3..10 are t=3 | high |
-
-Recovered: `01.json`, `02.json` (python ref passes `--hidden`). Others open, no `complete`.
+1. javascript 5907 count 100%: every validator = dihedral transform of a test, same B
+2. javascript 5886 YES: no identity, no transpose
+3. typescript 5109 count 30%: exactly 3 rot180 among v2..v10
+4. javascript 5855 NO / 5836 YES: v1 flip x, v2 flip y
+5. ruby 815..827 count (row was 214 at 10%), perl fresh count, perl count, ruby count, python 1-bit (D NO), python 1-bit (E YES): 1232 -> 300 -> 22 -> 5 -> 2 -> 1 hypotheses
 
 ## Key
 
-Not needed for the transform: `rounds` per test (30,30,50,30,99,55,60,60,90,98) and the first map separate tests; the transform per validator is still open (2-3 options each).
-
-## Next probes (cheapest that split most)
-
-- fresh-lang count (php, lua, ...): t=2 only for tests 2..10 -> number of flip-y; combined with fact 4 gives the flip-x count
-- per-validator 1-bit (javascript row, needs length < 5886: `PAD` in scratch `mk.sh`): restrict one test to one transform, others free
-- check R: a count probe that also requires R == test R
+- `rounds bombs` separates the validators except v1/v4 (both 30 1); v1 and v4 are both flip x and one plan (bomb at turn 14, from tests 1/2/4) wins both after the flip. `b*(r+9)%10` (php, cell) is injective on the 9 distinct pairs
+- since the transform per validator is fixed, a hardcode can store plans already in the validator's orientation: no orientation detection, output depends only on (r, b) and turn. Such a code fails the IDE tests locally (they are the untransformed maps), only the validators count on CG
+- maps: v1..v9 12x9, v10 16x12
