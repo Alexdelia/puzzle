@@ -84,3 +84,7 @@ Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`
 ## Lua / perl core golf (cell worker 2026-10-21)
 
 - Lua 231: `os.execute"perl -anE'...'"` (`\\K` doubled), hardcoded 15x30 core. Tricks that saved bytes on the perl core, usable in php/js/bash/ruby wrappers: phase flag `$s|=$&eq C` (no init, `$&` after `s/..\K./R/` is the Rick cell, no capture group) with goal switch `$s?y/T/X/:y/?C/X/` instead of `$s//="?C"` + `s/[$s]/X/g`; unanchored `s/(?:.*\n){$F[0]}...` (drop `^`)
+
+## Groovy (cell worker 2026-10-21)
+
+- 267 #1 (top 398): `new ProcessBuilder('perl','-anE','<typescript row core>').inheritIO().start().waitFor()`, `\\K` doubled, `\n` left as Groovy escape. Without `.waitFor()` (257) CG kills perl mid-game: 25% (see lang/groovy/perl-wrapper-processbuilder.md)
