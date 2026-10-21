@@ -8,3 +8,4 @@
 - [thor-counter-interact](thor-counter-interact.md): lazy interact + list-comprehension optional letters, 113 on power-of-thor
 - [section-shares-median](section-shares-median.md): (e-) shares e at -O0, doubled-list median, transpose column split
 - [music-scores-columns](music-scores-columns.md): g n chunker reused for rows and RLE pairs, Bool pixels, transpose columns, zip3 with shifted self (337 CG 100%)
+- [system-wrapper](system-wrapper.md): import System.Process;main=system"..." 35 bytes overhead, super-computer 77
