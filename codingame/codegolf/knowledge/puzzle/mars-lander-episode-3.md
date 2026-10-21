@@ -169,3 +169,9 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 
 - B = 18 turns rotate 12 + A's schedule, A = 67:10 21:-82 18:23 then 0 (power 4): lands A turn 140, B 152 (sim and referee). Same shape as the JS 61 schedule (B 20 turns ahead) with 18 extra turns and the lead rotate 12
 - 77/78-turn B prefix + 3-segment A (2 non-tail segs): grids over a1,r1,a2,r2,r0 found 42k A-landers and zero joint landers (prefix first or after seg 1); haskell scratch g.c/gj.c
+
+## Perl 45 port of the js 3-segment schedule (verified 2026-10-21, perl CG 100% #6)
+
+- `print$_<170?11:$_<185?-89:0," 4⏎"for<>*5..1e5` (see knowledge/lang/perl/range-counter-ternary.md)
+- exhaustive scan of this family (R1 for keyed T1 turns, R2 for L2, tail 0, power 4 everywhere; R1 -40..40, R2 -90..90, L2 1..60, T1 0..249; sim margins 20 px from flat ends and 0.5 m/s, scratch ex2.c of journal cell.mars-lander-episode-3.perl.1792610249986071061): the ONLY joint landers are R1 11, R2 -89 or -90, L2 15, A T1 60, B T1 79..81. So the counter offset per N unit must be 5 (B-A 19..21 = 4K), no cheaper key (`<>`, `C/<>`) exists for it
+- earlier in that journal: cyclic repeat `print+(<>&4?A:B)x999` (schedule string repeated, x999 output keeps the process alive): A lands with 2 cyclic segments `0 4 x34, -1 2 x9`; 71 chars, superseded
