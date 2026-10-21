@@ -76,3 +76,5 @@ Recovered by validator task (2026-10-20, 7 count probes, details and sources in 
 - golf: case handling and `?` mapping both still needed (1 and 2 validators); `L=4` hardcode passes 9/10
 
 Haskell 120 (CG rank 5, 2026-10-21): `main=interact$(\(l:_:t:r)->unlines[fromEnum<$>t>>= \d->take(read l)$drop(read l*min 26(mod(max 64 d-1)32))x|x<-r]).lines`, see lang/haskell/char-index-clamp.md. Probe (haskell/nopunct.hs, 113 bytes, no clamp of chars below 64 except space and `@`): CG 80%, so 2 hidden validators contain digits or punctuation (not just space and `@`), 8 pass. Local validators 02-05 also fail it.
+
+Scala 156 (CG rank 5, 2026-10-21): `object Solution extends App{val a=Console.in.lines.toArray.map(_+"");for(r<-a drop 3)println(a(2).flatMap(c=>r.grouped(a(0).toInt).toSeq(c-65&223 min 26)))}`, see lang/scala/io-shadowed-console-in.md. `r.length/27` instead of `a(0).toInt` is 1 byte longer if the L line ever has a trailing space (not seen on CG).
