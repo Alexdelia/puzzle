@@ -10,3 +10,4 @@
 - [hidden-validators](hidden-validators.md): hardcode/exploits allowed (user rule), `submit.sh --probe`, best-kept makes each probe a 1-bit oracle when shorter than our row, local validators synthetic; first submit in a no-row language reads passed/total via the partial row score (or sum of weights: scores can be weighted)
 - [orphan-child-kill](orphan-child-kill.md): child of an exited main process is killed ~0.3-0.5 s later on CG (wait for it or exec); local referee does not model it, verified
 - [pipe-block-keepalive](pipe-block-keepalive.md): open-loop interactive bot, repeat the last answer 1e5 times so the write blocks on the full pipe instead of reading stdin to EOF, verified on CG (Mars Lander 3 perl)
+- [floordiv-step-chain](floordiv-step-chain.md): `i<T1?R1:i<T2?R2:0` = `(T1-1)//i*(R1-R2)+(T2-1)//i*R2` while i > T2/2, verified Lua mars-lander-episode-3
