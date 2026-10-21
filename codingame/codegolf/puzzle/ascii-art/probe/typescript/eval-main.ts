@@ -1,0 +1,1 @@
+eval("t=(R=readline)(R(l=R()));while(r=R())print(t.replace(/./g,c=>r.substr(l*((i=parseInt(c,36))>9?i-10:26),l)))")
