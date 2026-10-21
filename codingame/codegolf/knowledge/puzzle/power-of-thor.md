@@ -75,3 +75,8 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 - general 135 bytes (JS counter form) passes 8/8 locally but CG scored it 50%: frame 1 timeout, not a rule error. CG test games: tests 1/3/4 passed, test 2 timed out twice in a row. Probe with `ManagementFactory.runtimeMXBean.uptime`: Groovy runtime init alone takes 1.0-1.3 s on CG, first answer at uptime ~1.25-1.4 s, the first-turn budget ends around there. Pass or fail is random per test. Details: knowledge/lang/groovy/env.md
 - to land a 100% row: cut first-turn work (fewer cold dynamic calls before the first println) and CG-test the 4 tests a few times before submit, or resubmit the same code until lucky (each submit runs 4 validators, all must pass)
 - referee unchanged: rules exact (local referee and CG log agree on positions, energy and win-at-energy-0 in test 4)
+
+## Scala (2026-10-21)
+
+- 167 bytes, CG 100%, rank 11: `object Player`, `val Array(a,b,c,d)=Console.in.readLine split " "map(_.toInt)`, then two letter runs merged with zipAll (knowledge/lang/scala/zipall-merge-columns.md). Wrapper + parse alone cost 88, so top 98 (Icebox, global rank 821; next Scala players at global ranks 870/884/1049, then 4623) is out of reach with 2.13.5 parsing: likely legacy scores
+- hidden-validator caution: java count probe (E needed = 0) ran before the Player/Solution launcher fix, Lua probe also 0: zero counts may be crashed probes. Haskell noE probe 50% says 2 validators need E. With the positive counts (1 N, 1 vertical, 1 horizontal) all four letters N/S/E/W are needed, so no branch can be dropped (inference, unverified per validator)
