@@ -7,3 +7,4 @@
 - [readline-any-header](readline-any-header.md): `let L:any=readline` makes all downstream any; header string usable as numeric bound, verified
 - [execsync-wrapper](execsync-wrapper.md): `require("child_process").execSync(core,{stdio:[0,1]})`, 52 B overhead, no ts-ignore, verified on CG
 - [readline-flat-grid](readline-flat-grid.md): flat char array via readline + push(...R(),0), eval query, 193 on surface, verified
+- [ts-ignore-js-port](ts-ignore-js-port.md): `//@ts-ignore` + one-line JS port costs +13 B, beats let/any declarations, verified CG
