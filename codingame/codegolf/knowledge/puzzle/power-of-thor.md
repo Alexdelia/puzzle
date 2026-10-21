@@ -54,3 +54,9 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 
 - general 99 bytes 8/8, rank 122: ``[a,b,c,d]=readline().split` `;for(i=0;;i++)print((i<b-d?'S':i<d-b?'N':'')+(i<c-a?'W':i<a-c?'E':''))``. Counter form: letter on axis while i<|delta|; no tracking, no energy read
 - hidden-assumption variant 88 (W only, N only via `i<d-b`): CG probe inconclusive (progress showed another language's submission, row stayed 99); unverified
+
+## PHP (2026-10-21)
+
+- general 118 bytes 8/8 local, submitted: `<?fscanf(STDIN,"%d%d%d%d",$a,$b,$x,$y);for(;;)echo(++$i<=$b-$y?S:($i<=$y-$b?N:"")).($i<=$x-$a?W:($i<=$a-$x?E:"")),"\n";` (real newline). Bare-word letters
+- forum https://forum.codingame.com/t/power-of-thor-codesize-puzzle-discussion/687 : a user scored 42 by encoding code in whitespace, rule changed afterwards (all chars count): tops 42-55 are plausibly legacy scores, not reachable
+- hidden-assumption variant (no E branch) would be ~101, still far above 55: not probed
