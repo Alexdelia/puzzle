@@ -1,0 +1,1 @@
+eval(`[m,,...w]=(require('fs').readFileSync(0)+'').replace(/[.-]/g,c=>c<'.'|0).split(/\\s+/);h={};w.map(x=>{c=x.replace(/./g,c=>"  ETIANMSURWDKGOHVF L PJBXCYZQ".indexOf(c).toString(2).slice(1));h[c]=-~h[c]});d=new Float64Array(2e5);d[0]=1;for(i=0;i<m.length;i++)for(k=77;k--;)d[i+k]+=d[i]*h[m.substr(i,k)]||0;print(d[m.length])`)
