@@ -1,0 +1,1 @@
+(ns Player)(..(ProcessBuilder.["bash""-c""a=(`head -4`);COLDER=1;for i in 3 4;{ for((m=l,l=0,S=h=a[i-3]-1;l<h;${#r}<5?l=h=s/2:r^q>t?l=s/2+1:(h=--s/2))){ ((t=a[i],q=l+h-t,s=t+(a[i]=q=q<0?t/2:q>S?t+S>>1:q-(q==t))));echo ${a[@]:3:2};read r;};};echo $m $l"])inheritIO start waitFor)
