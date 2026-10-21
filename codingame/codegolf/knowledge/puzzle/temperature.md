@@ -46,6 +46,7 @@ N = 0 handling (test 06 / validator 10, input `0\n\n`):
 Lengths reached (local referee, 17/17):
 
 - C 85: running min + `t*t<c*c+(t>c)` compare + `%*d` seed (our CG row 111)
+- Clojure 95 (CG 100%, #1 vs 97): `(repeatedly(read)read)` reads exactly N temperatures, so N = 0 gives an empty seq. Stable `(sort-by abs(sort > X))` puts +t first, and `(nth .. 0 0)` gives 0 when empty. See `lang/clojure/repeatedly-read-nth-default.md`
 - Python 68: min with key `t*t-t/2` over line 2 with `or[0]` (our CG row 70 used `abs(t-.1)`). `_,l=open(0)` same length as `[*open(0)][1]` (input has exactly 2 lines, also when N = 0)
 
 Rejected for Python: running loop with the compare (longer than min+key), `min(sorted(X)[::-1],key=abs)` (+1), string tokens with int() inside the key (+1), `default=0` (+5 vs `or[0]`).
