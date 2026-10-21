@@ -31,6 +31,8 @@ while (($#)); do
 done
 [[ -x $tool_dir/lang/$lang/build.sh ]] || { echo "run.sh: unknown lang $lang, pass --lang" >&2; exit 2; }
 
+export CG_PUZZLE_KIND
+CG_PUZZLE_KIND=$(awk -F'\t' -v slug="$slug" '$1 == slug { print $4 }' "$root/data/puzzle.tsv")
 export CARGO_TARGET_DIR=$root/agent/state/build/cargo/$slug
 cargo build --release --quiet --manifest-path "$referee_dir/Cargo.toml"
 referee=$CARGO_TARGET_DIR/release/$(basename "$(dirname "$referee_dir")")-referee

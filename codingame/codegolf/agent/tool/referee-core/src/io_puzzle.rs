@@ -25,12 +25,11 @@ impl Runner for IoPuzzle {
 
 	fn run(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Played> {
 		self.judge(case, launcher, options)
-			.map(|verdict| Played { verdict, turns: 1 })
 	}
 }
 
 impl IoPuzzle {
-	fn judge(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Verdict> {
+	fn judge(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Played> {
 		let input = fs::read_to_string(&case.file)
 			.with_context(|| format!("read {file}", file = case.file.display()))?;
 		let expected_file = case.file.with_extension("out");
@@ -47,18 +46,19 @@ impl IoPuzzle {
 				Err(ReadError::Closed) => break,
 				Err(ReadError::Timeout) => {
 					let limit_ms = limit.as_millis();
-					return Ok(Verdict::Timeout(format!(
-						"no end of output within {limit_ms} ms"
-					)));
+					return Ok(Played::new(
+						Verdict::Timeout(format!("no end of output within {limit_ms} ms")),
+						1,
+						solution.finish(),
+					));
 				}
 			}
 		}
-		solution.kill();
-		Ok(
-			match compare::first_difference(&compare::lines(&expected), &actual) {
-				None => Verdict::Pass,
-				Some(difference) => Verdict::Fail(difference),
-			},
-		)
+		let usage = solution.finish();
+		let verdict = match compare::first_difference(&compare::lines(&expected), &actual) {
+			None => Verdict::Pass,
+			Some(difference) => Verdict::Fail(difference),
+		};
+		Ok(Played::new(verdict, 1, usage))
 	}
 }

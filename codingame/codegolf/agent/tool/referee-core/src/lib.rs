@@ -1,5 +1,6 @@
 pub mod compare;
 pub mod interactive;
+pub mod lang;
 pub mod io_puzzle;
 pub mod process;
 pub mod suite;

@@ -7,21 +7,33 @@ toolchain_var() {
 
 cache_dir() {
 	local lang=$1 src=$2
+	shift 2
 	local toolchain_var_name
 	toolchain_var_name=$(toolchain_var "$lang")
 	local toolchain=${!toolchain_var_name:?$toolchain_var_name unset, enter the codegolf dev shell}
 	local key
-	key=$(cat "$src" "${BASH_SOURCE[1]}" "${BASH_SOURCE[0]}" <(echo "$toolchain $CG_DASH $CG_BWRAP") | sha256sum | cut -c1-32)
+	key=$(cat "$src" "${BASH_SOURCE[1]}" "${BASH_SOURCE[0]}" <(echo "$toolchain $CG_DASH $CG_BWRAP $CG_PERL $CG_PYTHON $*") | sha256sum | cut -c1-32)
 	local dir=$build_root/$lang/$key
 	mkdir -p "$dir"
 	echo "$dir"
 }
 
+main_class() {
+	if [[ ${CG_PUZZLE_KIND:-io} == interactive ]]; then
+		echo Player
+	else
+		echo Solution
+	fi
+}
+
 write_launcher() {
 	local dir=$1
 	shift
-	printf '#!/bin/sh\nexec %s/bin/bwrap --dev-bind / / --tmpfs /bin --symlink %s/bin/dash /bin/sh --die-with-parent %s\n' \
-		"${CG_BWRAP:?CG_BWRAP unset, enter the codegolf dev shell}" "${CG_DASH:?CG_DASH unset, enter the codegolf dev shell}" "$*" >"$dir/run.tmp"
+	local env
+	env=$(readlink -f /usr/bin/env)
+	printf '#!/bin/sh\nexec %s/bin/bwrap --dev-bind / / --tmpfs /bin --symlink %s/bin/dash /bin/sh --tmpfs /usr/bin --symlink %s /usr/bin/env --symlink %s/bin/perl /usr/bin/perl --symlink %s/bin/python3 /usr/bin/python3 --setenv PATH "%s/bin:$PATH" --die-with-parent %s\n' \
+		"${CG_BWRAP:?CG_BWRAP unset, enter the codegolf dev shell}" "${CG_DASH:?CG_DASH unset, enter the codegolf dev shell}" "$env" \
+		"${CG_PERL:?CG_PERL unset, enter the codegolf dev shell}" "${CG_PYTHON:?CG_PYTHON unset, enter the codegolf dev shell}" "$CG_PERL" "$*" >"$dir/run.tmp"
 	chmod +x "$dir/run.tmp"
 	mv "$dir/run.tmp" "$dir/run"
 }

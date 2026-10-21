@@ -44,27 +44,40 @@ impl<G> Default for Interactive<G> {
 
 impl<G: Game> Runner for Interactive<G> {
 	const EXTENSION: &'static str = "json";
+	const INTERACTIVE: bool = true;
 
 	fn run(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Played> {
 		let mut turns = 0;
-		let verdict = Self::play(case, launcher, options, &mut turns)?;
-		Ok(Played { verdict, turns })
+		let mut first_turn_cpu = None;
+		let mut solution = Solution::spawn(launcher, options.show_stderr)?;
+		let verdict = Self::play(
+			case,
+			&mut solution,
+			options,
+			&mut turns,
+			&mut first_turn_cpu,
+		)?;
+		let usage = solution.finish();
+		Ok(Played {
+			first_turn_cpu,
+			..Played::new(verdict, turns, usage)
+		})
 	}
 }
 
 impl<G: Game> Interactive<G> {
 	fn play(
 		case: &Case,
-		launcher: &Path,
+		solution: &mut Solution,
 		options: &RunOptions,
 		turn: &mut usize,
+		first_turn_cpu: &mut Option<Duration>,
 	) -> Result<Verdict> {
 		let text = fs::read_to_string(&case.file)
 			.with_context(|| format!("read {file}", file = case.file.display()))?;
 		let test: G::Test = serde_json::from_str(&text)
 			.with_context(|| format!("parse {file}", file = case.file.display()))?;
 		let mut game = G::new(test);
-		let mut solution = Solution::spawn(launcher, options.show_stderr)?;
 		let started = Instant::now();
 		let mut input = game.initial_input() + &game.turn_input();
 		let mut limit = G::FIRST_TURN;
@@ -96,6 +109,9 @@ impl<G: Game> Interactive<G> {
 						return Ok(Verdict::Fail(format!("turn {turn}: solution exited")));
 					}
 				}
+			}
+			if *turn == 1 {
+				*first_turn_cpu = Some(solution.live_usage().cpu);
 			}
 			if options.trace {
 				for line in &action {

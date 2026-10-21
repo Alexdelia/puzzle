@@ -8,6 +8,6 @@ if [[ ! -x $dir/run ]]; then
 	cp "$src" "$dir/Answer.groovy"
 	rm -rf "$dir/classes"
 	"$CG_GROOVY/bin/groovyc" -d "$dir/classes" "$dir/Answer.groovy" >&2
-	write_launcher "$dir" "$CG_GROOVY/bin/java" -cp "'$dir/classes:$CG_GROOVY/lib/*'" Answer
+	write_launcher "$dir" "$CG_GROOVY/bin/java" -Xmx290m -cp "'$dir/classes:$CG_GROOVY/lib/*'" Answer
 fi
 echo "$dir/run"

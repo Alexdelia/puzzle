@@ -6,7 +6,8 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use clap::Parser;
 
-use crate::process;
+use crate::lang::{self, Limits};
+use crate::process::{self, Usage};
 
 #[derive(Parser)]
 struct Args {
@@ -23,6 +24,8 @@ struct Args {
 	stderr: bool,
 	#[arg(long)]
 	trace: bool,
+	#[arg(long)]
+	usage: bool,
 	#[arg(long, default_value_t = 60_000)]
 	hard_cap_ms: u64,
 	names: Vec<String>,
@@ -43,15 +46,57 @@ pub struct RunOptions {
 	pub show_stderr: bool,
 	pub trace: bool,
 	pub hard_cap: Duration,
+	pub limits: Limits,
 }
 
 pub struct Played {
 	pub verdict: Verdict,
 	pub turns: usize,
+	pub usage: Usage,
+	pub first_turn_cpu: Option<Duration>,
+}
+
+impl Played {
+	pub fn new(verdict: Verdict, turns: usize, usage: Usage) -> Self {
+		Self {
+			verdict,
+			turns,
+			usage,
+			first_turn_cpu: None,
+		}
+	}
+
+	fn within(self, limits: &Limits, interactive: bool) -> Self {
+		if !matches!(self.verdict, Verdict::Pass) {
+			return self;
+		}
+		let peak_kb = self.usage.peak_rss_kb;
+		let memory_kb = limits.memory_kb;
+		let cpu_ms = self.usage.cpu.as_millis();
+		let verdict = match (limits.io_cpu, limits.first_turn_cpu, self.first_turn_cpu) {
+			_ if peak_kb > memory_kb => {
+				Verdict::Fail(format!("memory {peak_kb} kB over {memory_kb} kB"))
+			}
+			(Some(bar), _, _) if !interactive && self.usage.cpu > bar => {
+				let bar_ms = bar.as_millis();
+				Verdict::Timeout(format!("solution cpu {cpu_ms} ms over {bar_ms} ms"))
+			}
+			(_, Some(bar), Some(first)) if first > bar => {
+				let first_ms = first.as_millis();
+				let bar_ms = bar.as_millis();
+				Verdict::Timeout(format!(
+					"turn 1: solution cpu {first_ms} ms over {bar_ms} ms"
+				))
+			}
+			_ => Verdict::Pass,
+		};
+		Self { verdict, ..self }
+	}
 }
 
 pub trait Runner {
 	const EXTENSION: &'static str;
+	const INTERACTIVE: bool = false;
 
 	fn run(&self, case: &Case, launcher: &Path, options: &RunOptions) -> Result<Played>;
 }
@@ -97,25 +142,54 @@ fn run_confirmed<R: Runner>(
 	launcher: &Path,
 	options: &RunOptions,
 ) -> Result<Played> {
-	let played = runner.run(case, launcher, options)?;
+	let played = run_within(runner, case, launcher, options)?;
 	match played.verdict {
-		Verdict::Timeout(_) => runner.run(case, launcher, options),
+		Verdict::Timeout(_) => run_within(runner, case, launcher, options),
 		_ => Ok(played),
 	}
 }
 
-fn report(name: &str, played: &Result<Played>) -> bool {
+fn run_within<R: Runner>(
+	runner: &R,
+	case: &Case,
+	launcher: &Path,
+	options: &RunOptions,
+) -> Result<Played> {
+	runner
+		.run(case, launcher, options)
+		.map(|played| played.within(&options.limits, R::INTERACTIVE))
+}
+
+fn usage_columns(played: &Played) -> String {
+	let cpu_ms = played.usage.cpu.as_millis();
+	let peak_kb = played.usage.peak_rss_kb;
+	let first_turn = played
+		.first_turn_cpu
+		.map(|first| format!(" first_turn_cpu_ms {first_ms}", first_ms = first.as_millis()))
+		.unwrap_or_default();
+	format!(" (cpu_ms {cpu_ms} peak_rss_kb {peak_kb}{first_turn})")
+}
+
+fn report(name: &str, played: &Result<Played>, show_usage: bool) -> bool {
+	let usage = match played {
+		Ok(played) if show_usage => usage_columns(played),
+		_ => String::new(),
+	};
+	report_verdict(name, played, &usage)
+}
+
+fn report_verdict(name: &str, played: &Result<Played>, usage: &str) -> bool {
 	match played.as_ref().map(|played| &played.verdict) {
 		Ok(Verdict::Pass) => {
-			println!("test {name} pass");
+			println!("test {name} pass{usage}");
 			true
 		}
 		Ok(Verdict::Fail(detail)) => {
-			println!("test {name} fail {detail}");
+			println!("test {name} fail {detail}{usage}");
 			false
 		}
 		Ok(Verdict::Timeout(detail)) => {
-			println!("test {name} timeout {detail}");
+			println!("test {name} timeout {detail}{usage}");
 			false
 		}
 		Err(error) => {
@@ -125,11 +199,23 @@ fn report(name: &str, played: &Result<Played>) -> bool {
 	}
 }
 
-fn verify<R: Runner>(runner: &R, cases: &[Case], launcher: &Path, options: &RunOptions) -> bool {
+fn verify<R: Runner>(
+	runner: &R,
+	cases: &[Case],
+	launcher: &Path,
+	options: &RunOptions,
+	show_usage: bool,
+) -> bool {
 	let total = cases.len();
 	let passed = cases
 		.iter()
-		.filter(|case| report(&case.name, &run_confirmed(runner, case, launcher, options)))
+		.filter(|case| {
+			report(
+				&case.name,
+				&run_confirmed(runner, case, launcher, options),
+				show_usage,
+			)
+		})
 		.count();
 	println!("passed {passed}/{total}");
 	passed == total
@@ -166,7 +252,7 @@ fn bench<R: Runner>(
 			let referee_before = process::referee_cpu();
 			let solution_before = process::solutions_cpu();
 			let started = Instant::now();
-			let played = runner.run(case, launcher, options);
+			let played = run_within(runner, case, launcher, options);
 			let wall = started.elapsed();
 			all_passed &= matches!(
 				&played,
@@ -260,10 +346,11 @@ pub fn main<R: Runner>(runner: R) -> ExitCode {
 		show_stderr: args.stderr,
 		trace: args.trace,
 		hard_cap: Duration::from_millis(args.hard_cap_ms),
+		limits: lang::limits(lang::of_launcher(&args.launcher).as_deref()),
 	};
 	let passed = match args.bench {
 		Some(runs) => bench(&runner, &cases, &args.launcher, &options, runs),
-		None => verify(&runner, &cases, &args.launcher, &options),
+		None => verify(&runner, &cases, &args.launcher, &options, args.usage),
 	};
 	if passed {
 		ExitCode::SUCCESS
