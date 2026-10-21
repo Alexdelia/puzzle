@@ -1,0 +1,1 @@
+eval("l=z=readline().split` `;a=readline(readline()).split` `;readline();for(i in z)for(S=z[i]-1,m=l,l=0,h=S;l<h;print(...a),(r=readline())[5]?r>'T'^q>p?h=s-1>>1:l=s+2>>1:l=h=s/2)p=+a[i],q=l+h-p,q<0|q>S&&(q=p+S*(q>0)>>1),s=p+(a[i]=q-=q==p);print(m,l)\n")
