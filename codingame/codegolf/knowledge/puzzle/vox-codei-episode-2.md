@@ -113,3 +113,7 @@ Guesses (unverified): tops near 150 likely hardcode or use an even smaller rando
 ## Groovy port of the php hardcode (groovy worker, 2026-10-21): 456 B, CG score 0.0
 
 - `System.in.newReader()`, `eachWithIndex` centroid, `.split(' ')[..].bytes`, `intdiv`, GString output; local tests 10/10, validators 15/20 like php. CG row 0.0 (all games failed, cause undiagnosed: probably frame-1 JVM timeout). Top 248 not reachable with this method (needs ~200 B less)
+
+## Scala port (scala worker, 2026-10-21): CG 100%, 536 B (rank 6)
+
+- php centroid hardcode as `object Player extends App`, `Console.in.readLine`, array `o=Array.fill(r)("WAIT")` filled by plan, one `println(o.mkString("\n"))`; JVM first-turn timing fine. Local referee runs only `Solution`: test a renamed copy with `--lang scala`, probe the `Player` file
