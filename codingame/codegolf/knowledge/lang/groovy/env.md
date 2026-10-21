@@ -9,3 +9,4 @@ CG verified: yes (chuck-norris test-games, 2026-10-19).
 - `assert` cannot hold an assignment (`assert x = true` is a compile error), Groovy asserts are always on
 - stderr is shown in the test-game `output` but not judged
 - startup: local launcher ~0.65 s wall on an idle machine (2-3 s under load); count it against turn limits
+- CG startup is ~0.75 s slower than local (dont-panic test games 2026-10-21, `ManagementFactory.runtimeMXBean.uptime` at first answer): minimal reader loop 1360 ms on CG vs 608 local; `System.in.eachLine{(f,p,d,E,P)=it.tokenize()...}` map solution 1523-1530 on CG vs 772-803 local. Interactive puzzles with a 1000 ms first turn time out at frame 1 when uptime reaches ~1.53 s: local referee passes, CG flaky (dont-panic groovy 137: 85.7). Keep first-turn code paths minimal, CG-test before submit

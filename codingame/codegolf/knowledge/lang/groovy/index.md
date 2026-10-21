@@ -1,6 +1,6 @@
 # Groovy
 
-- [env](env.md): Groovy 3.0.8 on HotSpot 8u211, script class `Answer` precompiled, local groovyc launcher matches, verified
+- [env](env.md): Groovy 3.0.8 on HotSpot 8u211, script class `Answer` precompiled, local groovyc launcher matches, verified; CG startup ~0.75 s slower than local, 1000 ms first turns flaky
 - [syntax-traps](syntax-traps.md): no .9 literal, split() array index throws, print needs space
 - [regex-two-pass-chuck-norris](regex-two-pass-chuck-norris.md): Integer.toString(n,2), $1 empty on unmatched, eachLine
 - [unbound-var-ternary-init](unbound-var-ternary-init.md): no `s=''` init via ternary else-branch on first line; `=~` as contains, `drop`
