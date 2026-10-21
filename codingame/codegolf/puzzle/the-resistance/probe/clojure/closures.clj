@@ -1,0 +1,1 @@
+(ns Solution(:gen-class))(defn -main[](let[[m _ & w](.split(slurp *in*)"\n")h(frequencies(for[x w](apply str(for[c x b(rest(Long/toString(.indexOf"  ETIANMSURWDKGOHVF L PJBXCYZQ"(str c))2))]({\0\.\1\-}b)))))L(count m)](prn((reduce #(%2 %){0 1}(for[i(range L)j(range i(+ i 77))]#(merge-with + %{j(*(% i)(h(subs m i(min L j))0))})))L))))
