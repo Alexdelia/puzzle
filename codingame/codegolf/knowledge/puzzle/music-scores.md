@@ -87,3 +87,9 @@ Rejected (older, longer): end-column diff-extent compare + mid of run (502 B pyt
 - letter from the flat index without row: `(15*i//w-52-h)//h` with `i` = flat byte index of the first non-staff black (+2 for the leading newline), constant 50..55 passes 12 tests + the 4 local validators python passes (45 fails): the x/w term (<=15/h) hides in the fractional window
 - H/Q char: `81-b%2*9` on the byte at `i+5` (B=66 -> Q, W=87 -> H)
 - no ledger cut (all rows) fails: low C H becomes CQ
+
+## JS/TS cell facts (2026-10-21, CG 100% typescript 233 B)
+
+- inner column scan needs no row bound: `for(i=x++;s[i]>=s[i-x+11];i+=w)` stops at the first non-staff black or at string end (`undefined>=` is false); the later `i<m` test alone rejects ledger hits (-5 B)
+- previous-column flag merged into the update: `q<(q=i<m)&&push(..)` replaces `i<m>q&&push(..),q=i<m` (-2 B)
+- JS version of both: 225 -> 220 expected (js-cell 227 not yet updated)
