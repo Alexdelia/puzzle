@@ -13,3 +13,4 @@
 - [python-wrapper-interactive](python-wrapper-interactive.md): `object Player` + `new ProcessBuilder("/usr/bin/python3","-c","""..""").inheritIO.start.waitFor`, core+100 B; `sys.process !` has no stdin; verified
 - [mean-centred-slope](mean-centred-slope.md): grouped(2) rows, centred regression slope, split table + min; blunder-episode-3 304
 - [sys-process-no-shell](sys-process-no-shell.md): `sys.process.Process("perl -anE<code>").!<` = core+52, no shell, no quotes for a spaceless core, stdin connected; verified on CG
+- [zipall-merge-columns](zipall-merge-columns.md): negative `"S"*n` = "", `for((p,q)<-v zipAll(h,"",""))println(""+p+q)` merges two runs line by line; `val Seq(..)=Array` fails; verified

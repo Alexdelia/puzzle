@@ -6,3 +6,5 @@ Verified 2026-10-21 (dont-panic, CG accepted 135, interactive): `object Player e
 - `!<` connects stdin, `!` does not (0%, see `python-wrapper-interactive.md`); postfix `...)!<}` is a compile error, write `.!<`
 - `import sys.process._;"cmd".!<` is the same length
 - 48 bytes shorter than the ProcessBuilder form of `python-wrapper-interactive.md` for a one-word-per-arg command
+- Scala `"\n"` escape is a real newline, which the tokenizer also splits on: write `\\n` so perl gets `\n` (the-labyrinth, verified locally: `\n` gave a perl syntax error)
+- perl space removal, verified on the-labyrinth (CG 100%, 272): `$&eq C` -> `$&=~C` (bareword pattern), `s///gs until/../` -> `(s///gs)until/../`, `read STDIN,..` -> `read(STDIN,..)`; each +0/+1 vs the quotes `'..'` (+2)
