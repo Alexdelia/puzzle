@@ -30,6 +30,8 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 
 ## Shortest known
 
+- open-loop plans (printed at turn 1, keyed on first input byte, power 4 const, rotate run-length segments, SA in a C sim): A lands with 3 segments, B with 4-5 (journal cell.mars-lander-episode-3.haskell.1792608245409572236). Haskell 106 CG 100% this way; one schedule landing both not found (short SA runs)
+
 - TypeScript wrapper cost (verified local tsc 2026-10-21): `for(;;)console.log(parseInt(readline())/99-40|0,4)` type-checks, 50 B = JS `print` form 44 + 6; any JS one-liner via `eval("...")` = JS + 8, so TS top 60 = JS top 52 + 8
 - ours: Python 1952 (generic planner, not golfed hard). Top Python 57 (Waffle3z): far shorter approach exists, unknown
 - short method NOT FOUND yet (3 search sessions). Tops: Perl 37, Ruby 48, bash 51, JS 52, Python 57: a 10-20 char formula over one or two input fields, likely power 4 constant or near
