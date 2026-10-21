@@ -85,3 +85,11 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - piecewise-constant schedules found by SA in C (journal cell.mars-lander-episode-3.lua.1792608245983790795, scratch sc.c: segments rotate,power,length, crash score = distance-to-go along hand waypoints): A lands with 2-3 segments, B with 4 (B needs a first long power-4 near-vertical climb, else SA sticks on the peak face at (4900,2000))
 - a schedule landing both A and B also lands test 02 often (153 passed all 4) but only the validators count
 - 3 segments per map suffice: A data 21 chars, B 23 chars in `rot pow:len;` form (SA scratch sc.c minimizes chars)
+
+## Perl keyed schedule (verified 2026-10-21, perl 92 accepted on CG)
+
+- key `<>%3?A:B` (N 22%3=1 A, 18%3=0 B), 1 byte under `<>>20`; `$|=$_=<>%3?...` merges autoflush (string numifies nonzero)
+- data with literal newlines between `rot pow cnt` segments, `print"$1\n"x$2while/(.+) (.+)/g` (greedy first group keeps `rot pow`)
+- last count `1e5` instead of reading stdin: see knowledge/lang/_shared/pipe-block-keepalive.md
+- rotate=trunc(X/D+b*$.+c) ($. = line number, D +-5..999, b +-1/E E<=30 or +-2,+-3, c -150..150, P 3|4, lag N+1): NO landing on A nor B (77M runs, scratch l.c of journal cell.mars-lander-episode-3.perl.1792609841029262318)
+- chaotic K*sin|cos of X, X*t, X/D+-t, X/t, X+-t/D (K 10..90, D 1..999, P 3|4): A lands 0-5 per 160k, never with B: per-map landing probability ~1e-5, random f(X,t) is hopeless
