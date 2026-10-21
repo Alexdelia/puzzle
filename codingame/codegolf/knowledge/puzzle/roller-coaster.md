@@ -23,6 +23,9 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 
 ## Traps
 
+- CG memory cap ~768 MiB peak RSS (`knowledge/lang/_shared/memory-limit.md`), not checked by the local referee: an O(C) walk that keeps a lazy list of C=9e6 rides (Haskell `sum[..|i<-take c$iterate ..]`, 1.67 GB at -O0 on test 06) passes locally and fails on CG (shown as timeout). Measure `command time -f %M` on tests/06 and validators 03-05 before submitting an O(C) method
+- Haskell on CG is built without -O (`knowledge/lang/haskell/env.md`), local build uses -O
+
 - `capture-io.sh` truncates tests 05 and 06 (CG output cap ~4 kB). Captured as zlib+b85 of stdin in 3500-char slices, one game each (journal `referee.roller-coaster.*`, scratch `capture.sh`)
 - missing the "group boards at most once per ride" cap fails test 4 (97800 vs 15000) and validators 02, 10; tests 1-3, 5 never hit it
 - validators cover: C=1, N=1 with L=1 and C=1e7, all groups = 1e6 with L=1e7 (answer 1e14), sum < L with huge L, ride exactly full on wrap
