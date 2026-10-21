@@ -1,0 +1,1 @@
+<?fgets(STDIN);while([$x,$y]=fscanf(STDIN,"%d %d"))$a[$x]=$b[$y]=1;echo 2+count(array_intersect_key($a,$b));

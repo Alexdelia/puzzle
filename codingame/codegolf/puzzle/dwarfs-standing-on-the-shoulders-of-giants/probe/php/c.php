@@ -1,0 +1,1 @@
+<?=2+preg_match_all("/[34]/",fread(STDIN,99));
