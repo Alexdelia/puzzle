@@ -8,3 +8,5 @@ Verified 2026-10-19 with test games on chuck-norris (stderr dumps of CG files):
 - run: `node -r /codemachine/lib/javascript/internal/polyfill.js -r source-map-support/register /tmp/Answer.js`, cwd `/tmp`, same node/v8/ICU as javascript (see `knowledge/lang/javascript/env.md`): `toSorted` exists, `Object.groupBy` does not at runtime (lib esnext probably still types it, so it type-checks then crashes: unverified)
 - local: `agent/tool/lang/typescript/build.sh` uses the same flags and types; same error text on type errors; drift: no `source-map-support` preload (stack traces only), ICU 74.2 vs 75.1
 - launcher startup ~38 ms (compile time excluded)
+
+- type traps for golf (verified local 2026-10-21): tagged-template `split` (``s.split` ` ``) is a type error; `.map(Math.log)` on string[] is a type error: declare `let L:any=readline` so everything downstream is `any`
