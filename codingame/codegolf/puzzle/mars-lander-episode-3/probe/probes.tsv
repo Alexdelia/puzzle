@@ -14,3 +14,6 @@
 2026-10-21T18:42:57Z	validator.mars-lander-episode-3.-.1792604809778225706	php	2608	validator B (y shift dy of test 02, dy in -55..-42): dy==-50 i.e. S[0].y==1750 (php row 100@2648, shorter; commit = yes)	yes: 100% at length 2608, committed
 2026-10-21T19:04:11Z	cell.mars-lander-episode-3.scala.1792608247214096791	scala	2054	scala baseline: python planner via ProcessBuilder inheritIO, object Player (100 = row)	yes: 100% at length 2054, committed
 2026-10-21T19:12:59Z	cell.mars-lander-episode-3.groovy.1792608245260147310	groovy	106	groovy open-loop schedule (A 2 segs, B 3 segs, tail 0 4, keyed on first byte), dynamic: 100% or frame-1 timeout?	yes: 100% at length 106, committed
+2026-10-21T19:20:18Z	cell.mars-lander-episode-3.clojure.1792608244651104958	clojure	112	joint open-loop schedule drop(*(read)19), lands A and B locally (scratch referee 5 s turn 1): 100% expected	yes: 100% at length 112, committed
+2026-10-21T19:23:22Z	cell.mars-lander-episode-3.perl.1792609841029262318	perl	92	keyed schedule, last segment x1e5 lines (400KB) instead of ()=<>: does a pipe-blocked print keep the process alive on CG (100 yes)	yes: 100% at length 92, committed
+2026-10-21T19:24:18Z	cell.mars-lander-episode-3.clojure.1792608244651104958	clojure	101	joint schedule 412:0 30:47 54:-30 99:0 drop 19*N, hidden A/B pass locally: 100% expected	yes: 100% at length 101, committed
