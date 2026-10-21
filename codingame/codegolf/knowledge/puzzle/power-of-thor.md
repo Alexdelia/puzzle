@@ -61,3 +61,7 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 - forum https://forum.codingame.com/t/power-of-thor-codesize-puzzle-discussion/687 : a user scored 42 by encoding code in whitespace, rule changed afterwards (all chars count): tops 42-55 are plausibly legacy scores, not reachable
 - hidden-assumption variant (no E branch) would be ~101, still far above 55: not probed
 - 2026-10-21 haskell probe noE (W/S/N only, 100 bytes): CG score 50%, so no-E assumption fails for 2 validators (cause unknown, maybe N/W handling)
+
+## TypeScript (2026-10-21)
+
+- general 123 bytes 8/8, CG rank 53: `let[a,b,c,d]=readline().split(' ').map(Number),i=0;for(;;i++)console.log((i<b-d?'S':i<d-b?'N':'')+(i<c-a?'W':i<a-c?'E':''))`. Costs vs JS 99: `let`, `.map(Number)` (strings fail type check on `-`), `console.log` (print undeclared)
