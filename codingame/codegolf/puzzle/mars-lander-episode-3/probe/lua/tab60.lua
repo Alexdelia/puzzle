@@ -1,0 +1,1 @@
+for i=io.read()*5+99,1e9 do print(268//i*100-283//i*89,4)end
