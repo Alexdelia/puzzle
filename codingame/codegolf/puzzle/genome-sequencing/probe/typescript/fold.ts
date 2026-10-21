@@ -1,0 +1,1 @@
+readline();for(var s='',t,k;t=readline();s+=t.slice(k)){t.match(s)&&(s='');for(k=8;!(s+t.slice(k)).match(t);)k--}console.log(s.length)
