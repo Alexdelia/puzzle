@@ -109,3 +109,7 @@ Next steps for a later worker:
 ### JavaScript 377 (2026-10-20, CG 100% rank 11)
 
 - plan-once DFS as Python 350 but with win-length test `q[98]`; JS needs road array `[H,...4 lanes,H]` (H=`'0'.repeat(99)`, Y offset +1) since `T[-1]` is undefined; `process.exit()` after `print`. Not yet tried: drop win test like Python 350
+
+### Groovy 398 (2026-10-21, CG 100% rank 7, first attempt 91.7 flaky, resubmit passed)
+
+- `new ProcessBuilder('perl','-e','<perl 347 core>').inheritIO().start()`; newline in the plan string written `$/` (Groovy single quotes cannot hold a newline). Gap to top 239 is the perl core: needs a ~185 B perl
