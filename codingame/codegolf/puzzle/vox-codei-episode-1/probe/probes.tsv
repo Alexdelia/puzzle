@@ -18,3 +18,4 @@
 2026-10-21T14:58:59Z	cell.vox-codei-episode-1.groovy.1792513606827133268	groovy	225	groovy 225 B CompileStatic, low latency, 100%?	yes: 100% at length 225, committed
 2026-10-21T15:01:31Z	cell.vox-codei-episode-1.groovy.1792513606827133268	groovy	222	groovy 222 B static Arrays.hashCode, 100%?	yes: 100% at length 222, committed
 2026-10-21T15:47:11Z	cell.vox-codei-episode-1.groovy.1792594901695822286	groovy	205	stride16 decode c%16/c>>4, wait=\x01, CSP-packed 52 data, 205 B: passes 100%?	yes: 100% at length 205, committed
+2026-10-21T18:49:44Z	cell.vox-codei-episode-1.clojure.1792513606652221832	clojure	213	clojure hardcode 213 B (hash(vec byte-array 819) mod 40, stride16 decode): 100% on hidden?	yes: 100% at length 213, committed
