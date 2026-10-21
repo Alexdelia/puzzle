@@ -1,4 +1,4 @@
-object Solution extends App{new ProcessBuilder("/usr/bin/python3","-c","""I=input
+object Player extends App{new ProcessBuilder("/usr/bin/python3","-c","""I=input
 H=int(I().split()[1])
 g=[[*map(int,I().split()),0]for _ in' '*H]+[[0]*99]
 E=int(I())
