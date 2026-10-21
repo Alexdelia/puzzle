@@ -81,3 +81,9 @@ Rejected (older, longer): end-column diff-extent compare + mid of run (502 B pyt
 - `$c[$i++%$_]` inside `s///ge` breaks (`$_` is not the original string there): copy width first
 - hardcoded P/S (see above) saves only 13 B in perl (310)
 - dead ends: centroid (mean diff row) of the mid column t[5] as head center fails test 10 (P=9: hollow thin heads leave 1-3 diff pixels) and low C when cut; head-edge column pick is required
+
+## Lua cell facts (2026-10-21, CG 100% at 241 B, rank 3)
+
+- letter from the flat index without row: `(15*i//w-52-h)//h` with `i` = flat byte index of the first non-staff black (+2 for the leading newline), constant 50..55 passes 12 tests + the 4 local validators python passes (45 fails): the x/w term (<=15/h) hides in the fractional window
+- H/Q char: `81-b%2*9` on the byte at `i+5` (B=66 -> Q, W=87 -> H)
+- no ledger cut (all rows) fails: low C H becomes CQ
