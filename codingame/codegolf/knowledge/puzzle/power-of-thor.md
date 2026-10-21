@@ -86,3 +86,7 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 - 166 `(ns Solution(:gen-class))(defn -main[]...)` passed 4/4 locally, CG 0%: not timing, not rules. Interactive CG compiles `Player.clj` and calls `-main` with 1 arg. `ns Player` + `-main[_]` (165) passes CG tests 2 and 4 (games after 910671218). See knowledge/lang/clojure/interactive-player.md
 - Clojure first answer at JVM uptime ~1.6 s still passes: no cold-start problem here, unlike Groovy
 - local launcher fixed (lang.-.clojure.1792607556179713326): `(ns Player)(defn -main[_]...)` 153 passes 4/4 locally and CG test 3 (game 910672642)
+
+## Clojure (2026-10-21)
+
+- 143 B 100% on CG: header `(ns Player)(defn -main[_]` (see knowledge/lang/clojure/interactive-player.md), 4-letter form: letter k fires when `P[k]+i<Q[k]` with P=[thorY lightY lightX thorX], Q=[lightY thorY thorX lightX], letters "SNWE"; vertical letters precede horizontal so map order gives valid directions. No negation, no sign. Top 135 not reached
