@@ -82,3 +82,7 @@ Native Lua core is 300+ bytes (table-indexed axes, no `>>`-free ternary, print n
 - `$s=$t+($q-=$q==$t)` merges the q==p fix with the sum
 - refuted by exact sim: edge rule `(p+q%S)>>1` (modulo instead of `S*(q>0)`) fails 19-86% on every config
 - reading the 4 header lines as `@_=(<>.<>.<>.<>)=~/\d+/g` + `@_[3,4]` slice is 2 bytes longer than the two-array form
+
+## typescript 257 (2026-10-21)
+
+php-style skeleton (no x-final jump, `m=l` keeps x, last `print(m,l)`), `//@ts-ignore` + one JS line; top 227 not reached (PetyFloyd JS 219, perl 203: a denser method exists, not found). Tricks in `lang/typescript/print-spread-for-update-body.md`. Same core with `h=S=size-1` and `q>S`; `s=p+(a[i]=q-=q==p)` sum form with `h=s-1>>1`, `l=s+2>>1`, `l=h=s/2`; SAME detected by `r[5]` missing.
