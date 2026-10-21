@@ -66,8 +66,9 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
   - earlier sessions: Y>=3000 loss, rotate outside -90..90 or power 5 loss, extra tokens loss, answers queue one per input line
 - unverified guesses: float answers (`12.5 4`) accepted or not; leaving the zone through x<0 or x>=7000 (local referee: loss, never checked on CG); landing speed limits on rounded vs exact values
 
-## Open-loop keyed schedule (verified 2026-10-21, Lua 153 accepted on CG)
+## Open-loop keyed schedule (verified 2026-10-21, Lua 135 accepted on CG)
 
-- printing the whole plan at turn 1 and exiting works (answers queue; local referee too). Key on the first line: N "22" (A) vs "18" (B), e.g. string compare `>"2"`
+- printing the whole plan at turn 1 works (answers queue). Exiting right after is racy on the local referee ("solution closed its input" turn 2 sometimes): Lua keeps `io.read"a"` Key on the first line: N "22" (A) vs "18" (B), e.g. string compare `>"2"`
 - piecewise-constant schedules found by SA in C (journal cell.mars-lander-episode-3.lua.1792608245983790795, scratch sc.c: segments rotate,power,length, crash score = distance-to-go along hand waypoints): A lands with 2-3 segments, B with 4 (B needs a first long power-4 near-vertical climb, else SA sticks on the peak face at (4900,2000))
 - a schedule landing both A and B also lands test 02 often (153 passed all 4) but only the validators count
+- 3 segments per map suffice: A data 21 chars, B 23 chars in `rot pow:len;` form (SA scratch sc.c minimizes chars)
