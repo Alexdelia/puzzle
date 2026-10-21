@@ -68,3 +68,5 @@ PHP 217 (CG 100% hidden, rank 6, 2026-10-21): recursive flood on a flat string, 
 Groovy 214 (CG row 70%, 2026-10-21, local 17/17): list-mark flood, details in knowledge/lang/groovy/string-flood-tricks.md. Source: `t=System.in.text.split('\n',3)[2]`, `w=t.indexOf(10)+1`, `g=t.toList()`, `t.findAll(/\d+ .+/){(x,y)=it.split()*.toLong()...`. CG scored 70 (7/10): 3 big validators time out (Groovy flood ~1 us/cell, 1M cells ~4-5 s local + 0.75 s CG startup). Top 216 (Pduhard-) passes, method unknown. The `/.+ .+/` regex version (216) scored 60.
 
 Scala 326 (CG 100%, rank 4, 2026-10-21): Set frontier flood, see knowledge/lang/scala/set-frontier-flood.md. Top 238 not reached. Tried: ArrayBuffer clone + k.size/4 trick with index loop (349), list stack (374).
+
+Clojure 228 (CG submitted 2026-10-21, rank 1): perl-wrapper (knowledge/lang/clojure/perl-wrapper.md) around the Perl 158 core with args "-ln0e" (shebang flags as one arg, newlines inside the string literal), local 19/19. Top was 255.
