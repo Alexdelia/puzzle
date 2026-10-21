@@ -61,7 +61,11 @@ validator/done)
 	set_status done
 	commit_scope "feat(golf): validators $puzzle" "puzzle/$puzzle/referee/hidden"
 	;;
-lang/blocked | referee/blocked | validator/blocked)
+referee/blocked)
+	bench_passes && set_status done || set_status blocked
+	event "attention $kind $puzzle blocked: $note"
+	;;
+lang/blocked | validator/blocked)
 	set_status blocked
 	event "attention $kind ${lang/#-/}${puzzle/#-/} blocked: $note"
 	;;
