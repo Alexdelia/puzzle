@@ -59,3 +59,11 @@ Same method; python 276 on CG (#7, top 240). Gains in `lang/python/alias-input.m
 ## Hidden validators
 
 8 validators, bombs random per run (statement + forum https://forum.codingame.com/t/shadows-of-the-knight-episode-2-puzzle-discussion/1676?page=4): no bomb hardcode, no exact recovery. Probed 2026-10-20 (14 probes, `oracle.sh --log`): 6 validators keep a test size and its N, 1 is test 1 transposed (16x5, N80), 1 odd small map (2 <= W < H <= 40, N >= 27, not 45/80, generous); 2 of 8 have an exact test config (start included). Tight budgets stay those of the test sizes, so the general method's ~1% random fail is the only risk. Details: `puzzle/shadows-of-the-knight-episode-2/referee/hidden/facts.md`.
+
+## php 279 (2026-10-21)
+
+Same method, with a better skeleton (php 279 #1 over top 280, verified on CG). Transferable:
+
+- do NOT spend the x-final "move onto the known column" jump: y bisection works with x frozen wherever the x phase left it (x never changes in y jumps, so only y moves the distance). Remember x's `l`, and the single last jump is `(lx, ly)`. Saves one jump (lower fail odds) and the per-axis final jump/read code: the loop body is the only jump site
+- stdin header in one read (`fread` + sscanf) works on CG for this puzzle (all init lines in one chunk)
+- php details in `lang/php/sscanf-fread-by-ref.md`
