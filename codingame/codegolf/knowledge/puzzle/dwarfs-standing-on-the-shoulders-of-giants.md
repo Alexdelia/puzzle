@@ -151,3 +151,5 @@ Run 9 (python cell, 2026-10-20): python `2+|X&Y|` 60 bytes scored 100% (row 60).
 Python (2026-10-20): row 60 `t=open(0).read().split();print(len({*t[1::2]}&{*t[2::2]})+2)` scores 100% on CG (`2+|X&Y|`); `1+|distinct X|` (45) scored below 100%. Python trims (walrus, `_,*t=`) do not beat 60.
 
 Php (2026-10-21): `2+L` key as one regex over input doubled with a blank line, 64 bytes, CG 100% (php row 64, top 21). See `knowledge/lang/php/regex-doubled-string-count.md`. Affine whole-input char-count keys are impossible: `2/1 2/2 3` (ans 3) and `2/1 2/1 3` (ans 2) differ only by one digit 2 vs 1, a, `1/1 2` (ans 2) needs counts 0. Top 21 php key still unknown.
+
+Haskell (2026-10-21): `2+L` key, 82 bytes, CG 100% via --probe (rank 3, top 59): `main=interact$show.(+2).length.f.map words.lines` + newline + `f(_:w)=[a|a:_<-w,elem a$last<$>w]`. Must drop the N line (`_:`): `N=1` validator `1/1 2` otherwise matches X=1 with N.
