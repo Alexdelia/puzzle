@@ -12,3 +12,4 @@
 - [heap-morse-codes](heap-morse-codes.md): lazy heap-order Morse code list, the-resistance 347 (slow on big validator)
 - [intset-flood](intset-flood.md): IntSet persistent flood fill, fmap not map, 242 on surface
 - [perl-wrapper-hardcoded](perl-wrapper-hardcoded.md): system wrapper around perl core, string escapes (\\K, \"), the-labyrinth 268
+- [the-fall-dfs-port](the-fall-dfs-port.md): general DFS port 1086 B, NoBuffering needed on interactive, list grid with sentinels
