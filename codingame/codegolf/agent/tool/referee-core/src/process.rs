@@ -131,7 +131,11 @@ impl Solution {
 	}
 
 	pub fn finish(&mut self) -> Usage {
-		let grace = Instant::now() + EXIT_GRACE;
+		self.finish_within(EXIT_GRACE)
+	}
+
+	pub fn finish_within(&mut self, grace: Duration) -> Usage {
+		let grace = Instant::now() + grace;
 		while Instant::now() < grace {
 			if let Some(usage) = self.reap(libc::WNOHANG) {
 				return usage;

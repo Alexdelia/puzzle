@@ -1,22 +1,20 @@
 use std::path::{Component, Path};
-use std::time::Duration;
 
 pub struct Limits {
 	pub memory_kb: u64,
-	pub io_cpu: Option<Duration>,
-	pub first_turn_cpu: Option<Duration>,
+	pub io_cpu_over_baseline: Option<f64>,
 }
 
 const CG_MEMORY_KB: u64 = 768 * 1024;
+const GROOVY_IO_CPU_OVER_BASELINE: f64 = 2.05;
 
 pub fn limits(lang: Option<&str>) -> Limits {
-	let unbounded = Limits {
+	Limits {
 		memory_kb: CG_MEMORY_KB,
-		io_cpu: None,
-		first_turn_cpu: None,
-	};
-	match lang {
-		_ => unbounded,
+		io_cpu_over_baseline: match lang {
+			Some("groovy") => Some(GROOVY_IO_CPU_OVER_BASELINE),
+			_ => None,
+		},
 	}
 }
 

@@ -26,6 +26,8 @@ struct Args {
 	trace: bool,
 	#[arg(long)]
 	usage: bool,
+	#[arg(long)]
+	baseline: Option<PathBuf>,
 	#[arg(long, default_value_t = 60_000)]
 	hard_cap_ms: u64,
 	names: Vec<String>,
@@ -47,6 +49,7 @@ pub struct RunOptions {
 	pub trace: bool,
 	pub hard_cap: Duration,
 	pub limits: Limits,
+	pub io_cpu_bar: Option<Duration>,
 }
 
 pub struct Played {
@@ -66,27 +69,20 @@ impl Played {
 		}
 	}
 
-	fn within(self, limits: &Limits, interactive: bool) -> Self {
+	fn within(self, options: &RunOptions, interactive: bool) -> Self {
 		if !matches!(self.verdict, Verdict::Pass) {
 			return self;
 		}
 		let peak_kb = self.usage.peak_rss_kb;
-		let memory_kb = limits.memory_kb;
+		let memory_kb = options.limits.memory_kb;
 		let cpu_ms = self.usage.cpu.as_millis();
-		let verdict = match (limits.io_cpu, limits.first_turn_cpu, self.first_turn_cpu) {
+		let verdict = match options.io_cpu_bar {
 			_ if peak_kb > memory_kb => {
 				Verdict::Fail(format!("memory {peak_kb} kB over {memory_kb} kB"))
 			}
-			(Some(bar), _, _) if !interactive && self.usage.cpu > bar => {
+			Some(bar) if !interactive && self.usage.cpu > bar => {
 				let bar_ms = bar.as_millis();
 				Verdict::Timeout(format!("solution cpu {cpu_ms} ms over {bar_ms} ms"))
-			}
-			(_, Some(bar), Some(first)) if first > bar => {
-				let first_ms = first.as_millis();
-				let bar_ms = bar.as_millis();
-				Verdict::Timeout(format!(
-					"turn 1: solution cpu {first_ms} ms over {bar_ms} ms"
-				))
 			}
 			_ => Verdict::Pass,
 		};
@@ -157,7 +153,7 @@ fn run_within<R: Runner>(
 ) -> Result<Played> {
 	runner
 		.run(case, launcher, options)
-		.map(|played| played.within(&options.limits, R::INTERACTIVE))
+		.map(|played| played.within(options, R::INTERACTIVE))
 }
 
 fn usage_columns(played: &Played) -> String {
@@ -165,7 +161,12 @@ fn usage_columns(played: &Played) -> String {
 	let peak_kb = played.usage.peak_rss_kb;
 	let first_turn = played
 		.first_turn_cpu
-		.map(|first| format!(" first_turn_cpu_ms {first_ms}", first_ms = first.as_millis()))
+		.map(|first| {
+			format!(
+				" first_turn_cpu_ms {first_ms}",
+				first_ms = first.as_millis()
+			)
+		})
 		.unwrap_or_default();
 	format!(" (cpu_ms {cpu_ms} peak_rss_kb {peak_kb}{first_turn})")
 }
@@ -323,6 +324,18 @@ fn bench<R: Runner>(
 	passed
 }
 
+const BASELINE_RUNS: usize = 3;
+
+fn baseline_cpu(launcher: &Path) -> Option<Duration> {
+	(0..BASELINE_RUNS)
+		.filter_map(|_| {
+			let mut solution = process::Solution::spawn(launcher, false).ok()?;
+			solution.write_all_then_close(String::new());
+			Some(solution.finish_within(Duration::from_secs(10)).cpu)
+		})
+		.min()
+}
+
 pub fn main<R: Runner>(runner: R) -> ExitCode {
 	let args = Args::parse();
 	let mut sets = vec!["tests"];
@@ -342,11 +355,23 @@ pub fn main<R: Runner>(runner: R) -> ExitCode {
 		eprintln!("no case found under {root}");
 		return ExitCode::FAILURE;
 	}
+	let limits = lang::limits(lang::of_launcher(&args.launcher).as_deref());
+	let io_cpu_bar = match (limits.io_cpu_over_baseline, &args.baseline) {
+		(Some(ratio), Some(baseline)) if !R::INTERACTIVE => {
+			baseline_cpu(baseline).map(|cpu| cpu.mul_f64(ratio))
+		}
+		_ => None,
+	};
+	if let Some(bar) = io_cpu_bar {
+		let bar_ms = bar.as_millis();
+		println!("solution cpu bar {bar_ms} ms");
+	}
 	let options = RunOptions {
 		show_stderr: args.stderr,
 		trace: args.trace,
 		hard_cap: Duration::from_millis(args.hard_cap_ms),
-		limits: lang::limits(lang::of_launcher(&args.launcher).as_deref()),
+		limits,
+		io_cpu_bar,
 	};
 	let passed = match args.bench {
 		Some(runs) => bench(&runner, &cases, &args.launcher, &options, runs),

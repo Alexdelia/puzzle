@@ -37,11 +37,15 @@ export CARGO_TARGET_DIR=$root/agent/state/build/cargo/$slug
 cargo build --release --quiet --manifest-path "$referee_dir/Cargo.toml"
 referee=$CARGO_TARGET_DIR/release/$(basename "$(dirname "$referee_dir")")-referee
 launcher=$("$tool_dir/lang/$lang/build.sh" "$solution")
+baseline_args=()
+for baseline_source in "$tool_dir/lang/$lang"/baseline.*; do
+	[[ -f $baseline_source ]] && baseline_args=(--baseline "$("$tool_dir/lang/$lang/build.sh" "$baseline_source")")
+done
 
 if $bench; then
 	report=$(mktemp)
 	status=0
-	"$referee" "$launcher" --root "$referee_dir" --validators --bench 5 "${referee_args[@]}" | tee "$report" || status=${PIPESTATUS[0]}
+	"$referee" "$launcher" --root "$referee_dir" --validators --bench 5 "${baseline_args[@]}" "${referee_args[@]}" | tee "$report" || status=${PIPESTATUS[0]}
 	if [[ ${CG_TASK_ID:-referee.} == referee.* ]] && grep -q '^suite ' "$report"; then
 		mv "$report" "$referee_dir/bench.txt"
 	else
@@ -50,6 +54,6 @@ if $bench; then
 	exit "$status"
 fi
 status=0
-"$referee" "$launcher" --root "$referee_dir" "${referee_args[@]}" || status=$?
+"$referee" "$launcher" --root "$referee_dir" "${baseline_args[@]}" "${referee_args[@]}" || status=$?
 echo "length $("$tool_dir/count.sh" "$solution")"
 exit "$status"
