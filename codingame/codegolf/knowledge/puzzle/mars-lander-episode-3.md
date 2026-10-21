@@ -144,3 +144,11 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - 3 segments (2 thresholds, would be ~52 in JS) NOT found: SA 9 runs x ~25 restarts x 100k iters, K 3..8, power 4 and power 3 const, best penalty far from landing
 - sim trap: the shared `os.h`/`sim.h` landing test can say "lands" while the referee crashes on the slope next to the flat end (A: (3290,240) turn 83, x just past 3200). Penalize landings within 60 px of the flat ends and within 2 m/s of the speed limits; with that margin every sim lander checked passed the referee
 - 4 segments (3 thresholds, chain 29 chars) land both at M=5; 3 segments (power 4) not found in 8 x 13 min SA (M 1..10)
+- seeding that SA with the clojure joint shape (B-only climb prefix, then 2 tilt segments + `0 4` tail) gives a shorter plan: prefix keyed `C-gets.oct*k` (A short, B ~50 turns longer), small 1-digit rotate in the prefix instead of 0 (sim + referee --hidden, 2026-10-21)
+- local referee under machine load > 50: Ruby misses the 1000 ms first turn ("timeout turn 1") and submit.sh refuses; rerun when load drops, it is not a rule failure
+
+## Keyed lead length + one shared segment (verified 2026-10-21, ruby 49 4/4 tests+hidden locally)
+
+- 2 power-mostly-4 segments + tail `0 4` land BOTH validators (and both tests): segment 1 = one small left tilt (rotate ~8, power 4) whose LENGTH alone is keyed (B ~80 turns, A ~50), segment 2 = shared right tilt (~-16, power 3, ~55 turns), then `0 4` forever. Only the count differs between maps, so the key costs one ternary on a number
+- found in seconds by SA whose energy is the exact generated code length + landing penalty (scratch sa.c of journal cell.mars-lander-episode-3.ruby.1792610693648937839; sim = sr.c sim, matches referee). The SA from random restarts finds it; seeded from the 3-4 segment schedules it does not
+- languages with a cheap string repeat should drop two-schedule keys for this shape
