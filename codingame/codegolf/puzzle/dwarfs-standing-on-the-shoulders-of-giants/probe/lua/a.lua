@@ -1,0 +1,1 @@
+s=io.read"a"n=2 for x in s:gmatch"(%d+) %d"do n=n+(s:find(" "..x.."\n")and 1 or 0)end print(n)
