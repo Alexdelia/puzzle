@@ -65,3 +65,5 @@ Details, sources, probe list: `puzzle/temperature/referee/hidden/facts.md` (part
 - no temperature is 0 (verified: 100% with a solution failing on any 0)
 - tie `-t`/`t` at min abs in 6 validators: 5 with `-t` first, 1 with `t` first. Last-of-tie-wins fails 1 validator, first-of-tie-wins fails 5
 - 5 negative answers; one answer has abs >= 10, the other 14 are single digit
+
+TypeScript 74 (CG verified): `eval("print(+readline(readline()).split` `.sort((a,b)=>a*a-b*b||b-a)[0])")`; `+` turns the N=0 empty token into 0, `readline(readline())` skips line 1 without `;`.
