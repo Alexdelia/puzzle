@@ -95,3 +95,7 @@ Port of the JS DFS: lua 1193 B, 11/11 local, CG 100% row #6 (top 147 = hardcode)
 ## Scala general solver (2026-10-21)
 
 Port of the JS DFS: scala 1369 B, CG 100% row #6 (top 172 = hardcode). Needs `object Player` on CG, local referee only runs `Solution`: submit through `oracle.sh` from `probe/scala/` (the passing probe becomes the solution). Without a memo of failed states (`Set[(p,rocks,Arrays.hashCode(g))]`, cleared per turn) tests 04/validators 04,05 time out on 150 ms turns (cold JVM, Seq allocations). Leading-0 sentinel layout (index `y*v+x+1`) avoids the negative-index crash of the JS layout; `N` must guard `p<0`.
+
+## Clojure general solver (2026-10-21)
+
+Port of the JS DFS: clojure 947 B, CG 100% row #3 (top 227 = hardcode). Local referee times out every Clojure solution on turn 1 (JVM startup ~1 s counted in the 1000 ms limit; CG does not count it: 947 passed). Check logic with a scratch copy of the referee with `FIRST_TURN` raised, submit through `oracle.sh` from `probe/clojure/`. Without a memo test 01 / validator 01 time out on turn 2 (150 ms): `(def f(memoize(fn[g p r]...)))` inside `-main` (knowledge/lang/clojure/memoize-def-recursion.md). Dead targets as 0 instead of -9 work with the leading-sentinel layout (cell 0 is a sentinel).
