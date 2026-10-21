@@ -18,6 +18,7 @@ pretty_id `don't-panic` (slug `dont-panic`), interactive. Same game as The Paran
 
 - first turn: 1000 ms (0.95 s pass, 1.05 s timeout)
 - next turns: 150 ms (0.13 s pass, 0.14 s timeout once at turn 5, 0.16 s timeout); statement says 100 ms, wrong
+- Groovy trap (CG 2026-10-21): native groovy 137 (`System.in.eachLine` closure, tokenize, map) passes 15/15 locally but times out at frame 1 on CG in 1-2 of 7 tests per run (tests 4, 6, 1 seen), CG row 85.7 twice. CG JVM uptime at first answer ~1.52 s (1523 pass, 1530 timeout) vs ~0.78 s locally: local referee does not model CG JVM startup. Rules themselves verified: the 5 other tests won with the local turn counts, BLOCK on NONE is a no-op on CG ("You block one clone. Next leading clone coming in 2 turns."). See `knowledge/lang/groovy/env.md`
 
 ## Input quirks
 
