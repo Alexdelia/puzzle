@@ -1,1 +1,1 @@
-(ns Solution(:gen-class))(defn -main[](let[[_ & t](re-seq #"\d+"(slurp *in*))](print(+ 2(count(filter(set(take-nth 2(rest t)))(take-nth 2 t)))))))
+(ns Solution(:gen-class))(defn -main[](let[[_ & t](re-seq #"\d+"(slurp *in*))](println(+ 2(count(filter(set(take-nth 2(rest t)))(take-nth 2 t)))))))
