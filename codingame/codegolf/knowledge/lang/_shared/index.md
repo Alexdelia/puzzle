@@ -8,3 +8,4 @@
 - [best-kept](best-kept.md): CG keeps best submission per language, longer submit harmless but unconfirmable, verified
 - [system-wrapper](system-wrapper.md): `os.system("bash -c ...")` runs bash on CG, interactive io works; cell length = wrapper + shortest core, verified on Python; TRAP: spawned `perl` locally = host 5.42, CG = 5.34 (variable-lookbehind bug), test with `PATH=$CG_PERL/bin:$PATH`
 - [hidden-validators](hidden-validators.md): hardcode/exploits allowed (user rule), `submit.sh --probe`, best-kept makes each probe a 1-bit oracle when shorter than our row, local validators synthetic; first submit in a no-row language reads passed/total via the partial row score (or sum of weights: scores can be weighted)
+- [orphan-child-kill](orphan-child-kill.md): child of an exited main process is killed ~0.3-0.5 s later on CG (wait for it or exec); local referee does not model it, verified
