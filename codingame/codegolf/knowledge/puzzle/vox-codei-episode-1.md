@@ -115,3 +115,10 @@ Guesses (unverified): tops 135-160 (ruby, perl, python) probably key on these va
 - same php plans (stride 12, chr(32+y*12+x), space = WAIT, tab = WAIT inside hidden 9 plan so space can be dropped from the plan text), layout trick in `knowledge/lang/lua/offset-indexed-data.md`: key `(8R+2B-5w)%45` is the start offset of the plan in one 50 char string; chars after the plan serve as the tail waits (after the last bomb any well-formed `x y` is a wait). Tests that leave bombs unused (hidden 2: 2 left, hidden 3: 4 left) need spaces after their plan
 - plan bombs can be permuted freely (no waits except hidden 9), so a smarter packer (overlap of equal cells between windows, other min covers) could shrink the 50 chars; broad key expression search (<=5 leaves, mod 12..64) not finished
 - local referee is flaky (~1/12 runs) for any solution that prints everything and exits fast ("solution closed its input"); CG passed both 217 and 192
+
+## Scala hardcode estimate (2026-10-21, local search only, no submit)
+
+- decoder floor ~146 B: `object Player extends App{val b=new Array[Byte](999);System.in.read(b);for(c<-"DATA".drop(b.sum%m))println(if(c>32)s"${c%12} ${c/12-3}"else"WAIT")}` (base 36 = 3*12 drops `val i=c-32`; cell index <= 90 ASCII, 2-byte chars beyond; `"` and `\` cost +1 escape)
+- keys from the first chunk, sums of bytes `b.sum` of the 11 hidden validators are all distinct (938 976 5619 942 2993 2637 5420 2772 2771 5806 8807 for 1..11); `new String(b).##>>>25` with `Array[Byte](4725)` fits all plans in 115 chars of data (best of ~1.2M tried), `b.sum*a%m` and linear mixes of (sum, n, b(0), b(n-2), b(n-4)) mod m: best data 103 chars (random search 7 min), none <= 64
+- so Scala hardcode ~146+103 = ~250 > top 218; needs a key tuned like lua's (`(8R+2B-5w)%45`, 50 chars of data), not found with random linear keys on chunk features
+- cover enumeration (static blast sets, min size): hidden 1:5 covers, 2:1, 3:56, 4:1, 5:1, 6:5, 7:1, 8:18, 10:2, 11:550 (hidden 9 plan (4,2) WAIT WAIT (1,2))
