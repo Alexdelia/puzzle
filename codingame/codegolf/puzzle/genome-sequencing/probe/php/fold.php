@@ -1,0 +1,1 @@
+<?foreach(str_word_count(`cat`,1)as$t){strstr($t,$s)&&$s='';for($k=8;!strstr($s.$u=substr($t,$k--),$t););$s.=$u;}echo strlen($s);
