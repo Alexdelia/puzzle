@@ -9,3 +9,4 @@
 2026-10-20T20:58:01Z	cell.vox-codei-episode-2.javascript.1792513436665986399	javascript	421	test 7 reuses test 8 plan, print(a,b), inline x	yes: 100% at length 421, committed
 2026-10-21T13:40:11Z	cell.vox-codei-episode-2.php.1792513436919449375	php	490	centroid-normalized orientation hardcode 490B php: does it score 100%	yes: 100% at length 490, committed
 2026-10-21T13:44:14Z	cell.vox-codei-episode-2.php.1792513436919449375	php	457	same without stdin drain loop, answers printed upfront then exit, 457B: does CG accept early exit	yes: 100% at length 457, committed
+2026-10-21T13:56:31Z	cell.vox-codei-episode-2.typescript.1792513437149932528	typescript	418	php-style centroid hardcode ported to ts, 418B: 100%?	yes: 100% at length 418, committed
