@@ -84,3 +84,4 @@ Guesses (unverified):
 ## Scala wrapper (verified 2026-10-21, CG 100%, row 103 rank 2, top 101)
 
 - `sys.process` pipeline of the dash-proof core, no `sh`: awk pattern has no spaces so whitespace splitting keeps it one argument (`lang/scala/sys-process-pipe.md`). Remaining gap 2 bytes: postfix `!<` without `().` does not compile; `run 1>0` longer
+- (reasoned 2026-10-21, not run) without a D guard the N line is always taken in `sort -nr` order (it arrives with e>=N or e=0), so the output is honest+1 or honest with e capped at N; every D-monotone comparison treats D=0 as fitting, only `$2` truthiness or a mawk 0/0 nan catches it. Pattern variants tried on paper (`!$2||`, nan `e*(..)/$2`, reciprocal `1/x`, chained `>!e-!$2`) are all >= the 21-char pattern; journal cell.super-computer.scala.1792607898097975113
