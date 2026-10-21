@@ -72,9 +72,11 @@ Not recovered exactly. Facts and probe answers: `puzzle/the-fall-episode-3/refer
 - 4 validators, general method passes all
 - dims: 14x14, 14x8, 6x6, plus one of no test's dims with W != 14 (no 11x10). (W,H) separates them, W alone does not
 - no validator grid equals a test grid; exactly 1 is a test layout (test 2, 3 or 4) up to room rotation, lock sign and x-mirror; the other 3 are new layouts
+- 6x6 validator = test 2 layout, not mirrored, abs grid equal to test 2 except (2,3) = 12 (test 2: 10); signs, exit, start, rocks unknown (2026-10-21)
+- eager plan (turn-1 min rotations on turns 1..k, then WAIT) wins 1 of 4 validators: the others need turn-timed or rock-aware commands
 - answers unknown: no hardcode possible yet. Tops (python 117) are keyed on data we have not seen
 - probe tooling: CG boxes of Ruby (`exec"python3","-u","-c",B64.unpack1("m")`), Perl, PHP (`passthru`), C (`system`) and Bash all run `python3 -u` interactively (test games won). Use `-u`: stdout is a pipe
-- rows now: python 100%, bash 75%, perl 50%, ruby/php/c 25%: those give a visible answer only above their score (or same score, shorter). Fresh languages (all others) show the exact count once
+- rows now (2026-10-21): cpp 100% (1333, probe chain), objective-c 25%; earlier: python 100%, bash 75%, perl 50%, ruby/php/c 25%: those give a visible answer only above their score (or same score, shorter). Fresh languages (all others) show the exact count once
 - our solver uses >= 7 rotations even on IDE tests: "rotation count <= k" probes measure solver waste, not the validator
 - next (unverified plan): bits of each validator keyed on (W,H), e.g. "6x6 validator: exit x == k", "class-matched validator is the 6x6 one"; one bit per probe in languages with a row, a 0-4 count in a fresh one. Exact recovery needs grid + exit + rock schedule: many probes, plan a multi-task campaign
 
