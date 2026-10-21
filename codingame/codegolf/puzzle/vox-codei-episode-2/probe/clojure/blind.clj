@@ -1,0 +1,1 @@
+(ns Player)(defn -main[_](doseq[[g x y](partition-all 3(nth(.split"q31(45'23& #63& -34)88'44& #64&91&07&  ,20.27.=4.45*;7+8:';0*94/3:%87& 594&   $60&43'48(57&   .32&"" ")(mod(do(read)(read)(*(+(read)6)(read)))15)))](dotimes[_(-(int g)35)](println"WAIT"))(println(-(int x)48)(-(int y)48))))
