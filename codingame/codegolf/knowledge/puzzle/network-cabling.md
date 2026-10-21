@@ -60,3 +60,5 @@ Details, sources and open probes: `puzzle/network-cabling/referee/hidden/facts.m
 - other 8: 4 with N <= 11 (likely N = 1, a large-L one, a dispersed one, one unnamed), 4 with N >= 99999; none in 12..99998
 - no separating key or answers for the 8 unknown: a full hardcode is not possible yet; weak algorithms must still pass N = 1, large coordinates and N about 100000
 - probe rows (sub-100 %, to be replaced by real solutions): php 380, lua 375, typescript 475, ruby 161, perl 209
+
+- ours Clojure 167 (2026-10-21, rank 4, top 158): `F=#(map -(sort > %)(sort %))` on x and y columns; first of F(x) = range, positives of F(y) = deviation sum; trick note `knowledge/lang/clojure/read-pairs-sorted-diff.md`
