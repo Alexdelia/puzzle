@@ -9,3 +9,5 @@ CG verified: yes (chuck-norris test-games, 2026-10-19).
 - CG compiles WITHOUT optimization: `#ifdef __OPTIMIZE__` (CPP) is false on CG (roller-coaster test-game 2026-10-21, journal `referee.roller-coaster.-.1792589750622861841`). Local `agent/tool/lang/haskell/build.sh` uses `ghc -O` (2026-10-21): local timing and memory are optimistic, measure with plain `ghc` (-O0) before trusting a slow-ish solution
 - CG speed at -O0 equals local -O0 (same program 1508 ms CG vs 1459 ms local)
 - local toolchain: nixpkgs 18.09 `haskell.packages.ghc843.ghcWithPackages`, Haskell Platform subset (split, vector, containers, mtl, text, parsec, regex-*, unordered-containers, random); which of these CG ships is unverified
+
+Fixed 2026-10-21: `agent/tool/lang/haskell/build.sh` builds without `-O` like CG, and the referee fails runs over 768 MiB peak RSS (`_shared/memory-limit.md`).

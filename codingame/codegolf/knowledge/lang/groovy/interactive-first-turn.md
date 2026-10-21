@@ -14,3 +14,5 @@ Check locally before submitting an interactive Groovy cell: print `runtimeMXBean
 Next turns (150 ms) are not affected once warm (dont-panic games that survived frame 1 won with the local turn counts).
 
 Data point the-descent (2026-10-21, games 910617668-910617754): `for(;;)println((0..15).max{System.in.read()}>>1)` local main -> answer 79-107 ms; CG main at 1162-1326 ms, answer at 1437 passed, 2/3 instrumented games timed out at frame 1, plain code 5/5 tests then 79.976 on submit (1 validator out). Range `max` with a closure is not cheap enough on a cold JVM.
+
+Checked 2026-10-21: total CPU at the first answer does not predict it (CG-passing Groovy 870-1360 ms, CG-failing 1010-1290 ms, JVM startup dominates), so the referee still does not model it. Before submitting an interactive Groovy cell, run the IDE tests as CG test games (separate limits, cheap) and prefer the ProcessBuilder wrapper.

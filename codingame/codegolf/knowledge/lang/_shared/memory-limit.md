@@ -6,3 +6,5 @@ Probe 2026-10-21 on `roller-coaster-codesize` test 1, Python3 `a=b"\1"*(M<<20);p
 - limit about 768 MiB peak RSS per test (between 751 and 780 MiB)
 - Haskell over the limit can show as `timeout: true` instead (roller-coaster: 1.27 GB peak, 3.1 s locally, CG reports timeout)
 - local referee-core enforces no memory limit (2026-10-21): a solution peaking over ~750 MB passes locally and fails on CG. Check peak with `command time -f %M` before submitting anything that builds big lazy lists or arrays
+
+Fixed 2026-10-21: every referee fails a passing run whose peak RSS exceeds 768 MiB (786432 kB), message `memory N kB over 786432 kB`; `--usage` prints `peak_rss_kb` per case.

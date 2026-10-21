@@ -1,6 +1,6 @@
 # Haskell
 
-- [env](env.md): GHC 8.4.3 exact, base 4.11, CG compiles without -O (local build.sh uses -O), CPP ok, getLine fine without final newline, verified
+- [env](env.md): GHC 8.4.3 exact, base 4.11, CG compiles without -O (local build.sh too since 2026-10-21), CPP ok, getLine fine without final newline, verified
 - [regression-golf](regression-golf.md): Double length via sum(1<$x), helper g for slope, !!min 7
 - [group-unwords-runs](group-unwords-runs.md): Data.List group + unwords for run-length output, bit extraction without imports, lexing traps, verified
 - [char-index-clamp](char-index-clamp.md): glyph index 0..26 from fromEnum with mod/max/min, no import
