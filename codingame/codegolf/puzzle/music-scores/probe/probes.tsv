@@ -2,3 +2,4 @@
 2026-10-20T19:37:07Z	validator.music-scores.-.1792523690839018744	ruby	259	count validators with H==176 or (W,H) equal to test 10/11/12 size (ruby chain step 2)	yes: 100% at length 259, committed
 2026-10-20T19:44:48Z	validator.music-scores.-.1792523690839018744	ruby	241	every validator W in test widths {120,390,420,440,520,4320,4020} (ruby yes/no, len 241 < row 259)	yes: 100% at length 241, committed
 2026-10-21T13:02:17Z	cell.music-scores.php.1792441001839628969	php	256	php 256 port, hardcode x=10 + 7/8 cut: does CG accept?	yes: 100% at length 256, committed
+2026-10-21T13:25:37Z	cell.music-scores.haskell.1792441000876358956	haskell	337	general leftmost-column-top haskell 337: 100%?	yes: 100% at length 337, committed
