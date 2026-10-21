@@ -1,6 +1,8 @@
 # Clojure
 
 - [env](env.md): 1.11.1 AOT compiled on Java 8, run on Java 21; `(ns Solution(:gen-class))` required, top-level runs at compile and run, no stdin read at top level without guard, verified
+- [interactive-player](interactive-player.md): interactive puzzles need `(ns Player(:gen-class))` and `-main[_]` (1 nil arg), Java 8 runtime; local launcher still Solution, verified
+- [interactive-player](interactive-player.md): interactive puzzles need `(ns Player(:gen-class))` and `-main[_]` (1 nil arg), Java 8 runtime; local launcher still Solution, verified
 - [read-all-numbers](read-all-numbers.md): slurp+read-string vector parse; println not printf; 0.9 not .9
 - [stdin-lines](stdin-lines.md): line-seq on *in* fails; .split of slurp, Long. parse, partition+mapcat glyph slicing, verified
 - [golf-tricks](golf-tricks.md): read twice, map-literal switch, remove, indexOf on vec, blank-copy for pair partner, string accumulator (blunder-episode-1 409)
