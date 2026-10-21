@@ -7,3 +7,4 @@
 - [io-package-shadowed](io-package-shadowed.md): `io.StdIn` fails on CG (local ok), use `Console.in.readLine`; String.flatMap returns String
 - [read-all-bytes](read-all-bytes.md): `System.in.readAllBytes` = whole stdin 21 chars (vs scala.io.Source 36), numeric char codes, tuple vars, `0 until 4` reversible; verified
 - [main-object-player](main-object-player.md): interactive puzzles run `Player`, not `Solution` (`ClassNotFoundException: Player$`); local launcher only knows `Solution`; verified
+- [scanner-unzip-doubled-median](scanner-unzip-doubled-median.md): Scanner+Seq.fill+unzip input, (y++y).sorted.splitAt median sum; List index O(n) trap; verified
