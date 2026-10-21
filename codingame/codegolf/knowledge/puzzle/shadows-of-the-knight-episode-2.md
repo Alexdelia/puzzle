@@ -8,6 +8,7 @@ pretty_id `shadows-of-the-knight-episode-2`, leaderboard `shadows-of-the-knight-
 - answer `X Y`: jump there, compare squared Euclidean distance to bombs before/after: `<` WARMER, `>` COLDER, `=` SAME
 - win: jump lands on bombs. lose: N jumps done without landing (win on jump N counts, CG test 6 won at jump 16 of 16)
 - local referee rejects out-of-building windows and malformed lines (CG behavior for those not probed)
+- Scala/Java: CG runs `Player` here (interactive), not `Solution`. scala 279 with `object Solution` passed local, CG submit 0%; CG test game 910625887 (test 7): `ClassNotFoundException: Player$`, timeout frame 1; same code with `object Player` wins test 7 (game 910625895), 2026-10-21. Local launcher runs `Solution` only (`lang/scala/main-object-player.md`): send `object Player` files through `probe/scala/` + `oracle.sh`
 
 ## Tests (CG, 2026-10-19)
 
