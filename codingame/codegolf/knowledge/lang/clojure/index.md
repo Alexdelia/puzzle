@@ -13,3 +13,4 @@
 - [interactive-player](interactive-player.md): interactive puzzles = `(ns Player)(defn -main[_]`, no gen-class, Bridge passes 1 arg, top-level read hangs compile, verified (power-of-thor 143)
 - [lazy-read-iterate](lazy-read-iterate.md): `[l c n & q](repeatedly read)`, `(nth(iterate f x)c)` as 1e7 loop, step cost (mapv/juxt slow, update ok), filter for take-while (roller-coaster 221)
 - [reduce-closures](reduce-closures.md): `(reduce #(%2 %)init(for[..]#(..)))` -8 B vs fn destructuring, `(merge-with + d{j x})` default-0 add, frequencies count map (the-resistance)
+- [python-wrapper-interactive](python-wrapper-interactive.md): `ProcessBuilder.["python3""-c""core"]` + `inheritIO start waitFor` in -main, python3 on CG PATH, core+86 B; local turn-1 timeout is JVM startup, not a fail on CG, verified (the-fall-episode-2 995)
