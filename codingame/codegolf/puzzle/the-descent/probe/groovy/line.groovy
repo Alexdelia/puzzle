@@ -1,0 +1,1 @@
+s=System.in.newReader();for(;;)println((0..7).max{s.readLine()})
