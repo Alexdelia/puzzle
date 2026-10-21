@@ -9,3 +9,4 @@
 2026-10-20T20:16:48Z	validator.the-fall-episode-2.-.1792523691430509058	perl	3022	exact IDE copy or H<9	progress {"submission_id":41537787,"language":"Python3","in_progress":false,"score":100.0,"rank":131,"total":1309,"criteria":"Code size","criteria_score":1022.0}, own row {"pseudo":"Alexdelia","language":"Perl","length":3022,"score":58.0}
 2026-10-20T20:18:02Z	validator.the-fall-episode-2.-.1792523691430509058	ruby	3049	no rock ever appears, or W<11 (rock gate)	yes: 100% at length 3049, committed
 2026-10-21T13:06:46Z	cell.the-fall-episode-2.php.1792513407364813127	php	1187	php port 84%: does silencing notices (error_reporting 0) and int H fix it	yes: 100% at length 1187, committed
+2026-10-21T14:24:29Z	cell.the-fall-episode-2.groovy.1792513407013325316	groovy	1088	groovy ProcessBuilder /usr/bin/python3 -c wrapper around python solution: does python3 exist in the groovy container and pass 100%	yes: 100% at length 1088, committed
