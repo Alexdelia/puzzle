@@ -50,6 +50,12 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
   - rotate X%M-C and C-X%M (M 2..7000, C +-90), X*X/D-C; hill-climb over real linear coefs of X,Y,h,v,f (no landing in ~2000 restarts)
   - so a constant-power, lag-on, single-expression rotate looks unable to land A at all: the tops likely vary power, skip init lines (no lag) or use a rule the sim lacks
 - Scala (2026-10-21, scala cell journal): skeleton `object Player extends App{while(0<1)println(Console.in.readLine()(0)-52+" 4")}` is 77, top 76; `readLine` and `Console.readLine` do not compile in 2.13.5. Rejected in the sim against A and B (validators, not tests): rotate/power = any table of the leading digit of each line (lag on, hill-climb); rotate=(firstchar*a+linelength*b)%M-C power 3; per-CHAR answering (`Console.in.read` loop, answer i = f(stdin char i)): any table over the 13 input symbols for rotate and power, no landing
+- rejected against the EXACT validators A + B (sim `sim.h` in scratch of journal cell.mars-lander-episode-3.perl.1792608246561863256, lag on, power 3|4 const), 2026-10-21:
+  - single field linear rot=trunc(a*F+C), F any of the 7 turn fields (surface lines give x, y, then 0), a in +-{d, 1/d, d/10} d<100, C -99..99: no landing on A nor on B alone
+  - X-only affine and mod (X/D-C, C-X/D, X%M-C, C-X%M): no landing on A alone
+  - X-only chaotic: C*sin|cos(X*K or X/K), trunc(X*K)%M-C: 176 A-landers, 0 joint; C*sin(X*K) random 3M (K real 0..2): 0 B-landers
+  - X-only smooth: C*sin(X/D-E), trunc(C*sin(X/D))-E, D 30..3000: 0 B-landers in 21M
+  - B is the hard map (climb over the (4000,2050) block, come down at x~3500, drift right under it); a hill-climbed lookup table rot=g(X/37) power 4 lands A and B jointly, so X-only control is possible but needs a structured g no 12-char Perl expression above gives
 - rejected on CG (3 test games, see Hidden validators): landing on the cave roof over the flat x-range, landing tilted, vertical-fall tunnelling. The CG referee matches the local one on every rule probed so far
 - JS sweep vs exact A/B (2026-10-21, javascript cell journal ...1792608245697140934, `gen2.py`+`ev.c` in its scratch): templates `for(;;)[X,Y,H,..]=readline().split\` \`,print(E,4)` (JS 52-B shape, lag on, JS NaN semantics for missing fields on N/surface lines), E any infix tree over the 7 fields and <=2 const slots (1..9|10..99|100..999), ops `- * / % >> | & ^ +`, optional `|0`, power 3|4 const; |E| <= 52-38-2k (k = highest field index used). Result: no template lands A and B (~90% of 216944 templates done, the unswept tail = templates with 3+ const digits). No template with |E|<=6 lands B at all (B-first sweep, done)
 - A-only landers are rare too: `for(;;)[X,Y,H]=readline().split\` \`,print(X%H+29|H,4)` (52 B) lands A on the referee (verified `run.sh --hidden`), B gets H=0 -> NaN -> `0 4` -> leaves the top. The C sim (sim.h in that scratch) matches the referee on it
@@ -93,3 +99,16 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - last count `1e5` instead of reading stdin: see knowledge/lang/_shared/pipe-block-keepalive.md
 - rotate=trunc(X/D+b*$.+c) ($. = line number, D +-5..999, b +-1/E E<=30 or +-2,+-3, c -150..150, P 3|4, lag N+1): NO landing on A nor B (77M runs, scratch l.c of journal cell.mars-lander-episode-3.perl.1792609841029262318)
 - chaotic K*sin|cos of X, X*t, X/D+-t, X/t, X+-t/D (K 10..90, D 1..999, P 3|4): A lands 0-5 per 160k, never with B: per-map landing probability ~1e-5, random f(X,t) is hopeless
+
+## One joint schedule, offset-keyed (verified 2026-10-21, Clojure 101 accepted on CG, #1)
+
+- B can fly A's schedule: B = 76 turns of rotate 0 power 4 (vertical climb above the ridge) followed by a schedule that also lands A from its start. So ONE run-length schedule S serves both maps, keyed by the start offset: A reads S from 22K, B from 18K (K=19 -> B sees 4K=76 extra turns). Read N, compute the offset, no second schedule
+- S needs only 4 power-4 segments (long rotate-0 lead, one left tilt ~45, one right tilt ~-30, rotate-0 tail >= 79 turns); found by SA seeded from the haskell cell joint schedule (haskell scratch sb.c), sim journal scratch ju.c of cell.mars-lander-episode-3.clojure.1792608244651104958
+- languages with a cheap "skip k items" (drop, slice, nth offset, string index) should key on N this way instead of two schedules
+
+## Burst and line-hash families (sim, 2026-10-21, ruby cell 1792609841854085209, scratch b.c/c.c, validated vs referee exit turns)
+
+- burst = each input line answered K times (`puts"#{F} 4\n"*K`): turn t uses line floor(t/K), so for K>=8 the whole flight is keyed on surface lines only. A and B (shifted) both required
+- rotate floor(x/D)-C (x = first field), D +-1..3000, P 3|4, K 8..13: 14.6M combos, ZERO land even A
+- rotate (byte sum of line)%M-C (`gets.sum`), M 1..181, K 1..12: 2 land A, none B; line size%M: none land A
+- Ruby `k=PLAN;loop{$><<k}` open-loop (no sync, cyclic repeat) with the Lua SA schedules: 83 CG 100%
