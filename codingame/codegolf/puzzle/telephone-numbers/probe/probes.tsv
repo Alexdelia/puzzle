@@ -12,3 +12,4 @@
 2026-10-21T14:19:26Z	cell.telephone-numbers.groovy.1792441428900409197	groovy	69	groovy P9 inits form 69 B scores 100%?	progress {"submission_id":41542008,"language":"Perl","in_progress":false,"score":100.0,"rank":17,"total":3245,"criteria":"Code size","criteria_score":37.0}, own row {"pseudo":"Alexdelia","language":"Groovy","length":69,"score":84.0}
 2026-10-21T14:21:44Z	cell.telephone-numbers.groovy.1792441428900409197	groovy	72	groovy P9 take-sum 72 B: 100% (is 84% of inits form a memory issue)?	yes: 100% at length 72, committed
 2026-10-21T14:48:22Z	cell.telephone-numbers.scala.1792441430557330077	scala	96	scala P9 inits form 96 B: 100% on CG?	yes: 100% at length 96, committed
+2026-10-21T16:33:38Z	cell.telephone-numbers.clojure.1792441428346521756	clojure	113	clojure native P9 identity: prn dec count set mapcat reductions, 113 B	yes: 100% at length 113, committed

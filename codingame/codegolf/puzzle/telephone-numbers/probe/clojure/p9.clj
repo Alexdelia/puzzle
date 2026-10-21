@@ -1,0 +1,1 @@
+(ns Solution(:gen-class))(defn -main[](prn(dec(count(set(mapcat #(reductions str %)(.split(slurp *in*)"\n")))))))
