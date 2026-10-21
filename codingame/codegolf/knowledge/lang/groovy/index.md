@@ -5,3 +5,4 @@
 - [regex-two-pass-chuck-norris](regex-two-pass-chuck-norris.md): Integer.toString(n,2), $1 empty on unmatched, eachLine
 - [unbound-var-ternary-init](unbound-var-ternary-init.md): no `s=''` init via ternary else-branch on first line; `=~` as contains, `drop`
 - [stdin-chunks-clamp](stdin-chunks-clamp.md): readLines destructure, Matcher getAt, list index bounds, sum() join, verified
+- [char-keyed-map-dispatch](char-keyed-map-dispatch.md): letter-keyed direction map, closure-map dispatch, slashy lookup, verified
