@@ -8,3 +8,4 @@
 - [hardcode-char-plan](hardcode-char-plan.md): one char per move hardcode, key from split header, tail padding, vox-codei 203 B
 - [buffer-indexof-bytes](buffer-indexof-bytes.md): `Buffer.from("..").indexOf(n)` replaces `String.fromCharCode` lookup (-10 B); template/`[a,b,T]=` global init trick, verified
 - [string-key-argmax](string-key-argmax.md): line+index string max in for-update clause, print(m[1]), 58 B, verified
+- [alias-readline](alias-readline.md): `(R=readline)(R(...))` first-use alias, -17 B at 4 uses, verified
