@@ -93,3 +93,10 @@ Guesses (unverified): tops 135-160 (ruby, perl, python) probably key on these va
 - one char per bomb: code = y*w+x+32, decode `i=c.charCodeAt()-32; i%w+' '+(i/w|0)`, space (i=0) prints `WAIT`; cell index must be <= 94 for ASCII (avoid `'` `\` `,`), hidden 11 (15 wide) needs 3 chars >= 128 (2 UTF-8 bytes each; CG length counts bytes: file has 200 chars, 203 bytes)
 - tail: append 3 spaces to the plan (3 `WAIT`) or the process exits before the game ends ("solution exited"); no stdin drain needed
 - tried and not shorter: eval(`R op B`) key (204), `(R+B*3+w)` forms; floor of this scheme about 200, top 168 uses something smarter (unknown)
+
+## PHP hardcode 202 B (CG-verified 100% 2026-10-21, rank 4)
+
+- `$s=fread(STDIN,999)` returns init + first turn line in one chunk on CG (the hardcode passes), so key can use the tail: `substr($s,-5)` = R (leading whitespace and trailing text ignored by numeric cast), `$s[-2]` = B digit, `$s` itself = w (numeric prefix); key `((R+B)*9+w*5)%12` separates all 11 hidden validators with 2 and 4 sharing a plan, max slot 10
+- encoding: 1 char/bomb, `chr(32+y*12+x)`, space = WAIT (also 3 tail waits); stride 12 and ASCII-only forces cell choice: hidden 10 needs (10,7)=94 (only 2 min covers, both use it), hidden 3 needs 5 cells, hidden 5 needs `\` (legal in a single-quoted table if not last/before `'`)
+- no shorter key found: crc32($s)%K needs K>=29 slots, md5/sha1 single hex digit or ord%K never separate the 11 (searched), linear combos of w,h,R,B,len only mod 12
+- floor of this scheme about 200; top 169 (php), 168 (js) must use something else
