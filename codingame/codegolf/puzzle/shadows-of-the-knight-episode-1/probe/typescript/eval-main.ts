@@ -1,0 +1,1 @@
+eval('for(readline(readline(readline([L,U]=readline().split` `))),R=D=0;;){print(_L=_R=+L+R>>1,_U=_D=+U+D>>1);for(c of readline())eval(c+"=_"+c)}')
