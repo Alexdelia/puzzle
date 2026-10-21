@@ -18,3 +18,5 @@
 - [doto-fn-arg](doto-fn-arg.md): `(doto(byte-array S)(#(.read System/in %)))` fills and returns a buffer without let, `(hash(vec b))` key, verified (vox-codei-episode-1 213)
 - [memoize-def-recursion](memoize-def-recursion.md): `(def f(memoize(fn...)))` inside -main memoizes recursion, `abs` in 1.11, `(not= a b c)` trap, local referee counts JVM startup on interactive turn 1, verified (the-fall-episode-3 947)
 - [main-recursion-max-key](main-recursion-max-key.md): `(defn -main[_](-main(prn ..)))` loop 7 B vs while 9, `(apply max-key(fn[_](read))(range 8))` argmax, `#(read)` arity trap, verified (the-descent 75)
+- [get-default-any](get-default-any.md): `(get R z any?)` makes out-of-range rows fully blocked, sets of blocked indices via `#({\0 %}%2)` keep-indexed, `[M V a b c d S _ & r](repeatedly read)` header destructuring, verified (the-bridge-episode-2 467)
+- [repeatedly-read-nth-default](repeatedly-read-nth-default.md): `(repeatedly(read)read)` reads exactly N numbers, so N=0 is safe; `(nth s 0 0)` gives first-or-0; sort/sort-by are stable, min-key keeps the last of a tie; verified (temperature 95)
