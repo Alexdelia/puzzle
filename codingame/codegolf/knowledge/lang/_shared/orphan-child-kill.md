@@ -6,6 +6,10 @@ Verified 2026-10-21 on CG (the-labyrinth test 4, Groovy, test games in `agent/st
 - main sleeping 3 s before exit (`jvm exit 3.01` on stderr), same child: answered up to t=3.43 s, timeout at the next turn (~3.53 s)
 - main exiting at once, fast child (~5 ms/turn): 59 moves, timeout frame 60
 
+Measured locally 2026-10-21: a JVM whose child is still alive takes ~0.4 s to exit after its main returns (0.1 s without a child). So most of CG's 0.3-0.5 s is JVM shutdown: CG kills the children at, or within ~0.1 s of, the real exit of the main process.
+
+Interactive only: io puzzles keep the child (mayan-calculation and music-scores groovy without `.waitFor()` CG 100%).
+
 So "no wait" wrappers (`.start()`, `exec` without wait, background `&`) only work when the whole game or io answer fits in ~0.3 s after main exit. Interactive games running longer need the wait (`.waitFor()` in Groovy, +10 B), or an `exec` that replaces the main process.
 
-Local referee-core does NOT model it (proposal in the journal above): the local referee passes such code (the-labyrinth groovy 257 local 8/8, CG 25%). Until it does, check by hand that the main process outlives the game.
+Local referee-core models it since 2026-10-21 (interactive only): the process group is killed 50 ms after the launcher exits (`agent/tool/referee-core/src/process.rs`). the-labyrinth groovy 257 now fails locally (5/8 tests) as on CG.
