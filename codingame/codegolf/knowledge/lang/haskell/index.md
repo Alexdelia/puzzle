@@ -14,3 +14,4 @@
 - [perl-wrapper-hardcoded](perl-wrapper-hardcoded.md): system wrapper around perl core, string escapes (\\K, \"), the-labyrinth 268
 - [the-fall-dfs-port](the-fall-dfs-port.md): general DFS port 1086 B, NoBuffering needed on interactive, list grid with sentinels
 - [system-cmd-import](system-cmd-import.md): `import System.Cmd` 4 bytes shorter than System.Process, the-descent 72 #1
+- [system-cmd-bash-core](system-cmd-bash-core.md): `import System.Cmd;main=system"bash -c '..'"` wrapper, 31 overhead, shadows-of-the-knight-episode-2 259
