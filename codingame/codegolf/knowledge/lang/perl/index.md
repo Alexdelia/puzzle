@@ -21,3 +21,4 @@
 - [abs-precedence](abs-precedence.md): `abs$a-abs$b` mis-parses, use squares in sort comparator, verified
 - [chop-list-argmax](chop-list-argmax.md): `chop(@a=sort map<>.$_,0..7)` returns index of max, `$|=@a=...` flush for free, verified locally
 - [interactive-init-read](interactive-init-read.md): list-context <> hangs, `scalar<>` in call args, `(A.B)!~/0/` precedence, $1 aliasing in map, `0 x99`, verified locally
+- [match-vars-parse](match-vars-parse.md): `$w=/ /+$'`, `$p=$-[!/@/]`, regex-position char index, list-slice undef pitfall, verified locally
