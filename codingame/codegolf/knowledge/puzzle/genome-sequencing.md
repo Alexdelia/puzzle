@@ -83,3 +83,5 @@ Probes 2026-10-20 (6 of 10 spent; python row 465 -> 151 -> 120 -> 116, perl row 
 - Haskell fold 151 (2026-10-21): scores only 93% on CG (python/php folds of same logic get 100%); `[0..10]` instead of `[0..8]` does not fix it; cause unknown (7 validators)
 
 - Groovy 96 (CG 100%, rank 1, 2026-10-21): input-order fold, `System.in.eachLine{t->s=t>'9'?t=~s?t:s+t.drop((7..0).find{(s+t.drop(it))=~t}):''}` then `print s.size()`; reset folded into `t=~s?t:` (s inside t gives t), see `lang/groovy/unbound-var-ternary-init.md`
+
+- Scala 154 (CG 100%, 2026-10-21, top 115): `object Solution extends App{print(Console.in.lines.skip(1).reduce((s,t)=>if(t contains s)t else s+t.tails.filter(u=>s+u contains t).toSeq.last).get.size)}`; see `lang/scala/console-in-lines.md`. Dropping the `s contains t` test (regex `(.*)\n\1` merge, 148, or endsWith/inits, 157) fails local t04 (CG test): not probed. Gap to 115 unexplained.
