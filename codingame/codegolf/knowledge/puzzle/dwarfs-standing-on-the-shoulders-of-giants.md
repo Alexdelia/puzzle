@@ -155,3 +155,5 @@ Php (2026-10-21): `2+L` key as one regex over input doubled with a blank line, 6
 Haskell (2026-10-21): `2+L` key, 82 bytes, CG 100% via --probe (rank 3, top 59): `main=interact$show.(+2).length.f.map words.lines` + newline + `f(_:w)=[a|a:_<-w,elem a$last<$>w]`. Must drop the N line (`_:`): `N=1` validator `1/1 2` otherwise matches X=1 with N.
 
 Lua (2026-10-21): `2+L` key, 92 bytes, CG 100% via --probe (rank 4, top 39): `s=io.read"a"n=2 for x in s:gmatch"(%d+) "do n=n+(s:find(" "..x.."\n")and 1 or 0)end print(n)`. Top 39 key still unknown.
+
+TypeScript (2026-10-21): 2+L key 114 bytes, CG 100% via --probe (rank 8, top 60): `let s=require("fs").readFileSync(0)+"";console.log(2+s.match(/\d+(?= )/g).filter(x=>s.includes(` ${x}\n`)).length)` (quotes/backslash as in file probe/typescript/a.ts).
