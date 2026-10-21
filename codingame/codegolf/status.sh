@@ -23,30 +23,33 @@ screen_width=
 [[ $screen_width =~ ^[0-9]+$ ]] || screen_width=$fallback_width
 
 paint() {
-	local sgr=$1 text=$2
-	if ((use_color)) && [[ -n $sgr ]]; then
-		printf '\e[%sm%s\e[0m' "$sgr" "$text"
+	if ((use_color)) && [[ -n $2 ]]; then
+		printf -v "$1" '\e[%sm%s\e[0m' "$2" "$3"
 	else
-		printf '%s' "$text"
+		printf -v "$1" '%s' "$3"
 	fi
 }
 
 section() {
-	paint "$bold" "# $1"
-	echo
+	local heading
+	paint heading "$bold" "# $1"
+	echo "$heading"
 }
 
 hex_to_sgr() {
-	local hex=${1#\#}
-	printf '38;2;%d;%d;%d' "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
+	local hex=${2#\#}
+	printf -v "$1" '38;2;%d;%d;%d' "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
 }
 
 declare -A lang_icon lang_sgr
 load_lang_styles() {
-	local slug icon color
+	local slug icon color sgr
 	while IFS=$'\t' read -r slug icon color; do
 		lang_icon[$slug]=$icon
-		[[ -z $color ]] || lang_sgr[$slug]=$(hex_to_sgr "$color")
+		[[ -z $color ]] || {
+			hex_to_sgr sgr "$color"
+			lang_sgr[$slug]=$sgr
+		}
 	done < <(awk -F'\t' '
 		NR == 1 { for (i = 1; i <= NF; i++) column[$i] = i; next }
 		{ print $1 "\t" $column["icon"] "\t" $column["color"] }
@@ -59,47 +62,51 @@ is_lang() {
 }
 
 lang_label() {
-	local slug=$1 width=${2:-0}
-	printf '%s %-*s' "$(paint "${lang_sgr[$slug]:-}" "${lang_icon[$slug]:- }")" "$width" "$slug"
+	local slug=$2 width=${3:-0} painted_icon
+	paint painted_icon "${lang_sgr[$slug]:-}" "${lang_icon[$slug]:- }"
+	printf -v "$1" '%s %-*s' "$painted_icon" "$width" "$slug"
 }
 
 status_sgr() {
-	case $1 in
-	ready | done | first) echo "$green" ;;
-	active | running) echo "$cyan" ;;
-	plateau) echo "$yellow" ;;
-	blocked | suspect | rejected | failed) echo "$red" ;;
-	*) echo "$dim" ;;
+	case $2 in
+	ready | done | first) printf -v "$1" '%s' "$green" ;;
+	active | running) printf -v "$1" '%s' "$cyan" ;;
+	plateau) printf -v "$1" '%s' "$yellow" ;;
+	blocked | suspect | rejected | failed) printf -v "$1" '%s' "$red" ;;
+	*) printf -v "$1" '%s' "$dim" ;;
 	esac
 }
 
 event_sgr() {
-	case $1 in
-	attention) echo "$yellow" ;;
-	review) echo "$cyan" ;;
-	*) status_sgr "$1" ;;
+	case $2 in
+	attention) printf -v "$1" '%s' "$yellow" ;;
+	review) printf -v "$1" '%s' "$cyan" ;;
+	*) status_sgr "$1" "$2" ;;
 	esac
 }
 
 progress_ratio() {
-	local first=$1 ran=$2 total=$3
-	local tail="|$ran/$total" text
+	local first=$2 ran=$3 total=$4
+	local tail="|$ran/$total" ratio_text painted_first painted_bar painted_total
 	if ((first == 0 && ran == 0)); then
-		text=$(paint "$dim" "$first$tail")
+		paint ratio_text "$dim" "$first$tail"
 	else
-		text="$(paint "$bold;$green" "$first")$(paint "$dim" "|")$ran$(paint "$dim" "/$total")"
+		paint painted_first "$bold;$green" "$first"
+		paint painted_bar "$dim" "|"
+		paint painted_total "$dim" "/$total"
+		ratio_text=$painted_first$painted_bar$ran$painted_total
 	fi
-	printf '%*s%s%*s' $((3 - ${#first})) '' "$text" $((progress_ratio_width - 3 - ${#tail})) ''
+	printf -v "$1" '%*s%s%*s' $((3 - ${#first})) '' "$ratio_text" $((progress_ratio_width - 3 - ${#tail})) ''
 }
 
 pace_sgr() {
-	local used=$1 elapsed=$2
+	local used=$2 elapsed=$3
 	if ((used >= elapsed)); then
-		echo "$red"
+		printf -v "$1" '%s' "$red"
 	elif ((elapsed - used <= close_pace_points)); then
-		echo "$yellow"
+		printf -v "$1" '%s' "$yellow"
 	else
-		echo "$green"
+		printf -v "$1" '%s' "$green"
 	fi
 }
 
@@ -111,7 +118,7 @@ print_grid() {
 	((per_row >= 1)) || per_row=1
 	local rows=$(((${#entries[@]} + per_row - 1) / per_row))
 	local row column index line separator
-	separator=$(printf '%*s' "$column_gap" '')
+	printf -v separator '%*s' "$column_gap" ''
 	for ((row = 0; row < rows; row++)); do
 		line=
 		for ((column = 0; column < per_row; column++)); do
@@ -125,15 +132,19 @@ print_grid() {
 }
 
 status_counts() {
-	local files=("$1"/*.json)
+	local label=$1 files=("$2"/*.json)
+	printf '%-12s' "$label"
 	if ((${#files[@]} == 0)); then
-		paint "$dim" none
-		echo
+		local none
+		paint none "$dim" none
+		echo "$none"
 		return
 	fi
-	local count status line=
+	local count status sgr painted line=
 	while read -r count status; do
-		line+="$(paint "$(status_sgr "$status")" "$status") $count  "
+		status_sgr sgr "$status"
+		paint painted "$sgr" "$status"
+		line+="$painted $count  "
 	done < <(jq -r .status "${files[@]}" | sort | uniq -c)
 	echo "$line"
 }
@@ -143,54 +154,69 @@ names_with_status() {
 	local files=("$dir"/*.json)
 	((${#files[@]})) || return 0
 	jq -r --arg status "$status" 'select(.status == $status) | input_filename' "${files[@]}" |
-		xargs -r -n1 basename | sed 's/\.json$//' || true
+		sed 's|.*/||; s/\.json$//'
 }
 
 blocked_line() {
-	local name labels=()
+	local name label labels=() heading
 	while read -r name; do
-		labels+=("$(lang_label "$name")")
+		lang_label label "$name"
+		labels+=("$label")
 	done < <(names_with_status blocked "$state/lang")
 	while read -r name; do
 		labels+=("$name")
 	done < <(names_with_status blocked "$state/referee")
 	((${#labels[@]})) || return 0
-	echo "$(paint "$red" "blocked:")  ${labels[*]}"
+	paint heading "$red" "blocked:"
+	echo "$heading  ${labels[*]}"
+}
+
+cell_table() {
+	local cells=("$state"/cell/*/*.json)
+	((${#cells[@]})) || return 0
+	jq -r '[input_filename, .status, (.attempts // 0), .ours, .top] | @tsv' "${cells[@]}" | sed 's|^[^\t]*/cell/||; s|\.json\t|\t|'
 }
 
 first_total_line() {
-	local langs=("$state"/lang/*.json) puzzles=("$state"/puzzle/*.json) cells=("$state"/cell/*/*.json) first=0
-	((${#cells[@]} == 0)) || first=$(jq -r 'select(.status == "first") | .status' "${cells[@]}" | wc -l)
-	echo "$(paint "$bold;$green" "$first")$(paint "$dim" /)$((${#langs[@]} * ${#puzzles[@]}))"
+	local langs=("$state"/lang/*.json) puzzles=("$state"/puzzle/*.json) first painted_first painted_bar
+	first=$(awk -F'\t' '$2 == "first" { first++ } END { print first + 0 }' <<<"$cells")
+	paint painted_first "$bold;$green" "$first"
+	paint painted_bar "$dim" /
+	echo "$painted_first$painted_bar$((${#langs[@]} * ${#puzzles[@]}))"
 }
 
 cell_rows() {
-	local key_sed=$1
-	shift
-	jq -r '[input_filename, .status, (.attempts // 0)] | @tsv' "$@" | sed "$key_sed" |
-		awk -F'\t' '{ total[$1]++; if ($2 == "first") first[$1]++; else if ($2 != "todo" || $3 > 0) ran[$1]++ }
-			END { for (key in total) printf "%s\t%d\t%d\t%d\n", key, first[key], ran[key], total[key] }' |
-		sort
+	local key_field=$1
+	awk -F'\t' -v key_field="$key_field" '
+		{ split($1, cell, "/"); key = cell[key_field]; total[key]++ }
+		$2 == "first" { first[key]++; next }
+		$2 != "todo" || $3 > 0 { ran[key]++ }
+		END { for (key in total) printf "%s\t%d\t%d\t%d\n", key, first[key], ran[key], total[key] }
+	' <<<"$cells" | sort
 }
 
 lang_table() {
-	local slug first ran total entries=() name_width=12
+	local slug first ran total label ratio entries=() name_width=12
 	while IFS=$'\t' read -r slug first ran total; do
-		entries+=("$(lang_label "$slug" "$name_width") $(progress_ratio "$first" "$ran" "$total")")
-	done < <(cell_rows 's|.*/cell/[^/]*/||; s|\.json||' "$@")
+		lang_label label "$slug" "$name_width"
+		progress_ratio ratio "$first" "$ran" "$total"
+		entries+=("$label $ratio")
+	done < <(cell_rows 2)
 	print_grid $((2 + name_width + 1 + progress_ratio_width)) "${entries[@]}"
 }
 
 puzzle_table() {
-	local puzzle first ran total rows=() entries=() name_width=0
+	local puzzle first ran total ratio rows=() entries=() name_width=0
 	while IFS=$'\t' read -r puzzle first ran total; do
 		rows+=("$puzzle"$'\t'"$first"$'\t'"$ran"$'\t'"$total")
 		((${#puzzle} <= name_width)) || name_width=${#puzzle}
-	done < <(cell_rows 's|.*/cell/||; s|/[^/]*\.json||' "$@")
-	local row
+	done < <(cell_rows 1)
+	local row entry
 	for row in "${rows[@]}"; do
 		IFS=$'\t' read -r puzzle first ran total <<<"$row"
-		entries+=("$(printf '%-*s' "$name_width" "$puzzle") $(progress_ratio "$first" "$ran" "$total")")
+		progress_ratio ratio "$first" "$ran" "$total"
+		printf -v entry '%-*s %s' "$name_width" "$puzzle" "$ratio"
+		entries+=("$entry")
 	done
 	print_grid $((name_width + 1 + progress_ratio_width)) "${entries[@]}"
 }
@@ -201,46 +227,78 @@ smallest_gaps() {
 		rows+=("$gap"$'\t'"$cell"$'\t'"$ours"$'\t'"$top")
 		puzzle=${cell%/*}
 		((${#puzzle} <= puzzle_width)) || puzzle_width=${#puzzle}
-	done < <(jq -r 'select(.status != "first" and .ours != null and .top != null) | [(.ours - .top), input_filename, .ours, .top] | @tsv' "$@" |
-		sed 's|[^\t]*/cell/||; s|\.json||' | sort -n | head -10 || true)
-	local row
+	done < <(awk -F'\t' '$2 != "first" && $4 != "" && $5 != "" { print $4 - $5 "\t" $1 "\t" $4 "\t" $5 }' <<<"$cells" | sort -n | head -10 || true)
+	local row padded_gap painted_gap label ours_tag top_tag
+	paint ours_tag "$dim" ours
+	paint top_tag "$dim" top
 	for row in "${rows[@]}"; do
 		IFS=$'\t' read -r gap cell ours top <<<"$row"
 		puzzle=${cell%/*}
 		lang=${cell#*/}
-		printf '  %s %s %-*s  %s %4s  %s %4s\n' "$(paint "$yellow" "$(printf '+%-4s' "$gap")")" "$(lang_label "$lang" 12)" \
-			"$puzzle_width" "$puzzle" "$(paint "$dim" ours)" "$ours" "$(paint "$dim" top)" "$top"
+		printf -v padded_gap '+%-4s' "$gap"
+		paint painted_gap "$yellow" "$padded_gap"
+		lang_label label "$lang" 12
+		printf '  %s %s %-*s  %s %4s  %s %4s\n' "$painted_gap" "$label" "$puzzle_width" "$puzzle" "$ours_tag" "$ours" "$top_tag" "$top"
 	done
 }
 
 task_subject() {
-	local kind=$1 puzzle=$2 lang=$3 subject
-	subject=$(printf '%-7s' "$kind")
-	[[ $puzzle == - ]] || subject+=" $puzzle"
+	local kind=$2 puzzle=$3 lang=$4 task_text label
+	printf -v task_text '%-7s' "$kind"
+	[[ $puzzle == - ]] || task_text+=" $puzzle"
 	if [[ $lang != - ]]; then
-		subject+=" $(lang_label "$lang")"
+		lang_label label "$lang"
+		task_text+=" $label"
 	fi
-	printf '%s' "$subject"
+	printf -v "$1" '%s' "$task_text"
 }
 
-running_minutes() {
-	local started
-	started=$(date -d "$1" +%s 2>/dev/null) || started=$(date +%s)
-	echo $((($(date +%s) - started) / 60))
+running_rows() {
+	local running_files=("$state"/running/*.json)
+	((${#running_files[@]})) || return 0
+	jq -n -R -r '
+		reduce inputs as $line ({}; .[input_filename] += $line + "\n")
+		| .[] | fromjson?
+		| [.id, .worker, (try ((now - (.started_at | fromdateiso8601)) / 60 | floor) catch 0), .kind, .puzzle, .lang]
+		| map(. // "-") | @tsv
+	' "${running_files[@]}" 2>/dev/null || true
+}
+
+journal_last_lines() {
+	local journals=() id
+	for id in "$@"; do
+		[[ -s $state/journal/$id.md ]] && journals+=("$state/journal/$id.md")
+	done
+	((${#journals[@]})) || return 0
+	awk '
+		FNR == 1 && previous { print previous "\t" substr(last, 1, 150) }
+		FNR == 1 { previous = FILENAME; sub(/.*\//, "", previous); sub(/\.md$/, "", previous); last = "" }
+		NF { last = $0 }
+		END { if (previous) print previous "\t" substr(last, 1, 150) }
+	' "${journals[@]}"
 }
 
 running_tasks() {
-	local running id worker started_at kind puzzle lang journal last_line
-	for running in "$state"/running/*.json; do
-		IFS=$'\t' read -r id worker started_at kind puzzle lang < <(
-			jq -r '[.id, .worker, .started_at, .kind, .puzzle, .lang] | map(. // "-") | @tsv' "$running" 2>/dev/null || true
-		) || continue
-		printf '%s %-3s %4sm  %s  %s\n' "$(paint "$cyan" running)" "w$worker" "$(running_minutes "$started_at")" \
-			"$(task_subject "$kind" "$puzzle" "$lang")" "$(paint "$dim" "$id")"
-		journal=$state/journal/$id.md
-		[[ -s $journal ]] || continue
-		last_line=$(grep -v '^[[:space:]]*$' "$journal" | tail -n 1 | cut -c1-150 || true)
-		[[ -z $last_line ]] || echo "    $(paint "$dim" "$last_line")"
+	local rows=() row id worker minutes kind puzzle lang ids=() last_line running_tag subject painted_id painted_line
+	declare -A last_lines
+	mapfile -t rows < <(running_rows)
+	for row in "${rows[@]}"; do
+		ids+=("${row%%$'\t'*}")
+	done
+	while IFS=$'\t' read -r id last_line; do
+		last_lines[$id]=$last_line
+	done < <(journal_last_lines "${ids[@]}")
+	paint running_tag "$cyan" running
+	for row in "${rows[@]}"; do
+		IFS=$'\t' read -r id worker minutes kind puzzle lang <<<"$row"
+		task_subject subject "$kind" "$puzzle" "$lang"
+		paint painted_id "$dim" "$id"
+		printf '%s %-3s %4sm  %s  %s\n' "$running_tag" "w$worker" "$minutes" "$subject" "$painted_id"
+		last_line=${last_lines[$id]:-}
+		[[ -z $last_line ]] || {
+			paint painted_line "$dim" "$last_line"
+			echo "    $painted_line"
+		}
 	done
 }
 
@@ -254,18 +312,22 @@ weekly_usage() {
 	local stream modified view
 	if IFS=$'\t' read -r stream modified < <(newer_running_stream); then
 		view=$(mktemp)
-		jq -c 'select(.type == "rate_limit_event") | .rate_limit_info' "$stream" | tail -n 1 |
-			jq --argjson at "$modified" '. + {recorded_at: $at}' >"$view"
+		last_rate_limit_info "$stream" | jq --argjson at "$modified" '. + {recorded_at: $at}' >"$view"
 		usage_file=$view
 	fi
 	[[ -s $usage_file ]] || return 0
-	local used elapsed recorded_at five_hour five_hour_sgr=$green
+	local used elapsed recorded_at resets_at five_hour five_hour_sgr=$green sgr pace painted_five_hour painted_as_of
 	read -r used elapsed < <(weekly_pace)
-	recorded_at=$(date -d "@$(jq .recorded_at "$usage_file")" +%FT%T)
-	echo "  weekly usage $(paint "$(pace_sgr "$used" "$elapsed")" "${used}% vs ${elapsed}%") of week elapsed (stop at used + ${weekly_pace_margin_percent} >= elapsed), $(paint "$dim" "as of $recorded_at")"
+	printf -v recorded_at '%(%FT%T)T' "$(jq .recorded_at "$usage_file")"
+	pace_sgr sgr "$used" "$elapsed"
+	paint pace "$sgr" "${used}% vs ${elapsed}%"
+	paint painted_as_of "$dim" "as of $recorded_at"
+	echo "  weekly usage $pace of week elapsed (stop at used + ${weekly_pace_margin_percent} >= elapsed), $painted_as_of"
 	five_hour=$(five_hour_used)
 	((five_hour + five_hour_task_reserve_percent <= five_hour_limit_percent)) || five_hour_sgr=$red
-	echo "  five-hour usage $(paint "$five_hour_sgr" "${five_hour}%"), resets $(date -d "@$(five_hour_resets_at)" +%T) (claim while used + ${five_hour_task_reserve_percent}% x (running + 1) <= ${five_hour_limit_percent}%)"
+	paint painted_five_hour "$five_hour_sgr" "${five_hour}%"
+	printf -v resets_at '%(%T)T' "$(five_hour_resets_at)"
+	echo "  five-hour usage $painted_five_hour, resets $resets_at (claim while used + ${five_hour_task_reserve_percent}% x (running + 1) <= ${five_hour_limit_percent}%)"
 	[[ -z ${view:-} ]] || rm -f "$view"
 }
 
@@ -273,35 +335,40 @@ print_event() {
 	local line=$1
 	local timestamp=${line%%$'\t'*} message=${line#*$'\t'}
 	local kind=${message%% *} rest=${message#* }
+	local label sgr painted_timestamp painted_kind
 	if [[ $kind == rejected ]]; then
 		local puzzle=${rest%% *} after_puzzle=${rest#* }
 		local lang=${after_puzzle%% *} detail=${after_puzzle#* }
 		if [[ -n $lang ]] && is_lang "$lang"; then
-			rest="$puzzle $(lang_label "$lang") $detail"
+			lang_label label "$lang"
+			rest="$puzzle $label $detail"
 		fi
 	fi
-	echo "$(paint "$dim" "$timestamp") $(paint "$(event_sgr "$kind")" "$kind") $rest"
+	event_sgr sgr "$kind"
+	paint painted_timestamp "$dim" "$timestamp"
+	paint painted_kind "$sgr" "$kind"
+	echo "$painted_timestamp $painted_kind $rest"
 }
 
 section env
-echo "langs:      $(status_counts "$state/lang")"
-echo "referees:   $(status_counts "$state/referee")"
-echo "validators: $(status_counts "$state/validator")"
-echo "puzzles:    $(status_counts "$state/puzzle")"
+status_counts langs: "$state/lang"
+status_counts referees: "$state/referee"
+status_counts validators: "$state/validator"
+status_counts puzzles: "$state/puzzle"
 blocked_line
+cells=$(cell_table)
 first_total_line
 
-cells=("$state"/cell/*/*.json)
-if ((${#cells[@]})); then
+if [[ -n $cells ]]; then
 	echo
 	section "cells first|ran/total per lang"
-	lang_table "${cells[@]}"
+	lang_table
 	echo
 	section "cells first|ran/total per puzzle"
-	puzzle_table "${cells[@]}"
+	puzzle_table
 	echo
 	section "smallest gaps not first (ours - top)"
-	smallest_gaps "${cells[@]}"
+	smallest_gaps
 fi
 
 echo
@@ -310,8 +377,8 @@ queued=("$state"/queue/*.json)
 echo "queued: ${#queued[@]}"
 running_tasks
 if [[ -e $state/STOP ]]; then
-	paint "$bold;$yellow" "STOP set: workers stop after their current task"
-	echo
+	paint stop_notice "$bold;$yellow" "STOP set: workers stop after their current task"
+	echo "$stop_notice"
 fi
 
 echo
