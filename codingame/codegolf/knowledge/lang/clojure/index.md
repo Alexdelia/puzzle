@@ -17,3 +17,4 @@
 - [interactive-spawn](interactive-spawn.md): interactive spawn must live in `-main[_]` (top-level child blocks CG compile on open stdin pipe), local turn-1 timeout = startup artifact, verified (sotk2)
 - [doto-fn-arg](doto-fn-arg.md): `(doto(byte-array S)(#(.read System/in %)))` fills and returns a buffer without let, `(hash(vec b))` key, verified (vox-codei-episode-1 213)
 - [memoize-def-recursion](memoize-def-recursion.md): `(def f(memoize(fn...)))` inside -main memoizes recursion, `abs` in 1.11, `(not= a b c)` trap, local referee counts JVM startup on interactive turn 1, verified (the-fall-episode-3 947)
+- [main-recursion-max-key](main-recursion-max-key.md): `(defn -main[_](-main(prn ..)))` loop 7 B vs while 9, `(apply max-key(fn[_](read))(range 8))` argmax, `#(read)` arity trap, verified (the-descent 75)
