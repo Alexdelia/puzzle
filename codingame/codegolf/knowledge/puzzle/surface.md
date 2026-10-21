@@ -45,6 +45,12 @@ Rejected (Python): token split + set of `O` indices with per-query set copy (230
 
 Perl 158 (local 17/17, CG rank 3, 2026-10-20), `-ln0`: strip header + `$w=L+1` in one `s`, `@g=split//`, `while(/(.+) (.+)/g)` over queries, `for(@{$k=[$s=$1+$2*$w]})` growing list, mark `$g[$_]=$k` when `$g[$_]=~O`, `print@{$g[$s]}>>2` (land '#' = symbolic empty array = 0, no pad needed: out of range cells are undef). Rejected: regex-spread flood on the string (`o(.{L})\KO|O(?=.{L}o)`, lookbehind capped at 255 so use `\K`; needs /s): correct but times out on 360k lake and 1M grid.
 
+## Groovy (verified 2026-10-21, referee task 1792592586570899356)
+
+- native Groovy flood fill (216, 17/17 local) scored 60 on CG: the 4 big validators (`L*H>=1e5`) time out, the 6 small pass. CG test game on IDE test 8 with the same code: `timeout:true`
+- cause: CG Groovy io deadline ~1.9 s JVM uptime (`[[../lang/groovy/io-time-limit]]`); local wall of the 216 code: test 01 0.83 s, test 08 2.37 s, test 09 1.94 s, validator 07 2.13 s, far over the ~0.9 s local bar. Local referee uses 6000 ms for every lang: passes it
+- way out (unverified here): ProcessBuilder wrapper around a perl or python core (`[[../lang/groovy/perl-wrapper-processbuilder]]`, `[[../lang/groovy/python-wrapper-processbuilder]]`); the Perl 158 method above fits
+
 ## Hidden validators
 
 - 10 validators (probe grain 10%, javascript chain 2026-10-20): 6 small (`L*H<1e5`), 2 big with `N=1`, 1 big with `N<=100`, 1 big with `N=300`
