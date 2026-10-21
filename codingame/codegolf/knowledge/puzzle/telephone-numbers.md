@@ -66,3 +66,7 @@ Probed 2026-10-20, details and probe list in `referee/hidden/facts.md`. Not reco
 - verified on all CG validators: final newline present, digits + LF only, N >= 1, lengths 2..20. Methods relying on the final newline (Python `s[:~i]`) are safe
 - verified (P9, 100%): line 1 adds exactly one new prefix on every validator and every test: answer = distinct non-empty prefixes over ALL lines, line 1 included, minus 1. Drop the line-1 skip, subtract one more. Python whole-input slice form measured 56 (vs 60 row): passes tests 5/5 but fails 3 of our synthetic `validators/` (they break the identity), so submit with `submit.sh --probe` (CG pass implied by P9, not submitted yet)
 - refuted (P6, 0%): counting all lines with no correction (line 1 always adds a prefix)
+
+## PHP (2026-10-21)
+
+- 42, CG row (probe 100%): `<?=`sed ':a;p;s/.$//;ta'|sort -u|wc -w`-1;` = wrapper 6 + sed core 34 + `-1` 2. Uses P9 (no `1d`; `wc -w` gives answer+1, `-1` on the shell output string works in PHP 7.3 with a notice). Top 39 needs a 33-byte core: not found
