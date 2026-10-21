@@ -1,0 +1,2 @@
+perl -0pe'@d=($w=/ .+/+$&,1,-$w,-1);/@/;$p=$-[0];@m=/./sg;map{$o.=(SOUTH,EAST,NORTH,WEST)[$k]."
+";$k=$-[0]if SENW=~$_;$x^=/I/*3;$b=!$b if/B/;y/X/ /;($p)=grep$_-$p&&$m[$_]=~T,0..@m if/T/}$m[$p+=$d[$k=(grep$m[$p+$d[$_]]!~/#|X$b/,$k,map$_^$x,0..3)[0]]]for@m;$_=$k>3?$o:LOOP'
