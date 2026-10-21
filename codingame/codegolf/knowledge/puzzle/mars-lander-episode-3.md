@@ -31,6 +31,7 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 ## Shortest known
 
 - open-loop plans (printed at turn 1, keyed on first input byte, power 4 const, rotate run-length segments, SA in a C sim): A lands with 3 segments, B with 4-5 (journal cell.mars-lander-episode-3.haskell.1792608245409572236). Haskell 106 CG 100% this way; one schedule landing both not found (short SA runs)
+- with power free per segment (0..4) and a shared tail `0 4` forever: A lands with 2 segments, B with 3 (SA, journal cell.mars-lander-episode-3.groovy.1792608245260147310, sa.c in its scratch); B with 2 not found (8 seeds x 4M iters), joint single schedule far off (crash, 6 seeds). Groovy 106 CG 100% (2026-10-21). Tail must last > 40 turns on B. All answers printed at once work on CG, but the process must stay alive (exiting early races: local referee "solution closed its input")
 
 - TypeScript wrapper cost (verified local tsc 2026-10-21): `for(;;)console.log(parseInt(readline())/99-40|0,4)` type-checks, 50 B = JS `print` form 44 + 6; any JS one-liner via `eval("...")` = JS + 8, so TS top 60 = JS top 52 + 8
 - ours: Python 1952 (generic planner, not golfed hard). Top Python 57 (Waffle3z): far shorter approach exists, unknown
