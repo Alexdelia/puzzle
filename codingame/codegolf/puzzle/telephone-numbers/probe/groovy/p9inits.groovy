@@ -1,0 +1,1 @@
+print System.in.readLines()*.toList()*.inits().sum().toSet().size()-2

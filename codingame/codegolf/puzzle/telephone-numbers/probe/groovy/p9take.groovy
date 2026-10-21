@@ -1,0 +1,1 @@
+x=System.in.readLines();print((1..20).sum{x*.take(it)}.toSet().size()-1)
