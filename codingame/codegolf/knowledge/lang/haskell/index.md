@@ -20,3 +20,4 @@
 - [foldr-pair-max](foldr-pair-max.md): foldr max over (key,value) pairs with seed, tie to larger via max, temperature 72
 - [interact-blocks-interactive](interact-blocks-interactive.md): lazy interact plan-at-turn-1, reads=<<words numeric parse, words table, 238 on vox-codei
 - [interact-runlength-plan](interact-runlength-plan.md): open-loop plan as count-char words, `[d..'~']>>`, `cycle$` keeps process alive (finite plan = referee "closed its input"), keyed on s, mars-lander-3 106
+- [interact-filter-key](interact-filter-key.md): `do d:r<-` no parens, `words$"DATA "++s` keepalive (trailing space!), `filter(>s)` keys data words on the raw input, verified
