@@ -1,0 +1,2 @@
+//@ts-ignore
+w=parseInt((R=readline)());s=R().replace(/(.) (\d+) ?/g,(_,c,n)=>c.repeat(n));m=s.length*7/8;for(x=q=o=[];x<w;q<(q=i<m)&&o.push("AGFEDCB"[(13*i-42*w)/m%7|0]+"QH"[s[i+5]>"B"|0]))for(i=x++;s[i]>=s[i-x+11];i+=w);print(...o)
