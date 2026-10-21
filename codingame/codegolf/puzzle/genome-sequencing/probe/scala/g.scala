@@ -1,0 +1,1 @@
+object Solution extends App{print(Console.in.lines.skip(1).reduce((s,t)=>if(t contains s)t else s+t.tails.filter(u=>s+u contains t).toSeq.last).get.size)}
