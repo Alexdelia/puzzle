@@ -11,7 +11,7 @@
 - [interactive-first-turn](interactive-first-turn.md): interactive frame-1 deadline ~1.5 s JVM uptime on CG, main->first answer <= ~90 ms local or timeout, local referee does not model it, verified; the-descent `(0..15).max{System.in.read()}` 48 also flaky (80%)
 - [prefix-set-take-sum](prefix-set-take-sum.md): `(1..20).sum{x*.take(it)}.toSet()` distinct prefixes; char-list inits form OOMs on CG
 - [perl-wrapper-escape-d](perl-wrapper-escape-d.md): `\d` must be `\\d` in single-quoted Groovy strings; interactive perl core wrapper, 287
-- [io-time-limit](io-time-limit.md): CG io deadline ~1.93 s JVM uptime on every io puzzle (python/bash/js 6 s), wall not CPU, native parse of 1 MB times out, use sh/perl wrapper, local referees blind except the-resistance (1100 ms), verified
+- [io-time-limit](io-time-limit.md): CG io deadline ~1.93 s JVM uptime on every io puzzle (python/bash/js 6 s), wall not CPU, native parse of 1 MB times out, use sh/perl wrapper, local referees blind except the-resistance (1100 ms wall) and surface (2300 ms child CPU, steadier under load), verified
 - [python-wrapper-processbuilder](python-wrapper-processbuilder.md): /usr/bin/python3 exists on CG, slashy-string wrapper, local dev shell lacks python3 (probe only)
 - [byte-read-max-key](byte-read-max-key.md): `(0..15).max{System.in.read()}>>1` argmax per turn, key called once per element, 48 bytes, CG 79.976 (timing?)
 - [native-83-timeout-big-io](native-83-timeout-big-io.md): native Groovy on 1 MB inputs = 83.0 (timeouts); python3 wrapper 309 passes, regex-header decode trick
