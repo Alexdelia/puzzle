@@ -4,3 +4,4 @@
 - [regex-overlap-merge](regex-overlap-merge.md): ternary reset/skip/regex merge for superstring folds, 124 B, verified
 - [ts-ignore-header](ts-ignore-header.md): `//@ts-ignore\n` + one-line JS (undeclared globals, `print`) passes tsc, JS cell + 13 B, verified on CG
 - [type-traps-golf](type-traps-golf.md): join``, replace(re,0), Buffer(x), charCodeAt() are type errors; chuck-norris 138
+- [readline-any-header](readline-any-header.md): `let L:any=readline` makes all downstream any; header string usable as numeric bound, verified
