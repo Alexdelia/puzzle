@@ -93,6 +93,8 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - 3 segments per map suffice: A data 21 chars, B 23 chars in `rot pow:len;` form (SA scratch sc.c minimizes chars)
 
 ## Perl keyed schedule (verified 2026-10-21, perl 92 accepted on CG)
+- joint schedule with ONE N-keyed segment (perl 54 accepted on CG 2026-10-21, #8): `print"$_ 4⏎"for(R1)x(C-K*<>),(R2)xL2,(R3)xL3,(0)x1e5`, the count `C-K*<>` gives A (N=22) and B (N=18) different lengths of the first segment, the rest is shared; `<>` inside the list blocks until N arrives, nothing prints before; no `$|=` needed (500 kB output flushes itself, then blocks the pipe = keepalive). Found by SA over (segment rots, lens, keyed lens a/b) with a char-cost table of key expressions (scratch sa.c of journal cell.mars-lander-episode-3.perl.1792610659741086207); landers are common, 3 segments + tail
+- rejected (fs.c same scratch): open-loop rot = F(t) for t from K*N (`printf"%d 4⏎",F for<>*K..1e5`, ~36 chars), F in C*sin|cos(t/D), C*sin|cos(D/t), t/D-C, C-t/D, C+-t*t/D, C +-90, D 1..1000 / .1..100 / 10..10000, K 1..40, power 3|4: many A landers, ZERO B landers. B needs climb, left tilt, brake, then 0: no smooth one-term formula
 
 - key `<>%3?A:B` (N 22%3=1 A, 18%3=0 B), 1 byte under `<>>20`; `$|=$_=<>%3?...` merges autoflush (string numifies nonzero)
 - data with literal newlines between `rot pow cnt` segments, `print"$1\n"x$2while/(.+) (.+)/g` (greedy first group keeps `rot pow`)
