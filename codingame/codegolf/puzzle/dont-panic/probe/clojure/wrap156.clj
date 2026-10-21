@@ -1,0 +1,1 @@
+(ns Player)(defn -main[_](.waitFor(.start(.inheritIO(ProcessBuilder.["perl""-anE""%e=(@F[0,1,3,4],%e);$|=@F==3&&say/L/^$F[1]>$e{$F[0]}-/L/?BLOCK:WAIT"])))))
