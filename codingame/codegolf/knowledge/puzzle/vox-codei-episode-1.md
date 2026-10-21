@@ -100,3 +100,4 @@ Guesses (unverified): tops 135-160 (ruby, perl, python) probably key on these va
 - encoding: 1 char/bomb, `chr(32+y*12+x)`, space = WAIT (also 3 tail waits); stride 12 and ASCII-only forces cell choice: hidden 10 needs (10,7)=94 (only 2 min covers, both use it), hidden 3 needs 5 cells, hidden 5 needs `\` (legal in a single-quoted table if not last/before `'`)
 - no shorter key found: crc32($s)%K needs K>=29 slots, md5/sha1 single hex digit or ord%K never separate the 11 (searched), linear combos of w,h,R,B,len only mod 12
 - floor of this scheme about 200; top 169 (php), 168 (js) must use something else
+- tail waits: dropping the 3 trailing WAIT (196 B) fails on CG (row stayed 202), probed 2026-10-21
