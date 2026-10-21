@@ -1,1 +1,2 @@
-main=interact$ \s->let w=[x|x@[_,_]<-map words$lines s]in show$2+length[a|[a,_]<-w,elem a$map(!!1)w]
+main=interact$show.(+2).length.f.map words.lines
+f(_:w)=[a|a:_<-w,elem a$last<$>w]
