@@ -96,9 +96,10 @@ if [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score =
 fi
 
 summary=$(leaderboard_rows "$puzzle" LANGUAGE "$cg_name" | leaderboard_summary)
-json_update "$cell" --argjson summary "$summary" --argjson length "$length" \
+json_update "$cell" --argjson summary "$summary" --argjson length "$length" --arg wrap_source "${CG_WRAP_SOURCE:-}" \
 	'. + ($summary | {top, top_player, rank, best_tie_rank}) | .ours = $length
-	 | if .best_tie_rank == 1 then .status = "first" else . end'
+	 | if .best_tie_rank == 1 then .status = "first" else . end
+	 | if $wrap_source != "" then .wrap_source = $wrap_source else . end'
 rank=$(jq -r '.rank // "1000+"' "$cell")
 best_tie_rank=$(jq -r '.best_tie_rank // empty' "$cell")
 message="feat(golf): solution $puzzle $lang $length #$rank"
