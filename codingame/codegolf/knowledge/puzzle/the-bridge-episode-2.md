@@ -96,6 +96,11 @@ Next steps for a later worker:
 - measure with fresh-language probes (see `knowledge/lang/_shared/hidden-validators.md`, score oracle): hardcode keyed on L only, on (L,V), plans of single tests, to find which tests have twins and a cheap key
 - the rest needs search: check whether a 1-D model (union of holes of alive lanes, SPEED/SLOW/JUMP only, no lane change) solves the non-twin validators: locally it solves tests 1-8 and 11 (first/last V lanes), not 9, 10, 12
 
+### Perl 267 (2026-10-22, CG 100%, rank 4)
+
+- 270 + `local$q[@q]=$_.$/` (scoped push, -2) + `for$M=<>,$V=<>,1,2` header reads in the road loop list (-1); see `knowledge/lang/perl/local-push-element.md`. Same 159/184 variants
+- rejected: single-substr check (new lane only, skips old lane cells on UP/DOWN) 251 B 14/23; unpadded road with stride L+1 (`$R.=<>`, newline as separator, `$w=1+index$R,$/`) 275 B 19/23 (cells past L wrap into the next lane)
+
 ### Perl 270 (2026-10-22, CG 100%, rank 4)
 
 - 273 with bike positions 1-based (`1+99*substr<>,2`, offset of cell x+1) and checked-cell count `$k=/J/||$s`: `(substr($R,$_,$k-1).substr$R,$_+$e-$k,$k)!~0` (old lane x+1..x+s-1, new lane x+1..x+s; jump: landing only). Speed-0 moves now die in the model (substr length -1 grabs the rest of the road), harmless: same 159/184 shifted/flipped variants
