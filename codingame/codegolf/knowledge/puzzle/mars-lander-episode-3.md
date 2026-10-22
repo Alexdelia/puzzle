@@ -182,3 +182,7 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - power 4 constant, rotate = ord(c)-80 of char `S[(t+o)/D]` (one printable char per D turns, D 24..42), rotate 0 power 4 forever after the string: A lands with 2 chars, B with 4-5 (SA, `ch.c` in scratch of journal cell.mars-lander-episode-3.php.1792609841222013398)
 - ONE string read by both maps from a turn offset keyed on the first byte: A from offset X, B from 0 (PHP `$i=~-fgetc(STDIN)*X`, ~-"2"=1, ~-"1"=0): 4 chars suffice (D 32 and 42 found, `js.c` joint SA, fam 3). Offsets A=2X, B=X (`fgetc*X`, the cheaper key) found nothing at L4/L5 in short runs; negative offsets with string wrap nothing at L4
 - digit form rotate = digit*K-C without a tail guard (out-of-range char = -C) needs the touchdown inside the string: B never landed (tilted touchdown), dead
+
+## Haskell perl wrapper (verified 2026-10-22, haskell 83 CG 100% #1)
+
+- `import System.Cmd;main=system"perl -E'...'"` around the perl 45 core with `say` and `q( 4)`: 83, under every native Haskell form found (90). See knowledge/lang/haskell/perl-say-wrapper.md
