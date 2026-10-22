@@ -77,6 +77,7 @@ Details and probe tables in `puzzle/the-bridge-episode-2/referee/hidden/facts.md
 - roads differ: each validator is its test with holes moved (x shift, lane flip) plus a few cell edits; none equals a test. Not recovered exactly, no plan table: hardcoding the test plans cannot pass all
 - no lane change needed (DFS on SPEED, JUMP, SLOW only) for all of validators 1..8 and one of 9..12 (likely 11); 9, 10, 12 need UP/DOWN
 - a general method is still required; check heuristics on shifted and lane-flipped tests
+- UP is required by some hidden validator: plan-once DFS on SPEED,JUMP,DOWN,SLOW (perl 263, locally fails only test 12: no plan) did NOT reach 100% (perl probe 2026-10-22, row stayed 273). No-DOWN DFS passes only 16/23 locally (not probed)
 
 Facts (probes on CG):
 
@@ -94,6 +95,11 @@ Next steps for a later worker:
 
 - measure with fresh-language probes (see `knowledge/lang/_shared/hidden-validators.md`, score oracle): hardcode keyed on L only, on (L,V), plans of single tests, to find which tests have twins and a cheap key
 - the rest needs search: check whether a 1-D model (union of holes of alive lanes, SPEED/SLOW/JUMP only, no lane change) solves the non-twin validators: locally it solves tests 1-8 and 11 (first/last V lanes), not 9, 10, 12
+
+### Perl 270 (2026-10-22, CG 100%, rank 4)
+
+- 273 with bike positions 1-based (`1+99*substr<>,2`, offset of cell x+1) and checked-cell count `$k=/J/||$s`: `(substr($R,$_,$k-1).substr$R,$_+$e-$k,$k)!~0` (old lane x+1..x+s-1, new lane x+1..x+s; jump: landing only). Speed-0 moves now die in the model (substr length -1 grabs the rest of the road), harmless: same 159/184 shifted/flipped variants
+- 4-command subsets, all orders x bound 16..20: no UP 263 B best 21/23 (CG probe: not 100%), no DOWN 16/23, no SLOW 19/23
 
 ### Perl 273 (2026-10-22, CG 100%, rank 5)
 
