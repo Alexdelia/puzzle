@@ -95,6 +95,10 @@ Next steps for a later worker:
 - measure with fresh-language probes (see `knowledge/lang/_shared/hidden-validators.md`, score oracle): hardcode keyed on L only, on (L,V), plans of single tests, to find which tests have twins and a cheap key
 - the rest needs search: check whether a 1-D model (union of holes of alive lanes, SPEED/SLOW/JUMP only, no lane change) solves the non-twin validators: locally it solves tests 1-8 and 11 (first/last V lanes), not 9, 10, 12
 
+### Perl 303 (2026-10-22, CG 100%)
+
+- road as one string, stride 99, bike = offset; `local` speed and plan in the for body; see `knowledge/lang/perl/flat-grid-local-recursion.md`. Same pass set as the 318 on 184 shifted/flipped test variants (stride 99 vs 999 no difference)
+
 ### Perl port (2026-10-20, local 23/23, not CG-verified: submit refused by cap)
 
 - same DFS, 347 B. Win test dropped: no win test, print plan when it reaches 99 chars; commands after the win are ignored by local referee (CG untested)
