@@ -31,3 +31,4 @@
 - [sge-query-loop-substr-pad](sge-query-loop-substr-pad.md): `s/(.+) (.+)/code/ge` 6 under `while(//g){}`, `$w=s/.+\n.+\n//+$&` header width, end pad `1x$w` covers negative substr wrap, verified on CG
 - [glob-split](glob-split.md): `($a,$b)=glob<>` splits a line on whitespace, 4 under `<>=~/\d+/g`; `glob<>.<>.<>` reads N lines at once, verified on CG
 - [double-repeat-key](double-repeat-key.md): `"s"x(C-<>)xK` = K*(C-N) repeats, 1 under `x(C*K-K*<>)`, verified
+- [postmatch-package-quote](postmatch-package-quote.md): `$'for` = `$main::for` (space needed), bare `log` on "n t" = log n, `map{$_,"$_ $l"}` is a block, verified locally
