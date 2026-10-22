@@ -48,6 +48,7 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 - 4 validators (leaderboard grain 25%)
 - directions: exactly 1 horizontal, exactly 1 vertical and it goes North, the other 2 have light strictly south and dx!=0. N only in the pure vertical one
 - E IS needed: the 'no E' claim came from the java count probe (0), which ran before the java launcher fix (crash, not a count); haskell noE probe scored 50% (2026-10-21), so 2 validators need E. No E/W branch can be dropped (2026-10-22, perl worker)
+- STATIC HORIZONTAL LETTER PASSES (perl probe 2026-10-22, 100%, probes.tsv): horizontal letter = sign(lightX-thorX) every turn, never stops; so every validator with dx!=0 has |dx|>=|dy| (only S must stop, after dy turns). N iff lightX==thorX (vertical validator is N-only, runs N forever). Letters per turn: `S` while counted (dy turns, only when lightY>thorY) then `(N,E,W)[sign(lightX-thorX)]` (index 0 = N, -1 wraps to W). No E/W tracking, no N/S sign, no N counter. Fails local test 2 (vertical down) by design. Perl 90 -> 66 (#11)
 - exactly 1 validator init line is in {`7 8 28 8`, `0 17 36 0`, `0 17 31 4`}; the other 3 inputs are unknown, energies unknown. Not complete, no hardcode key yet
 
 ## JavaScript (2026-10-20)
@@ -95,6 +96,7 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 
 - 94 B, CG 100%, rank 38 (tie 35): lag update inside the slice index, see knowledge/lang/perl/lag-sign-update.md
 - 90 B, CG accepted, rank 29 (tie 26): header guard `$|||=` (knowledge/lang/perl/autoflush-once-guard.md) 2026-10-22
+- 66 B, CG 100%, rank 11: hidden-validator letter structure (see Hidden validators: static horizontal letter, N iff dx==0, S counted by post-increment of thorY) 2026-10-22
 
 ## OCaml (2026-10-22)
 
