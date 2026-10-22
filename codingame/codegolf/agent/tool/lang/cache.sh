@@ -1,3 +1,5 @@
+unset NIX_CFLAGS_COMPILE NIX_CFLAGS_COMPILE_FOR_BUILD NIX_CFLAGS_LINK NIX_LDFLAGS NIX_LDFLAGS_FOR_BUILD
+
 build_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/state/build/lang
 
 toolchain_var() {
