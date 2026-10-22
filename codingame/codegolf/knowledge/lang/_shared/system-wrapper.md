@@ -63,3 +63,5 @@ C box (verified 2026-10-22, temperature-code-golf C test 1 probe, `knowledge/lan
 ObjectiveC box (verified 2026-10-22, temperature-code-golf test 1 probe, `knowledge/lang/objective-c/system-wrapper.md`): python3, perl 5.34, php 7.3.9, lua 5.4.4, bash on PATH; ruby 3.1.2 only at `/usr/local/bin/ruby`; no node. `main(){system(...)}` wrappers of all six pass on CG.
 
 Pascal box (verified 2026-10-22, temperature-code-golf test 1 probe, `knowledge/lang/pascal/spawn-wrapper.md`): perl 5.34, python3 3.11.5, python, bash, lua 5.4.4, php 7.3.9 on PATH; ruby 3.1.2 only at `/usr/local/bin/ruby`; no node. `fpexeclp`/`fpsystem` wrappers of all six pass on CG.
+
+Go box (verified 2026-10-22, `knowledge/lang/go/spawn-interpreters.md`): `/usr/bin/perl`, `/usr/bin/python3`, `/bin/bash`, `/bin/lua` (not `/usr/bin/lua`), `/bin/php`, ruby only `/usr/local/bin/ruby`, no node. `syscall.Exec` wrappers of perl/python3/ruby/php/lua/sh pass on CG.
