@@ -99,3 +99,9 @@ Bash core (209, the scala-section core ending `echo $m $l`) in `(ns Player)(defn
 ## ocaml 232 (2026-10-22)
 
 Clojure-section bash core (209 B, no `'`, `"` or `\`) dropped as-is into `Sys.command"bash -c '<core>'"` (`lang/ocaml/system-wrapper.md`, 23 B), CG 100% #1 (top 237). Any language with a bare system call of <= 28 B wrapper beats its top the same way.
+
+## perl 232 (2026-10-22)
+
+Lua core5 (no x-final jump, `$m=$l`, for-header init) in plain perl (no `-E`: `print"@p<literal newline>"`), then: `$s/2` for SAME, new jump computed straight into the alias `$t` with old pos `($o=$t)` inline and `$t>$o` direction test (`lang/perl/jump-into-alias.md`), `($t=$l+$h-($o=$t))-$t%$S` as edge test. CG 100% #3 (top 203 YALOKGAR not reached). The same core change saves 3 in the lua wrapper.
+
+- final answer WITHOUT trailing newline: CG rejected (perl 236 `...print"$m $l"` at EOF, submission 41548601, row stayed 246) while the local referee passed 46/46; same code + newline (232 version) 100%. Probable referee gap: local accepts an unterminated last line. Keep the newline on the last print (not proven against a 1% jump-count fail, but every CG-passing solution here ends with one)
