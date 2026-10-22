@@ -69,4 +69,6 @@ Details, sources, probe list: `puzzle/temperature/referee/hidden/facts.md` (part
 - tie `-t`/`t` at min abs in 6 validators: 5 with `-t` first, 1 with `t` first. Last-of-tie-wins fails 1 validator, first-of-tie-wins fails 5
 - 5 negative answers; one answer has abs >= 10, the other 14 are single digit
 
+Shell-wrapper core (any lang with system(), verified OCaml CG 58 100% 2026-10-22): `perl -ape'}{$_=(sort{$a*$a-$b*$b-$a}@F)[0]+0'` = 46 B shell command, no `"` or `\`. Eskimo `}{`: after the -p loop @F still holds line 2 split, $_ printed once; N = 0 -> empty @F -> `+0`. `perl -pe'$_=(sort{..}glob<>)[0]+0'` +1. `($_)=sort{..}@F,0` fails (0 sorts first; also `=` binds tighter than `,`). OCaml = `Sys.command"<core>"` 58.
+
 TypeScript 74 (CG verified): `eval("print(+readline(readline()).split` `.sort((a,b)=>a*a-b*b||b-a)[0])")`; `+` turns the N=0 empty token into 0, `readline(readline())` skips line 1 without `;`.
