@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	the-descent-codesize D test 1 CG game 910946414 2026-10-22 (spawnShell.wait, interactive), test 2 game 910946427 (spawnProcess.wait); temperature-code-golf test 1 success (spawnShell no wait, io test: no game id)
+python	yes	temperature-code-golf D test 1 CG success 2026-10-22 (generated spawnShell python3 -c, io test: no game id)
+bash	yes	temperature-code-golf D test 1 CG success 2026-10-22 (generated spawnShell bash -c, io test: no game id)
+lua	yes	temperature-code-golf D test 1 CG success 2026-10-22 (generated spawnProcess lua -e .wait, io test: no game id)
+php	yes	temperature-code-golf D test 1 CG success 2026-10-22 (generated spawnShell php -ddisplay_errors= -r, io test: no game id)
+ruby	yes	temperature-code-golf D test 1 CG success 2026-10-22 (generated spawnProcess /usr/local/bin/ruby, io test: no game id); ruby off PATH
+javascript	no	D box probe 2026-10-22 temperature-code-golf test 1: command -v node/nodejs empty
