@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	temperature-code-golf VB.NET test 3 CG success 2026-10-22 (Process.Start("perl","-e ...") no wait); the-descent-codesize test 4 game 910946541 interactive WaitForExit pass
+python	yes	temperature-code-golf VB.NET test 3 CG success 2026-10-22 (Process.Start("python3",{"-c","..."})), golf testcase runs have no game id
+bash	yes	temperature-code-golf VB.NET test 3 CG success 2026-10-22 (Process.Start("sh",{"-c","..."}))
+ruby	yes	temperature-code-golf VB.NET test 3 CG success 2026-10-22 (Process.Start("/usr/local/bin/ruby",...)); bare ruby untested, off PATH in the F# box
+lua	yes	temperature-code-golf VB.NET test 3 CG success 2026-10-22 (Process.Start("lua",...))
+php	yes	temperature-code-golf VB.NET test 3 CG success 2026-10-22 (Process.Start("php",...-ddisplay_errors= -r))
+javascript	no	temperature-code-golf VB.NET test 3 2026-10-22: Win32Exception (2) trying to start process 'node': No such file or directory
