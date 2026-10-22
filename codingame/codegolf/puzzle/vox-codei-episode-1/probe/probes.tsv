@@ -21,3 +21,4 @@
 2026-10-21T18:49:44Z	cell.vox-codei-episode-1.clojure.1792513606652221832	clojure	213	clojure hardcode 213 B (hash(vec byte-array 819) mod 40, stride16 decode): 100% on hidden?	yes: 100% at length 213, committed
 2026-10-22T18:12:50Z	cell.vox-codei-episode-1.ocaml.1792513607074778672	ocaml	187	ocaml Sys.command perl hardcode 187 B, key unpack(%32v*,4 lines)*8%66: 100% on hidden?	yes: 100% at length 187, committed
 2026-10-22T19:38:08Z	cell.vox-codei-episode-1.perl.1792614613565998171	perl	161	perl native hardcode 161 B (ocaml core, x-template key): 100% on hidden?	yes: 100% at length 161, committed
+2026-10-22T19:43:19Z	cell.vox-codei-episode-1.perl.1792614613565998171	perl	148	perl hardcode 148 B: stride16 decode, key unpack(%32N*,4 lines)*16%53, SA-packed 57 data: 100% on hidden?	yes: 100% at length 148, committed
