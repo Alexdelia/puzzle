@@ -42,3 +42,4 @@
 - [pair-sum-teleport](pair-sum-teleport.md): `$t-=1-pos while/T/g` index sum, `$p=$t-$p` jumps to the other marker, verified on CG
 - [substr4-mark-and-test](substr4-mark-and-test.md): `C eq substr$_,OFF,1,R` marks a grid cell and tests its old char, -5 vs `s/..\K./R/;$&eq C`; `read ARGV` -1 vs STDIN in -n, verified on CG
 - [subst-e-loop](subst-e-loop.md): `s/\d+ /CODE/ge` query loop, `$&`/`$'` numify to X/Y, `$w=s/.+\n.+\n//+$&` header, `.+ ` timeout trap, verified
+- [numify-line-first-field](numify-line-first-field.md): `$e{0+$_}` instead of `$e{$F[0]}`, line numifies to its first integer, -1, verified on CG
