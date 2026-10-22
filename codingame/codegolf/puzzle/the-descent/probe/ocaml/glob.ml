@@ -1,0 +1,1 @@
+Sys.command"sed 8q|nl -v0 -w1|rev|sort|tail -c2;./*"
