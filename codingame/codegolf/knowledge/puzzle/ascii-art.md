@@ -81,3 +81,5 @@ Haskell 120 (CG rank 5, 2026-10-21): `main=interact$(\(l:_:t:r)->unlines[fromEnu
 Scala 156 (CG rank 5, 2026-10-21): `object Solution extends App{val a=Console.in.lines.toArray.map(_+"");for(r<-a drop 3)println(a(2).flatMap(c=>r.grouped(a(0).toInt).toSeq(c-65&223 min 26)))}`, see lang/scala/io-shadowed-console-in.md. `r.length/27` instead of `a(0).toInt` is 1 byte longer if the L line ever has a trailing space (not seen on CG).
 
 Clojure 184 (CG rank 3, 2026-10-21): `(ns Solution(:gen-class))(defn -main[](let[[w _ t & R](.split(slurp *in*)"\n")](doseq[r R](println(apply str(mapcat #(nth(partition(Long. w)r)(min 26(bit-and 223(- (int %)65))))t))))))`, see lang/clojure/stdin-lines.md. Top 164 not reached; ns+defn -main overhead is 39 bytes.
+
+OCaml 84 (CG rank 1, 2026-10-22): bash-cell perl core in `Sys.command"perl -lnE'...'"`, see lang/ocaml/sys-command-wrapper.md. Any lang with a short shell call: wrapper + 59-byte perl core.
