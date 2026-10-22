@@ -15,3 +15,5 @@ Count ways to split a string into dictionary words without a hash or a length wi
 - TRAP: TRIE is dropped (plain BRANCH, O(N) alternatives per position, 100x slower) past a state limit: ~9000 words of 5-6 letters (Morse codes) still fit, 6000 words of ~10 letters do not (`perl -Mre=debug`, grep TRIE)
 - empty-alt counting (measured 2026-10-22, perl 5.34): leading empties (before the first nonempty alt) count one each, empties inside the trie count ONCE total: `|0|1|` 3x, `||0|1` 3x, `0||1|` 2x, `xx||0|1|` 2x. Put input lines that must vanish FIRST (they become leading empties), divide by (leading + 1 if a trailing `|`) + 1
 - a long junk alternative (e.g. 5L symbols from an unconverted Morse line) blows the TRIE state limit: test 04 2.08 s vs 0.04 s; convert junk lines to "" instead
+
+- the never-matching tail that forces backtracking must not be a literal: `/(?{..})($r)(?{..})-/` on a 0/1 subject prints nothing computed, the optimizer rejects the match on the missing required substring `-` before any code block runs. `\D` (2) or `(*F)` (4) work (verified 2026-10-22, the-resistance)
