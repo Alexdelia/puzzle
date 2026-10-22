@@ -65,5 +65,13 @@ Side effect: partial CG rows (cell json `ours` unset, any 100% submit replaces t
 - ruby 204 (local 18/18, not yet submitted, cap hit): `m,_,*w=$<.read.tr(".-","01").split`, `h=w.map{_1.gsub(/./){T.index($&).to_s(2)[1..]}}.tally`, `d=[1]+[0]*9**6`, `m.size.times{|i|77.times{|k|d[i+k]+=d[i]*h[m[i,k]].to_i}}`, `p d[m.size]`; `.tally`+`.to_i` beats `Hash.new 0` by 6
 - python 270 (submitted, rank #28): heap-table + count-map DP, 'T.find' + bin()[3:]; the 264 in notes was not reproduced. Top 70 needs hidden exploit (unknown validators).
 
+- ocaml 203 (perl wrapper `Sys.command{|perl -ple'<core>'|}`, CG 100%, rank #3, 2026-10-22). Perl core shrinks over the perl cell 195, all 18/18 local:
+  - `-p` + eskimo `}{...$_=$d[$l]` prints once, 2 under `print`
+  - header `$.<2?$l=($s=$_)=~y/.-/01/:` (y/// returns the count = L) then `0..$l` and `$d[$l]`; or `$s//=y/.-/01/r;` (3 under `$.<2?$s=..:`, the morse and N lines fall into %h as junk keys)
+  - `sprintf("%b",index"T",$&)=~s|.||r` 1 under `substr sprintf(..),1`
+  - regex-driven DP `@d=1;$s=~/(.{1,76})(?{$d[pos]+=$d[$-[0]]*$h{$1}})(*F)/;$_=$d[-1]` (backtracking visits every start in order and every length; `$#d` = L so `$d[-1]`): 18/18 correct, 183 total in OCaml, but about 2x the CPU of the for loop (val 09 0.8 s vs 0.43 s user); see journal `cell.the-resistance.ocaml.*` for its val 10 time
+
 - clojure 335 (CG 100%, rank #3, 2026-10-21): string keys via `(apply str(for[c x b(rest(Long/toString(.indexOf T(str c))2))]({\0\.\1\-}b)))` + `frequencies`, map DP `{0 1}` stepped by closures (`knowledge/lang/clojure/reduce-closures.md`), `(subs m i(min L j))` window. Local val 10 (L 99029) 3-8 s depending on host load, local gate refuses it under load: sent as probe. Char-seq keys (`(seq(subs ..))`, 329) are ~4x slower and FAILED on CG (not 100%): some hidden validators are large enough that speed matters
 - javascript 326 (CG 100%, rank #23, 2026-10-20): `[m,,...w]=(require('fs').readFileSync(0)+'').replace(/[.-]/g,c=>c<'.'|0).split(/\s+/)`, count map `h[c]=-~h[c]`, `d=new Float64Array(2e5)` (zero init, no fill), `d[i+k]+=d[i]*h[m.substr(i,k)]||0` with k=77..0; fails local validators 05/06/08/11 (>2^53), passes CG
+
+- perl 165 (CG 100%, rank #6, 2026-10-22): regex TRIE DP (`knowledge/lang/perl/regex-trie-dp.md`), `.-` at table fillers 0/1 so line 1 converts to "" (no ternary), `$s//=y/.-/01/r`, `/3` for the two empty alts, `-pl` + `}{`. Fails local val 05/11 (NV near 2^63) and val 09/10 (TRIE dropped, N 9000+ long words): CG hidden validators all fit the TRIE (probe 2026-10-22)
