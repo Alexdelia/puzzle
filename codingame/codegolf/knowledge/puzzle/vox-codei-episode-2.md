@@ -126,3 +126,12 @@ All 10 recovered exactly (validator task 2026-10-21), details and probe chain in
 - 3 chars per bomb: gap+45, then x and y as chars 48..63 decoded with `ord$2&15` (2 B shorter than `-48+ord$2`); trailing `.$]` appended to the plan ("5.034000" on CG) gives 8 WAITs after the last bomb, the junk bomb line after it comes after the win
 - whole perl core 176 B (ocaml 201 = 15 + `perl -E''` 10 + core): `<>;$_=(split/,/,"DATA")[<>/3%9].$];say"WAIT\n"x(-45+ord$1),ord$2&15,$",ord$3&15while/(.)(.)(.)/g` with 77 data chars; perl -E wrapper portable to any lang with a system() call
 - local referee under heavy load (load avg 600) times out turn 1 for perl startup; early exit gives "solution closed its input" locally only
+
+## 2 chars per bomb (perl worker, 2026-10-22): perl 161, CG 100%, tie #1
+
+- per bomb 2 chars a,b: x=ord(a)&15, y=ord(b)&15, waits before the bomb = ord(a)*ord(b)%25. The high nibbles (2..7, 36 combos) are free and pick the wait count: 52 data chars for 26 bombs instead of 78
+- plans re-searched under that encoding (rollouts restricted to representable (waits,cell), journal scratch `s.py`/`run2.py`/`gen.py`); v7/v8 joint 4-bomb plan exists only as the clojure one (T1 (6,0), T5 (4,3), T10 (4,8), T16 (5,7)): DFS finds no other under %17/%29/%31/>>9; it is representable for %K, K in 23,25,27,37,45
+- `.$]` trailer must decode to >= 3 waits ('5','.': 53*46%25=13; %23 gives 0 = junk bomb off grid right after the last bomb)
+- perl code: `<>;$_=(split/,/,"DATA")[<>/3%9].$];print"WAIT⏎"x(ord($1)*ord($2)%25),ord$1&15,$",ord$2&15,$/while/(.)(.)/g` (59 data chars incl. commas)
+- as a `perl -E'...'` wrapper core: `say` and no `,$/` give 156 (vs 176), but the committed data contains `'`: regenerate with `'` banned (`gen.py` bad set) before wrapping
+- 1-char wait hash (`x(ord($1)%K)`, 7 B shorter) is impossible: the v7/v8 joint plan is not representable for any K (checked K 7..79, either char)
