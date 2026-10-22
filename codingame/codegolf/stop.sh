@@ -4,6 +4,11 @@ cd "$(dirname "$0")"
 source agent/tool/lib.sh
 shopt -s nullglob
 
+kill_session() {
+	[[ $1 =~ ^[0-9]+$ && $(ps -o sid= -p "$1" | tr -d ' ') == "$1" ]] && pkill -TERM -s "$1"
+	true
+}
+
 touch "$state/STOP"
 event "stop ${1:-}"
 if [[ ${1:-} != --now ]]; then
@@ -12,12 +17,13 @@ if [[ ${1:-} != --now ]]; then
 fi
 for running in "$state"/running/*.json; do
 	read -r id kind puzzle lang pid < <(jq -r '[.id, .kind, .puzzle, .lang, .worker_pid] | @tsv' "$running")
-	kill -TERM -- "-$pid" 2>/dev/null || true
+	kill_session "$pid"
 	jq 'del(.started_at, .worker, .worker_pid, .outcome, .note)' "$running" >"$state/queue/$id.json"
 	rm -f "$running"
 	json_update "$(ensure_status "$kind" "$puzzle" "$lang")" '.status = "todo"'
 	event "requeue killed $id"
 done
-pkill -f 'agent/tool/worker.sh' 2>/dev/null || true
-pkill -f 'agent/tool/wrapd.sh' 2>/dev/null || true
+for session in $(pgrep -f 'agent/tool/(worker|wrapd).sh'); do
+	kill_session "$session"
+done
 echo "stop.sh: workers killed, their tasks back in queue, journals kept"

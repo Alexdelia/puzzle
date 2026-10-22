@@ -30,7 +30,7 @@ if over_weekly_pace; then
 	echo "start.sh: weekly usage ${used}% >= ${elapsed}% of the week elapsed (margin ${weekly_pace_margin_percent}%): not starting" >&2
 	exit 1
 fi
-alive=$(pgrep -f -c 'agent/tool/(worker|wrapd).sh' || true)
+alive=$(pgrep -f -c 'agent/tool/(worker|wrapd|wrap).sh' || true)
 if ((alive)); then
 	echo "start.sh: $alive worker loops still alive (a soft stop lets them finish their task first): wait for them to exit, or ./stop.sh --now" >&2
 	exit 1
@@ -54,8 +54,7 @@ systemctl --user set-property --runtime codegolf.slice MemoryMax="$workers_memor
 export CG_BEST_MODEL=$best CG_FULL_WINDOW=$full_window
 event "start workers=$count ${once:+once} ${best:+best} ${full_window:+full-window}"
 pids=()
-setsid agent/tool/wrapd.sh >>"$state/worker/wrapd.log" 2>&1 &
-pids+=($!)
+[[ -n $once ]] || setsid agent/tool/wrapd.sh >>"$state/worker/wrapd.log" 2>&1 &
 for ((worker = 1; worker <= count; worker++)); do
 	setsid agent/tool/worker.sh "$worker" $once >>"$state/worker/worker-$worker.log" 2>&1 &
 	pids+=($!)
