@@ -2,3 +2,7 @@ core	status	evidence
 perl	yes	mayan-calculation clojure 262 CG 100% (ProcessBuilder perl)
 python	yes	the-fall-episode-2 clojure CG 100% (ProcessBuilder python3)
 bash	yes	shadows-of-the-knight-episode-2 clojure CG 100% (ProcessBuilder bash)
+lua	yes	the-descent clojure test 1 CG game 910935541 2026-10-22 (ProcessBuilder lua -e, generated candidate, interactive)
+php	yes	chuck-norris clojure test 2 CG success 2026-10-22 (-main ProcessBuilder php -ddisplay_errors= -r, io test: no game id)
+ruby	yes	the-descent clojure test 2 CG game 910938218 2026-10-22 (ProcessBuilder /usr/local/bin/ruby -e, generated candidate); ruby off PATH, only /usr/local/bin/ruby
+javascript	no	Clojure box probe 2026-10-22 temperature-code-golf test 1: no node/nodejs (command -v empty)
