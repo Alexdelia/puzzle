@@ -69,6 +69,8 @@ Cheaper than least squares, same robustness: `k = Σ w_i·log t_i / Σ w_i·log 
 - first/last-half sign weights (±1) do NOT separate (O(n log n) 1.148..1.529 overlaps O(n^2 log n) 2.027..)
 - table tail: `map{$_,"$_ $l"}n,"n^2","n^3"` builds n, n log n, n^2, n^2 log n, n^3, n^3 log n; index 7 (n^3 log n) is never reached (2^n index >= 12), so `//"2^n"` still catches 2^n
 
+Index-weighted slope (verified CG 100% 2026-10-22, OCaml 249): `k = sum w_i log t_i / sum w_i log n_i` with `w_i = 2i-N-1` (i=1..N, sum exactly 0), 2 accumulators instead of the 4 of least squares, needs N. k close to LS: O(n) test .98 (LS .95), O(n^2) test 1.96 (LS 1.92), 2^n 6.4..7.0 (needs the cap), synthetic val14 .097, val15 1.02, val17 2.027. `int(2k+c)` with c=.87 passes 26/26 (c=.9 leaves val17 at .023 margin). Any constant offset in the accumulators (start not 0) breaks it: weighted sums are small for short N.
+
 ## Hidden validators
 
 Full detail, sources and probe lines: `puzzle/blunder-episode-3/referee/hidden/facts.md`. No validator recovered exactly (t carries random noise); no `complete`.
