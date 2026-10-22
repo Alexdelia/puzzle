@@ -60,6 +60,15 @@ Rejected:
 
 All-points regression on CG (verified 2026-10-20): Perl 180 passes CG 100% (local 26/26). `-n`, `/ /&&` skips header, `($x,$y)=map(log,split)`, sums a,b,c,d,n, `}{print` after the loop, index `2*($n*$c-$a*$b)/($n*$d-$a*$a)+.9` into the table, `//"2^n"`. Sub-80 tops (Perl 79) cannot be a regression: table alone is ~65 bytes.
 
+## Index-weighted slope (verified on CG 2026-10-22, Perl 123, 100%)
+
+Cheaper than least squares, same robustness: `k = Σ w_i·log t_i / Σ w_i·log n_i` with centered index weights `w_i = 2i-(N-1)` (i = 0..N-1, or any affine equivalent). Only 2 sums, no Σx², no Σxy. Weights must be exactly centered (Σw = 0) or the constant `log c` leaks in: start `-N` instead of `1-N` fails 10/26 locally.
+
+- measured k (26 local inputs): O(1) -.000..0.010, O(log n) .097..0.120, O(n) .885..1.020, O(n log n) 1.117..1.154, O(n^2) 1.829..2.027, O(n^2 log n) 2.275..2.462, O(n^3) 2.961..2.962, O(2^n) 6.43..7.05; `int(2k+c)` correct for c in [.806,.946), .9 used
+- running weight: init from header `s=1-N`, add `s*log n` and `s*log t`, then `s+=2` per line; index `2*B/A+.9`
+- first/last-half sign weights (±1) do NOT separate (O(n log n) 1.148..1.529 overlaps O(n^2 log n) 2.027..)
+- table tail: `map{$_,"$_ $l"}n,"n^2","n^3"` builds n, n log n, n^2, n^2 log n, n^3, n^3 log n; index 7 (n^3 log n) is never reached (2^n index >= 12), so `//"2^n"` still catches 2^n
+
 ## Hidden validators
 
 Full detail, sources and probe lines: `puzzle/blunder-episode-3/referee/hidden/facts.md`. No validator recovered exactly (t carries random noise); no `complete`.
@@ -68,7 +77,7 @@ Full detail, sources and probe lines: `puzzle/blunder-episode-3/referee/hidden/f
 - class histogram (constant-output probes): O(1) 6, O(log n) 7, O(n) 6, O(n log n) 7, O(n^2) 6, O(n^2 log n) 6, O(n^3) 6, O(2^n) 6
 - no validator is byte-identical to an IDE test (0%, probe code checked by test game): hardcoding the 8 tests scores 0
 - 32/50 share N and last n with their class test (same grid, t redrawn); 38/50 have a last n among the 8 test last n; 18/50 sit off the test grids
-- methods: all-points log-log slope 50/50 (Perl 180), two-point first/last 44/50 (Bash 88%), constant answer 6-7/50
+- methods: all-points log-log slope 50/50 (Perl 180), index-weighted slope 50/50 (Perl 123), two-point first/last 44/50 (Bash 88%), constant answer 6-7/50
 - test games only reach testcases 1..8 (`INVALID_TESTCASE` on 9)
 - CG Scala needs `object Solution` (`object Main` crashes: "No such file or class on classpath: Solution")
 
