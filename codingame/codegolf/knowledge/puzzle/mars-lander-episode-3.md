@@ -186,3 +186,8 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 ## Haskell perl wrapper (verified 2026-10-22, haskell 83 CG 100% #1)
 
 - `import System.Cmd;main=system"perl -E'...'"` around the perl 45 core with `say` and `q( 4)`: 83, under every native Haskell form found (90). See knowledge/lang/haskell/perl-say-wrapper.md
+
+## Perl 44, ruby 2-segment shape (verified 2026-10-22, perl CG 100% #6 tie #2)
+
+- `print"R1 P1⏎"x(KEY),"R2 P2⏎"xL2,"0 4⏎"x1e5` with the ruby 48 landers (ruby ex.c lists): `x(<>%5*26)` (A 52, B 78) with `8 4`/`-15 3`x56..64, or `x(28-<>)x9` (A 54, B 90) with `6 4`/`-11 3`x67..70: 44 both. Ruby's own `5 4`*98/55 + `-9 3`*74 has no 2-char-cheaper Perl key (`x(27-<>)x11` gives B 99: leaves the top)
+- 44 is the floor of that 2-seg + tail list (r1 1..16, r2 -45..-1) with the Perl key menu (C-<>)xK, (C*K-K*<>), (<>%M*K), (<>%3?a:b): scratch an.py of journal cell.mars-lander-episode-3.perl.1792610694416982738
