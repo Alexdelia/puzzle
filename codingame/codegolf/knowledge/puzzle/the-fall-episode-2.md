@@ -104,7 +104,7 @@ Python core shrinks (2026-10-22, perl cell, local 26/26, relaxed-timeout referee
 
 ## Fall-3 solver reuse (perl, 2026-10-22, CG 100%)
 
-The the-fall-episode-3 perl turn-search (rotate Indy's next / next-next cell or a rock's next cell each turn, simulate rocks, memo per turn) solves episode 2 too: 23/26 local as-is, timeouts only on big maps 17-19 (6 s turn 1). Fix: memo key `"@_@z[$i>>2,S($i,1)>>2]$."` (state + types of Indy's current and next cell, not the whole grid): Indy never re-enters a cell, so passed cells do not matter; 150x faster (40 ms turn 1), 26/26, CG 100%. Grid-free key `"@_$."` fails 21/26; next-cell type only fails 1. Episode-2 drops vs episode 3: exit cell out of the occupancy hash, rock-rock collision filter (both 0 local fails, CG 100%). Perl 652.
+The the-fall-episode-3 perl turn-search (rotate Indy's next / next-next cell or a rock's next cell each turn, simulate rocks, memo per turn) solves episode 2 too: 23/26 local as-is, timeouts only on big maps 17-19 (6 s turn 1). Fix: memo key `"@_@z[$i>>2,S($i,1)>>2]$."` (state + types of Indy's current and next cell, not the whole grid): Indy never re-enters a cell, so passed cells do not matter; 150x faster (40 ms turn 1), 26/26, CG 100%. Grid-free key `"@_$."` fails 21/26; next-cell type only fails 1. Episode-2 drops vs episode 3: exit cell out of the occupancy hash, rock-rock collision filter (both 0 local fails, CG 100%). Perl 652, then 597 on the ported fall-3 609 (WAIT `.5` first in the action list drops its parens; the key call `S($_=$i)` leaves `$_` set so the candidate list ends `@_,S`).
 
 Perl native encodings (2026-10-22, perl cell 652 -> 586, local 26/26, CG 100%):
 
