@@ -44,3 +44,5 @@
 - [subst-e-loop](subst-e-loop.md): `s/\d+ /CODE/ge` query loop, `$&`/`$'` numify to X/Y, `$w=s/.+\n.+\n//+$&` header, `.+ ` timeout trap, verified
 - [numify-line-first-field](numify-line-first-field.md): `$e{0+$_}` instead of `$e{$F[0]}`, line numifies to its first integer, -1, verified on CG
 - [exec-wrapper](exec-wrapper.md): `exec bash,-c=>'core'` runs another interpreter with inherited stdio, no wait; `-c=>` autoquotes (bare `-c` is a filetest); CG Perl box has bash/lua/python3/php, ruby unverified, verified on CG
+- [range-array-count](range-array-count.md): `@r=1..<>` header range reused as list, `<>/@r` count, `/.{$#r}./` width, verified on CG
+- [float-div-digit-loop](float-div-digit-loop.md): `1while s/^/$G[$r%20]/,0|($r/=20);print` base printer, `%` truncates float, drop `-p` for final `print`, verified on CG
