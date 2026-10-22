@@ -93,3 +93,7 @@ groovy (2026-10-21): 141 submitted and CG-validated (#2, top 138): `new ProcessB
 scala (2026-10-21): wrapper `import sys.process._;object Solution extends App{Seq("bash","-c","<bash core 87 with sed 3q>&2>").!<}` = 159 bytes (wrapper 72), local 16/16 but CG scored 0% (cause unknown, unprobed). `.!` alone passes no stdin (timeout turn 1); `.!<` required. Top 146 needs core <= 74. Native scala estimated ~250.
 
 perl (2026-10-22): 92 submitted (#6): header `$|=($L,$U)=glob<>.<>.<>.<>;` (glob splits words, reads lines 1-4) then same loop as 96 (`knowledge/lang/perl/glob-split.md`). Top 81 needs -11 more. Longer on paper: `-n`/`-an` with `$.` gates (~104), using start position (+4), float-packed p, `%m` hash, partner `y/UDLR/DURL/r`.
+
+ocaml (2026-10-22): 104 submitted, CG #1 (top 105). Bare toplevel `Sys.command"bash -c '<core>'"` (wrapper 23, no `let _=`). Core 81, local 16/16 and CG 100%: two savings over the 87 core, valid for every wrapper and for bash itself:
+- `sed Q` instead of `sed 3q>&2` (-4): GNU sed `Q` quits without printing, but its buffered read has already swallowed the whole chunk in the pipe (lines 2-4). Relies on lines 2-4 being in the pipe when sed starts (true locally and on CG)
+- `let $c=${c,}||echo` instead of `(($c=${c,},1))||echo` (-3): `let` saves 2, and dropping `,1` (an assigned midpoint of 0 also triggers an extra echo) still passes 16/16 local and CG. Keep `,1` (+2) if a cell fails on it
