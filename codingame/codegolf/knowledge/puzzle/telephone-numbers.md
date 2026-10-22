@@ -79,3 +79,10 @@ Probed 2026-10-20, details and probe list in `referee/hidden/facts.md`. Not reco
 ## Scala (2026-10-21)
 
 - 96, CG 100%, tie top: `object Solution extends App{print(scala.io.Source.stdin.getLines.flatMap(_.inits).toSet.size-2)}` (P9 identity: `inits` adds empty once, line 1 one prefix, so -2). `extends App` works when object is Solution
+
+## OCaml (2026-10-22)
+
+- 50, CG 100%, row #3: `Sys.command""` wrapper (13, `lang/ocaml/system-wrapper.md`) + the safe sed core 37 (with `1d`). Top 46 = 13 + 33: same 33-byte sh core as bash 33 / PHP 39, still not found. The P9 sh core 34 has no cheap `-1` in OCaml (no shell arithmetic under 2 bytes)
+- tried for 33 (local, CG dash): brute force of sed scripts `:a` + up to 3-4 tokens from p,P,s/.$//,s/.$//p,s/.//,ta,Ta,ba,1d,$d,n,N,$!N,x,h,g,G,H,D,d,1!G,1h,z with options -n/-s/-z and counters `sort -u|wc -w`, `|wc -l`, `|grep -c .`: no hit up to 34 bytes (tests 1-4 + 5 P9-safe validators; 4-token pass partial, timed out at 25 min)
+- also wrong: `sort -nu` (merges leading zeros, 7/15), `sort|uniq -u`, `x;` hold shift (drops last number), `grep -c ..`, `s/.$//p` loop with `wc -l` (4/15)
+- perl -n core with P9: `perl -nE's/./$h{$`.$&}++/ge}{say%h-1'` = 37, no gain over sed
