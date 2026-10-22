@@ -37,7 +37,7 @@ pick() {
 			else .plateau_count // 0 end;
 		def kind_rank: {"lang": 0, "referee": 1, "validator": 2, "wrap": 3, "puzzle": 4, "cell": 5, "review": 6}[.kind];
 		$context_file[0] as $context
-		| map(select(ready($context)))
+		| map(select(ready($context) and ((.key | IN($context.running_keys[])) | not)))
 		| map(. as $task
 			| ($context.cells[$task.puzzle + "/" + $task.lang] // {}) as $cell
 			| {id: $task.id, key: [
@@ -78,10 +78,12 @@ claim() {
 		--slurpfile cells "$work/cells.json" --slurpfile lang_priority "$work/lang_priority.json" \
 		--arg last_lang "$(cat "$state/last_cell_lang" 2>/dev/null || true)" \
 		--argjson lang_count "$(langs | wc -l)" \
+		--argjson running_keys "$(jq -s '[.[].key]' "$state"/running/*.json </dev/null)" \
 		--arg core_langs "$core_langs" --argjson far_ratio "$far_from_top_ratio" --argjson max_streak "$max_plateau_streak" \
 		'{langs: $langs[0], referees: $referees[0], cells: $cells[0], last_lang: $last_lang, lang_count: $lang_count, lang_priority: $lang_priority[0],
 		  core_langs: ($core_langs | split(" ")), far_ratio: $far_ratio, max_streak: $max_streak,
-		  ready_langs: ([$langs[0][] | select(. == "ready")] | length)}' >"$work/context.json"
+		  ready_langs: ([$langs[0][] | select(. == "ready")] | length),
+		  running_keys: $running_keys}' >"$work/context.json"
 	if [[ -n $forced_task ]]; then
 		id=$([[ -f $state/queue/$forced_task.json ]] && echo "$forced_task" || true)
 	else
