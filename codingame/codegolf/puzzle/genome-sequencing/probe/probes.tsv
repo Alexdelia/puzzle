@@ -11,3 +11,4 @@
 2026-10-21T14:41:29Z	cell.genome-sequencing.scala.1792440650574502349	scala	163	scala input-order fold, Console.in.lines stream reduce	yes: 100% at length 163, committed
 2026-10-21T14:43:38Z	cell.genome-sequencing.scala.1792440650574502349	scala	154	scala fold with tails.filter.toSeq.last	yes: 100% at length 154, committed
 2026-10-22T17:34:32Z	cell.genome-sequencing.ocaml.1792440649754302161	ocaml	279	ocaml input-order fold 279, first row	yes: 100% at length 279, committed
+2026-10-22T17:34:52Z	cell.genome-sequencing.perl.1792516518836598453	perl	76	perl -0p regex input-order fold 76, 100%?	yes: 100% at length 76, committed
