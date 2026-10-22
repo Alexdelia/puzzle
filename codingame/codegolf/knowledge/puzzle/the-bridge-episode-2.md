@@ -131,3 +131,9 @@ Next steps for a later worker:
 - TRAP (CG-verified): checking the new lane from cell x instead of x+1 (stricter model, -12 B, also kills speed-0 rail moves) passes 23/23 locally but fails one heavy validator (9..12) on CG: 91.6 at 453 B. Exact model (new lane x+1..e, old lane x+1..e-1) 100%
 - old lane looked up with `(get R k any?)` too, else a speed-0 UP/DOWN into lane -1/4 survives the model and `(R -1)` throws
 - Clojure 424 (2026-10-21, CG 100%): perl wrapper `(ns Player)(defn -main[_](..(ProcessBuilder.["perl""-e""<core>"])inheritIO start waitFor))` + perl 347 core (newline as `$/`, `''` for the empty string), with `scalar<>` -> `0+<>` (-4 B, also applies to perl/groovy/bash cores here: untested on CG for those). Beats native 467 by 43
+
+### Local referee race on print-all-then-exit (2026-10-22, OCaml cell)
+
+- under heavy host load (load avg 40..240) the plan-once `exit print$q` cores fail 3..6 of 23 locally per run: perl exits before the referee writes the turn-2 input, referee reports "turn N: solution closed its input". CG accepts the exit (python/perl rows 100%), but `submit.sh` refuses on the local failure
+- fix, +4 B in perl: `$|=$M=<>` (autoflush) and `sleep print$q` instead of `exit print$q` (alive 1 s per plan found, DFS goes on): 23/23 twice at load 240, CG 100% (OCaml 344 = `Sys.command"perl -e'<core>'"`, `''` -> `$,`)
+- traps: `exit print$q x999` parses `$q` as a filehandle (no output); `sleep print$q` without `$|` prints nothing (block buffer)
