@@ -100,3 +100,8 @@ Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`
 ## OCaml (cell worker 2026-10-22)
 
 - 220 #1 (top was 233): `Sys.command"perl -anE'<core>'"` with the perl-row core (phase flag `($s|=C eq substr$_,31*$F[0]+$F[1],1,R)?y/T/X/:y/?C/X/`, `until/XR|R(X)|...`, `(LEFT,RIGHT,UP,DOWN)[$#-]` without the `a` placeholder) and `say` instead of `-l`+`print`. This core is 11 B shorter than the lua/groovy/scala core (`s/(?:.*\n){$F[0]}.{$F[1]}\K./R/;$s|=$&eq C`), so every wrapper row using the old core can drop ~11 B. Verified local 16/16 with CG perl 5.34 and CG submit
+
+## Perl native (cell worker 2026-10-22)
+
+- 191 #2 (top 177): core shrunk 18 B by one shared neighbour pattern for flood and stop test, see `lang/perl/shared-adjacency-pattern.md`. Other gains: `#!perl -pl` + `$|++or$_=<>;` (turn 1 reads coords in-body, header discarded) + `$_=(LEFT,UP,RIGHT,DOWN)[$#-]` output; `-a` dropped for `/ /;` + `31*$`+$'` (match vars survive `read ARGV,$_,465`). Every perl-core wrapper row (bash, ruby, js, ts, python, c, lua, ocaml...) can take the new flood/check (~11 B)
+- rejected: flood class `\.` (T impassable before C): 13/16; T permanent goal: 0/16 (Rick oscillates on T)
