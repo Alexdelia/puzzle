@@ -53,5 +53,6 @@
 - [chained-comparison](chained-comparison.md): `$a>1>$b` chains (5.32+), 3 under `$a>1&&!$b`, verified on CG
 - [memo-turn-key](memo-turn-key.md): `$M{"@_@z$."}++&&return` memo reset per turn by `$.`, `"@_@z"` state key, verified on CG
 - [my-trailing-hash](my-trailing-hash.md): `my($i,@r,%h)=@_` empty lexical hash for free, verified on CG
+- [list-read-repeat](list-read-repeat.md): `@q=map$q+=$_,(<>)x2` reads all lines, doubles and prefix-sums them; with `($l,$c)=glob<>` + final `print` -10 vs `-0ap` + `@F`, verified on CG
 - [y-table-vb](y-table-vb.md): `sprintf("%vb",y/A-Z,-9/<raw ords>/dr)=~s/.?\b1//gr` whole-word heap-table binary, 8 under per-char index+%b; `/d` range delete, verified on CG
 - [named-unary-precedence](named-unary-precedence.md): `ord$2%25` = `ord($2%25)`, bare named unary safe only before `& | ^` / comparisons, verified
