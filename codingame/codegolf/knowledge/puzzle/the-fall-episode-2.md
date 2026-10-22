@@ -93,3 +93,11 @@ Guesses (unverified):
 Scala (2026-10-21): python solution wrapped via ProcessBuilder (`knowledge/lang/scala/python-wrapper-interactive.md`) scores 100% at 1123, rank 6 with top 276. Reaching 276 needs the unknown weak-validator trick; WAIT-only scala probe scores 0%.
 
 OCaml (2026-10-22): python core (perl row's) in `Sys.command{|python3 -c '...'|}` scores 100% at 936, rank 4, top 230. Same weak-validator trick missing as in every other lang.
+
+Python core shrinks (2026-10-22, perl cell, local 26/26, relaxed-timeout referee + real one at low load; per-turn max below the old core):
+
+- entry re-encoded R=0 T=1 L=2: table `333111032313103321032113131311303323133331`, move `x+d-1,y+d%2`, input entry `-~len(c)%3` (from TOP/LEFT/RIGHT length)
+- no accept check before recursing: the child's move lookup already rejects a blocking type; rock-reject check = `not N(rock state)` after writing the rotated cell
+- per-cell options as a slice instead of a dedupe list: `((0,0),(1,R),(2,R),(1,L))[:-~(t>1)<<(t>5)]` gives 1 option for locked (t<0) and types 0/1, 2 for 2..5, 4 for 6..13; faster than the dedupe list
+- exit marker `W='WAIT',` returned at the exit: success is truthy, no `!=None`; top `r=... or W`, update grid only `if r[3:]`, `print(*r[:3])`
+- 908 -> 848 with these (perl `exec python3,-c=>q{...}` row)
