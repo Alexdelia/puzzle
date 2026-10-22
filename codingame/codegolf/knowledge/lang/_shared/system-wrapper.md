@@ -31,3 +31,5 @@ Lua box (verified 2026-10-22, knowledge/lang/lua/box-interpreters.md): python3 3
 PHP box (verified 2026-10-22, temperature-code-golf PHP test games): python3, `/bin/lua` 5.4.4, perl, bash on PATH, ruby only at `/usr/local/bin/ruby`, no node. Details: `knowledge/lang/php/wrapper-forms.md`.
 
 Verified 2026-10-22 (Ruby, CG test games 910933624/910933386/910933406/910933448, all 100%): the CG Ruby box has `perl`, `python3`, `bash`, `lua` on PATH, reached by `exec` both through sh and through Ruby's own PATH lookup (argv form). `knowledge/lang/ruby/exec-wrapper.md`.
+
+Groovy box (verified 2026-10-22, telephone-numbers-codesize test 1, `knowledge/lang/groovy/spawn-interpreters.md`): python3, php, lua, perl, bash on PATH; ruby 3.1.2 only as `/usr/local/bin/ruby`; no node.
