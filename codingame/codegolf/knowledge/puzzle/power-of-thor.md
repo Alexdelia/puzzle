@@ -46,8 +46,8 @@ Open: leaderboard tops (Ruby/Perl 42, bash 46, Python 52, C 65) are below what p
 Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md` (2026-10-20, 7 count probes).
 
 - 4 validators (leaderboard grain 25%)
-- directions: no validator needs E (so no NE/SE either). Exactly 1 horizontal (light West), exactly 1 vertical and it goes North, the other 2 are strict SW (dx<0, dy>0). N only in the pure vertical one
-- golf use: horizontal part is only `W` or nothing (`x>LX`), no E branch; vertical: `S` in the SW ones, `N` only when Thor starts on the light's column
+- directions: exactly 1 horizontal, exactly 1 vertical and it goes North, the other 2 have light strictly south and dx!=0. N only in the pure vertical one
+- E IS needed: the 'no E' claim came from the java count probe (0), which ran before the java launcher fix (crash, not a count); haskell noE probe scored 50% (2026-10-21), so 2 validators need E. No E/W branch can be dropped (2026-10-22, perl worker)
 - exactly 1 validator init line is in {`7 8 28 8`, `0 17 36 0`, `0 17 31 4`}; the other 3 inputs are unknown, energies unknown. Not complete, no hardcode key yet
 
 ## JavaScript (2026-10-20)
@@ -90,3 +90,7 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 ## Clojure (2026-10-21)
 
 - 143 B 100% on CG: header `(ns Player)(defn -main[_]` (see knowledge/lang/clojure/interactive-player.md), 4-letter form: letter k fires when `P[k]+i<Q[k]` with P=[thorY lightY lightX thorX], Q=[lightY thorY thorX lightX], letters "SNWE"; vertical letters precede horizontal so map order gives valid directions. No negation, no sign. Top 135 not reached
+
+## Perl (2026-10-22)
+
+- 94 B, CG 100%, rank 38 (tie 35): lag update inside the slice index, see knowledge/lang/perl/lag-sign-update.md
