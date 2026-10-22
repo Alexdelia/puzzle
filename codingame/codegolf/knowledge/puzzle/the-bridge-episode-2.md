@@ -95,6 +95,10 @@ Next steps for a later worker:
 - measure with fresh-language probes (see `knowledge/lang/_shared/hidden-validators.md`, score oracle): hardcode keyed on L only, on (L,V), plans of single tests, to find which tests have twins and a cheap key
 - the rest needs search: check whether a 1-D model (union of holes of alive lanes, SPEED/SLOW/JUMP only, no lane change) solves the non-twin validators: locally it solves tests 1-8 and 11 (first/last V lanes), not 9, 10, 12
 
+### Perl 287 (2026-10-22, CG 100%, rank 5)
+
+- 303 core minus `$|=`, `sleep`, `$j`: leaf `print($q)` and the DFS runs on (no exit), outer loop `map{...}-2..2`; see `knowledge/lang/perl/dfs-print-no-exit.md`. Same 159/184 shifted/flipped variant set as 303. Wrapper cores (bash/groovy/clojure/ocaml perl -e) can take it: no `exit` also removes the local "solution closed its input" race
+
 ### Perl 303 (2026-10-22, CG 100%)
 
 - road as one string, stride 99, bike = offset; `local` speed and plan in the for body; see `knowledge/lang/perl/flat-grid-local-recursion.md`. Same pass set as the 318 on 184 shifted/flipped test variants (stride 99 vs 999 no difference)
