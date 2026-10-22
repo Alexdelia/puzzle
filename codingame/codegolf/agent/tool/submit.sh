@@ -23,6 +23,15 @@ pretty_id=$(tsv_field puzzle "$puzzle" pretty_id)
 cg_name=$(tsv_field lang "$lang" cg_name)
 cell=$(ensure_status cell "$puzzle" "$lang")
 
+started=$EPOCHSECONDS
+marks=()
+mark() {
+	marks+=("$1 $((EPOCHSECONDS - started))s")
+	started=$EPOCHSECONDS
+}
+report_time() {
+	((${#marks[@]})) && echo "submit.sh: time ${marks[*]}" >&2 || true
+}
 length=$("$tool_dir/count.sh" "$solution")
 ours=$(jq -r '.ours // empty' "$cell")
 recent_submits=$(awk -F'\t' -v since="$(date -u -d '5 hours ago' +%Y-%m-%dT%H:%M:%SZ)" -v path="/puzzles/$pretty_id/submissions" \
@@ -49,32 +58,34 @@ elif [[ -n $ours ]] && ((length >= ${ours%.*})); then
 	echo "submit.sh: refused, length $length not below ours $ours" >&2
 	exit 1
 fi
+mark referee
 
 body=$(mktemp)
-trap 'rm -f "$body"' EXIT
+trap 'rm -f "$body"; report_time' EXIT
 jq -n --rawfile code "$solution" --arg language "$cg_name" '{language: $language, code: $code}' >"$body"
 submission=$("$tool_dir/cg.sh" POST "/puzzles/$pretty_id/submissions" "$body" | jq -r .submission_id)
 event "${probe:+probe }submit $puzzle $lang length=$length submission=$submission"
 
 for _ in $(seq 60); do
 	progress=$("$tool_dir/cg.sh" GET "/puzzles/$pretty_id/progress")
-	if [[ $(jq -r .submission_id <<<"$progress") == "$submission" && $(jq -r .in_progress <<<"$progress") == false ]]; then
-		break
-	fi
+	current=$(jq -r '.submission_id // 0' <<<"$progress")
+	[[ $current == "$submission" && $(jq -r .in_progress <<<"$progress") == false ]] && break
+	((current > submission)) && break
 	sleep 10
 done
-sleep 30
+mark cg
 
 own_row() {
 	leaderboard_rows "$puzzle" KEYWORD "$nickname" |
 		jq -c --arg language "$cg_name" '[.[] | select(.language == $language)] | first'
 }
 row=$(own_row)
-for _ in $(seq 6); do
+for _ in $(seq 21); do
 	(($(jq -r '.length // 1e9 | floor' <<<"$row") <= length)) && break
-	sleep 30
+	sleep 10
 	row=$(own_row)
 done
+mark row
 if [[ -n $probe ]] && { [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; }; then
 	echo "submit.sh: probe result, progress $(jq -c 'del(.limits)' <<<"$progress"), own row $row"
 	echo "submit.sh: CG keeps the best submission per language: a lower score than the row shown stays hidden"
@@ -118,6 +129,7 @@ if [[ $solution != "$main" ]]; then
 	cp "$solution" "$main"
 fi
 commit_scope "$message" "puzzle/$puzzle/solution/$lang"
+mark commit
 event "gain $puzzle $lang length=$length rank=$rank best_tie_rank=${best_tie_rank:--}"
 ! wrap_cores | grep -q -x -F "$lang" || wrap_enqueue "$puzzle" "core $lang $length"
 echo "submit.sh: $message"

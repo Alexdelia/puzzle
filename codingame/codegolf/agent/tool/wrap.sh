@@ -41,7 +41,7 @@ cores() {
 	for core in $(wrap_cores); do
 		for file in "$root/puzzle/$puzzle/solution/$core"/main.* "$root/puzzle/$puzzle/core/$core"/*; do
 			printf '%s\t%s\n' "$core" "$file"
-			[[ $core == bash ]] && derived_perl_core "$file"
+			[[ $core != bash ]] || derived_perl_core "$file"
 		done
 	done
 }
@@ -67,7 +67,7 @@ candidates() {
 			rejected "$candidate" && continue
 			printf '%s\t%s\t%s\n' "$("$tool_dir/count.sh" "$candidate")" "$candidate" "$core:${file#"$root"/}"
 		done
-	done < <(cores)
+	done <"$work/cores"
 }
 
 busy() {
@@ -78,9 +78,11 @@ busy() {
 	! git -C "$root" diff --quiet -- "$main"
 }
 
+cores >"$work/cores"
 submit_cap_reached=
 for host_dir in "$wrap_root"/*/; do
 	host=$(basename "$host_dir")
+	host_started=$EPOCHSECONDS
 	[[ -f $host_dir/available.tsv && ( -z $host_filter || $host == "$host_filter" ) ]] || continue
 	main=$root/puzzle/$puzzle/solution/$host/main.$(tsv_field lang "$host" extension)
 	if [[ $mode != estimate ]] && busy "$host" "$main"; then
@@ -111,15 +113,22 @@ for host_dir in "$wrap_root"/*/; do
 		[[ -e $main ]] && cp "$main" "$previous"
 		mkdir -p "$(dirname "$main")"
 		cp "$candidate" "$main"
-		output=$(CG_WRAP_SOURCE=$source "$tool_dir/submit.sh" "$main" 2>&1) && { winner="$length $source submitted"; break; }
+		attempt_started=$EPOCHSECONDS
+		submitted=
+		output=$(CG_WRAP_SOURCE=$source "$tool_dir/submit.sh" "$main" 2>&1) && submitted=1
+		reason=$({ grep -v '^submit.sh: time ' <<<"$output" || true; } | tail -n 1)
+		phases=$({ grep '^submit.sh: time ' <<<"$output" || true; } | tail -n 1 | cut -c17-)
+		printf '%s\ttry %s %s\t%s in %ss (%s)\n' "$host" "$length" "$source" "${submitted:+submitted}${submitted:-$reason}" \
+			"$((EPOCHSECONDS - attempt_started))" "${phases:-no CG call}"
+		[[ -z $submitted ]] || { winner="$length $source submitted"; break; }
 		if [[ -e $previous ]]; then cp "$previous" "$main"; else rm -f "$main"; fi
 		[[ $output == *"local referee fails"* ]] && continue
 		[[ $output == *"did not confirm"* ]] && continue
 		[[ $output == *"agent submits on"* ]] && submit_cap_reached=1 deferred=1
-		winner="$length $source refused: $(tail -n 1 <<<"$output")"
+		winner="$length $source refused: $reason"
 		break
 	done
-	printf '%s\t%s\t%s\n' "$host" "${ours:--}" "$winner"
+	printf '%s\t%s\t%s\t%ss\n' "$host" "${ours:--}" "$winner" "$((EPOCHSECONDS - host_started))"
 	[[ -z $submit_cap_reached ]] || break
 done
 [[ -z $deferred ]] || exit 3

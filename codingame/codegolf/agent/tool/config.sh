@@ -24,5 +24,6 @@ propagation_max_depth=2
 nickname=Alexdelia
 wrap_no_row_gain=200
 wrap_retry_seconds=600
+wrap_estimate_jobs=4
 commit_attempts=20
 commit_retry_seconds=3
