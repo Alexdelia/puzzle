@@ -75,8 +75,14 @@ puzzle/done)
 	;;
 cell/first)
 	set_status first
+	json_update "$status_path" '.plateau_streak = 0'
 	;;
-cell/continue | review/continue)
+cell/continue)
+	set_status todo
+	json_update "$status_path" '.plateau_streak = 0'
+	requeue continue
+	;;
+review/continue)
 	set_status todo
 	requeue continue
 	;;
@@ -84,8 +90,16 @@ review/done)
 	set_status done
 	;;
 cell/*)
-	json_update "$status_path" '.status = "plateau" | .plateau_count = ((.plateau_count // 0) + 1)'
-	requeue plateau-retry
+	ours_at_claim=$(jq '.ours_at_claim // null' "$running")
+	json_update "$status_path" --argjson before "$ours_at_claim" '
+		(.ours != null and ($before == null or .ours < $before)) as $gained
+		| .status = "plateau" | .plateau_count = ((.plateau_count // 0) + 1)
+		| .plateau_streak = (if $gained then 0 else (.plateau_streak // 0) + 1 end)'
+	if (($(jq '.plateau_streak' "$status_path") < max_plateau_streak)); then
+		requeue plateau-retry
+	else
+		event "stuck $puzzle $lang: $max_plateau_streak plateaus in a row without gain, no retry until a new trigger"
+	fi
 	;;
 *)
 	set_status todo

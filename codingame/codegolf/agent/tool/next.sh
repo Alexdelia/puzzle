@@ -30,6 +30,11 @@ pick() {
 			elif .kind == "validator" or .kind == "puzzle" then $context.referees[.puzzle] == "done"
 			else $context.referees[.puzzle] == "done" and $context.ready_langs == $context.lang_count
 			end;
+		def far($context): .ours == null or .top == null or .top == 0 or .ours / .top >= $context.far_ratio;
+		def plateau_rank($context; $lang):
+			if ($context.core_langs | index($lang)) then 0
+			elif far($context) and (.plateau_streak // 0) < $context.max_streak then 0
+			else .plateau_count // 0 end;
 		def kind_rank: {"lang": 0, "referee": 1, "validator": 2, "puzzle": 3, "cell": 4, "review": 5}[.kind];
 		$context_file[0] as $context
 		| map(select(ready($context)))
@@ -38,7 +43,7 @@ pick() {
 			| {id: $task.id, key: [
 				($task | kind_rank),
 				(if $task.urgent then 0 else 1 end),
-				($cell.plateau_count // 0),
+				($cell | plateau_rank($context; $task.lang)),
 				($context.lang_priority[$task.lang] // 99),
 				(if $task.lang == $context.last_lang then 0 else 1 end),
 				(if $cell.ours != null and $cell.top != null then $cell.top - $cell.ours else -1000000 end),
@@ -73,7 +78,9 @@ claim() {
 		--slurpfile cells "$work/cells.json" --slurpfile lang_priority "$work/lang_priority.json" \
 		--arg last_lang "$(cat "$state/last_cell_lang" 2>/dev/null || true)" \
 		--argjson lang_count "$(langs | wc -l)" \
+		--arg core_langs "$core_langs" --argjson far_ratio "$far_from_top_ratio" --argjson max_streak "$max_plateau_streak" \
 		'{langs: $langs[0], referees: $referees[0], cells: $cells[0], last_lang: $last_lang, lang_count: $lang_count, lang_priority: $lang_priority[0],
+		  core_langs: ($core_langs | split(" ")), far_ratio: $far_ratio, max_streak: $max_streak,
 		  ready_langs: ([$langs[0][] | select(. == "ready")] | length)}' >"$work/context.json"
 	if [[ -n $forced_task ]]; then
 		id=$([[ -f $state/queue/$forced_task.json ]] && echo "$forced_task" || true)
@@ -91,8 +98,8 @@ claim() {
 		task_model=$cell_model task_effort=$cell_effort
 	fi
 	json_update "$running" --arg started_at "$(now)" --arg worker "$worker" --argjson worker_pid "$worker_pid" \
-		--arg model "$task_model" --arg effort "$task_effort" \
-		'. + {started_at: $started_at, worker: $worker, worker_pid: $worker_pid, model: $model, effort: $effort}'
+		--arg model "$task_model" --arg effort "$task_effort" --argjson ours_at_claim "$(jq '.ours // null' "$status_path")" \
+		'. + {started_at: $started_at, worker: $worker, worker_pid: $worker_pid, model: $model, effort: $effort, ours_at_claim: $ours_at_claim}'
 	json_update "$status_path" --arg id "$id" '.status = "active" | .last_task = $id'
 	[[ $kind == cell ]] && echo "$lang" >"$state/last_cell_lang"
 	event "claim $id worker=$worker model=$task_model effort=$task_effort"
