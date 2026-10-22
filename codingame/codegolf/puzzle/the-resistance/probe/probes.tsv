@@ -57,3 +57,5 @@
 2026-10-22T17:55:12Z	cell.the-resistance.ocaml.1792513218972492779	ocaml	179	regex trie DP (perl 165 core, leading "|", =~s|.||r) in OCaml wrapper 179: 100%?	yes: 100% at length 179, committed
 2026-10-22T19:48:43Z	cell.the-resistance.perl.1792690919449468550	perl	162	perl 162 %vb+y table trie DP (/4, lines 1-2 deleted to empty alts): 100%?	yes: 100% at length 162, committed
 2026-10-22T19:50:05Z	cell.the-resistance.perl.1792690919449468550	perl	160	perl 160 (162 with y delete range ,-9): 100%?	yes: 100% at length 160, committed
+2026-10-22T20:00:06Z	cell.the-resistance.perl.1792698863547612043	perl	155	perl 155: line 1 via y table, $r=~/\|/ then $` subject / $' alternation, /3: 100%?	yes: 100% at length 155, committed
+2026-10-22T20:03:14Z	cell.the-resistance.perl.1792698863547612043	perl	150	perl 150: $d[$-[0]] DP, only trailing empty alt (/2), 17/18 local (val10 TRIE): 100%?	yes: 100% at length 150, committed
