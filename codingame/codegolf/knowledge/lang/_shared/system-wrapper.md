@@ -33,3 +33,5 @@ PHP box (verified 2026-10-22, temperature-code-golf PHP test games): python3, `/
 Verified 2026-10-22 (Ruby, CG test games 910933624/910933386/910933406/910933448, all 100%): the CG Ruby box has `perl`, `python3`, `bash`, `lua` on PATH, reached by `exec` both through sh and through Ruby's own PATH lookup (argv form). `knowledge/lang/ruby/exec-wrapper.md`.
 
 Groovy box (verified 2026-10-22, telephone-numbers-codesize test 1, `knowledge/lang/groovy/spawn-interpreters.md`): python3, php, lua, perl, bash on PATH; ruby 3.1.2 only as `/usr/local/bin/ruby`; no node.
+
+Perl box (verified 2026-10-22, details `knowledge/lang/perl/exec-wrapper.md`): `exec` reaches bash (test game 910933623), lua (910933626), php (temperature io test 1 success), python3. Ruby unverified (game 910933627 timed out silently). The local perl launcher has no php/ruby, so those wrappers pass on CG but fail the local referee.
