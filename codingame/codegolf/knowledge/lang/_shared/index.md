@@ -11,3 +11,4 @@
 - [orphan-child-kill](orphan-child-kill.md): child of an exited main process is killed ~0.3-0.5 s later on CG (wait for it or exec); local referee does not model it, verified
 - [pipe-block-keepalive](pipe-block-keepalive.md): open-loop interactive bot, repeat the last answer 1e5 times so the write blocks on the full pipe instead of reading stdin to EOF, verified on CG (Mars Lander 3 perl)
 - [floordiv-step-chain](floordiv-step-chain.md): `i<T1?R1:i<T2?R2:0` = `(T1-1)//i*(R1-R2)+(T2-1)//i*R2` while i > T2/2, verified Lua mars-lander-episode-3
+- [abs-tie-comparator](abs-tie-comparator.md): sort comparator `a*a-b*b-a` = min |t|, positive wins tie, nonzero ints only (-4 Perl vs `||$b-$a`), verified Perl + Node
