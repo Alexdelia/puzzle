@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	the-descent-codesize C++ test 1 CG game 910947672 2026-10-22 (generated system("perl -e'...'"), interactive); temperature-code-golf C++ test 2 CG success 2026-10-22 (generated candidate, io test: no game id)
+python	yes	temperature-code-golf C++ test 2 CG success 2026-10-22 (generated candidate system("python3 -c'...'"), io test: no game id)
+bash	yes	temperature-code-golf C++ test 2 CG success 2026-10-22 (generated candidate system(core) via /bin/sh dash, io test: no game id)
+lua	yes	temperature-code-golf C++ test 2 CG success 2026-10-22 (generated candidate system(R"(lua -e'...')"), io test: no game id)
+php	yes	temperature-code-golf C++ test 2 CG success 2026-10-22 (generated candidate system(R"(php -ddisplay_errors= -r'...')"), io test: no game id)
+ruby	yes	temperature-code-golf C++ test 2 CG success 2026-10-22 (generated candidate system("/usr/local/bin/ruby -e'...'"), io test: no game id); ruby off PATH
+javascript	no	C++ box probe 2026-10-22 temperature-code-golf test 1: command -v node/nodejs empty
