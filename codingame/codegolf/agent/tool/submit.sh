@@ -71,7 +71,7 @@ own_row() {
 }
 row=$(own_row)
 for _ in $(seq 6); do
-	[[ $(jq -r '.length // empty' <<<"$row") == "$length" ]] && break
+	(($(jq -r '.length // 1e9 | floor' <<<"$row") <= length)) && break
 	sleep 30
 	row=$(own_row)
 done
@@ -79,6 +79,12 @@ if [[ -n $probe ]] && { [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]]
 	echo "submit.sh: probe result, progress $(jq -c 'del(.limits)' <<<"$progress"), own row $row"
 	echo "submit.sh: CG keeps the best submission per language: a lower score than the row shown stays hidden"
 	exit 3
+fi
+row_length=$(jq -r '.length // empty | floor' <<<"$row")
+if [[ -n $row_length ]] && ((row_length < length)) && jq -e '.score == 100' <<<"$row" >/dev/null; then
+	event "superseded $puzzle $lang length=$length row=$row"
+	echo "submit.sh: superseded, CG already holds a shorter row $row_length at 100% (concurrent submit): copy it from the leaderboard or git log before going on" >&2
+	exit 1
 fi
 if [[ -n ${CG_WRAP_SOURCE:-} ]] && { [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; }; then
 	mkdir -p "$(dirname "$wrap_rejected")"
