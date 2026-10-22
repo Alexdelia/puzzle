@@ -1,0 +1,7 @@
+core	status	evidence
+perl	yes	the-labyrinth javascript CG 100% (execSync perl -anle)
+python	yes	mars-lander-episode-3 javascript 2026 commit 9adc9891 CG 100% (spawnSync python3 -c)
+bash	yes	dwarfs-standing-on-the-shoulders-of-giants-codesize test 1 success 2026-10-22 (execSync bash -c, generated candidate)
+lua	yes	dwarfs-standing-on-the-shoulders-of-giants-codesize test 1 success 2026-10-22 (execSync lua -e, generated candidate)
+php	yes	dwarfs-standing-on-the-shoulders-of-giants-codesize test 1 success 2026-10-22 (execSync php -r, generated candidate); no php in the local launcher, so local referee fails it
+ruby	no	dwarfs-standing-on-the-shoulders-of-giants-codesize test 1 2026-10-22: /bin/sh: 1: ruby: not found
