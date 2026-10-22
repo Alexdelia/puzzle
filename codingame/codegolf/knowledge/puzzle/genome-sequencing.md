@@ -80,6 +80,8 @@ Probes 2026-10-20 (6 of 10 spent; python row 465 -> 151 -> 120 -> 116, perl row 
 
 - PASSED php 129 (2026-10-21, rank 6): `str_word_count(`cat`,1)` drops the N token (letters only); `strstr($t,$s)&&$s=''` as reset (empty needle warns, returns false = fine); `for($k=8;!strstr($s.$u=substr($t,$k--),$t););$s.=$u;` max-k search downward; `echo strlen($s)`; `<?` short tag
 
+- OCaml fold 254 (CG 100%, rank 4, 2026-10-22, top 69): own substring fn (`lang/ocaml/substring-test.md`), reset folded into the merge as `(if s in t then "" else s)^suffix` with suffix length ascending from 0 (shortest valid first). 69 in OCaml leaves ~25 bytes after reading all lines: the top uses no substring search at all, method unknown
+
 - Haskell fold 151 (2026-10-21): scores only 93% on CG (python/php folds of same logic get 100%); `[0..10]` instead of `[0..8]` does not fix it; cause unknown (7 validators)
 
 - Groovy 96 (CG 100%, rank 1, 2026-10-21): input-order fold, `System.in.eachLine{t->s=t>'9'?t=~s?t:s+t.drop((7..0).find{(s+t.drop(it))=~t}):''}` then `print s.size()`; reset folded into `t=~s?t:` (s inside t gives t), see `lang/groovy/unbound-var-ternary-init.md`
