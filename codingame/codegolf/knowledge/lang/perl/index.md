@@ -46,3 +46,4 @@
 - [exec-wrapper](exec-wrapper.md): `exec bash,-c=>'core'` runs another interpreter with inherited stdio, no wait; `-c=>` autoquotes (bare `-c` is a filetest); CG Perl box has bash/lua/python3/php, ruby unverified, verified on CG
 - [range-array-count](range-array-count.md): `@r=1..<>` header range reused as list, `<>/@r` count, `/.{$#r}./` width, verified on CG
 - [float-div-digit-loop](float-div-digit-loop.md): `1while s/^/$G[$r%20]/,0|($r/=20);print` base printer, `%` truncates float, drop `-p` for final `print`, verified on CG
+- [flat-grid-local-recursion](flat-grid-local-recursion.md): grid as one stride-99 string, negative `substr` wraps to a trailing sentinel row, `local` state in a `for` body instead of `my(..)=@_`, `@_` alias-free trap, verified on CG
