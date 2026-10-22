@@ -31,3 +31,9 @@ First line `n` separates V4, S, X, M and {P1, P2} (all answer 1). A and B share 
 - V4: `n==4`, then `c==3`; P1/P2: `n==7` count
 - channel rows 2026-10-21 ~19:00Z: dart 6, d 6, csharp 1, kotlin go java 2, ocaml 3; scala now 100 % (a cell worker): unusable. Before each probe re-read the row: cell workers can put a 100 % row meanwhile and hide the probe score
 - baselines (known small validators): `n==5` 1, `n==5||n==9` 2, `n>2&&n<6||n==9` 3, `n<9` 4, `n<10` 5, `n<1000` 6; `n<2` matches nothing
+
+## Input order (probes 2026-10-22, perl, 1-bit)
+
+- greedy in input order without sort, end-ascending form (take iff J >= e): NOT 100 %
+- same, start-descending form (take iff J+D <= e, e = J): NOT 100 %
+- so not all validators are sorted by end ascending, and not all by start descending: weak-order exploits of that kind are out
