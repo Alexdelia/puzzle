@@ -66,3 +66,4 @@
 - [foreach-arg-alias](foreach-arg-alias.md): `for($_[0]){...}` binds the sub arg to `$_`, restored around recursion; `S$_` truthy flag; `A|B&&C` no parens, verified on CG
 - [local-topic-recursion](local-topic-recursion.md): `local($_,@r,%h)=@_` in a recursive sub so helpers read `$_` bare, `f(S||next,..)` in a for body, verified on CG
 - [nonlocal-dfs-state](nonlocal-dfs-state.md): recursive DFS, `%h=($_)=@_` instead of `local($_,@r,%h)=@_` when nothing reads them after the child call; kill dead movers once with `$_*=$h{..}<2for@_`
+- [format-shared-suffix](format-shared-suffix.md): `printf"..%sT",$l?LEF:RIGH` common suffix of alternative barewords moved into the format, -1 for LEFT/RIGHT, verified on CG
