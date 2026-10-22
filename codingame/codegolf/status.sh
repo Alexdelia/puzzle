@@ -13,7 +13,8 @@ cyan=36
 column_gap=2
 fallback_width=120
 close_pace_points=10
-progress_ratio_width=12
+usage_bar_width=20
+needs_you_per_group=5
 
 use_color=0
 [[ -t 1 && -z ${NO_COLOR:-} ]] && use_color=1
@@ -69,34 +70,35 @@ lang_label() {
 
 status_sgr() {
 	case $2 in
-	ready | done | first) printf -v "$1" '%s' "$green" ;;
+	ready | done | first | submitted) printf -v "$1" '%s' "$green" ;;
 	active | running) printf -v "$1" '%s' "$cyan" ;;
-	plateau) printf -v "$1" '%s' "$yellow" ;;
-	blocked | suspect | rejected | failed) printf -v "$1" '%s' "$red" ;;
+	plateau | deferred) printf -v "$1" '%s' "$yellow" ;;
+	blocked | suspect | rejected | refused | failed) printf -v "$1" '%s' "$red" ;;
 	*) printf -v "$1" '%s' "$dim" ;;
 	esac
 }
 
-event_sgr() {
-	case $2 in
-	attention) printf -v "$1" '%s' "$yellow" ;;
-	review) printf -v "$1" '%s' "$cyan" ;;
-	*) status_sgr "$1" "$2" ;;
-	esac
+paint_count() {
+	local count=$3 digits=$4 sgr=$2 padded
+	((count)) || sgr=$dim
+	printf -v padded '%*s' "$digits" "$count"
+	paint "$1" "$sgr" "$padded"
+}
+
+progress_ratio_width() {
+	echo $((4 * $1 + 3))
 }
 
 progress_ratio() {
-	local first=$2 ran=$3 wrapped=$4 total=$5
-	local tail="|$ran|$wrapped/$total" first_sgr="$bold;$green" ran_sgr= wrapped_sgr= painted_first painted_bar painted_ran painted_wrapped painted_total
-	((first)) || first_sgr=$dim
-	((ran)) || ran_sgr=$dim
-	((wrapped)) || wrapped_sgr=$dim
-	paint painted_first "$first_sgr" "$first"
+	local first=$2 ran=$3 wrapped=$4 total=$5 digits=$6
+	local painted_first painted_bar painted_ran painted_wrapped painted_total padded_total
+	paint_count painted_first "$bold;$green" "$first" "$digits"
 	paint painted_bar "$dim" "|"
-	paint painted_ran "$ran_sgr" "$ran"
-	paint painted_wrapped "$wrapped_sgr" "$wrapped"
-	paint painted_total "$dim" "/$total"
-	printf -v "$1" '%*s%s%*s' $((3 - ${#first})) '' "$painted_first$painted_bar$painted_ran$painted_bar$painted_wrapped$painted_total" $((progress_ratio_width - 3 - ${#tail})) ''
+	paint_count painted_ran "" "$ran" "$digits"
+	paint_count painted_wrapped "" "$wrapped" "$digits"
+	printf -v padded_total '/%-*s' "$digits" "$total"
+	paint painted_total "$dim" "$padded_total"
+	printf -v "$1" '%s' "$painted_first$painted_bar$painted_ran$painted_bar$painted_wrapped$painted_total"
 }
 
 pace_sgr() {
@@ -196,30 +198,26 @@ cell_rows() {
 	' <<<"$cells" | sort
 }
 
-lang_table() {
-	local slug first ran wrapped total label ratio entries=() name_width=12
-	while IFS=$'\t' read -r slug first ran wrapped total; do
-		lang_label label "$slug" "$name_width"
-		progress_ratio ratio "$first" "$ran" "$wrapped" "$total"
-		entries+=("$label $ratio")
-	done < <(cell_rows 2)
-	print_grid $((2 + name_width + 1 + progress_ratio_width)) "${entries[@]}"
-}
-
-puzzle_table() {
-	local puzzle first ran wrapped total ratio rows=() entries=() name_width=0
-	while IFS=$'\t' read -r puzzle first ran wrapped total; do
-		rows+=("$puzzle"$'\t'"$first"$'\t'"$ran"$'\t'"$wrapped"$'\t'"$total")
-		((${#puzzle} <= name_width)) || name_width=${#puzzle}
-	done < <(cell_rows 1)
-	local row entry
+count_table() {
+	local key_field=$1 key first ran wrapped total ratio label rows=() entries=() name_width=0 digits=1
+	while IFS=$'\t' read -r key first ran wrapped total; do
+		rows+=("$key"$'\t'"$first"$'\t'"$ran"$'\t'"$wrapped"$'\t'"$total")
+		((${#key} <= name_width)) || name_width=${#key}
+		((${#total} <= digits)) || digits=${#total}
+	done < <(cell_rows "$key_field")
+	local row label_width=$name_width
+	[[ $key_field != 2 ]] || label_width=$((name_width + 2))
 	for row in "${rows[@]}"; do
-		IFS=$'\t' read -r puzzle first ran wrapped total <<<"$row"
-		progress_ratio ratio "$first" "$ran" "$wrapped" "$total"
-		printf -v entry '%-*s %s' "$name_width" "$puzzle" "$ratio"
-		entries+=("$entry")
+		IFS=$'\t' read -r key first ran wrapped total <<<"$row"
+		progress_ratio ratio "$first" "$ran" "$wrapped" "$total" "$digits"
+		if [[ $key_field == 2 ]]; then
+			lang_label label "$key" "$name_width"
+		else
+			printf -v label '%-*s' "$name_width" "$key"
+		fi
+		entries+=("$label $ratio")
 	done
-	print_grid $((name_width + 1 + progress_ratio_width)) "${entries[@]}"
+	print_grid $((label_width + 1 + $(progress_ratio_width "$digits"))) "${entries[@]}"
 }
 
 smallest_gaps() {
@@ -303,34 +301,153 @@ running_tasks() {
 	done
 }
 
-wrap_generator() {
-	local jobs=("$state"/wrapq/*.json) daemon painted
+duration_text() {
+	local seconds=$2 text
+	((seconds > 0)) || seconds=0
+	if ((seconds < 3600)); then
+		text=$((seconds / 60))m
+	elif ((seconds < 86400)); then
+		printf -v text '%dh%02dm' $((seconds / 3600)) $((seconds % 3600 / 60))
+	else
+		text=$((seconds / 86400))d$((seconds % 86400 / 3600))h
+	fi
+	printf -v "$1" '%s' "$text"
+}
+
+age_text() {
+	local duration
+	duration_text duration $(($(date +%s) - $(date -d "$2" +%s)))
+	printf -v "$1" '%s ago' "$duration"
+}
+
+wrap_queue_line() {
+	local jobs=("$state"/wrapq/*.json) daemon ready retry soonest newest line painted
 	if [[ -n $(loop_pids wrapd) ]]; then
 		paint daemon "$green" running
 	else
 		paint daemon "$dim" "not running"
 	fi
-	echo "wrapd: $daemon  jobs: ${#jobs[@]}"
-	((${#jobs[@]})) && jq -r --argjson now "$(date +%s)" '
-		[.puzzle, (.queued_at | sub("\\..*"; "Z")), (if (.retry_after // 0) > $now then "retry in \(((.retry_after - $now) / 60) | ceil)m" else "ready" end),
-		 (.reasons | length | tostring) + " reasons, last: " + .reasons[-1]] | @tsv' "${jobs[@]}" |
-		sort -t$'\t' -k2 | tail -n 8 | while IFS=$'\t' read -r puzzle queued_at state reasons; do
-			paint painted "$dim" "$queued_at $reasons"
-			printf '  %-44s %-14s %s\n' "$puzzle" "$state" "$painted"
-		done
-	local runs
-	runs=$(grep -P '\twrap run ' "$state/events.log" 2>/dev/null | tail -n 3 || true)
-	[[ -z $runs ]] || while IFS= read -r line; do print_event "$line"; done <<<"$runs"
-	[[ ! -s $state/worker/wrapd.log ]] || { grep -E 'submitted|refused' "$state/worker/wrapd.log" || true; } | tail -n 5 | sed 's/^/  /'
+	line="wrapd $daemon  jobs ${#jobs[@]}"
+	if ((${#jobs[@]})); then
+		IFS=$'\t' read -r ready retry soonest newest < <(jq -rs --argjson now "$(date +%s)" '
+			[.[] | .retry_after // 0 | select(. > $now)] as $retry
+			| [length - ($retry | length), ($retry | length), (($retry | min // $now) - $now), (sort_by(.queued_at) | reverse | .[:3] | map(.puzzle) | join(", "))]
+			| @tsv' "${jobs[@]}")
+		paint painted "$green" "$ready ready"
+		line+=": $painted"
+		if ((retry)); then
+			duration_text soonest "$soonest"
+			paint painted "$yellow" "$retry retry"
+			line+=", $painted (first in $soonest)"
+		fi
+		paint painted "$dim" "newest: $newest"
+		line+="  $painted"
+	fi
+	echo "$line"
+}
+
+wrap_runs() {
+	[[ -s $state/worker/wrapd.log ]] || return 0
+	awk '
+		FNR == NR {
+			tab = index($0, "\t")
+			message = substr($0, tab + 1)
+			if (message ~ /^wrap run /) {
+				split(message, word, " ")
+				ended = ++end_count[word[3]]
+				end_at[word[3], ended] = substr($0, 1, tab - 1)
+				end_exit[word[3], ended] = substr(word[5], 6)
+			}
+			next
+		}
+		!match($0, /^([^ ]+) wrapd: (.*)$/, line) { next }
+		match(line[2], /^run ([^ ]+) estimated gain ([0-9]+)$/, run) {
+			runs++
+			run_puzzle[runs] = run[1]
+			run_start[runs] = line[1]
+			run_gain[runs] = run[2]
+			next
+		}
+		!runs || index(line[2], run_puzzle[runs] " ") != 1 { next }
+		{
+			rest = substr(line[2], length(run_puzzle[runs]) + 2)
+			fields = split(rest, field, "\t")
+			if (fields == 2 && field[2] ~ /^deferred: /)
+				host_line[runs, ++hosts[runs]] = field[1] "\t-\t-\t-\tdeferred\t" substr(field[2], 11)
+			else if (fields == 3 && match(field[3], /^([0-9]+) ([^:]+):[^ ]+ (submitted|refused: (.*))$/, winner))
+				host_line[runs, ++hosts[runs]] = field[1] "\t" field[2] "\t" winner[1] "\t" winner[2] "\t" (winner[3] == "submitted" ? "submitted" : "refused") "\t" winner[4]
+		}
+		END {
+			for (current = runs > 3 ? runs - 2 : 1; current <= runs; current++) {
+				puzzle = run_puzzle[current]
+				exit_code = ""
+				for (ended = 1; ended <= end_count[puzzle]; ended++)
+					if (end_at[puzzle, ended] >= run_start[current]) { exit_code = end_exit[puzzle, ended]; break }
+				print "run\t" puzzle "\t" run_start[current] "\t" run_gain[current] "\t" exit_code
+				for (host = 1; host <= hosts[current]; host++) print "host\t" host_line[current, host]
+			}
+		}
+	' "$state/events.log" "$state/worker/wrapd.log"
+}
+
+wrap_generator() {
+	wrap_queue_line
+	local kind first second third fourth fifth sixth label painted_outcome painted_detail painted_start outcome_sgr age run_state
+	while IFS=$'\t' read -r kind first second third fourth fifth sixth; do
+		if [[ $kind == run ]]; then
+			case $fourth in
+			'') paint run_state "$cyan" running ;;
+			0) paint run_state "$green" "done" ;;
+			*) paint run_state "$yellow" "deferred (exit $fourth)" ;;
+			esac
+			age_text age "$second"
+			paint painted_start "$dim" "${second:11:5}, $age"
+			printf '  %s  est gain %s  %s  %s\n' "$first" "$third" "$run_state" "$painted_start"
+			continue
+		fi
+		lang_label label "$first" 12
+		status_sgr outcome_sgr "$fifth"
+		paint painted_outcome "$outcome_sgr" "$fifth"
+		paint painted_detail "$dim" "${sixth:0:80}"
+		printf '    %s %5s -> %-5s  %-10s  %s%s\n' "$label" "$second" "$third" "$fourth" "$painted_outcome" "${sixth:+ $painted_detail}"
+	done < <(wrap_runs)
 }
 
 time_and_cost() {
 	[[ -s $state/time.log ]] || return 0
+	local header total
+	printf -v header '  %-10s %6s %8s %8s %9s' kind tasks "wall h" "cpu h" "cost \$"
+	paint header "$dim" "$header"
+	echo "$header"
 	awk -F'\t' 'NR > 1 { wall[$3] += $6; cpu[$3] += $7 + $8; cost[$3] += $11; tasks[$3]++ }
-		END { for (k in tasks) printf "  %-8s tasks %4d  wall %7.1f h  cpu %7.1f h  cost $%8.2f\n", k, tasks[k], wall[k] / 3600, cpu[k] / 3600, cost[k] }' "$state/time.log" | sort
+		END { for (k in tasks) printf "%.2f\t  %-10s %6d %8.1f %8.1f %9.2f\n", cost[k], k, tasks[k], wall[k] / 3600, cpu[k] / 3600, cost[k] }' "$state/time.log" |
+		sort -t$'\t' -k1,1 -rn | cut -f2-
+	total=$(awk -F'\t' 'NR > 1 { wall += $6; cpu += $7 + $8; cost += $11; tasks++ }
+		END { printf "  %-10s %6d %8.1f %8.1f %9.2f", "total", tasks, wall / 3600, cpu / 3600, cost }' "$state/time.log")
+	paint total "$bold" "$total"
+	echo "$total"
 }
 
-weekly_usage() {
+usage_bar() {
+	local percent=$2 sgr=$3 marker_percent=${4:--1} cell char cell_sgr painted drawn=
+	local filled=$((percent * usage_bar_width / 100)) marker=-1
+	((marker_percent < 0)) || marker=$((marker_percent * usage_bar_width / 100))
+	((marker < usage_bar_width)) || marker=$((usage_bar_width - 1))
+	for ((cell = 0; cell < usage_bar_width; cell++)); do
+		if ((cell == marker)); then
+			char='┃' cell_sgr=$bold
+		elif ((cell < filled)); then
+			char='█' cell_sgr=$sgr
+		else
+			char='░' cell_sgr=$dim
+		fi
+		paint painted "$cell_sgr" "$char"
+		drawn+=$painted
+	done
+	printf -v "$1" "▕%s▏" "$drawn"
+}
+
+usage_bars() {
 	local stream modified view
 	if IFS=$'\t' read -r stream modified < <(newer_running_stream); then
 		view=$(mktemp)
@@ -338,38 +455,146 @@ weekly_usage() {
 		usage_file=$view
 	fi
 	[[ -s $usage_file ]] || return 0
-	local used elapsed recorded_at resets_at five_hour five_hour_sgr=$green sgr pace painted_five_hour painted_as_of
+	local used elapsed recorded_at age sgr bar verdict painted_as_of
 	read -r used elapsed < <(weekly_pace)
-	printf -v recorded_at '%(%FT%T)T' "$(jq .recorded_at "$usage_file")"
+	recorded_at=$(jq .recorded_at "$usage_file")
+	duration_text age $(($(date +%s) - recorded_at))
+	printf -v painted_as_of '%(%T)T, %s ago' "$recorded_at" "$age"
+	paint painted_as_of "$dim" "as of $painted_as_of"
 	pace_sgr sgr "$used" "$elapsed"
-	paint pace "$sgr" "${used}% vs ${elapsed}%"
-	paint painted_as_of "$dim" "as of $recorded_at"
-	echo "  weekly usage $pace of week elapsed (stop at used + ${weekly_pace_margin_percent} >= elapsed), $painted_as_of"
+	usage_bar bar "$used" "$sgr" "$elapsed"
+	if ((used + weekly_pace_margin_percent >= elapsed)); then
+		paint verdict "$red" "over pace"
+	else
+		paint verdict "$sgr" "headroom $((elapsed - used - weekly_pace_margin_percent)) pts"
+	fi
+	echo "weekly  $bar ${used}% used / ${elapsed}% elapsed  $verdict  $painted_as_of"
+	local five_hour resets_at resets_in running_files=("$state"/running/*.json)
 	five_hour=$(five_hour_used)
-	((five_hour + five_hour_task_reserve_percent <= five_hour_limit_percent)) || five_hour_sgr=$red
-	paint painted_five_hour "$five_hour_sgr" "${five_hour}%"
-	printf -v resets_at '%(%T)T' "$(five_hour_resets_at)"
-	echo "  five-hour usage $painted_five_hour, resets $resets_at (claim while used + ${five_hour_task_reserve_percent}% x (running + 1) <= ${five_hour_limit_percent}%)"
+	resets_at=$(five_hour_resets_at)
+	sgr=$green
+	verdict=
+	if ((five_hour + five_hour_task_reserve_percent * (${#running_files[@]} + 1) > five_hour_limit_percent)); then
+		sgr=$red
+		paint verdict "$red" "  claims blocked"
+	fi
+	usage_bar bar "$five_hour" "$sgr"
+	if ((resets_at > $(date +%s))); then
+		duration_text resets_in $((resets_at - $(date +%s)))
+		printf -v resets_at '%(%H:%M)T' "$resets_at"
+		echo "5h      $bar ${five_hour}%  resets in $resets_in at $resets_at$verdict"
+	else
+		echo "5h      $bar ${five_hour}%  window reset$verdict"
+	fi
 	[[ -z ${view:-} ]] || rm -f "$view"
 }
 
-print_event() {
-	local line=$1
-	local timestamp=${line%%$'\t'*} message=${line#*$'\t'}
-	local kind=${message%% *} rest=${message#* }
-	local label sgr painted_timestamp painted_kind
-	if [[ $kind == rejected ]]; then
-		local puzzle=${rest%% *} after_puzzle=${rest#* }
-		local lang=${after_puzzle%% *} detail=${after_puzzle#* }
-		if [[ -n $lang ]] && is_lang "$lang"; then
-			lang_label label "$lang"
-			rest="$puzzle $label $detail"
-		fi
-	fi
-	event_sgr sgr "$kind"
-	paint painted_timestamp "$dim" "$timestamp"
-	paint painted_kind "$sgr" "$kind"
-	echo "$painted_timestamp $painted_kind $rest"
+attention_groups() {
+	[[ -s $state/events.log ]] || return 0
+	awk -F'\t' '
+		function remember(group, key, cell, id) {
+			id = group SUBSEP key
+			if (!(id in count)) order[++groups] = id
+			count[id]++
+			last_at[id] = $1
+			last_message[id] = $2
+			group_of[id] = group
+			key_of[id] = key
+			cell_of[id] = cell
+		}
+		{ split($2, word, " ") }
+		word[1] == "gain" { gained[word[2] " " word[3]] = $1; next }
+		word[1] == "rejected" { remember("rejected", word[2] " " word[3], word[2] " " word[3]); next }
+		word[1] == "attention" && word[2] == "wrap" && word[3] == "rejected" { remember("rejected", "wrap " word[4] " " word[5], word[4] " " word[5]); next }
+		word[1] == "attention" && word[4] == "blocked:" { remember("blocked", word[2] " " word[3], ""); next }
+		word[1] == "attention" && word[2] == "weekly" { remember("stop", "weekly", ""); next }
+		word[1] == "attention" { remember("attention", $2, ""); next }
+		word[1] == "review" { sub(/ +$/, "", $2); remember("review", $2, ""); next }
+		END {
+			for (index_ = 1; index_ <= groups; index_++) {
+				id = order[index_]
+				if (cell_of[id] != "" && gained[cell_of[id]] > last_at[id]) continue
+				print group_of[id] "\t" key_of[id] "\t" count[id] "\t" last_at[id] "\t" last_message[id]
+			}
+		}
+	' "$state/events.log" | sort -t$'\t' -k4,4r
+}
+
+review_open() {
+	local reviewed_at file committed_at
+	reviewed_at=$(date -d "$1" +%s)
+	for file in $2; do
+		[[ -n $(git status --porcelain -- "$file" 2>/dev/null) ]] || continue
+		committed_at=$(git log -1 --format=%ct -- "$file" 2>/dev/null)
+		((${committed_at:-0} < reviewed_at)) && return 0
+	done
+	return 1
+}
+
+still_open() {
+	local group=$1 key=$2
+	case $group in
+	blocked) [[ $(jq -r .status "$state/${key% *}/${key#* }.json" 2>/dev/null) == blocked ]] ;;
+	stop) [[ -e $state/STOP ]] ;;
+	review) review_open "$3" "${key#review }" ;;
+	*) true ;;
+	esac
+}
+
+rejection_text() {
+	local key=$2 message=$3 puzzle lang length row cg label source="" wrap=""
+	read -r puzzle lang <<<"${key#wrap }"
+	[[ $key != wrap\ * ]] || wrap="wrap "
+	[[ $message =~ length=([0-9]+) ]] && length=${BASH_REMATCH[1]}
+	[[ $message =~ source=([^:]+): ]] && source=" (${BASH_REMATCH[1]} core)"
+	row=${message#*row=}
+	cg=$(jq -r 'if . == null then "no row" else "\(.length) \(.score * 10 | round / 10)%" end' <<<"$row" 2>/dev/null || echo "?")
+	lang_label label "$lang"
+	printf -v "$1" '%s%s %s %s -> CG %s%s' "$wrap" "$puzzle" "$label" "${length:-?}" "$cg" "$source"
+}
+
+needs_you() {
+	local rows group key count last_at message
+	rows=$(attention_groups)
+	[[ -n $rows ]] || return 0
+	declare -A shown
+	local -a lines=()
+	while IFS=$'\t' read -r group key count last_at message; do
+		still_open "$group" "$key" "$last_at" || continue
+		((${shown[$group]:-0} < needs_you_per_group)) || continue
+		shown[$group]=$((${shown[$group]:-0} + 1))
+		lines+=("$group"$'\t'"$key"$'\t'"$count"$'\t'"$last_at"$'\t'"$message")
+	done <<<"$rows"
+	((${#lines[@]})) || return 0
+	echo
+	section "needs you"
+	local wanted heading sgr age times text prefix_width=20 line
+	for wanted in stop blocked attention rejected review; do
+		((${shown[$wanted]:-0})) || continue
+		case $wanted in
+		rejected) sgr=$red ;;
+		review) sgr=$cyan ;;
+		*) sgr=$yellow ;;
+		esac
+		paint heading "$sgr" "$wanted"
+		echo "$heading"
+		for line in "${lines[@]}"; do
+			IFS=$'\t' read -r group key count last_at message <<<"$line"
+			[[ $group == "$wanted" ]] || continue
+			age_text age "$last_at"
+			times=
+			((count < 2)) || times="x$count"
+			case $group in
+			rejected) rejection_text text "$key" "$message" ;;
+			blocked) text="$key: ${message#*blocked: }" ;;
+			review) text=${key#review } ;;
+			*) text=${message#attention } ;;
+			esac
+			text=${text:0:$((screen_width - prefix_width))}
+			paint age "$dim" "$(printf '%-11s' "$age")"
+			printf '  %s %-5s %s\n' "$age" "$times" "$text"
+		done
+	done
 }
 
 section env
@@ -385,10 +610,10 @@ first_total_line
 if [[ -n $cells ]]; then
 	echo
 	section "cells first|ran|wrap/total per lang"
-	lang_table
+	count_table 2
 	echo
 	section "cells first|ran|wrap/total per puzzle"
-	puzzle_table
+	count_table 1
 	echo
 	section "smallest gaps not first (ours - top)"
 	smallest_gaps
@@ -403,6 +628,7 @@ if [[ -e $state/STOP ]]; then
 	paint stop_notice "$bold;$yellow" "STOP set: workers stop after their current task"
 	echo "$stop_notice"
 fi
+usage_bars
 
 echo
 section "wrap generator"
@@ -411,14 +637,5 @@ wrap_generator
 echo
 section "time and cost (from agent/state/time.log)"
 time_and_cost
-weekly_usage
 
-reviews=$(grep -P '\treview ' "$state/events.log" 2>/dev/null | tail -5 || true)
-attention=$(grep -P '\t(attention|rejected) ' "$state/events.log" 2>/dev/null | tail -5 || true)
-if [[ -n $reviews$attention ]]; then
-	echo
-	section "needs you"
-	while IFS= read -r event_line; do
-		[[ -z $event_line ]] || print_event "$event_line"
-	done <<<"$attention"$'\n'"$reviews"
-fi
+needs_you
