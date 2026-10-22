@@ -195,3 +195,4 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 ## OCaml perl wrapper (verified 2026-10-22, ocaml 65 CG 100% #1)
 
 - bare `Sys.command"perl -E'...'"` (knowledge/lang/ocaml/system-wrapper.md) around the same `say`/`q( 4)` perl core as the haskell 83: 65, 1 under the 66 top
+- rejected (sim, 2026-10-22, scratch e4.c/h.c of that journal): keying the 2nd segment instead of the lead (`"R1 P1⏎"xC1,"R2 P2⏎"x(<>-C)xK,"0 4⏎"x1e5`, A gets 4K more turns; r1 -30..25, r2 +-70, all powers, K 1..12): zero joint landers. Hyperbola rotate trunc(C/(T+.5-t)), t from N*K: zero landers on A and on B
