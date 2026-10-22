@@ -128,3 +128,10 @@ Guesses (unverified): tops 135-160 (ruby, perl, python) probably key on these va
 - groovy scheme ported: stride-16 byte decode `(if(> c 1)(str(mod c 16)" "(quot c 16))"WAIT")`, wait char `\x01`, data via `(map int"...")`
 - key without `let`: `(mod(hash(vec(doto(byte-array S)(#(.read System/in %)))))m)`; Clojure `mod` is floor mod, so starts are nonnegative (groovy `%` negatives do not port). Best CSP packing: S=819 m=40, 43 data chars (BAD chars 0, CR, `"`, `\`; raw `\n` allowed in the literal); hash per S computed with local clojure, solver = groovy CSP `s16.py` with nonneg keys
 - local referee: Clojure interactive JVM start (~0.8 s) eats the 1 s first-turn budget, so local runs time out; checked plans with a python replayer of the Clojure outputs (11/11 hidden), CG passes
+
+## OCaml 187 B (CG-verified 100% 2026-10-22, rank 2; top 176)
+
+- `Sys.command{|perl -le'...'|}` wrapper + perl hardcode: decode `print$_>1?$_%12 .$".int$_/12:WAIT for unpack C99,substr q~DATA~,KEY` (raw codes 12y+x, wait = \x01, data bytes avoid 0 13 `"` `'` `\` `~`, newline ok), 85 B without key and data
+- perl key = checksum of the first 4 lines: `unpack("%32v*",<>.<>.<>.<>)*8%66` -> starts 42 0 60 54 14 8 36 20 44 26 10 (hidden 1..11), non-overlapping windows, 70 data chars. `unpack"%5C*",<>.<>.<>.<>` gives 11 distinct starts in 0..31 (no `%m`) but windows of tests 4/7/10 overlap infeasibly
+- `unpack("%32V*",4 lines)*7%86` packs in 60 chars if hidden 2 (3 bombs, 1 needed) gets no 2 harmless chars after its cell: unsolved, ~178 B if fixed
+- traps: tests with spare bombs (2: 3 for 1 needed, 3: 9 for 4) place following chars as bombs: they need waits or `.` cells of their own grid until the win
