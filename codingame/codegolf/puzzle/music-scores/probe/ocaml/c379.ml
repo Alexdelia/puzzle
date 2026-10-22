@@ -1,0 +1,1 @@
+let _=Scanf.scanf" %d %d"(fun w h->let a=Array.make(w*h)0 and p=ref w and o=ref""and m=h*7/8*w in let rec r k v=Scanf.scanf" %_c %d"(fun n->Array.fill a k n v;r(k+n)(1-v))in try r 0 0 with _->for x=0 to w do let i=ref x in while!i<m&&a.(!i)<=a.(!i-x+10)do i:=!i+w done;if!i<m&& !p>=m then(Printf.printf"%s%c%c"!o"AGFEDCB".[(!i*15/w-52)/h mod 7]"HQ".[a.(!i+5)];o:=" ");p:=!i done)
