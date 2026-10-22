@@ -1,0 +1,6 @@
+core	status	evidence
+perl	yes	the-labyrinth typescript 263 CG 100% (execSync perl -anE), knowledge/lang/typescript/execsync-perl-core.md
+python	yes	mars-lander-episode-3 typescript 2694 CG 100% (execSync python3)
+bash	yes	super-computer typescript 93 CG accepted (execSync sh pipeline), knowledge/lang/typescript/execsync-wrapper.md; bash -c form: temperature test 1 CG success 2026-10-22 (generated candidate, io test: no game id)
+lua	yes	temperature test 1 CG success 2026-10-22 (execSync lua -e, generated candidate, io test: no game id)
+javascript	yes	ascii-art/temperature typescript CG 100% (ts-ignore / eval JS body), knowledge/lang/typescript/ts-ignore-header.md
