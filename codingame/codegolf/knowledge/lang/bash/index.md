@@ -19,3 +19,4 @@
 - [loop-body-function-stale](loop-body-function-stale.md): `e(){ echo;read;update;}` reused for loop and final jump, stale update harmless, verified
 - [perl-regex-bfs](perl-regex-bfs.md): regex flood BFS with plain marks, direction from `$#-`, tr-list phase state, 5.34 variable lookbehind bug, verified
 - [sed-Q-skip](sed-Q-skip.md): `sed Q` drops all lines pending in the pipe (buffered read, quit without print), -4 vs `sed 3q>&2`, verified
+- [spawn-interpreters](spawn-interpreters.md): CG bash box has perl, python3, lua, php on PATH, ruby only /usr/local/bin/ruby, no node; `exec python3 -x $0`, `exec perl -x $0` + `#!perl`, heredoc `/dev/fd/3` forms skip quote escaping, verified
