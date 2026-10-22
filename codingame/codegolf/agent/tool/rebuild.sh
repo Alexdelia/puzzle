@@ -24,6 +24,18 @@ for lang in $(langs); do
 		status=todo
 	fi
 	json_update "$file" --arg status "$status" --arg note "$note" '.status = $status | .note = $note'
+	IFS=$'\t' read -r outcome note < <(last_outcome wrap - "$lang")
+	if [[ -n $outcome ]] || tracked "agent/wrap/$lang/available.tsv"; then
+		file=$(ensure_status wrap - "$lang")
+		if tracked "agent/wrap/$lang/available.tsv"; then
+			status=done
+		elif [[ $outcome == blocked ]]; then
+			status=blocked
+		else
+			status=todo
+		fi
+		json_update "$file" --arg status "$status" '.status = $status'
+	fi
 	IFS=$'\t' read -r outcome note < <(last_outcome review - "$lang")
 	if [[ -n $outcome ]]; then
 		file=$(ensure_status review - "$lang")

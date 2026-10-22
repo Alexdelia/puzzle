@@ -36,6 +36,7 @@ status_file() {
 	puzzle) echo "$state/puzzle/$puzzle.json" ;;
 	cell) echo "$state/cell/$puzzle/$lang.json" ;;
 	review) echo "$state/review/$lang.json" ;;
+	wrap) echo "$state/wrap/$lang.json" ;;
 	esac
 }
 
@@ -208,4 +209,18 @@ leaderboard_summary() {
 
 commit_time_log() {
 	commit_scope "chore(golf): time" agent/state/time.log
+}
+
+wrap_enqueue() {
+	local puzzle=$1 reason=$2
+	mkdir -p "$state/wrapq"
+	with_lock wrapq bash -c '
+		file=$1/wrapq/$2.json
+		if [[ -s $file ]]; then
+			jq --arg reason "$3" --arg now "$4" ".reasons += [\$reason] | .queued_at = \$now" "$file" >"$file.tmp"
+		else
+			jq -n --arg puzzle "$2" --arg reason "$3" --arg now "$4" "{puzzle: \$puzzle, reasons: [\$reason], queued_at: \$now}" >"$file.tmp"
+		fi
+		mv "$file.tmp" "$file"' _ "$state" "$puzzle" "$reason" "$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)"
+	event "wrap enqueue $puzzle reason=$reason"
 }

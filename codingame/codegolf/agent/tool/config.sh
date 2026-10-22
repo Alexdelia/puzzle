@@ -22,3 +22,4 @@ usage_probe_model=claude-haiku-5-5
 sync_max_age_days=7
 propagation_max_depth=2
 nickname=Alexdelia
+wrap_no_row_gain=200

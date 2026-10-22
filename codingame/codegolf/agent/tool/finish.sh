@@ -58,6 +58,11 @@ referee/done)
 		requeue "bench gate failed"
 	fi
 	;;
+wrap/done)
+	set_status done
+	commit_scope "feat(golf): wrap $lang" "agent/wrap/$lang"
+	for wrap_puzzle in $(puzzles); do wrap_enqueue "$wrap_puzzle" "wrap $lang ready"; done
+	;;
 validator/done)
 	set_status done
 	commit_scope "feat(golf): validators $puzzle" "puzzle/$puzzle/referee/hidden"
@@ -66,7 +71,7 @@ referee/blocked)
 	bench_passes && set_status done || set_status blocked
 	event "attention $kind $puzzle blocked: $note"
 	;;
-lang/blocked | validator/blocked)
+lang/blocked | validator/blocked | wrap/blocked)
 	set_status blocked
 	event "attention $kind ${lang/#-/}${puzzle/#-/} blocked: $note"
 	;;
@@ -143,6 +148,9 @@ in_progress_pattern() {
 	done
 	for file in "$state"/referee/*.json; do
 		[[ $(jq -r .status "$file") == done ]] || patterns+=("^puzzle/$(basename "$file" .json)/referee/")
+	done
+	for file in "$state"/wrap/*.json; do
+		[[ $(jq -r .status "$file") == done ]] || patterns+=("^agent/wrap/$(basename "$file" .json)/")
 	done
 	for file in "$state"/validator/*.json; do
 		[[ $(jq -r .status "$file") == done ]] || patterns+=("^puzzle/$(basename "$file" .json)/referee/hidden/")

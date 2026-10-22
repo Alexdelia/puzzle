@@ -1,0 +1,4 @@
+core	status	evidence
+perl	yes	the-labyrinth c CG 100% (system perl)
+bash	yes	shadows-of-the-knight-episode-1 c CG 100% (system bash -c), knowledge/lang/_shared/system-wrapper.md
+python	unknown	-

@@ -19,4 +19,5 @@ for running in "$state"/running/*.json; do
 	event "requeue killed $id"
 done
 pkill -f 'agent/tool/worker.sh' 2>/dev/null || true
+pkill -f 'agent/tool/wrapd.sh' 2>/dev/null || true
 echo "stop.sh: workers killed, their tasks back in queue, journals kept"

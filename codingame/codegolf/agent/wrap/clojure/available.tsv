@@ -1,0 +1,4 @@
+core	status	evidence
+perl	yes	mayan-calculation clojure 262 CG 100% (ProcessBuilder perl)
+python	yes	the-fall-episode-2 clojure CG 100% (ProcessBuilder python3)
+bash	yes	shadows-of-the-knight-episode-2 clojure CG 100% (ProcessBuilder bash)

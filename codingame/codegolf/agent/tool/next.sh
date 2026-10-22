@@ -25,7 +25,7 @@ pick() {
 	jq -r -s --slurpfile context_file "$1" '
 		def ready($context):
 			if .kind == "lang" then $context.langs[.lang] != "blocked"
-			elif .kind == "review" then $context.langs[.lang] == "ready"
+			elif .kind == "review" or .kind == "wrap" then $context.langs[.lang] == "ready"
 			elif .kind == "referee" then $context.langs.python == "ready" and $context.referees[.puzzle] != "blocked"
 			elif .kind == "validator" or .kind == "puzzle" then $context.referees[.puzzle] == "done"
 			else $context.referees[.puzzle] == "done" and $context.ready_langs == $context.lang_count
@@ -35,7 +35,7 @@ pick() {
 			if ($context.core_langs | index($lang)) then 0
 			elif far($context) and (.plateau_streak // 0) < $context.max_streak then 0
 			else .plateau_count // 0 end;
-		def kind_rank: {"lang": 0, "referee": 1, "validator": 2, "puzzle": 3, "cell": 4, "review": 5}[.kind];
+		def kind_rank: {"lang": 0, "referee": 1, "validator": 2, "wrap": 3, "puzzle": 4, "cell": 5, "review": 6}[.kind];
 		$context_file[0] as $context
 		| map(select(ready($context)))
 		| map(. as $task

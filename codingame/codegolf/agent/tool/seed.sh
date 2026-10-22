@@ -2,7 +2,7 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-usage="usage: seed.sh env|validators|puzzles|cells|reviews [puzzle...|lang...]"
+usage="usage: seed.sh env|validators|puzzles|cells|reviews|wrappers|wraps [puzzle...|lang...]"
 queued() {
 	grep -q -F "\"key\": \"$1\"" "$state"/queue/*.json "$state"/running/*.json 2>/dev/null
 }
@@ -29,6 +29,14 @@ cells)
 	for puzzle in $(puzzles); do
 		for lang in $(langs); do seed cell "$puzzle" "$lang" first; done
 	done
+	;;
+wrappers)
+	shift
+	for lang in ${*:-$(langs)}; do seed wrap - "$lang" done; done
+	;;
+wraps)
+	shift
+	for puzzle in ${*:-$(puzzles)}; do wrap_enqueue "$puzzle" seed; done
 	;;
 reviews)
 	shift

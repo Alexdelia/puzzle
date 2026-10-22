@@ -105,4 +105,5 @@ if [[ $solution != "$main" ]]; then
 fi
 commit_scope "$message" "puzzle/$puzzle/solution/$lang"
 event "gain $puzzle $lang length=$length rank=$rank best_tie_rank=${best_tie_rank:--}"
+[[ -z $(compgen -G "$root/agent/wrap/*/$lang.sh") ]] || wrap_enqueue "$puzzle" "core $lang $length"
 echo "submit.sh: $message"
