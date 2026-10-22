@@ -54,3 +54,4 @@
 2026-10-22T17:37:42Z	cell.the-resistance.perl.1792518550208442464	perl	167	regex TRIE DP 167: do hidden big validators stay under the TRIE state limit (100% = yes)	yes: 100% at length 167, committed
 2026-10-22T17:41:11Z	cell.the-resistance.perl.1792518550208442464	perl	165	regex TRIE DP 165 with -p: 100%?	yes: 100% at length 165, committed
 2026-10-22T17:48:25Z	cell.the-resistance.ocaml.1792513218972492779	ocaml	183	does regex-backtracking DP (2x CPU of for loop, 0.78 s user on test 04) pass all hidden validators in time?	yes: 100% at length 183, committed
+2026-10-22T17:55:12Z	cell.the-resistance.ocaml.1792513218972492779	ocaml	179	regex trie DP (perl 165 core, leading "|", =~s|.||r) in OCaml wrapper 179: 100%?	yes: 100% at length 179, committed
