@@ -65,7 +65,7 @@ Probes 2026-10-20 (6 of 10 spent; python row 465 -> 151 -> 120 -> 116, perl row 
 - FAILED python 102: one input-order fold with the `t in s` skip but no `s in t` reset -> some validator has an earlier string inside a later one
 - PASSED python 120, then 116: same fold plus the `s in t` reset -> **CG validators need no reordering**
 - FAILED perl 91: regexes on adjacent input lines only (`s/^(.+)\n(?=.*\1)//mg`, `s/^(.*(.+).*)\n\2$/$1/mg`, `s/(.+)\n(?=\1)//g`, count letters) -> merging against the accumulated string (or non-adjacent containment) matters
-- not probed: whether the `t in s` skip and the max overlap are needed (both free in the fold form)
+- `t in s` skip IS needed (perl 58 probe failed 2026-10-22); max overlap not probed separately
 - tops (php 32, ruby 33, perl 34, python 51, c 77) still sit below the fold: the php length fits `<?=crc32(fread(STDIN,99))%a%b`, a double-mod hash keyed on exact validator inputs, which we do not have (guess, unverified); the puzzle is CG-official (`communityCreation:false`), no contribution to read validators from
 - local validators reject the fold: every CG-only method goes through `submit.sh --probe`
 
@@ -102,3 +102,6 @@ Consequence for the unexplained tops (php 32, ruby 33, perl 34): ruby33/perl34/p
 - Clojure 177 (CG 100%, rank 4, 2026-10-21, top 129): `(ns Solution(:gen-class))(defn -main[](prn(count(reduce #(cond(.contains %2 %)%2(.contains % %2)% 1(.replaceFirst(str %"<LF>"%2)"(.*)<LF>\\1""$1"))""(re-seq #"[A-Z]+"(slurp *in*))))))` with literal newlines for `<LF>`; passes local 6/7 (t03 only). `\w+` with the N token as reduce init failed local t05 (cause unknown); the search form (`some` + `take-last`) is 197
 
 - PASSED perl 72 (2026-10-22, rank 8): input-order fold as one regex on the slurped input (`#!perl -0p`), first two lines merged per substitution, looped with `&&redo`: `s/^\d?(.+)<LF>(?=.*\1)|(.*)(.+)?\K<LF>\2(?(3)$)//m&&redo;$_=y/A-Z//` (`<LF>` = literal newline). Alt 1 = `s in t` reset (drops line 1, `\d?` skips the N digit glued by the first merge); alt 2 = max-overlap merge (leftmost match = longest overlap) and, when optional group 3 is set, `t in s` drop (t must end at line end); `y/A-Z//` counts letters, ignores the glued digit. Fuzz 3000 random inputs == python fold. 76 form with 3 separate alts also passed (probe 2026-10-22)
+
+- PASSED perl 70 (2026-10-22, rank 8, tie 7): same fold, regex deletes from the line-1 side: `s/(^\d?)?(.*)<LF>(?=(?(1).*)\2)|(.+).*\K<LF>\3$//m&&redo;$_=y///c` under `#!perl -0p`; alt 1 = merge (suffix of line 1 = prefix of line 2) or, at string start, reset (line 1 anywhere in line 2); alt 2 = line 2 inside line 1. Fuzz 3000 == python fold. See `lang/perl/regex-fold-redo.md`
+- FAILED perl 58 (2026-10-22): the 70 without the "line 2 inside line 1" alt -> some validator has a later string strictly inside the accumulated `s` (not as its suffix): the `t in s` skip is needed in every language
