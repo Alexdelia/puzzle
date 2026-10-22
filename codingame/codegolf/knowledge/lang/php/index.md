@@ -17,3 +17,4 @@
 - [print-all-answers-upfront](print-all-answers-upfront.md): fixed answer sequence printed at turn 0 in one loop, exit without reading further turns (CG verified)
 - [fscanf-field-sum](fscanf-field-sum.md): array_sum/max(fscanf(STDIN,"%d%*d%d")) sums or picks chosen fields of a line in one expression, %*d skips, short lines NULL, local-verified
 - [string-offset-schedule](string-offset-schedule.md): `ord($s[$i++/D]??P)-80` float offset + ?? tail, `~-fgetc(STDIN)*X` keyed counter start, one string for two cases
+- [wrapper-forms](wrapper-forms.md): CG PHP box has python3, lua, ruby at /usr/local/bin only, no node; io `<?=`cmd`;` 7 under system(), nowdoc and heredoc quoting variants (CG verified)
