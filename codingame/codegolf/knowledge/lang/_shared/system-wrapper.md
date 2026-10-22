@@ -45,3 +45,5 @@ Dart box (verified 2026-10-22, temperature-code-golf test 1, `knowledge/lang/dar
 F# box (verified 2026-10-22, temperature-code-golf F# test 1 `command -v` probe, `knowledge/lang/fsharp/process-start.md`): perl 5.34, python3, lua 5.4.4, php 7.3.9, bash on PATH; ruby only at `/usr/local/bin/ruby`; no node. `Process.Start(...)` wrappers of all six pass on CG.
 
 Clojure box (verified 2026-10-22, `knowledge/lang/clojure/box-interpreters.md`): python3, perl, bash, lua, php on PATH; ruby only at `/usr/local/bin/ruby`; no node.
+
+Swift box (verified 2026-10-22, temperature-code-golf test 1 probe, `knowledge/lang/swift/system-wrapper.md`): python3, perl 5.34, php 7.3.9, lua 5.4.4, bash on PATH; ruby 3.1.2 only at `/usr/local/bin/ruby`; no node. `import Glibc;system(...)` wrappers of all six pass on CG.
