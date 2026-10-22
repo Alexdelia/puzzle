@@ -4,3 +4,4 @@
 2026-10-20T19:47:22Z	validator.network-cabling.-.1792523690892798040	perl	209	P5 count: correct (general) iff N>=99999	progress {"submission_id":41537557,"language":"Bash","in_progress":false,"score":100.0,"rank":170,"total":2993,"criteria":"Code size","criteria_score":113.0}, own row {"pseudo":"Alexdelia","language":"Perl","length":209,"score":33.333333333333336}
 2026-10-22T17:42:17Z	cell.network-cabling.ocaml.1792440909966392629	ocaml	102	100% iff no hidden validator has two y or two x differing by >= 2^31 (perl sort{$a-$b} 32-bit truncation)	yes: 100% at length 102, committed
 2026-10-22T17:49:57Z	cell.network-cabling.ocaml.1792440909966392629	ocaml	101	100% iff 102 core with x sort inlined in the say expression (same algorithm, local tests+hidden 13/13)	yes: 100% at length 101, committed
+2026-10-22T19:41:38Z	cell.network-cabling.perl.1792614613760301976	perl	88	100% iff 0p port of ocaml perl core (sort{$a-$b}, hidden 13/13)	yes: 100% at length 88, committed
