@@ -153,7 +153,7 @@ weekly_pace() {
 }
 
 over_weekly_pace() {
-	[[ -s $usage_file ]] || return 1
+	[[ -s $usage_file && -z ${CG_FULL_WEEK:-} ]] || return 1
 	local used elapsed
 	read -r used elapsed < <(weekly_pace)
 	((used + weekly_pace_margin_percent >= elapsed))

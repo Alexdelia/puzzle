@@ -4,22 +4,25 @@ cd "$(dirname "$0")"
 source agent/tool/lib.sh
 shopt -s nullglob
 
-usage="usage: start.sh [--workers n] [--once] [--best] [--full-window]"
+usage="usage: start.sh [--workers n] [--once] [--best] [--full-window] [--full-week]; --full-window: no 97% five-hour cap, --full-week: no weekly pace stop"
 arguments=("$@")
 count=$workers
 once=
 best=
 full_window=
+full_week=
 while (($#)); do
 	case $1 in
 	--workers) count=$2 && shift 2 ;;
 	--once) once=--once && shift ;;
 	--best) best=1 && shift ;;
 	--full-window) full_window=1 && shift ;;
+	--full-week) full_week=1 && shift ;;
 	*) echo "$usage" >&2 && exit 2 ;;
 	esac
 done
 
+export CG_FULL_WEEK=$full_week
 if [[ -z ${CG_PYTHON:-} ]]; then
 	exec direnv exec "$root" "$0" "${arguments[@]}"
 fi
@@ -54,7 +57,7 @@ agent/tool/seed.sh wraps >/dev/null
 
 systemctl --user set-property --runtime codegolf.slice MemoryMax="$workers_memory_max" MemorySwapMax=infinity
 export CG_BEST_MODEL=$best CG_FULL_WINDOW=$full_window
-event "start workers=$count ${once:+once} ${best:+best} ${full_window:+full-window}"
+event "start workers=$count ${once:+once} ${best:+best} ${full_window:+full-window} ${full_week:+full-week}"
 pids=()
 [[ -n $once ]] || setsid agent/tool/wrapd.sh >>"$state/worker/wrapd.log" 2>&1 &
 for ((worker = 1; worker <= count; worker++)); do
@@ -62,7 +65,7 @@ for ((worker = 1; worker <= count; worker++)); do
 	pids+=($!)
 	sleep 2
 done
-echo "start.sh: $count workers${best:+, best model for every task}${full_window:+, five-hour window used up to 100%}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
+echo "start.sh: $count workers${best:+, best model for every task}${full_window:+, five-hour window used up to 100%}${full_week:+, weekly pace ignored}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
 wait "${pids[@]}" || true
 event "all workers stopped"
 commit_time_log
