@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	mayan-calculation groovy 237 CG-accepted (ProcessBuilder perl -ape), the-labyrinth groovy 267 interactive (waitFor)
+python	yes	telephone-numbers-codesize test 1 CG success 2026-10-22 (generated candidate, python3 -c on PATH); the-fall-episode-2 groovy 1088 CG 100% (/usr/bin/python3)
+bash	yes	shadows-of-the-knight-episode-1 groovy 141 CG-accepted (ProcessBuilder bash -c)
+lua	yes	music-scores groovy 294 CG 100% (ProcessBuilder lua -e)
+php	yes	telephone-numbers-codesize test 1 CG success 2026-10-22 (generated candidate, php -r, /bin/php 7.3.9); local launcher lacks php so it fails locally
+ruby	yes	telephone-numbers-codesize test 1 CG success 2026-10-22 (generated candidate, /usr/local/bin/ruby -e, ruby 3.1.2 off PATH: plain ruby = not found); local launcher lacks it so it fails locally
+javascript	no	probe 2026-10-22 telephone-numbers-codesize test 1: no ruby/node/nodejs on PATH, no node in /usr/bin or /usr/local/bin; JS cores also use CG readline/print
