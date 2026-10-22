@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	temperature-code-golf C# test 3 CG success 2026-10-22 (Process.Start"perl","-e ...", generated); the-descent-codesize test 4 game 910946718 interactive WaitForExit pass
+python	yes	temperature-code-golf C# test 3 CG success 2026-10-22 (Process.Start"python3","-c \"...\"", generated, golf testcase run: no game id)
+bash	yes	temperature-code-golf C# test 3 CG success 2026-10-22 (Process.Start"sh","-c \"...\"", generated); probe test 1 ran sh list form
+lua	yes	temperature-code-golf C# test 3 CG success 2026-10-22 (Process.Start("lua",["-e","""..."""]), list + raw literal)
+php	yes	temperature-code-golf C# test 3 CG success 2026-10-22 (Process.Start"php", multi-line raw "-ddisplay_errors= -r ...")
+ruby	yes	temperature-code-golf C# test 3 CG success 2026-10-22 (Process.Start"/usr/local/bin/ruby"; ruby off PATH)
+javascript	no	C# box probe 2026-10-22 temperature-code-golf test 1: no node/nodejs (command -v empty)
