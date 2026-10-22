@@ -39,6 +39,8 @@ Method (verified: local referee 46/46 tests+validators, python 277 chars; failur
 
 Fail probability (x+y jumps > N): budgets are tight, no simple rule is worst-case safe (1000x1000: 14+14 > 27 for every rule tried). This method: test 7 (1000x1000) 0.65% uniform bombs / 0.2% bombs within 16 of edges, test 8 (8000x8000) 0.16% / 0%, other tests 0. So one submit fails with ~1% chance: resubmit if a validator fails on jump count.
 
+Random rejects happen (2026-10-22): perl 236 (no-final-x-jump skeleton) scored < 100 on submit 41548601, while the same file won CG tests 1, 7, 8 and an equivalent perl 232 passed the next submit; exact per-axis sim (sizes 1..100, every start x bomb) shows the core always ends on the bomb. Fail share of that skeleton (exact per-axis histograms, early win ignored so upper bound): 1000x1000 N27 0.34% at test start (mean 0.39%, max 1.9% over 20 random starts), 8000x8000 N31 0.29% (mean 0.32%, max 1.0%). A reject of this method is not a referee fault: resubmit
+
 Variants measured (sum of fail prob over 8 configs, uniform + edge-bomb, lower is better; method above = 0.010):
 
 - out-of-range rule: `(l+h)/2 - overshoot/2` (C) and `(clamp(q)+p+1)/2` (D1) also ~0.010-0.018; `(clamp(q)+p)/2` 0.014; jump to center `(l+h)/2` 0.35 (62-80% fail on 8000 edge bombs with loose bounds); plain clamp to edge: 24+23 jumps worst case on 8000, hopeless; mirror `abs(q)` 0.65 fail on 8000 edge bombs
