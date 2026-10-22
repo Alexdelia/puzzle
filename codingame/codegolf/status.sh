@@ -300,6 +300,28 @@ running_tasks() {
 	done
 }
 
+wrap_generator() {
+	local jobs=("$state"/wrapq/*.json) daemon painted
+	if loop_pids wrapd >/dev/null; then
+		paint daemon "$green" running
+	else
+		paint daemon "$dim" "not running"
+	fi
+	echo "wrapd: $daemon  jobs: ${#jobs[@]}"
+	((${#jobs[@]})) && jq -r --argjson now "$(date +%s)" '
+		[.puzzle, (.queued_at | sub("\\..*"; "Z")), (if (.retry_after // 0) > $now then "retry in \(((.retry_after - $now) / 60) | ceil)m" else "ready" end),
+		 (.reasons | length | tostring) + " reasons, last: " + .reasons[-1]] | @tsv' "${jobs[@]}" |
+		sort -t$'\t' -k2 | tail -n 8 | while IFS=$'\t' read -r puzzle queued_at state reasons; do
+			paint painted "$dim" "$queued_at $reasons"
+			printf '  %-44s %-14s %s\n' "$puzzle" "$state" "$painted"
+		done
+	local runs
+	runs=$(grep -P '\twrap run ' "$state/events.log" 2>/dev/null | tail -n 3 || true)
+	[[ -z $runs ]] || while IFS= read -r line; do print_event "$line"; done <<<"$runs"
+	[[ -s $state/worker/wrapd.log ]] && grep -E 'submitted|refused' "$state/worker/wrapd.log" | tail -n 5 | sed 's/^/  /'
+	true
+}
+
 time_and_cost() {
 	[[ -s $state/time.log ]] || return 0
 	awk -F'\t' 'NR > 1 { wall[$3] += $6; cpu[$3] += $7 + $8; cost[$3] += $11; tasks[$3]++ }
@@ -353,6 +375,7 @@ status_counts langs: "$state/lang"
 status_counts referees: "$state/referee"
 status_counts validators: "$state/validator"
 status_counts puzzles: "$state/puzzle"
+status_counts wraps: "$state/wrap"
 blocked_line
 cells=$(cell_table)
 first_total_line
@@ -378,6 +401,10 @@ if [[ -e $state/STOP ]]; then
 	paint stop_notice "$bold;$yellow" "STOP set: workers stop after their current task"
 	echo "$stop_notice"
 fi
+
+echo
+section "wrap generator"
+wrap_generator
 
 echo
 section "time and cost (from agent/state/time.log)"

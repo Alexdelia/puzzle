@@ -23,7 +23,7 @@ for running in "$state"/running/*.json; do
 	json_update "$(ensure_status "$kind" "$puzzle" "$lang")" '.status = "todo"'
 	event "requeue killed $id"
 done
-for session in $(pgrep -f 'agent/tool/(worker|wrapd).sh'); do
+for session in $(loop_pids 'worker|wrapd'); do
 	kill_session "$session"
 done
 echo "stop.sh: workers killed, their tasks back in queue, journals kept"

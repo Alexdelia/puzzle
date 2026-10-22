@@ -70,15 +70,20 @@ with_lock() {
 commit_scope() {
 	local message=$1
 	shift
-	(
-		flock 8
-		cd "$root"
-		git add -A -- "$@"
-		if git diff --cached --quiet -- "$@"; then
-			exit 0
+	local attempt
+	for ((attempt = 1; attempt <= commit_attempts; attempt++)); do
+		if (
+			flock 8
+			cd "$root"
+			git add -A -- "$@" || exit 1
+			git diff --cached --quiet -- "$@" && exit 0
+			git commit -q -m "$message" -- "$@" && event "commit $message"
+		) 8>"$state/lock/git.lock"; then
+			return 0
 		fi
-		git commit -q -m "$message" -- "$@" && event "commit $message"
-	) 8>"$state/lock/git.lock"
+		sleep "$commit_retry_seconds"
+	done
+	event "attention commit failed after $commit_attempts attempts (git busy?): $message: $*"
 }
 
 usage_file=$state/usage.json
@@ -209,6 +214,11 @@ leaderboard_summary() {
 
 commit_time_log() {
 	commit_scope "chore(golf): time" agent/state/time.log
+}
+
+loop_pids() {
+	local names=$1
+	pgrep -f "^([^ ]*/)?bash ([^ ]*/)?agent/tool/($names)\.sh( |$)"
 }
 
 wrap_rejected=$state/wrap/rejected.tsv

@@ -141,6 +141,12 @@ done
 	fi
 done
 
+{ changed_paths puzzle | grep -E '^puzzle/[^/]+/referee/hidden/facts\.md$' || true; } | while read -r file; do
+	facts_puzzle=$(basename "$(dirname "$(dirname "$(dirname "$file")")")")
+	[[ $(jq -r .status "$(ensure_status validator "$facts_puzzle" -)") == done ]] || continue
+	commit_scope "doc(golf): validator facts $facts_puzzle" "$file"
+done
+
 { changed_paths puzzle | grep -o '^puzzle/[^/]*/probe/' | sort -u || true; } | while read -r dir; do
 	probe_puzzle=$(basename "$(dirname "$dir")")
 	[[ -n $(tsv_field puzzle "$probe_puzzle" slug) ]] || continue
