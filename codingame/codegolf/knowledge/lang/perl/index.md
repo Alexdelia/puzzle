@@ -12,6 +12,7 @@
 - [shebang-no-E](shebang-no-E.md): `#!perl -anE` refused, use `-anl` + print; hash slice with undef index harmless, array slice clobbers [0], verified
 - [shebang-no-E](shebang-no-E.md): `-E` on `#!` line is fatal; use `print` with `-nl`, verified locally
 - [p-loop-header-first-iteration](p-loop-header-first-iteration.md): `-alp` loop, init from header on `$#F`, `$|=(list assign)` autoflush for free, `("",S,N)[$v]`, verified on CG
+- [autoflush-once-guard](autoflush-once-guard.md): `$|||=(vars)=@F;` header read once in a `-p` loop + autoflush, 4 under `$|=(...)=@F if$#F;`, verified on CG
 - [scalar-list-assign-autoflush](scalar-list-assign-autoflush.md): `$|=($a,$b)=<>=~/\d+/g;` merges autoflush into the header read; `for<>=~/./g` chars of next line, verified
 - [flush-after-say](flush-after-say.md): `$|=COND&&say+X` flushes the say right away (1 under `say+X if$|=COND`, no space), verified
 - [anon-hash-lookup](anon-hash-lookup.md): `-0p` + `$_={k,v,...}->{$_+0}` hardcode table keyed on first number, verified locally
