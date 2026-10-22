@@ -1,0 +1,1 @@
+$M=<>;$V=<>;$R.=pack A99,~~<>for 1..4;$R.=0 x99;sub f{@_<$V or@q>18?print@q:map{$e=(local$s=$s+/E/-/L/)+99*/N/;$l=!/J/&&$s-1;local@q=(@q,$_.$/);f(map{(substr($R,$_+1,$l).substr$R,$_+$e-$l,$l+1)!~0?$_+$e:()}@_)}SPEED,JUMP,DOWN,SLOW}$s=<>;f(map{99*substr<>,2}1..$M)
