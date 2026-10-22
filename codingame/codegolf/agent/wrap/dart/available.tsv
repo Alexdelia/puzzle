@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated candidate perl -e)
+python	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated candidate python3 -c)
+bash	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated candidate sh -c)
+lua	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated candidate lua -e)
+php	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated candidate php -r, /bin/php 7.3.9; local launcher php differs)
+ruby	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated candidate /usr/local/bin/ruby -e, ruby off PATH)
+javascript	no	probe 2026-10-22 temperature-code-golf test 1: no node/nodejs on PATH or in /usr/local/bin
