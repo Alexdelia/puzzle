@@ -71,6 +71,8 @@ Side effect: partial CG rows (cell json `ours` unset, any 100% submit replaces t
   - `sprintf("%b",index"T",$&)=~s|.||r` 1 under `substr sprintf(..),1`
   - regex-driven DP `@d=1;$s=~/(.{1,76})(?{$d[pos]+=$d[$-[0]]*$h{$1}})(*F)/;$_=$d[-1]` (backtracking visits every start in order and every length; `$#d` = L so `$d[-1]`): 18/18 correct, 183 total in OCaml, but about 2x the CPU of the for loop (val 09 0.8 s vs 0.43 s user); see journal `cell.the-resistance.ocaml.*` for its val 10 time
 
+- ocaml 179 (CG 100%, rank #2, 2026-10-22): perl 165 regex-trie core in the wrapper, `."|"}{` rewritten `"|".` first (the `|}` ends OCaml `{|..|}`), and `sprintf("%b",X)=~s|.||r` 1 under `substr sprintf("%b",X),1` (applies to perl 165 -> 164, bash). Regex-trie DP is fast (0.12 s user on 04) unlike the per-window `(.{1,76})(?{..})(*F)` one
+
 - clojure 335 (CG 100%, rank #3, 2026-10-21): string keys via `(apply str(for[c x b(rest(Long/toString(.indexOf T(str c))2))]({\0\.\1\-}b)))` + `frequencies`, map DP `{0 1}` stepped by closures (`knowledge/lang/clojure/reduce-closures.md`), `(subs m i(min L j))` window. Local val 10 (L 99029) 3-8 s depending on host load, local gate refuses it under load: sent as probe. Char-seq keys (`(seq(subs ..))`, 329) are ~4x slower and FAILED on CG (not 100%): some hidden validators are large enough that speed matters
 - javascript 326 (CG 100%, rank #23, 2026-10-20): `[m,,...w]=(require('fs').readFileSync(0)+'').replace(/[.-]/g,c=>c<'.'|0).split(/\s+/)`, count map `h[c]=-~h[c]`, `d=new Float64Array(2e5)` (zero init, no fill), `d[i+k]+=d[i]*h[m.substr(i,k)]||0` with k=77..0; fails local validators 05/06/08/11 (>2^53), passes CG
 
