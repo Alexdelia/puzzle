@@ -78,13 +78,129 @@ busy() {
 	! git -C "$root" diff --quiet -- "$main"
 }
 
+main_of() {
+	echo "$root/puzzle/$puzzle/solution/$1/main.$(tsv_field lang "$1" extension)"
+}
+
+attempt_host() {
+	local host=$1 from=$2 main index=0 length candidate source started submission reason phases
+	main=$(main_of "$host")
+	while IFS=$'\t' read -r length candidate source; do
+		index=$((index + 1))
+		((index > from)) || continue
+		started=$EPOCHSECONDS
+		submission=$(CG_WRAP_SOURCE=$source "$tool_dir/submit.sh" --no-wait --candidate "$candidate" "$main" 2>"$work/$host.err") || submission=
+		reason=$({ grep -v '^submit.sh: time ' "$work/$host.err" || true; } | tail -n 1)
+		phases=$({ grep '^submit.sh: time ' "$work/$host.err" || true; } | tail -n 1 | cut -c17-)
+		if [[ -n $submission ]]; then
+			printf '%s\tposted %s %s\tsubmission %s in %ss (%s)\n' "$host" "$length" "$source" "$submission" "$((EPOCHSECONDS - started))" "$phases"
+			printf 'posted\t%s\t%s\t%s\t%s\t%s\t%s\n' "$index" "$length" "$source" "$submission" "$EPOCHSECONDS" "$candidate" >"$work/$host.result"
+			return
+		fi
+		printf '%s\ttry %s %s\t%s in %ss (%s)\n' "$host" "$length" "$source" "$reason" "$((EPOCHSECONDS - started))" "${phases:-no CG call}"
+		[[ $reason == *"local referee fails"* ]] && continue
+		if [[ $reason == *"agent submits on"* ]]; then
+			printf 'cap\t%s\n' "$index" >"$work/$host.result"
+		else
+			printf 'refused\t%s\t%s\t%s\t%s\n' "$index" "$length" "$source" "$reason" >"$work/$host.result"
+		fi
+		return
+	done <"$work/$host.queue"
+	printf 'none\t%s\n' "$index" >"$work/$host.result"
+}
+
+submit_pipeline() {
+	local -A next_index=() host_started=() host_ours=() local_pid=() pending=()
+	local waiting=() host main ours cap= next_check=0
+	finish_host() {
+		local host=$1 winner=$2
+		printf '%s\t%s\t%s\t%ss\n' "$host" "${host_ours[$host]:--}" "$winner" "$((EPOCHSECONDS - host_started[$host]))"
+	}
+	for host_dir in "$wrap_root"/*/; do
+		host=$(basename "$host_dir")
+		[[ -f $host_dir/available.tsv && ( -z $host_filter || $host == "$host_filter" ) ]] || continue
+		main=$(main_of "$host")
+		if busy "$host" "$main"; then
+			printf '%s\tdeferred: cell busy\n' "$host"
+			deferred=1
+			continue
+		fi
+		ours=$(jq -r '.ours // empty' "$(ensure_status cell "$puzzle" "$host")")
+		ours=${ours%.*}
+		host_started[$host]=$EPOCHSECONDS host_ours[$host]=$ours next_index[$host]=0
+		candidates "$host" | sort -n -k1,1 | awk -F'\t' -v ours="$ours" 'ours == "" || $1 < ours + 0' >"$work/$host.queue"
+		if [[ ! -s $work/$host.queue ]]; then
+			finish_host "$host" -
+			continue
+		fi
+		waiting+=("$host")
+	done
+	while ((${#waiting[@]} + ${#local_pid[@]} + ${#pending[@]})); do
+		while [[ -z $cap ]] && ((${#waiting[@]} && ${#local_pid[@]} < wrap_local_jobs && ${#local_pid[@]} + ${#pending[@]} < wrap_in_flight)); do
+			host=${waiting[0]}
+			waiting=("${waiting[@]:1}")
+			rm -f "$work/$host.result"
+			attempt_host "$host" "${next_index[$host]}" &
+			local_pid[$host]=$!
+		done
+		if [[ -n $cap ]] && ((${#waiting[@]})); then
+			for host in "${waiting[@]}"; do finish_host "$host" -; done
+			waiting=()
+		fi
+		for host in "${!local_pid[@]}"; do
+			if [[ ! -e $work/$host.result ]]; then
+				kill -0 "${local_pid[$host]}" 2>/dev/null && continue
+				[[ -e $work/$host.result ]] || printf 'error\t%s\n' "${next_index[$host]}" >"$work/$host.result"
+			fi
+			wait "${local_pid[$host]}" || true
+			unset "local_pid[$host]"
+			local outcome index length source submission posted_at candidate reason
+			IFS=$'\t' read -r outcome index length source submission posted_at candidate <"$work/$host.result"
+			next_index[$host]=$index
+			case $outcome in
+			posted) pending[$host]="$length"$'\t'"$source"$'\t'"$posted_at"$'\t'"$candidate" ;;
+			none) finish_host "$host" - ;;
+			error) deferred=1 && finish_host "$host" "- refused: attempt died, see wrapd.log" ;;
+			cap) cap=1 deferred=1 && finish_host "$host" - ;;
+			refused) IFS=$'\t' read -r _ _ length source reason <"$work/$host.result" && finish_host "$host" "$length $source refused: $reason" ;;
+			esac
+		done
+		if ((${#pending[@]})) && ((EPOCHSECONDS >= next_check)); then
+			next_check=$((EPOCHSECONDS + 10))
+			local rows row row_length verdict judged
+			rows=$(leaderboard_rows "$puzzle" KEYWORD "$nickname")
+			for host in "${!pending[@]}"; do
+				IFS=$'\t' read -r length source posted_at candidate <<<"${pending[$host]}"
+				row=$(jq -c --arg language "$(tsv_field lang "$host" cg_name)" '[.[] | select(.language == $language)] | first' <<<"$rows")
+				row_length=$(jq -r '.length // 1e9 | floor' <<<"$row")
+				((row_length <= length || EPOCHSECONDS - posted_at >= wrap_confirm_seconds)) || continue
+				unset "pending[$host]"
+				judged=$(CG_WRAP_SOURCE=$source "$tool_dir/submit.sh" --judge "$row" --candidate "$candidate" "$(main_of "$host")" 2>&1) && verdict=submitted || verdict=
+				[[ -n $verdict ]] || verdict=$({ grep -v '^submit.sh: time ' <<<"$judged" || true; } | tail -n 1)
+				printf '%s\tjudged %s %s\t%s after %ss on CG\n' "$host" "$length" "$source" "$verdict" "$((EPOCHSECONDS - posted_at))"
+				if [[ $verdict == submitted ]]; then
+					finish_host "$host" "$length $source submitted"
+				elif [[ $verdict == *superseded* ]]; then
+					finish_host "$host" "$length $source refused: superseded"
+				else
+					waiting+=("$host")
+				fi
+			done
+		fi
+		sleep 1
+	done
+}
+
 cores >"$work/cores"
-submit_cap_reached=
+if [[ $mode == submit ]]; then
+	submit_pipeline
+	[[ -z $deferred ]] || exit 3
+	exit 0
+fi
 for host_dir in "$wrap_root"/*/; do
 	host=$(basename "$host_dir")
-	host_started=$EPOCHSECONDS
 	[[ -f $host_dir/available.tsv && ( -z $host_filter || $host == "$host_filter" ) ]] || continue
-	main=$root/puzzle/$puzzle/solution/$host/main.$(tsv_field lang "$host" extension)
+	main=$(main_of "$host")
 	if [[ $mode != estimate ]] && busy "$host" "$main"; then
 		printf '%s\tdeferred: cell busy\n' "$host"
 		deferred=1
@@ -103,32 +219,10 @@ for host_dir in "$wrap_root"/*/; do
 	for line in "${sorted[@]}"; do
 		IFS=$'\t' read -r length candidate source <<<"$line"
 		[[ -z $ours ]] || ((length < ours)) || break
-		if [[ $mode == check ]]; then
-			"$root/puzzle/$puzzle/referee/run.sh" "$candidate" --lang "$host" "${local_sets[@]}" >"$candidate.referee" 2>&1 || continue
-			winner="$length $source"
-			break
-		fi
-		previous=$work/previous.$host
-		rm -f "$previous"
-		[[ -e $main ]] && cp "$main" "$previous"
-		mkdir -p "$(dirname "$main")"
-		cp "$candidate" "$main"
-		attempt_started=$EPOCHSECONDS
-		submitted=
-		output=$(CG_WRAP_SOURCE=$source "$tool_dir/submit.sh" "$main" 2>&1) && submitted=1
-		reason=$({ grep -v '^submit.sh: time ' <<<"$output" || true; } | tail -n 1)
-		phases=$({ grep '^submit.sh: time ' <<<"$output" || true; } | tail -n 1 | cut -c17-)
-		printf '%s\ttry %s %s\t%s in %ss (%s)\n' "$host" "$length" "$source" "${submitted:+submitted}${submitted:-$reason}" \
-			"$((EPOCHSECONDS - attempt_started))" "${phases:-no CG call}"
-		[[ -z $submitted ]] || { winner="$length $source submitted"; break; }
-		if [[ -e $previous ]]; then cp "$previous" "$main"; else rm -f "$main"; fi
-		[[ $output == *"local referee fails"* ]] && continue
-		[[ $output == *"did not confirm"* ]] && continue
-		[[ $output == *"agent submits on"* ]] && submit_cap_reached=1 deferred=1
-		winner="$length $source refused: $reason"
+		"$root/puzzle/$puzzle/referee/run.sh" "$candidate" --lang "$host" "${local_sets[@]}" >"$candidate.referee" 2>&1 || continue
+		winner="$length $source"
 		break
 	done
-	printf '%s\t%s\t%s\t%ss\n' "$host" "${ours:--}" "$winner" "$((EPOCHSECONDS - host_started))"
-	[[ -z $submit_cap_reached ]] || break
+	printf '%s\t%s\t%s\n' "$host" "${ours:--}" "$winner"
 done
 [[ -z $deferred ]] || exit 3

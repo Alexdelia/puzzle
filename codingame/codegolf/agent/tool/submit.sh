@@ -2,13 +2,21 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-usage="usage: submit.sh <puzzle/<p>/solution/<lang>/main.<ext>> | submit.sh --probe <puzzle/<p>/probe/<lang>/<name>.<ext>>"
+usage="usage: submit.sh [--no-wait | --judge <row-json>] [--candidate <file>] <puzzle/<p>/solution/<lang>/main.<ext>> | submit.sh --probe <puzzle/<p>/probe/<lang>/<name>.<ext>>; --no-wait: gates and POST only, prints the submission id; --judge: no gate, no POST, judges the code against our leaderboard row read by the caller; --candidate: the code comes from <file>, copied into main.<ext> only on a confirmed gain"
 probe=
-if [[ ${1:-} == --probe ]]; then
-	probe=1
-	shift
-fi
-solution=$(realpath "${1:?$usage}")
+mode=full
+candidate=
+while (($# > 1)); do
+	case $1 in
+	--probe) probe=1 && shift ;;
+	--no-wait) mode=no-wait && shift ;;
+	--judge) mode=judge judged_row=${2:?$usage} && shift 2 ;;
+	--candidate) candidate=$(realpath "${2:?$usage}") && shift 2 ;;
+	*) echo "$usage" >&2 && exit 2 ;;
+	esac
+done
+solution=$(realpath -m "${1:?$usage}")
+code=${candidate:-$solution}
 relative=${solution#"$root"/}
 [[ $relative =~ ^puzzle/([^/]+)/(solution|probe)/([^/]+)/[^/]+$ ]] || { echo "$usage" >&2; exit 2; }
 puzzle=${BASH_REMATCH[1]}
@@ -32,60 +40,73 @@ mark() {
 report_time() {
 	((${#marks[@]})) && echo "submit.sh: time ${marks[*]}" >&2 || true
 }
-length=$("$tool_dir/count.sh" "$solution")
+length=$("$tool_dir/count.sh" "$code")
 ours=$(jq -r '.ours // empty' "$cell")
-recent_submits=$(awk -F'\t' -v since="$(date -u -d '5 hours ago' +%Y-%m-%dT%H:%M:%SZ)" -v path="/puzzles/$pretty_id/submissions" \
-	'$1 >= since && $3 == "POST" && $4 == path' "$state/cg.log" 2>/dev/null | wc -l)
-if ((recent_submits >= submit_cap_5h)); then
-	echo "submit.sh: refused, $recent_submits agent submits on $puzzle in the last 5 h (cap $submit_cap_5h per puzzle, rest kept for the user): note it in the journal and move on" >&2
-	exit 1
-fi
-hidden_complete=$root/puzzle/$puzzle/referee/hidden/complete
-local_sets=(--validators)
-[[ -e $hidden_complete ]] && local_sets=(--hidden)
-probe_cap=$probe_submits_per_task
-[[ ${CG_TASK_ID:-} == validator.* ]] && probe_cap=$validator_submits_per_task
-if [[ -n $probe ]]; then
-	task_submits=$(awk -F'\t' -v id="${CG_TASK_ID:--}" '$2 == id && $3 == "POST" && $4 ~ /\/submissions$/' "$state/cg.log" 2>/dev/null | wc -l)
-	if ((task_submits >= probe_cap)); then
-		echo "submit.sh: refused, this task already used $task_submits submits (probe cap $probe_cap)" >&2
-		exit 1
-	fi
-elif ! "$root/puzzle/$puzzle/referee/run.sh" "$solution" "${local_sets[@]}" >/dev/null; then
-	echo "submit.sh: refused, local referee fails: run puzzle/$puzzle/referee/run.sh $relative ${local_sets[*]} (hidden-validator exploit: use --probe)" >&2
-	exit 1
-elif [[ -n $ours ]] && ((length >= ${ours%.*})); then
-	echo "submit.sh: refused, length $length not below ours $ours" >&2
-	exit 1
-fi
-mark referee
-
-body=$(mktemp)
-trap 'rm -f "$body"; report_time' EXIT
-jq -n --rawfile code "$solution" --arg language "$cg_name" '{language: $language, code: $code}' >"$body"
-submission=$("$tool_dir/cg.sh" POST "/puzzles/$pretty_id/submissions" "$body" | jq -r .submission_id)
-event "${probe:+probe }submit $puzzle $lang length=$length submission=$submission"
-
-for _ in $(seq 60); do
-	progress=$("$tool_dir/cg.sh" GET "/puzzles/$pretty_id/progress")
-	current=$(jq -r '.submission_id // 0' <<<"$progress")
-	[[ $current == "$submission" && $(jq -r .in_progress <<<"$progress") == false ]] && break
-	((current > submission)) && break
-	sleep 10
-done
-mark cg
-
 own_row() {
 	leaderboard_rows "$puzzle" KEYWORD "$nickname" |
 		jq -c --arg language "$cg_name" '[.[] | select(.language == $language)] | first'
 }
-row=$(own_row)
-for _ in $(seq 21); do
-	(($(jq -r '.length // 1e9 | floor' <<<"$row") <= length)) && break
-	sleep 10
+
+submit_and_wait() {
+	recent_submits=$(awk -F'\t' -v since="$(date -u -d '5 hours ago' +%Y-%m-%dT%H:%M:%SZ)" -v path="/puzzles/$pretty_id/submissions" \
+		'$1 >= since && $3 == "POST" && $4 == path' "$state/cg.log" 2>/dev/null | wc -l)
+	if ((recent_submits >= submit_cap_5h)); then
+		echo "submit.sh: refused, $recent_submits agent submits on $puzzle in the last 5 h (cap $submit_cap_5h per puzzle, rest kept for the user): note it in the journal and move on" >&2
+		exit 1
+	fi
+	hidden_complete=$root/puzzle/$puzzle/referee/hidden/complete
+	local_sets=(--validators)
+	[[ -e $hidden_complete ]] && local_sets=(--hidden)
+	probe_cap=$probe_submits_per_task
+	[[ ${CG_TASK_ID:-} == validator.* ]] && probe_cap=$validator_submits_per_task
+	if [[ -n $probe ]]; then
+		task_submits=$(awk -F'\t' -v id="${CG_TASK_ID:--}" '$2 == id && $3 == "POST" && $4 ~ /\/submissions$/' "$state/cg.log" 2>/dev/null | wc -l)
+		if ((task_submits >= probe_cap)); then
+			echo "submit.sh: refused, this task already used $task_submits submits (probe cap $probe_cap)" >&2
+			exit 1
+		fi
+	elif ! "$root/puzzle/$puzzle/referee/run.sh" "$code" --lang "$lang" "${local_sets[@]}" >/dev/null; then
+		echo "submit.sh: refused, local referee fails: run puzzle/$puzzle/referee/run.sh ${code#"$root"/} --lang $lang ${local_sets[*]} (hidden-validator exploit: use --probe)" >&2
+		exit 1
+	elif [[ -n $ours ]] && ((length >= ${ours%.*})); then
+		echo "submit.sh: refused, length $length not below ours $ours" >&2
+		exit 1
+	fi
+	mark referee
+
+	body=$(mktemp)
+	trap 'rm -f "$body"; report_time' EXIT
+	jq -n --rawfile code "$code" --arg language "$cg_name" '{language: $language, code: $code}' >"$body"
+	submission=$("$tool_dir/cg.sh" POST "/puzzles/$pretty_id/submissions" "$body" | jq -r .submission_id)
+	event "${probe:+probe }submit $puzzle $lang length=$length submission=$submission"
+	if [[ $mode == no-wait ]]; then
+		echo "$submission"
+		exit 0
+	fi
+
+	for _ in $(seq 60); do
+		progress=$("$tool_dir/cg.sh" GET "/puzzles/$pretty_id/progress")
+		current=$(jq -r '.submission_id // 0' <<<"$progress")
+		[[ $current == "$submission" && $(jq -r .in_progress <<<"$progress") == false ]] && break
+		((current > submission)) && break
+		sleep 10
+	done
+	mark cg
+
 	row=$(own_row)
-done
-mark row
+	for _ in $(seq 21); do
+		(($(jq -r '.length // 1e9 | floor' <<<"$row") <= length)) && break
+		sleep 10
+		row=$(own_row)
+	done
+	mark row
+}
+
+if [[ $mode == judge ]]; then
+	row=$judged_row
+else
+	submit_and_wait
+fi
 if [[ -n $probe ]] && { [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; }; then
 	echo "submit.sh: probe result, progress $(jq -c 'del(.limits)' <<<"$progress"), own row $row"
 	echo "submit.sh: CG keeps the best submission per language: a lower score than the row shown stays hidden"
@@ -99,7 +120,7 @@ if [[ -n $row_length ]] && ((row_length < length)) && jq -e '.score == 100' <<<"
 fi
 if [[ -n ${CG_WRAP_SOURCE:-} ]] && { [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; }; then
 	mkdir -p "$(dirname "$wrap_rejected")"
-	printf '%s\t%s\t%s\t%s\t%s\n' "$(sha256sum <"$solution" | cut -c1-64)" "$puzzle" "$lang" "$length" "$CG_WRAP_SOURCE" >>"$wrap_rejected"
+	printf '%s\t%s\t%s\t%s\t%s\n' "$(sha256sum <"$code" | cut -c1-64)" "$puzzle" "$lang" "$length" "$CG_WRAP_SOURCE" >>"$wrap_rejected"
 	event "attention wrap rejected $puzzle $lang length=$length source=$CG_WRAP_SOURCE row=$row"
 	echo "submit.sh: CG did not confirm generated wrapper length $length: $row" >&2
 	exit 1
@@ -124,9 +145,9 @@ if [[ -n $best_tie_rank && $best_tie_rank != "$rank" ]]; then
 	message+=" (tie #$best_tie_rank)"
 fi
 main=$root/puzzle/$puzzle/solution/$lang/main.$(tsv_field lang "$lang" extension)
-if [[ $solution != "$main" ]]; then
+if [[ $code != "$main" ]]; then
 	mkdir -p "$(dirname "$main")"
-	cp "$solution" "$main"
+	cp "$code" "$main"
 fi
 commit_scope "$message" "puzzle/$puzzle/solution/$lang"
 mark commit

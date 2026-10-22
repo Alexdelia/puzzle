@@ -391,16 +391,19 @@ wrap_runs() {
 			run_puzzle[runs] = run[1]
 			run_start[runs] = line[1]
 			run_gain[runs] = run[2]
+			last_run[run[1]] = runs
 			next
 		}
-		!runs || index(line[2], run_puzzle[runs] " ") != 1 { next }
 		{
-			rest = substr(line[2], length(run_puzzle[runs]) + 2)
+			puzzle = substr(line[2], 1, index(line[2], " ") - 1)
+			if (!(puzzle in last_run)) next
+			current = last_run[puzzle]
+			rest = substr(line[2], length(puzzle) + 2)
 			fields = split(rest, field, "\t")
 			if (fields >= 2 && field[2] ~ /^deferred: /)
-				host_line[runs, ++hosts[runs]] = field[1] "\t-\t-\t-\tdeferred\t" substr(field[2], 11)
+				host_line[current, ++hosts[current]] = field[1] "\t-\t-\t-\tdeferred\t" substr(field[2], 11)
 			else if (fields >= 3 && match(field[3], /^([0-9]+) ([^:]+):[^ ]+ (submitted|refused: (.*))$/, winner))
-				host_line[runs, ++hosts[runs]] = field[1] "\t" field[2] "\t" winner[1] "\t" winner[2] "\t" (winner[3] == "submitted" ? "submitted" : "refused") "\t" winner[4]
+				host_line[current, ++hosts[current]] = field[1] "\t" field[2] "\t" winner[1] "\t" winner[2] "\t" (winner[3] == "submitted" ? "submitted" : "refused") "\t" winner[4]
 		}
 		END {
 			for (current = runs > 3 ? runs - 2 : 1; current <= runs; current++) {

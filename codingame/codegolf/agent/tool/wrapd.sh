@@ -38,36 +38,88 @@ defer_unless_requeued() {
 		jq --argjson at "$3" ".retry_after = \$at" "$1" >"$1.tmp" && mv "$1.tmp" "$1"' _ "$1" "$2" "$(($(date +%s) + wrap_retry_seconds))"
 }
 
-cd "$root"
-while [[ ! -e $state/STOP ]]; do
-	best= best_gain=0 estimated=0 estimate_started=$EPOCHSECONDS
+run_job() {
+	local puzzle=$1
+	"$tool_dir/wrap.sh" "$puzzle" --submit | while IFS= read -r line; do log "$puzzle $line"; done
+	return "${PIPESTATUS[0]}"
+}
+
+declare -A running_pid=() running_job=() running_queued=() running_gain=() running_started=()
+
+start_jobs() {
+	local free=$1 job queued_at gain puzzle started=0 estimated=0 estimate_started=$EPOCHSECONDS
+	local -a ranked=()
 	while IFS=$'\t' read -r job queued_at gain; do
 		estimated=$((estimated + 1))
 		if ((gain == 0)); then
+			puzzle=$(jq -r .puzzle "$job")
 			remove_unless_requeued "$job" "$queued_at"
-			event "wrap nothing $(jq -r .puzzle "$job")"
+			event "wrap nothing $puzzle"
 			continue
 		fi
-		((gain > best_gain)) && best=$job best_gain=$gain
-	done < <(ready_jobs | xargs -r -P "$wrap_estimate_jobs" -I{} bash -c 'estimate_job "$1"' _ {})
+		ranked+=("$gain"$'\t'"$job"$'\t'"$queued_at")
+	done < <(idle_jobs | xargs -r -P "$wrap_estimate_jobs" -I{} bash -c 'estimate_job "$1"' _ {})
 	((estimated == 0)) || log "estimated $estimated jobs in $((EPOCHSECONDS - estimate_started))s"
-	if [[ -z $best ]]; then
-		sleep 60
-		continue
-	fi
-	puzzle=$(jq -r .puzzle "$best")
-	queued_at=$(jq -r .queued_at "$best")
-	log "run $puzzle estimated gain $best_gain"
-	run_started=$EPOCHSECONDS
-	"$tool_dir/wrap.sh" "$puzzle" --submit | while IFS= read -r line; do log "$puzzle $line"; done
-	code=${PIPESTATUS[0]}
-	log "$puzzle finished exit $code in $((EPOCHSECONDS - run_started))s"
+	while IFS=$'\t' read -r gain job queued_at; do
+		((started < free)) || break
+		puzzle=$(jq -r .puzzle "$job")
+		log "run $puzzle estimated gain $gain"
+		run_job "$puzzle" </dev/null &
+		running_pid[$puzzle]=$! running_job[$puzzle]=$job running_queued[$puzzle]=$queued_at
+		running_gain[$puzzle]=$gain running_started[$puzzle]=$EPOCHSECONDS
+		started=$((started + 1))
+	done < <(((${#ranked[@]})) && printf '%s\n' "${ranked[@]}" | sort -t$'\t' -k1,1nr)
+}
+
+idle_jobs() {
+	local job
+	while IFS= read -r job; do
+		[[ -z ${running_pid[$(jq -r .puzzle "$job")]:-} ]] && printf '%s\n' "$job"
+	done < <(ready_jobs)
+}
+
+queue_signature() {
+	{ idle_jobs | xargs -r jq -r .queued_at; } | sort | md5sum
+}
+
+finish_job() {
+	local puzzle=$1 code=$2
+	log "$puzzle finished exit $code in $((EPOCHSECONDS - running_started[$puzzle]))s"
 	if ((code == 0)); then
-		remove_unless_requeued "$best" "$queued_at"
+		remove_unless_requeued "${running_job[$puzzle]}" "${running_queued[$puzzle]}"
 	else
-		defer_unless_requeued "$best" "$queued_at"
+		defer_unless_requeued "${running_job[$puzzle]}" "${running_queued[$puzzle]}"
 		log "$puzzle deferred (exit $code), retry in ${wrap_retry_seconds}s"
 	fi
-	event "wrap run $puzzle estimated_gain=$best_gain exit=$code"
+	event "wrap run $puzzle estimated_gain=${running_gain[$puzzle]} exit=$code"
+	unset "running_pid[$puzzle]" "running_job[$puzzle]" "running_queued[$puzzle]" "running_gain[$puzzle]" "running_started[$puzzle]"
+}
+
+cd "$root"
+estimated_signature= estimated_at=0
+while [[ ! -e $state/STOP ]]; do
+	free=$((wrap_puzzles - ${#running_pid[@]}))
+	signature=$(queue_signature)
+	if ((free > 0)) && [[ $signature != "$estimated_signature" ]] || ((free > 0 && EPOCHSECONDS - estimated_at >= wrap_retry_seconds)); then
+		start_jobs "$free"
+		estimated_signature=$(queue_signature) estimated_at=$EPOCHSECONDS
+	fi
+	sleep 60 &
+	timer=$!
+	finished=
+	wait -n -p finished "$timer" "${running_pid[@]}"
+	code=$?
+	if [[ $finished == "$timer" ]]; then
+		continue
+	fi
+	kill "$timer" 2>/dev/null
+	for puzzle in "${!running_pid[@]}"; do
+		[[ ${running_pid[$puzzle]} == "$finished" ]] && finish_job "$puzzle" "$code"
+	done
+	estimated_signature=
+done
+for puzzle in "${!running_pid[@]}"; do
+	wait "${running_pid[$puzzle]}"
+	finish_job "$puzzle" "$?"
 done
 log "stopped"

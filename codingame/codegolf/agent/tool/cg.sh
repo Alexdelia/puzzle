@@ -42,7 +42,9 @@ while true; do
 		>>"$lock_dir/../cg.log"
 	if [[ $status == 429 ]]; then
 		retry_after=$(header_value Retry-After)
+		flock -u 9
 		sleep "${retry_after:-10}"
+		flock 9
 		continue
 	fi
 	remaining=$(jq -r '.limits.requests.remaining // empty' "$response" 2>/dev/null || true)
