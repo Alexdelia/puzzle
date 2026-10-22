@@ -32,6 +32,7 @@ No validator recovered exactly: t values carry random noise, so `complete` is ou
 ## Methods measured on all 50
 
 - all-points least-squares slope of `log t` on `log n`, `int(2k+.9)` capped at 7: 50/50 (Perl 180, CG 100%)
+- index-weighted slope `Σ(2i-N+1)log t / Σ(2i-N+1)log n`, same index: 50/50 (Perl 123, CG 100% 2026-10-22)
 - two-point exponent (first and last line), thresholds `x/2+.05`: 44/50 (Bash 88%)
 - constant answer: 6 or 7 /50 (table above)
 
