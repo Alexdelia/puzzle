@@ -40,3 +40,4 @@
 - [regex-trie-dp](regex-trie-dp.md): `/(?{$d[pos]})($r)(?{$d[pos]+=$^R})\D/` word-split counting DP over a `|` alternation, TRIE limit trap, verified on CG
 - [xor-toggle-flag](xor-toggle-flag.md): `$b^=/B/` toggle + `"$x0"!~/X$b/` so undef and 0 match alike, `.` looser than `!~`, verified on CG
 - [pair-sum-teleport](pair-sum-teleport.md): `$t-=1-pos while/T/g` index sum, `$p=$t-$p` jumps to the other marker, verified on CG
+- [substr4-mark-and-test](substr4-mark-and-test.md): `C eq substr$_,OFF,1,R` marks a grid cell and tests its old char, -5 vs `s/..\K./R/;$&eq C`; `read ARGV` -1 vs STDIN in -n, verified on CG
