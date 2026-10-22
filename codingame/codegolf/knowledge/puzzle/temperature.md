@@ -45,6 +45,8 @@ N = 0 handling (test 06 / validator 10, input `0\n\n`):
 
 Lengths reached (local referee, 17/17):
 
+- Perl 42 (CG 100%, 2026-10-22): `lang/perl/glob-split.md` (empty line 2 gives an empty list) + `lang/_shared/abs-tie-comparator.md` (needs no 0 among temps: true on hidden validators)
+
 - C 85: running min + `t*t<c*c+(t>c)` compare + `%*d` seed (our CG row 111)
 - Clojure 95 (CG 100%, #1 vs 97): `(repeatedly(read)read)` reads exactly N temperatures, so N = 0 gives an empty seq. Stable `(sort-by abs(sort > X))` puts +t first, and `(nth .. 0 0)` gives 0 when empty. See `lang/clojure/repeatedly-read-nth-default.md`
 - Python 68: min with key `t*t-t/2` over line 2 with `or[0]` (our CG row 70 used `abs(t-.1)`). `_,l=open(0)` same length as `[*open(0)][1]` (input has exactly 2 lines, also when N = 0)
