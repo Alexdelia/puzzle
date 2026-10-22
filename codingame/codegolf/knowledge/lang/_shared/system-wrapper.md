@@ -35,3 +35,5 @@ Verified 2026-10-22 (Ruby, CG test games 910933624/910933386/910933406/910933448
 Groovy box (verified 2026-10-22, telephone-numbers-codesize test 1, `knowledge/lang/groovy/spawn-interpreters.md`): python3, php, lua, perl, bash on PATH; ruby 3.1.2 only as `/usr/local/bin/ruby`; no node.
 
 Perl box (verified 2026-10-22, details `knowledge/lang/perl/exec-wrapper.md`): `exec` reaches bash (test game 910933623), lua (910933626), php (temperature io test 1 success), python3. Ruby unverified (game 910933627 timed out silently). The local perl launcher has no php/ruby, so those wrappers pass on CG but fail the local referee.
+
+OCaml box (verified 2026-10-22, telephone-numbers-codesize test 1 probe, `knowledge/lang/ocaml/system-wrapper.md`): python3 3.11, `python` = 2.7.16, lua 5.4.4, php 7.3.9, perl 5.34, bash on PATH; ruby only at `/usr/local/bin/ruby`; no node.
