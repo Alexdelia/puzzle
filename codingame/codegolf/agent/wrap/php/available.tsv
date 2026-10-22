@@ -1,0 +1,7 @@
+core	status	evidence
+perl	yes	dont-panic php 100 CG 100% (system perl -anE, interactive), mayan-calculation php 208 (io)
+bash	yes	shadows-of-the-knight-episode-1 php 112 CG (system bash -c)
+python	yes	temperature-code-golf PHP test 1 CG success 2026-10-22 (<?=`python3 -c...`)
+lua	yes	temperature-code-golf PHP test 3 CG success 2026-10-22 (<?=`lua -e...`), /bin/lua 5.4.4
+ruby	yes	temperature-code-golf PHP test 3 CG success 2026-10-22 (<?=`/usr/local/bin/ruby -e...`), ruby off PATH; local launcher lacks /usr/local/bin/ruby so it fails locally
+javascript	no	CG PHP box probe 2026-10-22: no node/nodejs on PATH
