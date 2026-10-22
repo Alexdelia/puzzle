@@ -105,3 +105,10 @@ Python core shrinks (2026-10-22, perl cell, local 26/26, relaxed-timeout referee
 ## Fall-3 solver reuse (perl, 2026-10-22, CG 100%)
 
 The the-fall-episode-3 perl turn-search (rotate Indy's next / next-next cell or a rock's next cell each turn, simulate rocks, memo per turn) solves episode 2 too: 23/26 local as-is, timeouts only on big maps 17-19 (6 s turn 1). Fix: memo key `"@_@z[$i>>2,S($i,1)>>2]$."` (state + types of Indy's current and next cell, not the whole grid): Indy never re-enters a cell, so passed cells do not matter; 150x faster (40 ms turn 1), 26/26, CG 100%. Grid-free key `"@_$."` fails 21/26; next-cell type only fails 1. Episode-2 drops vs episode 3: exit cell out of the occupancy hash, rock-rock collision filter (both 0 local fails, CG 100%). Perl 652.
+
+Perl native encodings (2026-10-22, perl cell 652 -> 586, local 26/26, CG 100%):
+
+- the table's "accept entry, no exit" values (8) can be plain blocked: same 26/26
+- blocked = 0, values and entries 1..3 (T L R): one leading dummy char, trailing 0s dropped, table `000011102310030121002310101111030020000101` indexed `[$entry+3*abs$type]`; accept test is the bare lookup (truthy), step `(-1,1,$W)[-$d]`
+- entry from the turn line: `/ \d+/` leaves `$'` = `" TOP\n"`, length 5..7; state `($x+$y*$W)*4+length$'` = `(cell+1)*4+entry` with a pad 0 cell before each row (`push@z,0,glob<>`)
+- actions as `$k`/`$k+.5` (RIGHT/LEFT, see `knowledge/lang/perl/fractional-action-code.md`), WAIT = `.5`; memo `"$k@_$z[$k]$."` (`knowledge/lang/perl/memo-key-local-cells.md`); whole-grid memo key times out on val 17-19
