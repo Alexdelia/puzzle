@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	temperature-code-golf Kotlin test 3 CG success 2026-10-22 (ProcessBuilder perl -e)
+python	yes	temperature-code-golf Kotlin test 3 CG success 2026-10-22 (ProcessBuilder python3 -c)
+bash	yes	temperature-code-golf Kotlin test 3 CG success 2026-10-22 (ProcessBuilder sh -c)
+lua	yes	temperature-code-golf Kotlin test 3 CG success 2026-10-22 (ProcessBuilder lua -e)
+php	yes	temperature-code-golf Kotlin test 3 CG success 2026-10-22 (ProcessBuilder php -r)
+ruby	yes	temperature-code-golf Kotlin test 3 CG success 2026-10-22 (ProcessBuilder /usr/local/bin/ruby -e)
+javascript	no	Kotlin box probe 2026-10-22 temperature-code-golf test 1: no node/nodejs (command -v empty)
