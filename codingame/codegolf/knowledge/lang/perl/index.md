@@ -48,7 +48,9 @@
 - [range-array-count](range-array-count.md): `@r=1..<>` header range reused as list, `<>/@r` count, `/.{$#r}./` width, verified on CG
 - [float-div-digit-loop](float-div-digit-loop.md): `1while s/^/$G[$r%20]/,0|($r/=20);print` base printer, `%` truncates float, drop `-p` for final `print`, verified on CG
 - [flat-grid-local-recursion](flat-grid-local-recursion.md): grid as one stride-99 string, negative `substr` wraps to a trailing sentinel row, `local` state in a `for` body instead of `my(..)=@_`, `@_` alias-free trap, verified on CG
+- [dfs-print-no-exit](dfs-print-no-exit.md): plan-once DFS leaf `print($q)` without exit/sleep/`$|` (buffer fills from sibling plans), `print$q||map` trap, outer `map{}-2..2` loop with `local`, verified on CG
 - [interpolated-array-run-starts](interpolated-array-run-starts.md): `"@f"=~/  (\S+)/g` first element of each run of a sparse array (undef = double space), store output token at first hit, verified on CG
 - [chained-comparison](chained-comparison.md): `$a>1>$b` chains (5.32+), 3 under `$a>1&&!$b`, verified on CG
 - [memo-turn-key](memo-turn-key.md): `$M{"@_@z$."}++&&return` memo reset per turn by `$.`, `"@_@z"` state key, verified on CG
 - [my-trailing-hash](my-trailing-hash.md): `my($i,@r,%h)=@_` empty lexical hash for free, verified on CG
+- [y-table-vb](y-table-vb.md): `sprintf("%vb",y/A-Z,-9/<raw ords>/dr)=~s/.?\b1//gr` whole-word heap-table binary, 8 under per-char index+%b; `/d` range delete, verified on CG
