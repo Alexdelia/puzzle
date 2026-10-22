@@ -39,3 +39,5 @@ Perl box (verified 2026-10-22, details `knowledge/lang/perl/exec-wrapper.md`): `
 OCaml box (verified 2026-10-22, telephone-numbers-codesize test 1 probe, `knowledge/lang/ocaml/system-wrapper.md`): python3 3.11, `python` = 2.7.16, lua 5.4.4, php 7.3.9, perl 5.34, bash on PATH; ruby only at `/usr/local/bin/ruby`; no node.
 
 Scala box (2026-10-22, temperature-code-golf test 1, `sys.process.Process`, knowledge/lang/scala/process-tokenizer-quoting.md): `sh`, `perl`, `python3`, `lua`, `php` run; `ruby`, `node` not found.
+
+Dart box (verified 2026-10-22, temperature-code-golf test 1, `knowledge/lang/dart/spawn-interpreters.md`): perl 5.34, python3 3.11.5, bash, lua 5.4.4, php 7.3.9 on PATH; ruby 3.1.2 only at `/usr/local/bin/ruby`; no node. Generated perl/python3/sh/lua/php/ruby wrappers pass on CG.
