@@ -76,6 +76,14 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 - method B with two memo arrays `$g[$i]||=do{..;$x[$i]=$j%$n;$l-$r},$i=$x[$i]` (8 under packing gain and next in one number), walk `$r-=$p[$j++]while$j<$i&$r>=$p[$j]` from `$j=$i-$n` (negative-index wrap, `knowledge/lang/perl/negative-index-wrap.md`), remaining capacity `$r` (1 under counting up)
 - answer in `$_` cleared by `($l,$c,$n,@p,$_)=@F`, loop `while$c--`; 1.4 s max locally on tests/validators
 
+### Perl 105 (2026-10-22, CG rank 4): method C with grep
+
+- state = running total `$_`, memo `$g{$r=$_%S}` (hash: S can be large), gain = last element of the doubled prefix list `@q` with `x-r<=min(L,S)` minus `r`: `(grep S>=$_-$r<=$l,@q)[-1]-$r` (matches are a prefix of the sorted list, so last match = max; chained comparison = cap)
+- per memo miss O(2N) grep, at most N misses: 1.3 s max locally (C=1e7 loop dominates), same as method B
+- 135 -> 115 (method C with `-0ap`) -> 105 (no shebang: `($l,$c)=glob<>;@q=map$q+=$_,(<>)x2;`, final `;print`, `knowledge/lang/perl/list-read-repeat.md`)
+- method C beats B here (the walk is a grep, no next-index array, no wrap): worth re-trying in langs with a cheap filter/last (Ruby `q.select{..}[-1]`, Python, JS)
+- rejected: eager `%g=map{...}@q` table (longer, key 0 needs a q_0); `$r=($_+=...)%S` as state update (+2); halving q to make `$q`=S (0)
+
 ### Hidden validators (probed 2026-10-20, perl)
 
 - 23 validators on CG (score grain 100/23)
