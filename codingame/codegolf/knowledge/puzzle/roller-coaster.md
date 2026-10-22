@@ -127,3 +127,8 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 - queue position after any number of rides is determined by `s mod S` (prefix sums strictly increasing), so the whole state is the running total `s`: `s' = s + g(s mod S)`, `g(r) = max{prefix of doubled queue <= r+min(L,S)} - r`
 - `g` memoized (at most N distinct keys): no index, no next-index table, no mod-n bookkeeping. Wins where index arithmetic and pair state are verbose (Clojure: 250 -> 221); in Python the prefix list costs more (see Rejected)
 - Clojure speed: `memoize` + `(nth(iterate f 0)c)` with C=1e7 runs ~1.5 s after startup locally; memoize+`mapv` pair state was 5-7 s CPU (too slow), vector table + `update` on a pair state 1.4 s
+
+### OCaml 257 (2026-10-22, CG rank 6/6)
+
+- eager packed table `g.(i)=t*n+next-i` built by `init n(fun i->let rec w j t=...in w i 0)` (walk bound `j<i+n&&`), state `v=s*n+i`, loop `fold_left(fun v _->v+g.(v mod n))0(make c 0)/n` (`knowledge/lang/ocaml/fold-make-loop.md`), groups `init n(fun _->Scanf.scanf" %d"abs)`
+- floor: header 34 + group array 42 + print 11 leave ~55 for table + loop at top 141: no memo method fits; naive OCaml is ~190+ and fails the heavy validators. Top 141 (Eric_[EGU]) likely predates the heavy validators like the other langs' tops
