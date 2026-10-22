@@ -37,3 +37,6 @@
 - [regex-fold-redo](regex-fold-redo.md): `-0p` + `s/^..<LF>..//m&&redo` folds lines left to right, leftmost match = longest overlap, `(.+)?..(?(3)$)` conditional fuses two alternatives, verified on CG
 - [epoch-sentinel](epoch-sentinel.md): `$^T` writable epoch = free +inf init, `` `sort -nr` `` 3 under `sort{$b-$a}<>`, header dropped by `/ /*` in the test, `$'and` pitfall, verified on CG
 - [assign-in-grep-list](assign-in-grep-list.md): `grep{..."@e"...}@e=<>` sees the full array inside the block, 3 under `@e=<>;`, verified on CG
+- [regex-trie-dp](regex-trie-dp.md): `/(?{$d[pos]})($r)(?{$d[pos]+=$^R})\D/` word-split counting DP over a `|` alternation, TRIE limit trap, verified on CG
+- [xor-toggle-flag](xor-toggle-flag.md): `$b^=/B/` toggle + `"$x0"!~/X$b/` so undef and 0 match alike, `.` looser than `!~`, verified on CG
+- [pair-sum-teleport](pair-sum-teleport.md): `$t-=1-pos while/T/g` index sum, `$p=$t-$p` jumps to the other marker, verified on CG
