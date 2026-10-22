@@ -1,0 +1,6 @@
+core	status	evidence
+python	yes	the-fall-episode-2 perl CG accepted (exec python3,"-c",q~...~)
+bash	yes	CG test game 910933623 (shadows-of-the-knight-episode-1 test 1, exec bash,-c=>'...', interactive, win)
+lua	yes	CG test game 910933626 (the-descent test 1, exec lua,-e=>'...', interactive, win)
+php	yes	CG io test game 2026-10-22 temperature-code-golf test 1 success (exec php,-r=>'?>...'); php missing from the local perl launcher, so the local referee rejects it
+ruby	unknown	CG test game 910933627 (the-descent, exec ruby,-e=>...) timed out silently: exec failure likely (ruby absent?), unconfirmed; ruby missing locally too
