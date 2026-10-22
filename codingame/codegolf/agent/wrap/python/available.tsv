@@ -1,0 +1,6 @@
+core	status	evidence
+perl	yes	mayan-calculation python CG 100% (os.system perl), the-descent-codesize CG test game 910932696 (os.execlp perl, interactive)
+bash	yes	shadows-of-the-knight-episode-1 python CG 100% (os.system bash -c), super-computer python CG 100% (os.system dash pipeline)
+ruby	no	temperature-code-golf testcase 1 2026-10-22: "sh: 1: ruby: not found"
+lua	yes	temperature-code-golf testcase 1 CG success 2026-10-22 (os.system lua -e)
+php	yes	temperature-code-golf testcase 1 CG success 2026-10-22 (os.system php -r)
