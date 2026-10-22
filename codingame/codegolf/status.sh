@@ -318,8 +318,7 @@ wrap_generator() {
 	local runs
 	runs=$(grep -P '\twrap run ' "$state/events.log" 2>/dev/null | tail -n 3 || true)
 	[[ -z $runs ]] || while IFS= read -r line; do print_event "$line"; done <<<"$runs"
-	[[ -s $state/worker/wrapd.log ]] && grep -E 'submitted|refused' "$state/worker/wrapd.log" | tail -n 5 | sed 's/^/  /'
-	true
+	[[ ! -s $state/worker/wrapd.log ]] || { grep -E 'submitted|refused' "$state/worker/wrapd.log" || true; } | tail -n 5 | sed 's/^/  /'
 }
 
 time_and_cost() {
