@@ -12,3 +12,5 @@ Verified 2026-10-22 (mayan-calculation, CG submit 100%, 205 B rank 1): the whole
 
 Quoted string literal (verified 2026-10-22, chuck-norris, CG accepted): `Sys.command{|...|}` takes the core verbatim, `"` and `\` included, for 2 B over `"..."`. Cheaper than escaping as soon as the core holds 2+ `"`/`\`; with exactly one `"` pair, a perl `q(...)` (+1) inside `"..."` ties it.
 - trap: a core containing `|}` ends the `{|...|}` string early (compile error). Reorder the core (`$r.=X."|"}{` -> `$r.="|".X}{`) or use `{a|...|a}` (+2) (verified the-resistance, CG 179 100%, 2026-10-22)
+
+OCaml box interpreters (verified 2026-10-22, `command -v` probe on telephone-numbers-codesize test 1, then one passing test per core): `python3` 3.11, `lua` 5.4.4 (`/bin/lua`), `php` 7.3.9 (`/bin/php`), perl 5.34, bash on PATH. `python` is Python 2.7.16: never `python -c` for a python3 core. `ruby` is off PATH, only `/usr/local/bin/ruby` (3.1, `_1` works): `Sys.command"/usr/local/bin/ruby -e'...'"`. No node/nodejs. `lua -e`, `php -r`, `/usr/local/bin/ruby -e` wrappers pass on CG. Generators: `agent/wrap/ocaml/`.
