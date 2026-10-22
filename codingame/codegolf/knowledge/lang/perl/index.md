@@ -34,3 +34,4 @@
 - [postmatch-package-quote](postmatch-package-quote.md): `$'for` = `$main::for` (space needed), bare `log` on "n t" = log n, `map{$_,"$_ $l"}` is a block, verified locally
 - [negative-index-wrap](negative-index-wrap.md): one-lap cyclic walk `$j` from `$i-$n` to `$i` (no `%$n`), `A<B&C>=D` 1 under `&&`, `($a,@p,$_)=@F` + `$_+=` + `while$c--`, verified on CG
 - [regex-fold-redo](regex-fold-redo.md): `-0p` + `s/^..<LF>..//m&&redo` folds lines left to right, leftmost match = longest overlap, `(.+)?..(?(3)$)` conditional fuses two alternatives, verified on CG
+- [epoch-sentinel](epoch-sentinel.md): `$^T` writable epoch = free +inf init, `` `sort -nr` `` 3 under `sort{$b-$a}<>`, header dropped by `/ /*` in the test, `$'and` pitfall, verified on CG
