@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	mayan-calculation ocaml 205 CG 100% (Sys.command"perl -ape..."), dont-panic ocaml
+bash	yes	shadows-of-the-knight-episode-1 ocaml CG 100% (Sys.command"bash -c ...")
+python	yes	the-fall-episode-2 ocaml 936 CG 100% (Sys.command{|python3 -c ...|})
+lua	yes	telephone-numbers-codesize test 1 CG success 2026-10-22 (Sys.command{|lua -e...|}), golf testcase runs have no game id
+php	yes	telephone-numbers-codesize test 1 CG success 2026-10-22 (Sys.command{|php -r...|}); local launcher lacks php
+ruby	yes	telephone-numbers-codesize test 1 CG success 2026-10-22 (Sys.command"/usr/local/bin/ruby -e..."); ruby off PATH, local launcher lacks /usr/local/bin/ruby
+javascript	no	probe 2026-10-22 telephone-numbers-codesize test 1: no node, no nodejs (command -v empty)
