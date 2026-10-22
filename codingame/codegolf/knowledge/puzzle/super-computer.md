@@ -92,3 +92,7 @@ Guesses (unverified):
 - perl does the greedy on `` `sort -nr` `` output: `$^T` epoch as +inf start of last taken, header line dropped by putting `/ /` as a factor in the test (`lang/perl/epoch-sentinel.md`). 4 under the `exec q()` wrapper of the `$2&&` core (50)
 - the same shape may help any language with backticks and a cheap count (ruby `count`, php): shell sorts, the language tests
 - input-order greedies (no sort) fail statement examples locally: end-ascending 37 (`1 1`), start-descending 38 (`2 3`); probes 2026-10-22 in `probe/perl/`, see probes.tsv
+
+## OCaml wrapper (verified 2026-10-22, CG submit, row 55, top was 59)
+
+- bare `Sys.command"sort -nr|awk '$1+$2>e&&e?0:$2&&e=$1'|wc -l"` = 13 + 42 core: `$` and `'` need no escape in an OCaml `"..."` string, `/bin/sh` = dash is fine with the `$2&&` core. Any language with a ~17 B `system` wrapper beats native here (c `main(){system("");}` = 61 with this core, top 64)
