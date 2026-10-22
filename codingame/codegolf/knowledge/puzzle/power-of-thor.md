@@ -94,6 +94,7 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 ## Perl (2026-10-22)
 
 - 94 B, CG 100%, rank 38 (tie 35): lag update inside the slice index, see knowledge/lang/perl/lag-sign-update.md
+- 90 B, CG accepted, rank 29 (tie 26): header guard `$|||=` (knowledge/lang/perl/autoflush-once-guard.md) 2026-10-22
 
 ## OCaml (2026-10-22)
 
