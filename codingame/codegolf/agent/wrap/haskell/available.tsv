@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	the-labyrinth haskell 268 CG-accepted (system"perl -anle..."), dont-panic haskell
+bash	yes	shadows-of-the-knight-episode-2 haskell 259 CG #1 (system"bash -c ..."), shadows-of-the-knight-episode-1 haskell
+python	yes	temperature-code-golf test 4 CG success 2026-10-22 (system"python3 -c..."), golf testcase runs have no game id
+ruby	no	probe 2026-10-22 telephone-numbers-codesize test 1: `command -v ruby` empty, `ruby: not found`
+lua	yes	temperature-code-golf test 4 CG success 2026-10-22 (system"lua -e..." and rawSystem"lua"), golf testcase runs have no game id
+php	yes	temperature-code-golf test 4 CG success 2026-10-22 (system"php -r..."); local launcher lacks php so wrap.sh drops php candidates until it has one
+javascript	no	probe 2026-10-22 telephone-numbers-codesize test 1: no node, no nodejs on PATH
