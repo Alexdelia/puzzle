@@ -1,6 +1,6 @@
 - [alias-input](alias-input.md) - `I=input`, split/int, >> precedence, ^ for bool compare
 - [linear-regression](linear-regression.md) - statistics.linear_regression()[0] slope, N token skipped via a[1::2],a[2::2]
-- [perl-wrapper](perl-wrapper.md) - os.system("perl -e'...'") = core+23, beats native python when perl core is short, verified mayan-calculation
+- [perl-wrapper](perl-wrapper.md) - os.system("perl -e'...'") = core+32, os.execlp("perl","p","-e",core) = core+39 without shell quoting (argv0 must be non-empty); CG Python box has lua and php, no ruby; verified
 - [flat-padded-grid](flat-padded-grid.md) - grid as one string padded with '#' (right col + bottom row): bounds-free neighbours via negative-index wrap, ready-made answer strings
 - [os-system-awk-core](os-system-awk-core.md) - os.system shell pipeline, super-computer 65
 - [walrus-in-slice](walrus-in-slice.md) - `r[(x:=e)-w:x]` beats `for x in[e]` in a comprehension by 4
