@@ -19,6 +19,7 @@
 - [prefix-set-subst](prefix-set-subst.md): `s/./\$h{$`}/sge for<>` all prefixes (`/s` takes the `\n`, empty key once), `\$h{K}` vivifies a key 1 under `$h{K}++`, `print%h-2` key count, verified on CG
 - [nl-ternary-endblock](nl-ternary-endblock.md): `-nl` + `$.<2?` header + `}{` final block, `s///ger` as hash key, verified
 - [foreach-alias-position](foreach-alias-position.md): `for$t(@p)` aliases the coordinate, `/S/?:/W/==..` response test, `$q-$q%$S` out-of-range test, verified
+- [jump-into-alias](jump-into-alias.md): assign new value into the `for` alias, old via inline `($o=$t)`, `$t>$o` test; `$t+($t=..)` reads the new value (SV push), verified on CG
 - [abs-precedence](abs-precedence.md): `abs$a-abs$b` mis-parses, use squares in sort comparator, verified
 - [chop-list-argmax](chop-list-argmax.md): `chop(@a=sort map<>.$_,0..7)` returns index of max, `$|=@a=...` flush for free, verified locally
 - [interactive-init-read](interactive-init-read.md): list-context <> hangs, `scalar<>` in call args, `(A.B)!~/0/` precedence, $1 aliasing in map, `0 x99`, verified locally
@@ -35,3 +36,4 @@
 - [negative-index-wrap](negative-index-wrap.md): one-lap cyclic walk `$j` from `$i-$n` to `$i` (no `%$n`), `A<B&C>=D` 1 under `&&`, `($a,@p,$_)=@F` + `$_+=` + `while$c--`, verified on CG
 - [regex-fold-redo](regex-fold-redo.md): `-0p` + `s/^..<LF>..//m&&redo` folds lines left to right, leftmost match = longest overlap, `(.+)?..(?(3)$)` conditional fuses two alternatives, verified on CG
 - [epoch-sentinel](epoch-sentinel.md): `$^T` writable epoch = free +inf init, `` `sort -nr` `` 3 under `sort{$b-$a}<>`, header dropped by `/ /*` in the test, `$'and` pitfall, verified on CG
+- [assign-in-grep-list](assign-in-grep-list.md): `grep{..."@e"...}@e=<>` sees the full array inside the block, 3 under `@e=<>;`, verified on CG
