@@ -9,3 +9,5 @@ Verified 2026-10-22 (mayan-calculation, CG submit 100%, 205 B rank 1): the whole
 - `'` in the core (shell single quotes): `'\''`, +3 B each (perl `$'` -> `$'\''`)
 - `\` followed by a non-escape char (`\p`, `\d`, `\s`, `\w`) stays verbatim in a `"..."` string, only warning 14 (illegal-backslash), not an error: perl `\pL` needs no escape (verified ascii-art, CG 84 100% rank 1, 2026-10-22). Legal escapes (`\n \t \b \r \\ \" \'`, digits, `\x`, `\o`, `\u`) are still interpreted
 - `python3` is on PATH in the CG OCaml box too, interactive io works: `Sys.command{|python3 -c '<core>'|}` = 28 B + core, `'` in the python core rewritten as `"` (verified the-fall-episode-2, CG 936 100% rank 4, 2026-10-22)
+
+Quoted string literal (verified 2026-10-22, chuck-norris, CG accepted): `Sys.command{|...|}` takes the core verbatim, `"` and `\` included, for 2 B over `"..."`. Cheaper than escaping as soon as the core holds 2+ `"`/`\`; with exactly one `"` pair, a perl `q(...)` (+1) inside `"..."` ties it.
