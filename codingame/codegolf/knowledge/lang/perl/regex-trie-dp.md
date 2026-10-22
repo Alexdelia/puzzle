@@ -17,3 +17,13 @@ Count ways to split a string into dictionary words without a hash or a length wi
 - a long junk alternative (e.g. 5L symbols from an unconverted Morse line) blows the TRIE state limit: test 04 2.08 s vs 0.04 s; convert junk lines to "" instead
 
 - the never-matching tail that forces backtracking must not be a literal: `/(?{..})($r)(?{..})-/` on a 0/1 subject prints nothing computed, the optimizer rejects the match on the missing required substring `-` before any code block runs. `\D` (2) or `(*F)` (4) work (verified 2026-10-22, the-resistance)
+
+## Shorter form: `$d[$-[0]]`, one trailing empty (verified on CG, the-resistance perl 150, 100%, 2026-10-22)
+
+```
+@d=$r=~/\|+/;$`=~/($')(?{$d[pos]+=$d[$-[0]]})\D/;$_=$d[-1]/2
+```
+
+- `$-[0]` inside the code block = start of the current attempt, so no `(?{$d[pos]})`/`$^R` pair (-6)
+- only valid when the ONLY empty alternative is the trailing one: the TRIE tries alternatives in order, so the trailing empty doubles `d[i]` after every word from i used it; only `d[L]` (start position L is visited) ends doubled, `/2`. A leading empty would double `d[i]` before use: path-dependent factor, wrong
+- one string holds subject and words: `$r` = `M|<empties>|w1|..|wn|`; `@d=$r=~/\|+/` splits it (list-context match without groups returns (1) = `@d=1`), `$\`` = subject, `$'` = alternation (interpolated at compile time, before the match changes anything)
