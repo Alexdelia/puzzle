@@ -7,3 +7,5 @@
 - [toplevel-expr](toplevel-expr.md): bare `Sys.command"..."` as whole file compiles (int toplevel, no `let _=`), wrapper `Sys.command"bash -c '<core>'"` = 23, verified
 - [scanf-abs](scanf-abs.md): `Scanf.scanf" %d"abs` reads an int, first format needs no leading space, `1to` is an invalid literal, verified
 - [fold-make-loop](fold-make-loop.md): `fold_left(fun v _->..)0(make c 0)` = shortest c-times loop, pack pair state in one int, verified
+- [printf-star-is-width](printf-star-is-width.md): `%.*s` pads (width), no precision truncation for strings, verified
+- [local-letter-helper](local-letter-helper.md): `let r l p q=if i+q<p then l else""in` + curried `r"S"b d^...`, `for i=0 to 99999` keepalive, verified CG
