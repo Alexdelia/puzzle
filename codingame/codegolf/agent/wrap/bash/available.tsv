@@ -1,0 +1,7 @@
+core	status	evidence
+perl	yes	dwarfs-standing-on-the-shoulders-of-giants bash CG 100% (perl -pe); temperature-code-golf bash test 1 CG success 2026-10-22 (generated heredoc perl /dev/fd/3 and exec perl -x $0 forms, io test: no game id); dont-panic bash test 3 CG games 910948576 (generated perl -anle inline) 910948586 (generated heredoc /dev/fd/3), interactive win
+python	yes	the-fall-episode-2 bash CG accepted (exec /usr/bin/python3 -c); temperature-code-golf bash test 1 CG success 2026-10-22 (generated exec python3 -x $0, io test: no game id)
+lua	yes	temperature-code-golf bash test 1 CG success 2026-10-22 (generated lua -e, io test: no game id; command -v lua = /bin/lua)
+php	yes	temperature-code-golf bash test 1 CG success 2026-10-22 (generated php -ddisplay_errors= -r, io test: no game id; command -v php = /bin/php)
+ruby	yes	temperature-code-golf bash test 1 CG success 2026-10-22 (generated /usr/local/bin/ruby -e, io test: no game id); ruby off PATH, only /usr/local/bin/ruby
+javascript	no	temperature-code-golf bash test 1 probe 2026-10-22: command -v node empty; mars-lander-episode-3 bash test game 910407501 no node
