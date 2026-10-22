@@ -58,3 +58,5 @@
 - [named-unary-precedence](named-unary-precedence.md): `ord$2%25` = `ord($2%25)`, bare named unary safe only before `& | ^` / comparisons, verified
 - [fractional-action-code](fractional-action-code.md): action = `$k`/`$k+.5`, `$z[$c]` truncates, `$c*2%2` variant bit, `.5` truthy no-op; `$_=(T)[$_]for($z[$c])x$n` alias repeat, verified on CG
 - [memo-key-local-cells](memo-key-local-cells.md): memo key = state + slice of cells that still matter `"@_@z[$i>>2,S($i,1)>>2]$."`, 150x faster than whole-grid key, verified on CG
+- [glob-brace-table](glob-brace-table.md): `(<"O({1,log n,n{,^2,^3}{, log n}})">)[i]` brace-expanded string table, quoted `<"...">` keeps spaces, `<n^{2,3}>`, verified on CG
+- [pre-post-increment-weights](pre-post-increment-weights.md): `$s=-<>;$b+=++$s*X,$a+=$s++*Y` two sums with equal centered weights, 2 under `$s+=2`, verified on CG
