@@ -102,3 +102,7 @@ Port of the JS DFS: scala 1369 B, CG 100% row #6 (top 172 = hardcode). Needs `ob
 ## Clojure general solver (2026-10-21)
 
 Port of the JS DFS: clojure 947 B, CG 100% row #3 (top 227 = hardcode). Local referee times out every Clojure solution on turn 1 (JVM startup ~1 s counted in the 1000 ms limit; CG does not count it: 947 passed). Check logic with a scratch copy of the referee with `FIRST_TURN` raised, submit through `oracle.sh` from `probe/clojure/`. Without a memo test 01 / validator 01 time out on turn 2 (150 ms): `(def f(memoize(fn[g p r]...)))` inside `-main` (knowledge/lang/clojure/memoize-def-recursion.md). Dead targets as 0 instead of -9 work with the leading-sentinel layout (cell 0 is a sentinel).
+
+## Perl general solver (2026-10-22)
+
+DFS port, perl 670, CG #7. Unmemoized, test 01 turn 2 costs ~130 ms CPU in perl (150 ms limit: fails locally under load, passed CG at 752); a failed-state memo keyed `"@_@z$."` (args, grid, input line number = per-turn reset) makes it ~13 ms (knowledge/lang/perl/memo-turn-key.md). Crash check moved into the child call (`$h{$i>>2}>1` on the cell count hash) is shorter than a grep over moved rocks.
