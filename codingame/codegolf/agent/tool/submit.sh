@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 source "$(dirname "$0")/lib.sh"
+trap 'echo "submit.sh: failed at line $LINENO (exit $?): $BASH_COMMAND" >&2' ERR
 
 usage="usage: submit.sh [--no-wait | --judge <row-json>] [--candidate <file>] <puzzle/<p>/solution/<lang>/main.<ext>> | submit.sh --probe <puzzle/<p>/probe/<lang>/<name>.<ext>>; --no-wait: gates and POST only, prints the submission id; --judge: no gate, no POST, judges the code against our leaderboard row read by the caller; --candidate: the code comes from <file>, copied into main.<ext> only on a confirmed gain"
 probe=
@@ -77,7 +78,15 @@ submit_and_wait() {
 	body=$(mktemp)
 	trap 'rm -f "$body"; report_time' EXIT
 	jq -n --rawfile code "$code" --arg language "$cg_name" '{language: $language, code: $code}' >"$body"
-	submission=$("$tool_dir/cg.sh" POST "/puzzles/$pretty_id/submissions" "$body" | jq -r .submission_id)
+	if ! response=$("$tool_dir/cg.sh" POST "/puzzles/$pretty_id/submissions" "$body"); then
+		echo "submit.sh: POST failed for length $length: $(head -c 300 <<<"$response" | tr '\n' ' ')" >&2
+		exit 1
+	fi
+	submission=$(jq -r '.submission_id // empty' <<<"$response" 2>/dev/null || true)
+	if [[ ! $submission =~ ^[0-9]+$ ]]; then
+		echo "submit.sh: POST failed for length $length, no submission id: $(head -c 300 <<<"$response" | tr '\n' ' ')" >&2
+		exit 1
+	fi
 	event "${probe:+probe }submit $puzzle $lang length=$length submission=$submission"
 	if [[ $mode == no-wait ]]; then
 		echo "$submission"

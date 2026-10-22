@@ -29,5 +29,7 @@ wrap_local_jobs=4
 wrap_in_flight=8
 wrap_confirm_seconds=600
 wrap_puzzles=3
+cg_network_attempts=6
+wrap_post_attempts=3
 commit_attempts=20
 commit_retry_seconds=3

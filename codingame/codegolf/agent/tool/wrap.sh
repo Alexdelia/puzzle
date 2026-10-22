@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 source "$(dirname "$0")/lib.sh"
+trap 'echo "wrap.sh: failed at line $LINENO (exit $?): $BASH_COMMAND" >&2' ERR
 shopt -s nullglob
 
 usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, no referee; --submit: submit.sh the winners; exit 3: some host deferred (busy cell, submit cap, generator error)"
@@ -99,7 +100,10 @@ attempt_host() {
 		fi
 		printf '%s\ttry %s %s\t%s in %ss (%s)\n' "$host" "$length" "$source" "$reason" "$((EPOCHSECONDS - started))" "${phases:-no CG call}"
 		[[ $reason == *"local referee fails"* ]] && continue
-		if [[ $reason == *"agent submits on"* ]]; then
+		grep -v '^submit.sh: time ' "$work/$host.err" | while IFS= read -r detail; do printf '%s\tdetail %s\n' "$host" "$detail"; done || true
+		if [[ $reason == *"POST failed"* || $reason == *"failed at line"* || -z $reason ]]; then
+			printf 'retry\t%s\t%s\t%s\t%s\n' "$((index - 1))" "$length" "$source" "${reason:-submit.sh died without a message}" >"$work/$host.result"
+		elif [[ $reason == *"agent submits on"* ]]; then
 			printf 'cap\t%s\n' "$index" >"$work/$host.result"
 		else
 			printf 'refused\t%s\t%s\t%s\t%s\n' "$index" "$length" "$source" "$reason" >"$work/$host.result"
@@ -110,7 +114,7 @@ attempt_host() {
 }
 
 submit_pipeline() {
-	local -A next_index=() host_started=() host_ours=() local_pid=() pending=()
+	local -A next_index=() host_started=() host_ours=() local_pid=() pending=() retries=()
 	local waiting=() host main ours cap= next_check=0
 	finish_host() {
 		local host=$1 winner=$2
@@ -160,6 +164,16 @@ submit_pipeline() {
 			case $outcome in
 			posted) pending[$host]="$length"$'\t'"$source"$'\t'"$posted_at"$'\t'"$candidate" ;;
 			none) finish_host "$host" - ;;
+			retry)
+				IFS=$'\t' read -r _ _ length source reason <"$work/$host.result"
+				retries[$host]=$((${retries[$host]:-0} + 1))
+				if ((retries[$host] <= wrap_post_attempts)); then
+					printf '%s\tretry %s %s\tattempt %s of %s after: %s\n' "$host" "$length" "$source" "${retries[$host]}" "$wrap_post_attempts" "$reason"
+					waiting+=("$host")
+				else
+					finish_host "$host" "$length $source refused: $reason"
+				fi
+				;;
 			error) deferred=1 && finish_host "$host" "- refused: attempt died, see wrapd.log" ;;
 			cap) cap=1 deferred=1 && finish_host "$host" - ;;
 			refused) IFS=$'\t' read -r _ _ length source reason <"$work/$host.result" && finish_host "$host" "$length $source refused: $reason" ;;
