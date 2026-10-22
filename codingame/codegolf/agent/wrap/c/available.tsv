@@ -1,4 +1,8 @@
 core	status	evidence
 perl	yes	the-labyrinth c CG 100% (system perl)
 bash	yes	shadows-of-the-knight-episode-1 c CG 100% (system bash -c), knowledge/lang/_shared/system-wrapper.md
-python	unknown	-
+python	yes	temperature-code-golf C test 1 CG success 2026-10-22 (generated system python3 -c'..', io test: no game id); the-descent-codesize test 1 CG game 910947232 (generated system python3 -c"..", interactive)
+lua	yes	temperature-code-golf C test 1 CG success 2026-10-22 (generated system lua -e'..', io test: no game id)
+php	yes	temperature-code-golf C test 1 CG success 2026-10-22 (generated system php -r'..', /bin/php 7.3.9, io test: no game id); local launcher lacks php
+ruby	yes	temperature-code-golf C test 1 CG success 2026-10-22 (generated system /usr/local/bin/ruby -e'..', io test: no game id); ruby off PATH; local launcher lacks it
+javascript	no	C box probe 2026-10-22 temperature-code-golf test 1: command -v node/nodejs empty, no /usr/local/bin/node
