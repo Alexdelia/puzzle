@@ -32,3 +32,4 @@
 - [glob-split](glob-split.md): `($a,$b)=glob<>` splits a line on whitespace, 4 under `<>=~/\d+/g`; `glob<>.<>.<>` reads N lines at once, verified on CG
 - [double-repeat-key](double-repeat-key.md): `"s"x(C-<>)xK` = K*(C-N) repeats, 1 under `x(C*K-K*<>)`, verified
 - [postmatch-package-quote](postmatch-package-quote.md): `$'for` = `$main::for` (space needed), bare `log` on "n t" = log n, `map{$_,"$_ $l"}` is a block, verified locally
+- [negative-index-wrap](negative-index-wrap.md): one-lap cyclic walk `$j` from `$i-$n` to `$i` (no `%$n`), `A<B&C>=D` 1 under `&&`, `($a,@p,$_)=@F` + `$_+=` + `while$c--`, verified on CG
