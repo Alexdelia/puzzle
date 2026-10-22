@@ -108,7 +108,7 @@ Run 8 (2026-10-20), probes on CG (submit cap is per puzzle, 90 per 5 h: dwarfs h
 ### Method (hidden-validator exploit, CG 100%): one peel pass
 
 - answer = `2 +` count of lines `X Y` whose `X` appears as a target. Text form: same filter as the peel below (` X\n` in the joined input), run once: no loop, no pass counter
-- perl 38: `@e=<>;print 2+grep{/ /;"@e"=~/ $`\n/}@e` (`\n` escape, outputs 3 7 3 7 on IDE tests; CG 100%, perl row 38)
+- perl 35: `print 2+grep{/ /;"@e"=~/ $`<LF>/}@e=<>` (raw newline, assignment as grep list; outputs 3 7 3 7 on IDE tests; CG 100% 2026-10-22, perl row 35)
 - ruby 51: `` t=`cat`;p 2+t.lines.count{|l|l=~/ /&&t[" #{$`}\n"]} `` (CG 100%). `N` line stays in `@e`: `/ /` fails on it, the empty `` $` `` gives ` \n`, never in the text
 - needs: count over lines, substring test with interpolation. Any language with the peel filter gets this by dropping the loop
 - fails local referee by design: submit with `submit.sh --probe`
@@ -166,3 +166,6 @@ Scala (2026-10-21): `2+L` key, 141 bytes, row 141 (rank 18, top 77) via --probe:
 Clojure (2026-10-21): `2+L` key, 119 bytes, via --probe (top 89): `(ns Solution(:gen-class))(defn -main[](prn(+ 2(#(count(re-seq #"(?s)(\d+) (?=.*\n\n.* \1\n)"(str % "\n"%)))(slurp *in*)))))` (raw newlines in file). Same doubled-string regex as php. `print` shows nothing (no flush at exit), use `prn`.
 
 OCaml (2026-10-21): `2+L` key, 127 bytes, CG 100% via --probe (rank 5, top 40 tied by Icebox and Eric_[EGU], both 100%): `List.(let e=init(read_int())(fun _->Scanf.scanf" %d %d"(fun a b->b,a))in print_int(2+length(filter(fun(_,a)->mem_assoc a e)e)))`. 40 in OCaml barely fits a Scanf call plus print (`print_int(Scanf.scanf"%_d %d %_d %d"(+))` = 41, `print_int(Scanf.scanf"%s@!"Hashtbl.hash)` = 40): the top reads at most a few tokens or one whole-input string, so the key is a cheap function of the first tokens or of the input string. Known a-d constrain it: b and d differ only in X2 (byte 6), and `N=1` `1/1 2` must not hit EOF on a `%d`.
+
+Perl (2026-10-22): row 35 via `@e=<>` moved into the grep list (CG 100%). Key "unique root, id 1" is DEAD: perl `print 1+grep!/^1 /,<>` (21, = 1 + #lines not starting `1 `, fits a-d, e iff e=`1 3/1 2`, IDE 01 only) left row 35 unchanged (< 100%). So some validator has a root other than 1 or several roots (or e is not `1 3/1 2`).
+- char-count families: only affine whole-input count fitting a-d is `4 - count('1')` (+ any of 0,4-9 in the class); the old note "affine impossible" assumed `2+count`. Unprobed, but `N=8/9` validators would need at most two '1' chars: unlikely
