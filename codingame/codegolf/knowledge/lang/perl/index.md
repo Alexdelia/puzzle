@@ -29,3 +29,5 @@
 - [height-indexed-argmax](height-indexed-argmax.md): `@a=print$a[-1],$/while$|=map$a[<>]=$_,0..7` argmax via slot-per-key array, `@a=print` reset, verified on CG
 - [numify-skip-line](numify-skip-line.md): `$l=<>+!<>;` reads a number and skips the next line; no-shebang `print...,$/for<>` beats `#!perl -nl` + `$.<N?` dispatch, verified on CG
 - [sge-query-loop-substr-pad](sge-query-loop-substr-pad.md): `s/(.+) (.+)/code/ge` 6 under `while(//g){}`, `$w=s/.+\n.+\n//+$&` header width, end pad `1x$w` covers negative substr wrap, verified on CG
+- [glob-split](glob-split.md): `($a,$b)=glob<>` splits a line on whitespace, 4 under `<>=~/\d+/g`; `glob<>.<>.<>` reads N lines at once, verified on CG
+- [double-repeat-key](double-repeat-key.md): `"s"x(C-<>)xK` = K*(C-N) repeats, 1 under `x(C*K-K*<>)`, verified
