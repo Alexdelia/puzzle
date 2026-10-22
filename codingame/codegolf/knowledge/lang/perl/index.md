@@ -16,7 +16,7 @@
 - [flush-after-say](flush-after-say.md): `$|=COND&&say+X` flushes the say right away (1 under `say+X if$|=COND`, no space), verified
 - [anon-hash-lookup](anon-hash-lookup.md): `-0p` + `$_={k,v,...}->{$_+0}` hardcode table keyed on first number, verified locally
 - [for-growing-array](for-growing-array.md): growing-list flood, ref marks, `>>2`, `=~O`, `/(.+) (.+)/g`, verified
-- [prefix-set-subst](prefix-set-subst.md): `s/./$h{$`.$&}++/ge for<>` all prefixes, `print~~%h` key count without `keys`, verified
+- [prefix-set-subst](prefix-set-subst.md): `s/./\$h{$`}/sge for<>` all prefixes (`/s` takes the `\n`, empty key once), `\$h{K}` vivifies a key 1 under `$h{K}++`, `print%h-2` key count, verified on CG
 - [nl-ternary-endblock](nl-ternary-endblock.md): `-nl` + `$.<2?` header + `}{` final block, `s///ger` as hash key, verified
 - [foreach-alias-position](foreach-alias-position.md): `for$t(@p)` aliases the coordinate, `/S/?:/W/==..` response test, `$q-$q%$S` out-of-range test, verified
 - [abs-precedence](abs-precedence.md): `abs$a-abs$b` mis-parses, use squares in sort comparator, verified
