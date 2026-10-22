@@ -42,7 +42,8 @@ So: one validator 14x14, one 14x8, one 6x6 (no 11x10: test 1 "Avoiding rocks" di
 0 0 0 0 0 3
 ```
 
-- unknown: lock signs (test 2 signs: `0 -3 -3 -5 1 -1 / -13 11 4 0 -3 1 / 11 6 1 0 10 1 / 0 0 10 3 3 1 / 0 0 0 0 0 3 / 0 0 0 0 0 -3`), exit x (test 2: 5), Indy start (test 2: (1,0) TOP), rock schedule (test 2: 4 rocks). Next bits: signs equal test 2 with (2,3) unlocked; exit == 5; first-turn Indy == 1 0 TOP; rock count/schedule per turn input (predicates on turn inputs need a probe hook in the turn loop, gen.py only hooks init)
+- 2026-10-22 (ocaml probes `probe/ocaml/signs-exit.ml` 949, `transcript.ml` 842, both YES): signed grid = test 2 signs with (2,3) = ±12 (sign unknown, off the path), exit x = 5; the perl-752 solver's turn inputs (Indy + rocks, turns 1..8) equal those of local test 2 with (2,3)=12: Indy start (1,0) TOP and rock schedule as test 2 (4 rocks: turn 1 (2,0) TOP and (0,1) LEFT, turn 3 (3,0) TOP, turn 5 (5,0) TOP). So the 6x6 validator is recovered: `jq '.grid[3][2]=12' tests/02.json` (confidence high; a false yes needs a different game that the solver wins before turn 8). Game won at turn 8 with the solver's moves
+- (before 2026-10-22) unknown: lock signs (test 2 signs: `0 -3 -3 -5 1 -1 / -13 11 4 0 -3 1 / 11 6 1 0 10 1 / 0 0 10 3 3 1 / 0 0 0 0 0 3 / 0 0 0 0 0 -3`), exit x (test 2: 5), Indy start (test 2: (1,0) TOP), rock schedule (test 2: 4 rocks). Next bits: signs equal test 2 with (2,3) unlocked; exit == 5; first-turn Indy == 1 0 TOP; rock count/schedule per turn input (predicates on turn inputs need a probe hook in the turn loop, gen.py only hooks init)
 
 ## Eager plan (2026-10-21, objective-c 1626 `eager.m`, 25%)
 
