@@ -53,6 +53,8 @@ Rejected:
 
 Perl cell reached 73 total bytes incl. `#!perl -nl\n` (CG rank 10, 2026-10-20): `$l||=$_;$.<4?@t=map{ord()%32*/\pL/-1}/./g:print+(/.{$l}/g)[@t]`. `-E` can't go on the shebang (see lang/perl/shebang-no-E.md), so the "59 core" figure excludes switches and `say` -> `print`. Top 61 unexplained (probably no shebang).
 
+Perl 71 (CG 100%, rank #10 tie #8, 2026-10-22), no shebang: same list-slice method, header read by `$l=<>+!<>;`, T indices from `<>=~`, rows by `for<>` with `,$/` in the print, see lang/perl/numify-skip-line.md. Rows keep `\n` (`.` skips it, still 27 glyphs). Bash wrapper of it with `-E`/`say` is 75, above bash 71.
+
 ## Hidden validators
 
 Facts (2026-10-20):
