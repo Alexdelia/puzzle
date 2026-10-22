@@ -94,3 +94,7 @@ Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md`
 ## Perl (2026-10-22)
 
 - 94 B, CG 100%, rank 38 (tie 35): lag update inside the slice index, see knowledge/lang/perl/lag-sign-update.md
+
+## OCaml (2026-10-22)
+
+- 146 B CG 100%, rank 11: counter form with a local helper per letter (knowledge/lang/ocaml/local-letter-helper.md), `for i=0 to 99999` keepalive. Header `Scanf.scanf"%d %d %d %d"(fun a b c d->` alone is 38 B (`%d` skips no space), so top 64 (LolCat) is not reachable with a general method
