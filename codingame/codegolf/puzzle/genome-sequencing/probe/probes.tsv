@@ -10,3 +10,4 @@
 2026-10-20T19:32:52Z	validator.genome-sequencing.-.1792523690681856549	lua	427	count with A in {a==l or a==x or a==l-n+1} (lua chain formulas, l=sum lengths x=max length, pad 38)	progress {"submission_id":41537476,"language":"Ruby","in_progress":false,"score":100.0,"rank":61,"total":1687,"criteria":"Code size","criteria_score":90.0}, own row {"pseudo":"Alexdelia","language":"Lua","length":427,"score":70.0}
 2026-10-21T14:41:29Z	cell.genome-sequencing.scala.1792440650574502349	scala	163	scala input-order fold, Console.in.lines stream reduce	yes: 100% at length 163, committed
 2026-10-21T14:43:38Z	cell.genome-sequencing.scala.1792440650574502349	scala	154	scala fold with tails.filter.toSeq.last	yes: 100% at length 154, committed
+2026-10-22T17:34:32Z	cell.genome-sequencing.ocaml.1792440649754302161	ocaml	279	ocaml input-order fold 279, first row	yes: 100% at length 279, committed
