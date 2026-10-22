@@ -13,3 +13,4 @@
 - [rle-decode-array-fill](rle-decode-array-fill.md): RLE decode via `Array.fill` with toggled colour, program inside the EOF handler; `s^String.make` concat is quadratic (timeout at 1M), verified CG
 - [list-open-compare](list-open-compare.md): inside `List.(...)` `compare` is `List.compare` -> type error; `sort(-)` on ints, verified
 - [sys-command-wrapper](sys-command-wrapper.md): `let _=Sys.command"<sh core>"` = 19 bytes + core, interactive io works, verified
+- system-wrapper loop: end the shell command with `;./*` to re-run the binary (cwd /tmp), see [../_shared/self-exec-glob.md](../_shared/self-exec-glob.md), verified
