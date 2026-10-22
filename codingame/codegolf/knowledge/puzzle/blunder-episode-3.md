@@ -67,7 +67,9 @@ Cheaper than least squares, same robustness: `k = Σ w_i·log t_i / Σ w_i·log 
 - measured k (26 local inputs): O(1) -.000..0.010, O(log n) .097..0.120, O(n) .885..1.020, O(n log n) 1.117..1.154, O(n^2) 1.829..2.027, O(n^2 log n) 2.275..2.462, O(n^3) 2.961..2.962, O(2^n) 6.43..7.05; `int(2k+c)` correct for c in [.806,.946), .9 used
 - running weight: init from header `s=1-N`, add `s*log n` and `s*log t`, then `s+=2` per line; index `2*B/A+.9`
 - first/last-half sign weights (±1) do NOT separate (O(n log n) 1.148..1.529 overlaps O(n^2 log n) 2.027..)
-- table tail: `map{$_,"$_ $l"}n,"n^2","n^3"` builds n, n log n, n^2, n^2 log n, n^3, n^3 log n; index 7 (n^3 log n) is never reached (2^n index >= 12), so `//"2^n"` still catches 2^n
+- table (Perl 110, CG 100% 2026-10-22): glob brace expansion builds the 8 strings in class order (index 7 = n^3 log n, unused); see knowledge/lang/perl/glob-brace-table.md; bash arrays get the same expansion natively
+- weights with step 1 for both sums: pre-increment in the first sum, post-increment in the second, init `-N` (knowledge/lang/perl/pre-post-increment-weights.md)
+- older table tail: `map{$_,"$_ $l"}n,"n^2","n^3"` builds n, n log n, n^2, n^2 log n, n^3, n^3 log n; index 7 (n^3 log n) is never reached (2^n index >= 12), so `//"2^n"` still catches 2^n
 
 Index-weighted slope (verified CG 100% 2026-10-22, OCaml 249): `k = sum w_i log t_i / sum w_i log n_i` with `w_i = 2i-N-1` (i=1..N, sum exactly 0), 2 accumulators instead of the 4 of least squares, needs N. k close to LS: O(n) test .98 (LS .95), O(n^2) test 1.96 (LS 1.92), 2^n 6.4..7.0 (needs the cap), synthetic val14 .097, val15 1.02, val17 2.027. `int(2k+c)` with c=.87 passes 26/26 (c=.9 leaves val17 at .023 margin). Any constant offset in the accumulators (start not 0) breaks it: weighted sums are small for short N.
 
