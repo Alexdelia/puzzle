@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	temperature-code-golf Swift test 3 CG success 2026-10-22 (system("perl -e'...'"), generated candidate)
+python	yes	temperature-code-golf Swift test 3 CG success 2026-10-22 (system("python3 -c'...'"), generated candidate)
+bash	yes	temperature-code-golf Swift test 3 CG success 2026-10-22 (system(core) via /bin/sh, generated candidate)
+lua	yes	temperature-code-golf Swift test 3 CG success 2026-10-22 (system(#"lua -e'...'"#), generated candidate)
+php	yes	temperature-code-golf Swift test 3 CG success 2026-10-22 (system(#"php -r'...'"#), generated candidate)
+ruby	yes	temperature-code-golf Swift test 3 CG success 2026-10-22 (system("/usr/local/bin/ruby -e'...'"), generated candidate); ruby off PATH
+javascript	no	Swift box probe 2026-10-22 temperature-code-golf test 1: no node/nodejs (command -v empty)
