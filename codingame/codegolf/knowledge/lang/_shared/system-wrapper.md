@@ -29,3 +29,5 @@ Javascript box (2026-10-22, dwarfs-standing-on-the-shoulders-of-giants-codesize 
 Lua box (verified 2026-10-22, knowledge/lang/lua/box-interpreters.md): python3 3.11.5, perl 5.34, `/bin/php` 7.3.9, bash 5.1 on PATH; ruby 3.1.2 only at `/usr/local/bin/ruby` (off PATH); no node. Trap: a spawned `php -r` shows warnings on stdout (no `display_errors=stderr` as in the PHP launcher), so a php core relying on silent warnings needs `-ddisplay_errors=`. Local launchers have no php and no `/usr/local/bin/ruby`, so such wrappers fail locally only.
 
 PHP box (verified 2026-10-22, temperature-code-golf PHP test games): python3, `/bin/lua` 5.4.4, perl, bash on PATH, ruby only at `/usr/local/bin/ruby`, no node. Details: `knowledge/lang/php/wrapper-forms.md`.
+
+Verified 2026-10-22 (Ruby, CG test games 910933624/910933386/910933406/910933448, all 100%): the CG Ruby box has `perl`, `python3`, `bash`, `lua` on PATH, reached by `exec` both through sh and through Ruby's own PATH lookup (argv form). `knowledge/lang/ruby/exec-wrapper.md`.
