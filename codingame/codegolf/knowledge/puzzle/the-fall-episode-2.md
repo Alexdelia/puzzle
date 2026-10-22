@@ -112,3 +112,12 @@ Perl native encodings (2026-10-22, perl cell 652 -> 586, local 26/26, CG 100%):
 - blocked = 0, values and entries 1..3 (T L R): one leading dummy char, trailing 0s dropped, table `000011102310030121002310101111030020000101` indexed `[$entry+3*abs$type]`; accept test is the bare lookup (truthy), step `(-1,1,$W)[-$d]`
 - entry from the turn line: `/ \d+/` leaves `$'` = `" TOP\n"`, length 5..7; state `($x+$y*$W)*4+length$'` = `(cell+1)*4+entry` with a pad 0 cell before each row (`push@z,0,glob<>`)
 - actions as `$k`/`$k+.5` (RIGHT/LEFT, see `knowledge/lang/perl/fractional-action-code.md`), WAIT = `.5`; memo `"$k@_$z[$k]$."` (`knowledge/lang/perl/memo-key-local-cells.md`); whole-grid memo key times out on val 17-19
+
+Perl 572 -> 544 (2026-10-22, local 26/26, CG 100%):
+
+- RIGHT rotation arithmetic `$_>5?$_%4-1?$_+1:$_-3:$_^1` (26 chars) instead of the 14-entry list: `^1` swaps 2/3 and 4/5 but flips 0<->1, so the WAIT action code must rotate the pad cell an even number of times (WAIT = `.25`, rotation count `1+$c*4%4` = 2)
+- candidates need no occupancy filter (rotating a rock's or Indy's next cell is never picked on local, CG accepted at 100%)
+- collision Indy/rock as `(grep 4>($_^$_[0]),@_)>1` (states `cell*4+entry`: same cell iff xor < 4), no hash
+- exit test `S>>2==$X` (crash returns 0/'' whose `>>2` is 0)
+- S body `$d=$E[...]and$E[...]&&$k*4+$d`: low-precedence `and` replaces `;$d&&` (544)
+- rejected: next-next candidate dropped (4 fails), collision dropped or exact-state collision (4 fails), memo key `"@_$z[S]$."` / `$z[S>>2]` / `$z[S,$k]` (1-2 fails on val 16-19)
