@@ -121,3 +121,4 @@ Perl 572 -> 544 (2026-10-22, local 26/26, CG 100%):
 - exit test `S>>2==$X` (crash returns 0/'' whose `>>2` is 0)
 - S body `$d=$E[...]and$E[...]&&$k*4+$d`: low-precedence `and` replaces `;$d&&` (544)
 - rejected: next-next candidate dropped (4 fails), collision dropped or exact-state collision (4 fails), memo key `"@_$z[S]$."` / `$z[S>>2]` / `$z[S,$k]` (1-2 fails on val 16-19)
+- (2026-10-22, perl 592 -> 561, local 26/26 + hidden 7/7) merged with `knowledge/lang/perl/local-topic-recursion.md` (`local($_,%h)=$_[0]`, bare `S`, memo key `"@_@z[S,$k]$."`); rotation as formula `$_<6?$_^1:$_%4-1?$_+1:$_-3` repeated `x(1|$c*4)` (4c+1 RIGHTs = RIGHT, 4c+3 = LEFT; 2.5x slower, max 77 ms on turn 1 of val 17-19, later turns lower); win test `S>>2==$X||f(...)` (crashed S gives "" -> 0, never the exit cell)
