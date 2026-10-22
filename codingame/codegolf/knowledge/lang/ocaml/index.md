@@ -12,3 +12,4 @@
 - [digit-letter-literal](digit-letter-literal.md): `0to`, `1do`, `8and`, `2then` are invalid literals, space needed after a digit; `*!`/`&&!` lex as one operator, verified
 - [rle-decode-array-fill](rle-decode-array-fill.md): RLE decode via `Array.fill` with toggled colour, program inside the EOF handler; `s^String.make` concat is quadratic (timeout at 1M), verified CG
 - [list-open-compare](list-open-compare.md): inside `List.(...)` `compare` is `List.compare` -> type error; `sort(-)` on ints, verified
+- [sys-command-wrapper](sys-command-wrapper.md): `let _=Sys.command"<sh core>"` = 19 bytes + core, interactive io works, verified
