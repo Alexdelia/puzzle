@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated fpexeclp perl -e); the-descent test 1 CG game 910946412 win (interactive)
+python	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated fpexeclp python3 -c)
+bash	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated fpexeclp bash -c); shadows-of-the-knight-episode-1 test 2 CG game 910946413 win (fpsystem bash -c, interactive)
+lua	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated fpexeclp lua -e)
+php	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated fpexeclp php -r, /bin/php 7.3.9)
+ruby	yes	temperature-code-golf test 1 CG success 2026-10-22 (generated fpexeclp /usr/local/bin/ruby -e, ruby off PATH)
+javascript	no	probe 2026-10-22 temperature-code-golf test 1: no node/nodejs on PATH or in /usr/local/bin
