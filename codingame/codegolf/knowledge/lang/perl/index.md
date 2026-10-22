@@ -51,6 +51,7 @@
 - [flat-grid-local-recursion](flat-grid-local-recursion.md): grid as one stride-99 string, negative `substr` wraps to a trailing sentinel row, `local` state in a `for` body instead of `my(..)=@_`, `@_` alias-free trap, verified on CG
 - [dfs-print-no-exit](dfs-print-no-exit.md): plan-once DFS leaf `print($q)` without exit/sleep/`$|` (buffer fills from sibling plans), `print$q||map` trap, outer `map{}-2..2` loop with `local`, verified on CG; array plan `local@q=(@q,X)` + `@_<$V or@q>N?print@q:map` leaf, parenless trailing `substr` in `(A.substr$R,..)!~0`, verified on CG
 - [bareword-command-loop](bareword-command-loop.md): `map{..$s+/E/-/L/..$_.$/..}SPEED,UP,JUMP,DOWN,SLOW` loop over names, deltas by letter tests, -4 vs index range + name table, verified on CG
+- [local-push-element](local-push-element.md): `local$q[@q]=X` scoped push, array shrinks back on exit, 2 under `local@q=(@q,X)`; header reads in the loop list `for$M=<>,$V=<>,1,2` -1, verified on CG
 - [interpolated-array-run-starts](interpolated-array-run-starts.md): `"@f"=~/  (\S+)/g` first element of each run of a sparse array (undef = double space), store output token at first hit, verified on CG
 - [chained-comparison](chained-comparison.md): `$a>1>$b` chains (5.32+), 3 under `$a>1&&!$b`, verified on CG; scaled bound `$d<3>$e/3`
 - [memo-turn-key](memo-turn-key.md): `$M{"@_@z$."}++&&return` memo reset per turn by `$.`, `"@_@z"` state key, verified on CG
