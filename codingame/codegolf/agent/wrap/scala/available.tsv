@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	dont-panic scala 134 CG-accepted (sys.process.Process("perl -anE...").!<), the-labyrinth scala 272
+python	yes	temperature-code-golf test 1 CG success 2026-10-22 (Process("python3 -c..."), generated candidate), golf testcase runs have no game id
+bash	yes	temperature-code-golf test 1 CG success 2026-10-22 (Process("sh -c..."), generated candidate)
+lua	yes	temperature-code-golf test 1 CG success 2026-10-22 (Process("lua -e..."), generated candidate)
+php	yes	temperature-code-golf test 1 CG success 2026-10-22 (Process("php -r..."), generated candidate); local launcher lacks php so wrap.sh drops php candidates until it has one
+ruby	no	temperature-code-golf test 1 2026-10-22: java.io.IOException: Cannot run program "ruby": error=2
+javascript	no	temperature-code-golf test 1 2026-10-22: java.io.IOException: Cannot run program "node": error=2
