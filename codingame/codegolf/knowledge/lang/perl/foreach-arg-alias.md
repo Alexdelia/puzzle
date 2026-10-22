@@ -8,4 +8,6 @@ In a recursive sub that works on its first argument through `$_` (step function 
 
 Precedence used with it: comparisons bind tighter than `|`, `|` tighter than `&&`, so `$d&&$E[..]|$_[0]&&$k*4+$d` needs no parens (2 under `(9>$E[..]|$_[0])` with the parens).
 
-Verified: the-fall-episode-2 perl 598 -> 586 chain, local 26/26, CG 100% at 592 and 586 (2026-10-22).
+Verified: the-fall-episode-2 perl, local 26/26, CG 100% at 592 (2026-10-22).
+
+Alternative seen in a concurrent task (local 26/26 at 572, CG unverified when written): `local($_,%h)=$_[0];` dynamic-scopes `$_` and the hash in one statement (20 bytes vs 17 for `my%h;for($_[0]){}`), paired there with a step function without the skip flag and the key `"@_@z[S,$k]$."`; its gain comes from those, not from `local` itself

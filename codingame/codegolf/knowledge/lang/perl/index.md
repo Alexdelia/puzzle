@@ -62,5 +62,5 @@
 - [memo-key-local-cells](memo-key-local-cells.md): memo key = state + slice of cells that still matter `"@_@z[$i>>2,S($i,1)>>2]$."`, 150x faster than whole-grid key, verified on CG
 - [glob-brace-table](glob-brace-table.md): `(<"O({1,log n,n{,^2,^3}{, log n}})">)[i]` brace-expanded string table, quoted `<"...">` keeps spaces, `<n^{2,3}>`, verified on CG
 - [pre-post-increment-weights](pre-post-increment-weights.md): `$s=-<>;$b+=++$s*X,$a+=$s++*Y` two sums with equal centered weights, 2 under `$s+=2`, verified on CG
-- [foreach-arg-alias](foreach-arg-alias.md): `for($_[0]){...}` binds the sub arg to `$_`, restored around recursion, 14 under `my($i)=@_` + `$_=$i`; `S$_` truthy flag; `A|B&&C` no parens, verified on CG
+- [foreach-arg-alias](foreach-arg-alias.md): `for($_[0]){...}` binds the sub arg to `$_`, restored around recursion; `S$_` truthy flag; `A|B&&C` no parens, verified on CG
 - [local-topic-recursion](local-topic-recursion.md): `local($_,@r,%h)=@_` in a recursive sub so helpers read `$_` bare, `f(S||next,..)` in a for body, verified on CG
