@@ -53,3 +53,5 @@ Rust box (verified 2026-10-22, temperature-code-golf + the-descent-codesize test
 D box (verified 2026-10-22, temperature-code-golf test 1 `command -v` probe, `knowledge/lang/d/spawn-wrapper.md`): perl 5.34, python3, python, lua, php, bash on PATH; ruby only at `/usr/local/bin/ruby`; no node. `spawnShell`/`spawnProcess` wrappers of all six pass on CG.
 
 Java box (verified 2026-10-22, temperature-code-golf Java test 1 `command -v` probe, `knowledge/lang/java/process-wrapper.md`): same as Kotlin: python3, perl 5.34, php 7.3.9, lua 5.4.4, bash on PATH; ruby only at `/usr/local/bin/ruby`; no node. ProcessBuilder wrappers of all six pass on CG.
+
+VB.NET box (verified 2026-10-22, temperature-code-golf test 3 generated candidates, `knowledge/lang/vbnet/process-start.md`): perl, python3, sh, lua, php run via `Process.Start`; `/usr/local/bin/ruby` runs; no node.
