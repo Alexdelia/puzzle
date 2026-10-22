@@ -96,3 +96,7 @@ Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`
 ## Clojure (cell worker 2026-10-21)
 
 - 288 #1 (top was 436): `(ns Player)(defn -main[_](->["perl""-anE""<groovy row core>"]ProcessBuilder. .inheritIO .start .waitFor))`, `\\K` doubled, raw newline instead of `\n` in the string (-1). Local referee times out every case on turn 1 (JVM start under load), so sent as probe: CG 100%
+
+## OCaml (cell worker 2026-10-22)
+
+- 220 #1 (top was 233): `Sys.command"perl -anE'<core>'"` with the perl-row core (phase flag `($s|=C eq substr$_,31*$F[0]+$F[1],1,R)?y/T/X/:y/?C/X/`, `until/XR|R(X)|...`, `(LEFT,RIGHT,UP,DOWN)[$#-]` without the `a` placeholder) and `say` instead of `-l`+`print`. This core is 11 B shorter than the lua/groovy/scala core (`s/(?:.*\n){$F[0]}.{$F[1]}\K./R/;$s|=$&eq C`), so every wrapper row using the old core can drop ~11 B. Verified local 16/16 with CG perl 5.34 and CG submit
