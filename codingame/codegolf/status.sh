@@ -302,7 +302,7 @@ running_tasks() {
 
 wrap_generator() {
 	local jobs=("$state"/wrapq/*.json) daemon painted
-	if loop_pids wrapd >/dev/null; then
+	if [[ -n $(loop_pids wrapd) ]]; then
 		paint daemon "$green" running
 	else
 		paint daemon "$dim" "not running"

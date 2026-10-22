@@ -218,7 +218,7 @@ commit_time_log() {
 
 loop_pids() {
 	local names=$1
-	pgrep -f "^([^ ]*/)?bash ([^ ]*/)?agent/tool/($names)\.sh( |$)"
+	pgrep -f "^([^ ]*/)?bash ([^ ]*/)?agent/tool/($names)\.sh( |$)" || true
 }
 
 wrap_rejected=$state/wrap/rejected.tsv
