@@ -4,7 +4,7 @@ source "$(dirname "$0")/lib.sh"
 trap 'echo "wrap.sh: failed at line $LINENO (exit $?): $BASH_COMMAND" >&2' ERR
 shopt -s nullglob
 
-usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, no referee; --submit: submit.sh the winners; exit 3: some host deferred (busy cell, submit cap, generator error)"
+usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, no referee; --submit: submit.sh the winners (on STOP: no new attempt, posted ones still judged); exit 3: some host deferred (busy cell, submit cap, STOP, generator error)"
 puzzle=${1:?$usage}
 shift
 host_filter=
@@ -140,6 +140,10 @@ submit_pipeline() {
 		waiting+=("$host")
 	done
 	while ((${#waiting[@]} + ${#local_pid[@]} + ${#pending[@]})); do
+		if [[ -z $cap && -e $state/STOP ]]; then
+			cap=1 deferred=1
+			printf 'stop: no new attempt, judging %s posted\n' "${#pending[@]}"
+		fi
 		while [[ -z $cap ]] && ((${#waiting[@]} && ${#local_pid[@]} < wrap_local_jobs && ${#local_pid[@]} + ${#pending[@]} < wrap_in_flight)); do
 			host=${waiting[0]}
 			waiting=("${waiting[@]:1}")
