@@ -33,7 +33,7 @@ write_launcher() {
 	shift
 	local env
 	env=$(readlink -f /usr/bin/env)
-	printf '#!/bin/sh\nexec %s/bin/bwrap --dev-bind / / --tmpfs /bin --symlink %s/bin/dash /bin/sh --tmpfs /usr/bin --symlink %s /usr/bin/env --symlink %s/bin/perl /usr/bin/perl --symlink %s/bin/python3 /usr/bin/python3 --setenv PATH "%s/bin:%s/bin:$PATH" --die-with-parent %s\n' \
+	printf '#!/bin/sh\nexec %s/bin/bwrap --dev-bind / / --tmpfs /bin --symlink %s/bin/dash /bin/sh --tmpfs /usr/bin --symlink %s /usr/bin/env --symlink %s/bin/perl /usr/bin/perl --symlink %s/bin/python3 /usr/bin/python3 --setenv PATH "%s/bin:%s/bin:$PATH" --tmpfs /tmp --chdir /tmp --die-with-parent %s\n' \
 		"${CG_BWRAP:?CG_BWRAP unset, enter the codegolf dev shell}" "${CG_DASH:?CG_DASH unset, enter the codegolf dev shell}" "$env" \
 		"${CG_PERL:?CG_PERL unset, enter the codegolf dev shell}" "${CG_PYTHON:?CG_PYTHON unset, enter the codegolf dev shell}" "$CG_PERL" "${CG_LUA:?CG_LUA unset, enter the codegolf dev shell}" "$*" >"$dir/run.tmp"
 	chmod +x "$dir/run.tmp"
