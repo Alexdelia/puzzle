@@ -45,6 +45,12 @@ Rejected (Python): token split + set of `O` indices with per-query set copy (230
 
 Perl 158 (local 17/17, CG rank 3, 2026-10-20), `-ln0`: strip header + `$w=L+1` in one `s`, `@g=split//`, `while(/(.+) (.+)/g)` over queries, `for(@{$k=[$s=$1+$2*$w]})` growing list, mark `$g[$_]=$k` when `$g[$_]=~O`, `print@{$g[$s]}>>2` (land '#' = symbolic empty array = 0, no pad needed: out of range cells are undef). Rejected: regex-spread flood on the string (`o(.{L})\KO|O(?=.{L}o)`, lookbehind capped at 255 so use `\K`; needs /s): correct but times out on 360k lake and 1M grid.
 
+## Perl wrapper core (CG OCaml 146 rank 1, 2026-10-22)
+
+- `perl -0nE'...'` core of 133 B (string grid, per-query copy `$t=$_.1x$w`, 4-arg substr mark `X`, growing `@k`, `say@k>>2`), shorter than the 148 B core used in lua/bash: tricks in `[[../lang/perl/sge-query-loop-substr-pad]]` (`s///ge` query loop -6, `$w=s/.+\n.+\n//+$&` -7, one end pad also covers negative offsets -3 with start `$2*$w+$1`)
+- `Sys.command"<core>"` = 146, local 19/19 tests+validators, CG 100% (submit.sh)
+- every wrapper lang gains: wrapper overhead + 133
+
 ## Groovy (verified 2026-10-21, referee task 1792592586570899356)
 
 - native Groovy flood fill (216, 17/17 local) scored 60 on CG: the 4 big validators (`L*H>=1e5`) time out, the 6 small pass. CG test game on IDE test 8 with the same code: `timeout:true`
