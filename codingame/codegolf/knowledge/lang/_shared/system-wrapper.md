@@ -57,3 +57,7 @@ Java box (verified 2026-10-22, temperature-code-golf Java test 1 `command -v` pr
 VB.NET box (verified 2026-10-22, temperature-code-golf test 3 generated candidates, `knowledge/lang/vbnet/process-start.md`): perl, python3, sh, lua, php run via `Process.Start`; `/usr/local/bin/ruby` runs; no node.
 
 C# box (verified 2026-10-22, temperature-code-golf C# test 1 `command -v` probe, `knowledge/lang/csharp/process-start.md`): perl 5.34, python3, python, lua 5.4.4, php 7.3.9, bash on PATH; ruby only at `/usr/local/bin/ruby`; no node. Generated `Process.Start(...)` wrappers of all six pass on CG.
+
+C box (verified 2026-10-22, temperature-code-golf C test 1 probe, `knowledge/lang/c/system-wrapper.md`): perl 5.34, python3 3.11.5, python, lua 5.4.4, php 7.3.9, bash on PATH; ruby 3.1.2 only at `/usr/local/bin/ruby`; no node. Generated `system` wrappers of python3/lua/php/ruby pass on CG.
+
+ObjectiveC box (verified 2026-10-22, temperature-code-golf test 1 probe, `knowledge/lang/objective-c/system-wrapper.md`): python3, perl 5.34, php 7.3.9, lua 5.4.4, bash on PATH; ruby 3.1.2 only at `/usr/local/bin/ruby`; no node. `main(){system(...)}` wrappers of all six pass on CG.
