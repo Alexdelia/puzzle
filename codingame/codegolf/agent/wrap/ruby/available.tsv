@@ -1,0 +1,7 @@
+core	status	evidence
+perl	yes	the-labyrinth ruby 249 CG 100% (exec"perl -anE..."), CG test game 910933624 dont-panic (exec"perl","-anle",<<heredoc)
+python	yes	CG test game 910933386 the-descent (exec"python3 -c..."), the-fall-episode-2 ruby CG 100% (exec"/usr/bin/python3")
+bash	yes	CG test game 910933406 power-of-thor (exec"bash -c ...")
+lua	yes	CG test game 910933448 the-descent (exec"lua -e...")
+php	unknown	-
+javascript	unknown	-
