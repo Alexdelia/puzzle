@@ -95,3 +95,7 @@ Bash core (210 bytes, local 46/46) in `import sys.process._` + `"""bash -c '<cor
 ## clojure 293 (2026-10-21)
 
 Bash core (209, the scala-section core ending `echo $m $l`) in `(ns Player)(defn -main[_](..(ProcessBuilder.["bash""-c""<core>"])inheritIO start waitFor))`, CG 100% #1 (top 317). Top-level spawn (no `-main`) blocks the CG compile (0%), no `waitFor` scores 0%: see `lang/clojure/interactive-spawn.md`. Local referee times out turn 1 on JVM startup under host load: submitted through `probe/clojure/` + `oracle.sh`.
+
+## ocaml 232 (2026-10-22)
+
+Clojure-section bash core (209 B, no `'`, `"` or `\`) dropped as-is into `Sys.command"bash -c '<core>'"` (`lang/ocaml/system-wrapper.md`, 23 B), CG 100% #1 (top 237). Any language with a bare system call of <= 28 B wrapper beats its top the same way.
