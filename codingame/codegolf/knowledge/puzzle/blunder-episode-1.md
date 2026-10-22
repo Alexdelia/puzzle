@@ -77,3 +77,5 @@ Python 368 submitted 2026-10-21 (exec unroll, `p=s.find('@')`, `m=[*s]`, `P=0,2,
 OCaml 292 submitted 2026-10-22 (CG #1, top 351): perl 274 core in `Sys.command{|perl -0pe'...'|}`, `$'` escaped as `$'\''`, see `knowledge/lang/ocaml/system-wrapper.md`. Other no-row langs whose top exceeds perl core + wrapper may do the same.
 
 Clojure 409 submitted 2026-10-21 (CG #1, top 410): general solver, tricks in `knowledge/lang/clojure/golf-tricks.md`. Offsets as directions (`k` is the offset itself), mod map `{\S w\N n\E 1\W -1}`, names map keyed by offset.
+
+Perl 269 submitted 2026-10-22 (general solver, #3, top 262): T via index sum `$t-=1-pos while/T/g` + `$p=$t-$p` (`knowledge/lang/perl/pair-sum-teleport.md`), breaker `$b^=/B/` + `"$m[..]0"!~/#|X$b/` (`knowledge/lang/perl/xor-toggle-flag.md`).
