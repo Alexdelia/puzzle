@@ -64,4 +64,4 @@ Details, sources and open probes: `puzzle/network-cabling/referee/hidden/facts.m
 
 - ours Clojure 167 (2026-10-21, rank 4, top 158): `F=#(map -(sort > %)(sort %))` on x and y columns; first of F(x) = range, positives of F(y) = deviation sum; trick note `knowledge/lang/clojure/read-pairs-sorted-diff.md`
 
-- ours OCaml 102 (2026-10-22, rank 3, top 94): `Sys.command"perl -0nE'...'"` wrapper around a 78 B perl core (two `sort{$a-$b}` on `/.+ /g` and `/ .+/g`, pop-while-iterating pair ends `$s-=$_-pop@y for@y`, range `-$x[0]+pop@x`). General OCaml (split, `sort(-)`, `map2(-)(rev s)s`) is 182. Perl `sub f{sort{$a<=>$b}@_}` saves 2 B but timed out locally on 1e5 tests (unclear if load)
+- ours OCaml 101 (2026-10-22, rank 3, top 94; x sort inlined: `say$s-(@x=sort..)[0]+pop@x`): `Sys.command"perl -0nE'...'"` wrapper around a 78 B perl core (two `sort{$a-$b}` on `/.+ /g` and `/ .+/g`, pop-while-iterating pair ends `$s-=$_-pop@y for@y`, range `-$x[0]+pop@x`). General OCaml (split, `sort(-)`, `map2(-)(rev s)s`) is 182. Perl `sub f{sort{$a<=>$b}@_}` saves 2 B but timed out locally on 1e5 tests (unclear if load)
