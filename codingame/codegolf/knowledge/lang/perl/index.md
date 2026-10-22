@@ -56,3 +56,4 @@
 - [list-read-repeat](list-read-repeat.md): `@q=map$q+=$_,(<>)x2` reads all lines, doubles and prefix-sums them; with `($l,$c)=glob<>` + final `print` -10 vs `-0ap` + `@F`, verified on CG
 - [y-table-vb](y-table-vb.md): `sprintf("%vb",y/A-Z,-9/<raw ords>/dr)=~s/.?\b1//gr` whole-word heap-table binary, 8 under per-char index+%b; `/d` range delete, verified on CG
 - [named-unary-precedence](named-unary-precedence.md): `ord$2%25` = `ord($2%25)`, bare named unary safe only before `& | ^` / comparisons, verified
+- [fractional-action-code](fractional-action-code.md): action = `$k`/`$k+.5`, `$z[$c]` truncates, `$c*2%2` variant bit, `.5` truthy no-op; `$_=(T)[$_]for($z[$c])x$n` alias repeat, verified on CG
