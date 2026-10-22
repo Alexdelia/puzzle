@@ -19,3 +19,9 @@ Trap (verified 2026-10-21, the-labyrinth, TypeScript test game 910610308): the C
 Fixed 2026-10-21: every launcher now provides CG perl 5.34 at `/usr/bin/perl` and first on PATH, and CG python 3.11.5 at `/usr/bin/python3` (`agent/tool/lang/cache.sh`), so the TS 258 labyrinth core fails locally (0/8) as on CG. Availability per CG box still differs (no ruby in the clojure box): the launcher does not hide host interpreters other than perl/python.
 
 Lua (2026-10-21): the CG Groovy box has `lua` on PATH (music-scores groovy 294 = `ProcessBuilder('lua','-e',...)`, CG 100%). Other boxes unverified: run one test game printing `lua -v` before relying on it in a new language. Every local launcher (bash included) now puts CG lua 5.4.4 on PATH, so the local referee passes a lua wrapper in any language: in a box where CG lacks lua, it fails only on CG.
+
+Haskell box (verified 2026-10-22, `command -v` probe, `knowledge/lang/haskell/system-wrapper.md`): perl, python3, python, lua 5.4.4, php 7.3.9, bash on PATH; no ruby, no node. python3/lua/php `system` wrappers pass on CG.
+
+Python3 box (verified 2026-10-22, temperature-code-golf testcase 1 via `os.system`): `lua` and `php` on PATH, `ruby` not (`sh: 1: ruby: not found`). Details: `knowledge/lang/python/perl-wrapper.md`.
+
+Javascript box (2026-10-22, dwarfs-standing-on-the-shoulders-of-giants-codesize test 1, knowledge/lang/javascript/spawn-interpreters.md): `bash`, `lua`, `php`, `perl`, `python3` on PATH, `ruby` not found.
