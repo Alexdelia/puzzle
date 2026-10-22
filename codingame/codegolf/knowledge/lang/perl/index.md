@@ -50,8 +50,9 @@
 - [float-div-digit-loop](float-div-digit-loop.md): `1while s/^/$G[$r%20]/,0|($r/=20);print` base printer, `%` truncates float, drop `-p` for final `print`, verified on CG
 - [flat-grid-local-recursion](flat-grid-local-recursion.md): grid as one stride-99 string, negative `substr` wraps to a trailing sentinel row, `local` state in a `for` body instead of `my(..)=@_`, `@_` alias-free trap, verified on CG
 - [dfs-print-no-exit](dfs-print-no-exit.md): plan-once DFS leaf `print($q)` without exit/sleep/`$|` (buffer fills from sibling plans), `print$q||map` trap, outer `map{}-2..2` loop with `local`, verified on CG; array plan `local@q=(@q,X)` + `@_<$V or@q>N?print@q:map` leaf, parenless trailing `substr` in `(A.substr$R,..)!~0`, verified on CG
+- [bareword-command-loop](bareword-command-loop.md): `map{..$s+/E/-/L/..$_.$/..}SPEED,UP,JUMP,DOWN,SLOW` loop over names, deltas by letter tests, -4 vs index range + name table, verified on CG
 - [interpolated-array-run-starts](interpolated-array-run-starts.md): `"@f"=~/  (\S+)/g` first element of each run of a sparse array (undef = double space), store output token at first hit, verified on CG
-- [chained-comparison](chained-comparison.md): `$a>1>$b` chains (5.32+), 3 under `$a>1&&!$b`, verified on CG
+- [chained-comparison](chained-comparison.md): `$a>1>$b` chains (5.32+), 3 under `$a>1&&!$b`, verified on CG; scaled bound `$d<3>$e/3`
 - [memo-turn-key](memo-turn-key.md): `$M{"@_@z$."}++&&return` memo reset per turn by `$.`, `"@_@z"` state key, verified on CG
 - [my-trailing-hash](my-trailing-hash.md): `my($i,@r,%h)=@_` empty lexical hash for free, verified on CG
 - [list-read-repeat](list-read-repeat.md): `@q=map$q+=$_,(<>)x2` reads all lines, doubles and prefix-sums them; with `($l,$c)=glob<>` + final `print` -10 vs `-0ap` + `@F`, verified on CG
@@ -62,3 +63,4 @@
 - [glob-brace-table](glob-brace-table.md): `(<"O({1,log n,n{,^2,^3}{, log n}})">)[i]` brace-expanded string table, quoted `<"...">` keeps spaces, `<n^{2,3}>`, verified on CG
 - [pre-post-increment-weights](pre-post-increment-weights.md): `$s=-<>;$b+=++$s*X,$a+=$s++*Y` two sums with equal centered weights, 2 under `$s+=2`, verified on CG
 - [foreach-arg-alias](foreach-arg-alias.md): `for($_[0]){...}` binds the sub arg to `$_`, restored around recursion, 14 under `my($i)=@_` + `$_=$i`; `S$_` truthy flag; `A|B&&C` no parens, verified on CG
+- [local-topic-recursion](local-topic-recursion.md): `local($_,@r,%h)=@_` in a recursive sub so helpers read `$_` bare, `f(S||next,..)` in a for body, verified on CG
