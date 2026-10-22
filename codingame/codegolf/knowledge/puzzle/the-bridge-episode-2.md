@@ -95,6 +95,11 @@ Next steps for a later worker:
 - measure with fresh-language probes (see `knowledge/lang/_shared/hidden-validators.md`, score oracle): hardcode keyed on L only, on (L,V), plans of single tests, to find which tests have twins and a cheap key
 - the rest needs search: check whether a 1-D model (union of holes of alive lanes, SPEED/SLOW/JUMP only, no lane change) solves the non-twin validators: locally it solves tests 1-8 and 11 (first/last V lanes), not 9, 10, 12
 
+### Perl 273 (2026-10-22, CG 100%, rank 5)
+
+- 277 with the command loop over bareword names `SPEED,UP,JUMP,DOWN,SLOW`, speed `+/E/-/L/`, lane `99*(/N/-/UP/)`, jump `!/J/&&`; see `knowledge/lang/perl/bareword-command-loop.md`. Same 25 shifted/flipped variant fails as 277
+- tried, no gain: array slice check `"@R[$_+1..$_+$l,$_+$e-$l..$_+$e]"!~0` with `@R=split//,$R.0 x99` (same 273, slower: 14 more variant timeouts); no rails row (19/23); rails row first (11/23)
+
 ### Perl 277 (2026-10-22, CG 100%, rank 5)
 
 - 287 + array plan with command-count bound `@q>18` (14..17 lose shifted/flipped variants), ternary leaf with `or`, rails row `$R.=pack A99,~~<>for 1..4;$R.=0 x99;` (-1), parenless last `substr`; see `knowledge/lang/perl/dfs-print-no-exit.md`. Same 159/184 variant pass set. Wrapper cores can take it
