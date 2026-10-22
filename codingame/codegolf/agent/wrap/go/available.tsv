@@ -1,0 +1,8 @@
+core	status	evidence
+perl	yes	the-descent-codesize go test 3 CG game 910947350 2026-10-22 (Exec /usr/bin/perl -e<core>, nil env, generated candidate)
+python	yes	the-descent-codesize go test 4 CG game 910947353 2026-10-22 (Exec /usr/bin/python3 -c<core>, nil env, generated candidate)
+bash	yes	temperature-code-golf go test 2 CG success 2026-10-22 (Exec /bin/sh -c, nil env, generated candidate, io test: no game id)
+ruby	yes	the-descent-codesize go test 2 CG game 910947294 2026-10-22 (Exec /usr/local/bin/ruby -e<core>, generated candidate); ruby off PATH
+lua	yes	the-descent-codesize go test 1 CG game 910947230 2026-10-22 (Exec /bin/sh -c 'lua -e"$0"' <core>, Environ(), generated candidate); lua only at /bin/lua on CG
+php	yes	the-descent-codesize go test 5 CG game 910947412 2026-10-22 (Exec /bin/php -r<core>, nil env, generated candidate)
+javascript	no	Go box probe 2026-10-22 temperature-code-golf test 1: no /usr/bin/node, /usr/bin/nodejs, /usr/local/bin/node
