@@ -56,7 +56,8 @@ Rejected:
 
 ## Perl (2026-10-20)
 
-- native 37, CG row #11: `<>;s/./$h{$`.$&}++/ge for<>;print~~%h` (see `lang/perl/prefix-set-subst.md`); top 31 unexplained, not reached
+- native 37 (old): `<>;s/./$h{$`.$&}++/ge for<>;print~~%h`
+- 31 = top tie, CG 100% (2026-10-22): P9 identity (no line-1 skip) + `/s` prefix form + `\$h{..}` key vivify, `print%h-2` (empty key + line 1). See `lang/perl/prefix-set-subst.md`. Fails synthetic validators 07/09/10 (P9 breakers), tests 5/5
 - hardcoding 5 test answers keyed on N cannot fit 31 (tests 2 and 3 both have N=2 with answers 20 and 10) and local validators differ anyway; not probed
 
 ## Hidden validators
