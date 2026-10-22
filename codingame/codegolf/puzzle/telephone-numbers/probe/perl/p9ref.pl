@@ -1,0 +1,1 @@
+s/./\$h{$`}/sge for<>;print%h-2
