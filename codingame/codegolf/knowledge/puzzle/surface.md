@@ -76,3 +76,5 @@ Groovy 214 (CG row 70%, 2026-10-21, local 17/17): list-mark flood, details in kn
 Scala 326 (CG 100%, rank 4, 2026-10-21): Set frontier flood, see knowledge/lang/scala/set-frontier-flood.md. Top 238 not reached. Tried: ArrayBuffer clone + k.size/4 trick with index loop (349), list stack (374).
 
 Clojure 228 (CG submitted 2026-10-21, rank 1): perl-wrapper (knowledge/lang/clojure/perl-wrapper.md) around the Perl 158 core with args "-ln0e" (shebang flags as one arg, newlines inside the string literal), local 19/19. Top was 255.
+
+Perl 130 (CG 100%, rank 2, 2026-10-22): string copy per query `$t=$_.1x$w` (end pad of w non-O chars catches substr negative up-indexes from row 0 and the down overflow of the last row, 4-arg substr past the end is fatal), `substr($t,$_,1,X)=~O&&push@k,$_-1,$_+1,$_-$w,$_+$w for@k`, count `@k>>2`; loop and parsing tricks in knowledge/lang/perl/subst-e-loop.md. 1M-char copy per query is fast (validators/10 with 300 queries ~1.3 s local). Top 121 not reached.
