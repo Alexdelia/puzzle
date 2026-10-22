@@ -11,3 +11,4 @@ Verified 2026-10-22 (mayan-calculation, CG submit 100%, 205 B rank 1): the whole
 - `python3` is on PATH in the CG OCaml box too, interactive io works: `Sys.command{|python3 -c '<core>'|}` = 28 B + core, `'` in the python core rewritten as `"` (verified the-fall-episode-2, CG 936 100% rank 4, 2026-10-22)
 
 Quoted string literal (verified 2026-10-22, chuck-norris, CG accepted): `Sys.command{|...|}` takes the core verbatim, `"` and `\` included, for 2 B over `"..."`. Cheaper than escaping as soon as the core holds 2+ `"`/`\`; with exactly one `"` pair, a perl `q(...)` (+1) inside `"..."` ties it.
+- trap: a core containing `|}` ends the `{|...|}` string early (compile error). Reorder the core (`$r.=X."|"}{` -> `$r.="|".X}{`) or use `{a|...|a}` (+2) (verified the-resistance, CG 179 100%, 2026-10-22)
