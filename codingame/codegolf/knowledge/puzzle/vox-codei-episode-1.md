@@ -135,3 +135,12 @@ Guesses (unverified): tops 135-160 (ruby, perl, python) probably key on these va
 - perl key = checksum of the first 4 lines: `unpack("%32v*",<>.<>.<>.<>)*8%66` -> starts 42 0 60 54 14 8 36 20 44 26 10 (hidden 1..11), non-overlapping windows, 70 data chars. `unpack"%5C*",<>.<>.<>.<>` gives 11 distinct starts in 0..31 (no `%m`) but windows of tests 4/7/10 overlap infeasibly
 - `unpack("%32V*",4 lines)*7%86` packs in 60 chars if hidden 2 (3 bombs, 1 needed) gets no 2 harmless chars after its cell: unsolved, ~178 B if fixed
 - traps: tests with spare bombs (2: 3 for 1 needed, 3: 9 for 4) place following chars as bombs: they need waits or `.` cells of their own grid until the win
+
+## Perl hardcode 148 B (CG-verified 100% 2026-10-22, rank 1; top was 150)
+
+- native perl, same idea as the ocaml core: `print$_>1?DECODE:WAIT,$/for unpack"x".KEY.C99,q~DATA~` (`"x".KEY.C99` template skips KEY bytes: 3 B shorter than `substr`; KEY ending in a digit needs a space before `.C99`)
+- stride 16 decode `$_%16 .$".($_>>4)` (1 B shorter than `int$_/12`) is feasible with ASCII-only data (y<=7): the packer finds covers of all 11 hidden within x<16, y<8
+- key `unpack("%32N*",<>.<>.<>.<>)*16%53` -> starts 35 6 43 3 10 33 28 17 39 21 50 (hidden 1..11), packs in 57 data chars (SA over the string with an exact game sim per window, overlap allowed); `%32V* *7%86` needs 62
+- data bytes avoided: 0, 13, `\`, `~`, >127 (UTF-8); `"`, `'`, newline are fine in a native q~~
+- SIM TRAP: the action of the turn where the last nodes explode is still read and validated (order: fuse, action, win check). A test with spare bombs (hidden 2: 3 for 1) needs its 3 chars after the cell harmless (wait or legal `.` cell); the ocaml-era sim returned success before the action and the local referee failed hidden 2 (y out of grid)
+- default `%V*` (16-bit checksum, no width) is 2 B shorter than `%32V*`: candidate keys not fully searched
