@@ -43,3 +43,4 @@
 - [substr4-mark-and-test](substr4-mark-and-test.md): `C eq substr$_,OFF,1,R` marks a grid cell and tests its old char, -5 vs `s/..\K./R/;$&eq C`; `read ARGV` -1 vs STDIN in -n, verified on CG
 - [subst-e-loop](subst-e-loop.md): `s/\d+ /CODE/ge` query loop, `$&`/`$'` numify to X/Y, `$w=s/.+\n.+\n//+$&` header, `.+ ` timeout trap, verified
 - [numify-line-first-field](numify-line-first-field.md): `$e{0+$_}` instead of `$e{$F[0]}`, line numifies to its first integer, -1, verified on CG
+- [exec-wrapper](exec-wrapper.md): `exec bash,-c=>'core'` runs another interpreter with inherited stdio, no wait; `-c=>` autoquotes (bare `-c` is a filetest); CG Perl box has bash/lua/python3/php, ruby unverified, verified on CG
