@@ -11,3 +11,4 @@
 - [alias-readline](alias-readline.md): `(R=readline)(R(...))` first-use alias, -17 B at 4 uses, verified
 - [eval-mid-prefix](eval-mid-prefix.md): bisection bounds named by letter, mids in _L/_R/_U/_D, eval(c+"=_"+c), -14 B vs packed p, verified
 - [spawn-python-template](spawn-python-template.md): spawnSync python3 -c with raw template-literal code, 71 B overhead, interactive ok, verified
+- [spawn-interpreters](spawn-interpreters.md): CG JS box has bash lua php perl python3, no ruby; execSync vs execFileSync forms, verified
