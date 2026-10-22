@@ -86,3 +86,9 @@ Guesses (unverified):
 
 - `sys.process` pipeline of the dash-proof core, no `sh`: awk pattern has no spaces so whitespace splitting keeps it one argument (`lang/scala/sys-process-pipe.md`). Remaining gap 2 bytes: postfix `!<` without `().` does not compile; `run 1>0` longer
 - (reasoned 2026-10-21, not run) without a D guard the N line is always taken in `sort -nr` order (it arrives with e>=N or e=0), so the output is honest+1 or honest with e capped at N; every D-monotone comparison treats D=0 as fitting, only `$2` truthiness or a mawk 0/0 nan catches it. Pattern variants tried on paper (`!$2||`, nan `e*(..)/$2`, reciprocal `1/x`, chained `>!e-!$2`) are all >= the 21-char pattern; journal cell.super-computer.scala.1792607898097975113
+
+## Perl native over shell sort (verified 2026-10-22, CG 100 %, row 46 rank 4, top 39)
+
+- perl does the greedy on `` `sort -nr` `` output: `$^T` epoch as +inf start of last taken, header line dropped by putting `/ /` as a factor in the test (`lang/perl/epoch-sentinel.md`). 4 under the `exec q()` wrapper of the `$2&&` core (50)
+- the same shape may help any language with backticks and a cheap count (ruby `count`, php): shell sorts, the language tests
+- input-order greedies (no sort) fail statement examples locally: end-ascending 37 (`1 1`), start-descending 38 (`2 3`); probes 2026-10-22 in `probe/perl/`, see probes.tsv
