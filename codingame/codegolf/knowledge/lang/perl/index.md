@@ -28,3 +28,4 @@
 - [lag-sign-update](lag-sign-update.md): `("",S,N)[$v=$b<=>($y+=$v)]` greedy step tracked inside the index, no statement, 2 `;` saved, verified on CG
 - [height-indexed-argmax](height-indexed-argmax.md): `@a=print$a[-1],$/while$|=map$a[<>]=$_,0..7` argmax via slot-per-key array, `@a=print` reset, verified on CG
 - [numify-skip-line](numify-skip-line.md): `$l=<>+!<>;` reads a number and skips the next line; no-shebang `print...,$/for<>` beats `#!perl -nl` + `$.<N?` dispatch, verified on CG
+- [sge-query-loop-substr-pad](sge-query-loop-substr-pad.md): `s/(.+) (.+)/code/ge` 6 under `while(//g){}`, `$w=s/.+\n.+\n//+$&` header width, end pad `1x$w` covers negative substr wrap, verified on CG
