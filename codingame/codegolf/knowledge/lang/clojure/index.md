@@ -21,3 +21,4 @@
 - [get-default-any](get-default-any.md): `(get R z any?)` makes out-of-range rows fully blocked, sets of blocked indices via `#({\0 %}%2)` keep-indexed, `[M V a b c d S _ & r](repeatedly read)` header destructuring, verified (the-bridge-episode-2 467)
 - [repeatedly-read-nth-default](repeatedly-read-nth-default.md): `(repeatedly(read)read)` reads exactly N numbers, so N=0 is safe; `(nth s 0 0)` gives first-or-0; sort/sort-by are stable, min-key keeps the last of a tie; verified (temperature 95)
 - [run-length-schedule](run-length-schedule.md): `(run! #(prn % 4)S)` 19 B print loop, `(mapcat repeat[ns][vs])` RLE, key two inputs by `(drop(*(read)K)S)` into one sequence, verified (mars-lander-episode-3 112)
+- [box-interpreters](box-interpreters.md): CG Clojure box has python3, perl, bash, lua 5.4.4, php 7.3.9 on PATH, ruby only /usr/local/bin/ruby, no node; API test games of io top-level spawn = 422 ERROR_75, probe in -main; local compile lacks lua/php, verified
