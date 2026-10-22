@@ -112,3 +112,10 @@ Rejected (older, longer): end-column diff-extent compare + mid of run (502 B pyt
 - port of the lua method: `Scanf.scanf" %d %d"(fun w h->...)` wraps everything, decode see `knowledge/lang/ocaml/rle-decode-array-fill.md`, `for x=0 to w` + `while!i<m&&a.(!i)<=a.(!i-x+10)do i:=!i+w done`, `p:=!i` previous-column state, letter `(!i*15/w-52)/h mod 7`, H/Q `"HQ".[a.(!i+5)]`, separator `o` ref printed by `Printf.printf"%s%c%c"`
 - single recursive `g i q` over column-major i (no for/refs, `%*s` width q as separator) is 378: no gain
 - top 199 is ~180 B shorter: needs another method, not micro-golf of this one (decode alone costs ~100 B)
+
+## Perl cell facts (2026-10-22, CG 100% at 164 B, #1, top 171)
+
+- flat array decode `s/(.) (\d+)/push@s,($1)x$2/ge` (no space handling, no `@s=/./g`), after `y/BW/QH/`
+- row-major scan stores the finished note string at the first non-staff black of each column: `C and$f[$_%$w]||=(A..G)[(52*$w-15*$_)/@s%7].$s[$_+5]for 0..@s*7/8`; `%` truncates the float toward zero then floors, letters without offset fix
+- run starts = elements of `"@f"` preceded by an empty one: `$,=$";print"@f"=~/  (\S+)/g`
+- constant offset `(c-15*$_/@s)%7` (no `$w` term) fails test 10 for every c: offset must scale with 1/h
