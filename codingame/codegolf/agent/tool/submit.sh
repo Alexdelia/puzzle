@@ -80,6 +80,13 @@ if [[ -n $probe ]] && { [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]]
 	echo "submit.sh: CG keeps the best submission per language: a lower score than the row shown stays hidden"
 	exit 3
 fi
+if [[ -n ${CG_WRAP_SOURCE:-} ]] && { [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; }; then
+	mkdir -p "$(dirname "$wrap_rejected")"
+	printf '%s\t%s\t%s\t%s\t%s\n' "$(sha256sum <"$solution" | cut -c1-64)" "$puzzle" "$lang" "$length" "$CG_WRAP_SOURCE" >>"$wrap_rejected"
+	event "attention wrap rejected $puzzle $lang length=$length source=$CG_WRAP_SOURCE row=$row"
+	echo "submit.sh: CG did not confirm generated wrapper length $length: $row" >&2
+	exit 1
+fi
 if [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; then
 	json_update "$(ensure_status referee "$puzzle" -)" '.status = "suspect"'
 	"$tool_dir/enqueue.sh" referee "$puzzle" - --reason "CG rejected $relative length $length: row $row" >/dev/null
@@ -105,5 +112,5 @@ if [[ $solution != "$main" ]]; then
 fi
 commit_scope "$message" "puzzle/$puzzle/solution/$lang"
 event "gain $puzzle $lang length=$length rank=$rank best_tie_rank=${best_tie_rank:--}"
-[[ -z $(compgen -G "$root/agent/wrap/*/$lang.sh") ]] || wrap_enqueue "$puzzle" "core $lang $length"
+! wrap_cores | grep -q -x -F "$lang" || wrap_enqueue "$puzzle" "core $lang $length"
 echo "submit.sh: $message"

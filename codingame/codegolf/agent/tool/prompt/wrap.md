@@ -5,7 +5,7 @@ Scope: `agent/wrap/{{LANG}}/`, `knowledge/`. Existing files there: extend them (
 Contract (read `agent/wrap/lib.sh` and the two references `agent/wrap/clojure/`, `agent/wrap/c/` first):
 - `agent/wrap/{{LANG}}/<core>.sh <core-file> <io|interactive> <out-dir>`, executable, one per core lang slug (perl python bash ruby lua php javascript): sources `../lib.sh` (`$core_body`, `$core_flags` from a perl shebang, `perl_args`, the escapers, `shell_command`, `emit <ext> <text>`) and emits one or more candidates. Emit several when the shortest form depends on the core (quote style, `sh` vs `bash`, escaping variant): `wrap.sh` keeps the shortest that passes, so a variant that breaks on some cores costs nothing
 - io and interactive differ: interactive needs the child on the same stdin/stdout and the main waiting for it (CG kills the children at main exit: `knowledge/lang/_shared/orphan-child-kill.md`), and the entry point CG expects on interactive puzzles (Player vs Solution, see `knowledge/lang/{{LANG}}/`)
-- helpers only `{{LANG}}` needs: `agent/wrap/{{LANG}}/<name>.sh`, sourced, not executable. `agent/wrap/lib.sh` is shared and the user's: a change there is a proposal in your journal
+- helpers only `{{LANG}}` needs: `agent/wrap/{{LANG}}/common.sh` (never a lang slug: `<slug>.sh` means a generator), sourced, not executable. `agent/wrap/lib.sh` is shared and the user's: a change there is a proposal in your journal
 - `agent/wrap/{{LANG}}/available.tsv`: header `core<TAB>status<TAB>evidence`, status `yes|no|unknown`; `wrap.sh` only uses `yes`. Evidence: a CG test game id, or a committed CG-accepted solution that runs that interpreter from `{{LANG}}`
 
 Steps:

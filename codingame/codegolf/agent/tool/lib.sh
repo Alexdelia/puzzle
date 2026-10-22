@@ -85,7 +85,7 @@ usage_file=$state/usage.json
 week_seconds=$((7 * 24 * 3600))
 
 last_rate_limit_info() {
-	grep -F '"rate_limit_event"' "$1" | jq -c 'select(.type == "rate_limit_event") | .rate_limit_info' | tail -n 1
+	{ grep -F '"rate_limit_event"' "$1" || true; } | jq -c 'select(.type == "rate_limit_event") | .rate_limit_info' | tail -n 1
 }
 
 record_usage() {
@@ -209,6 +209,15 @@ leaderboard_summary() {
 
 commit_time_log() {
 	commit_scope "chore(golf): time" agent/state/time.log
+}
+
+wrap_rejected=$state/wrap/rejected.tsv
+
+wrap_cores() {
+	local generator
+	for generator in "$root"/agent/wrap/*/*.sh; do
+		[[ -x $generator ]] && basename "$generator" .sh
+	done | sort -u
 }
 
 wrap_enqueue() {

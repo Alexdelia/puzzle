@@ -17,7 +17,7 @@ perl_args() {
 	local words
 	read -r -a words <<<"$core_flags"
 	local last=$((${#words[@]} - 1))
-	if ((last >= 0)) && [[ ${words[last]} =~ ^-[0-9alnpsw]*E$ ]]; then
+	if ((last >= 0)) && [[ ${words[last]} =~ ^-[0-9alnpsw]*[eE]$ ]]; then
 		:
 	elif ((last >= 0)) && [[ ${words[last]} =~ ^-[0-9alnpsw]+$ ]]; then
 		words[last]+=e
@@ -49,6 +49,7 @@ shell_command() {
 	for argument in "$@"; do
 		command+=" $argument"
 	done
+	[[ $interpreter == bash || $interpreter == sh ]] && command+=" "
 	printf "%s'%s'" "$command" "$(escape_shell_single_quoted "$core_body")"
 }
 

@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 shopt -s nullglob
 
-usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, no referee; --submit: submit.sh the winners"
+usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, no referee; --submit: submit.sh the winners; exit 3: some host deferred (busy cell, submit cap, generator error)"
 puzzle=${1:?$usage}
 shift
 host_filter=
@@ -19,11 +19,13 @@ done
 [[ -n $(tsv_field puzzle "$puzzle" slug) ]] || { echo "wrap.sh: unknown puzzle $puzzle" >&2; exit 2; }
 kind=$(tsv_field puzzle "$puzzle" kind)
 wrap_root=$root/agent/wrap
-work=$state/build/wrap/$puzzle
-rm -rf "$work"
+mkdir -p "$state/build/wrap"
+work=$(mktemp -d "$state/build/wrap/$puzzle.XXXXXX")
+trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/derived"
 local_sets=(--validators)
 [[ -e $root/puzzle/$puzzle/referee/hidden/complete ]] && local_sets=(--hidden)
+deferred=
 
 derived_perl_core() {
 	local file=$1 text
@@ -36,8 +38,7 @@ derived_perl_core() {
 
 cores() {
 	local core file
-	for core in $(langs); do
-		[[ -n $(compgen -G "$wrap_root/*/$core.sh") ]] || continue
+	for core in $(wrap_cores); do
 		for file in "$root/puzzle/$puzzle/solution/$core"/main.* "$root/puzzle/$puzzle/core/$core"/*; do
 			printf '%s\t%s\n' "$core" "$file"
 			[[ $core == bash ]] && derived_perl_core "$file"
@@ -49,13 +50,8 @@ available() {
 	awk -F'\t' -v core="$2" 'NR > 1 && $1 == core && $2 == "yes" { found = 1 } END { exit !found }' "$wrap_root/$1/available.tsv"
 }
 
-restore() {
-	local main=$1
-	if [[ -n $(git -C "$root" ls-files -- "$main") ]]; then
-		git -C "$root" show "HEAD:./${main#"$root"/}" >"$main"
-	else
-		rm -f "$main"
-	fi
+rejected() {
+	[[ -s $wrap_rejected ]] && grep -q -F "$(sha256sum <"$1" | cut -c1-64)" "$wrap_rejected"
 }
 
 candidates() {
@@ -68,30 +64,40 @@ candidates() {
 		"$wrap_root/$host/$core.sh" "$file" "$kind" "$out" || { echo "wrap.sh: $host/$core.sh failed on ${file#"$root"/}" >&2; continue; }
 		local candidate
 		for candidate in "$out"/*; do
+			rejected "$candidate" && continue
 			printf '%s\t%s\t%s\n' "$("$tool_dir/count.sh" "$candidate")" "$candidate" "$core:${file#"$root"/}"
 		done
 	done < <(cores)
+}
+
+busy() {
+	local host=$1 main=$2
+	[[ -n $(compgen -G "$state/running/cell.$puzzle.$host.*.json") || -n $(compgen -G "$state/running/review.-.$host.*.json") ]] && return 0
+	[[ -e $main ]] || return 1
+	[[ -n $(git -C "$root" ls-files -- "$main") ]] || return 0
+	! git -C "$root" diff --quiet -- "$main"
 }
 
 submit_cap_reached=
 for host_dir in "$wrap_root"/*/; do
 	host=$(basename "$host_dir")
 	[[ -f $host_dir/available.tsv && ( -z $host_filter || $host == "$host_filter" ) ]] || continue
-	if [[ -n $(compgen -G "$state/running/cell.$puzzle.$host.*.json") ]]; then
-		printf '%s\tskipped: cell running\n' "$host"
+	main=$root/puzzle/$puzzle/solution/$host/main.$(tsv_field lang "$host" extension)
+	if [[ $mode != estimate ]] && busy "$host" "$main"; then
+		printf '%s\tdeferred: cell busy\n' "$host"
+		deferred=1
 		continue
 	fi
 	ours=$(jq -r '.ours // empty' "$(ensure_status cell "$puzzle" "$host")")
 	ours=${ours%.*}
 	mapfile -t sorted < <(candidates "$host" | sort -n -k1,1)
 	if [[ $mode == estimate ]]; then
-		best=${sorted[0]%%$'\t'*}
-		[[ -n ${sorted[0]:-} ]] || best=-
+		best=-
+		((${#sorted[@]})) && best=${sorted[0]%%$'\t'*}
 		printf '%s\t%s\t%s\n' "$host" "${ours:--}" "$best"
 		continue
 	fi
 	winner=-
-	main=$root/puzzle/$puzzle/solution/$host/main.$(tsv_field lang "$host" extension)
 	for line in "${sorted[@]}"; do
 		IFS=$'\t' read -r length candidate source <<<"$line"
 		[[ -z $ours ]] || ((length < ours)) || break
@@ -100,15 +106,20 @@ for host_dir in "$wrap_root"/*/; do
 			winner="$length $source"
 			break
 		fi
+		previous=$work/previous.$host
+		rm -f "$previous"
+		[[ -e $main ]] && cp "$main" "$previous"
 		mkdir -p "$(dirname "$main")"
 		cp "$candidate" "$main"
-		output=$("$tool_dir/submit.sh" "$main" 2>&1) && { winner="$length $source submitted"; break; }
-		restore "$main"
+		output=$(CG_WRAP_SOURCE=$source "$tool_dir/submit.sh" "$main" 2>&1) && { winner="$length $source submitted"; break; }
+		if [[ -e $previous ]]; then cp "$previous" "$main"; else rm -f "$main"; fi
 		[[ $output == *"local referee fails"* ]] && continue
-		[[ $output == *"agent submits on"* ]] && submit_cap_reached=1
+		[[ $output == *"did not confirm"* ]] && continue
+		[[ $output == *"agent submits on"* ]] && submit_cap_reached=1 deferred=1
 		winner="$length $source refused: $(tail -n 1 <<<"$output")"
 		break
 	done
 	printf '%s\t%s\t%s\n' "$host" "${ours:--}" "$winner"
 	[[ -z $submit_cap_reached ]] || break
 done
+[[ -z $deferred ]] || exit 3
