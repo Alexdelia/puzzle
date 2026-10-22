@@ -335,7 +335,7 @@ duration_text() {
 
 age_text() {
 	local duration
-	duration_text duration $(($(date +%s) - $(date -d "$2" +%s)))
+	duration_text duration $((EPOCHSECONDS - $2))
 	printf -v "$1" '%s ago' "$duration"
 }
 
@@ -373,6 +373,7 @@ wrap_queue_line() {
 wrap_runs() {
 	[[ -s $state/worker/wrapd.log ]] || return 0
 	awk '
+		function iso_epoch(iso) { return mktime(gensub(/[-T:Z]/, " ", "g", iso), 1) }
 		FNR == NR {
 			tab = index($0, "\t")
 			message = substr($0, tab + 1)
@@ -407,7 +408,7 @@ wrap_runs() {
 				exit_code = ""
 				for (ended = 1; ended <= end_count[puzzle]; ended++)
 					if (end_at[puzzle, ended] >= run_start[current]) { exit_code = end_exit[puzzle, ended]; break }
-				print "run\t" puzzle "\t" run_start[current] "\t" run_gain[current] "\t" exit_code
+				print "run\t" puzzle "\t" iso_epoch(run_start[current]) "\t" run_gain[current] "\t" exit_code
 				for (host = 1; host <= hosts[current]; host++) print "host\t" host_line[current, host]
 			}
 		}
@@ -425,7 +426,8 @@ wrap_generator() {
 			*) paint run_state "$yellow" "deferred (exit $fourth)" ;;
 			esac
 			age_text age "$second"
-			paint painted_start "$dim" "${second:11:5}, $age"
+			printf -v painted_start '%(%H:%M)T, %s' "$second" "$age"
+			paint painted_start "$dim" "$painted_start"
 			puzzle_label painted_puzzle "$first"
 			printf '  %s  est gain %s  %s  %s\n' "$painted_puzzle" "$third" "$run_state" "$painted_start"
 			continue
@@ -541,19 +543,35 @@ attention_groups() {
 			for (index_ = 1; index_ <= groups; index_++) {
 				id = order[index_]
 				if (cell_of[id] != "" && gained[cell_of[id]] > last_at[id]) continue
-				print group_of[id] "\t" key_of[id] "\t" count[id] "\t" last_at[id] "\t" last_message[id]
+				print group_of[id] "\t" key_of[id] "\t" count[id] "\t" mktime(gensub(/[-T:Z]/, " ", "g", last_at[id]), 1) "\t" last_message[id]
 			}
 		}
-	' "$state/events.log" | sort -t$'\t' -k4,4r
+	' "$state/events.log" | sort -t$'\t' -k4,4rn
+}
+
+declare -A blocked_subjects dirty_committed_at
+load_open_state() {
+	local path kind committed_at status_files=("$state"/{lang,referee,validator,puzzle,wrap}/*.json) dirty=()
+	((${#status_files[@]})) && while IFS= read -r path; do
+		kind=${path%/*}
+		blocked_subjects["${kind##*/} $(basename "$path" .json)"]=1
+	done < <(jq -r 'select(.status == "blocked") | input_filename' "${status_files[@]}")
+	mapfile -t dirty < <(git diff --name-only --relative HEAD -- . 2>/dev/null; git ls-files --others --exclude-standard -- . 2>/dev/null)
+	((${#dirty[@]})) || return 0
+	for path in "${dirty[@]}"; do
+		dirty_committed_at[$path]=0
+	done
+	while IFS=$'\t' read -r path committed_at; do
+		dirty_committed_at[$path]=$committed_at
+	done < <(git log --format=$'\x01%ct' --name-only --relative -- "${dirty[@]}" 2>/dev/null |
+		awk '/^\x01/ { committed_at = substr($0, 2); next } NF && !seen[$0]++ { print $0 "\t" committed_at }')
 }
 
 review_open() {
-	local reviewed_at file committed_at
-	reviewed_at=$(date -d "$1" +%s)
+	local reviewed_at=$1 file
 	for file in $2; do
-		[[ -n $(git status --porcelain -- "$file" 2>/dev/null) ]] || continue
-		committed_at=$(git log -1 --format=%ct -- "$file" 2>/dev/null)
-		((${committed_at:-0} < reviewed_at)) && return 0
+		[[ -n ${dirty_committed_at[$file]+dirty} ]] || continue
+		((dirty_committed_at[$file] < reviewed_at)) && return 0
 	done
 	return 1
 }
@@ -561,7 +579,7 @@ review_open() {
 still_open() {
 	local group=$1 key=$2
 	case $group in
-	blocked) [[ $(jq -r .status "$state/${key% *}/${key#* }.json" 2>/dev/null) == blocked ]] ;;
+	blocked) [[ -n ${blocked_subjects[$key]+blocked} ]] ;;
 	stop) [[ -e $state/STOP ]] ;;
 	review) review_open "$3" "${key#review }" ;;
 	*) true ;;
@@ -578,7 +596,11 @@ rejection_text() {
 		source=" from $source"
 	fi
 	row=${message#*row=}
-	cg=$(jq -r 'if . == null then "no row" else "\(.length) \(.score * 10 | round / 10)%" end' <<<"$row" 2>/dev/null || echo "?")
+	cg="no row"
+	if [[ $row =~ \"length\":([0-9]+).*\"score\":([0-9.]+) ]]; then
+		printf -v cg '%s %.1f' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+		cg="${cg%.0}%"
+	fi
 	lang_label label "$lang"
 	puzzle_label painted_puzzle "$puzzle"
 	printf -v "$1" '%s%s %s %s -> CG %s%s' "$wrap" "$label" "$painted_puzzle" "${length:-?}" "$cg" "$source"
@@ -588,6 +610,7 @@ needs_you() {
 	local rows group key count last_at message
 	rows=$(attention_groups)
 	[[ -n $rows ]] || return 0
+	load_open_state
 	declare -A shown
 	local -a lines=()
 	while IFS=$'\t' read -r group key count last_at message; do
