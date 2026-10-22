@@ -55,3 +55,5 @@
 2026-10-22T17:41:11Z	cell.the-resistance.perl.1792518550208442464	perl	165	regex TRIE DP 165 with -p: 100%?	yes: 100% at length 165, committed
 2026-10-22T17:48:25Z	cell.the-resistance.ocaml.1792513218972492779	ocaml	183	does regex-backtracking DP (2x CPU of for loop, 0.78 s user on test 04) pass all hidden validators in time?	yes: 100% at length 183, committed
 2026-10-22T17:55:12Z	cell.the-resistance.ocaml.1792513218972492779	ocaml	179	regex trie DP (perl 165 core, leading "|", =~s|.||r) in OCaml wrapper 179: 100%?	yes: 100% at length 179, committed
+2026-10-22T19:48:43Z	cell.the-resistance.perl.1792690919449468550	perl	162	perl 162 %vb+y table trie DP (/4, lines 1-2 deleted to empty alts): 100%?	yes: 100% at length 162, committed
+2026-10-22T19:50:05Z	cell.the-resistance.perl.1792690919449468550	perl	160	perl 160 (162 with y delete range ,-9): 100%?	yes: 100% at length 160, committed
