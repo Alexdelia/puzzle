@@ -106,3 +106,9 @@ Rejected (older, longer): end-column diff-extent compare + mid of run (502 B pyt
 - native port of the lua method passes 12/12 locally at 411 B (`(defn -main[& _]` is required: top-level stdin read fails the compile; `[&_]` reads as one symbol; `(read)` twice for W H then `(re-seq #"(.) (\d+)"(slurp *in*))`; `(.indexOf "WB" c)` gives 0/1 pixels; letter string must be "GFEDCBA" for the lua index form)
 - ruby wrapper `(.start(.inheritIO(ProcessBuilder.["ruby" "-e" "<ruby core, ' strings, \\d>"])))` is 269 B and passes 12/12 locally (`PATH=$CG_RUBY/bin:$PATH run.sh ... --lang clojure`), but scores 0 on CG (probes 2026-10-21, with and without `.waitFor`, with and without `_1`): no `ruby` on PATH in the CG Clojure box (inferred, `/usr/bin/ruby` not tried)
 - python3/lua/perl cores through the wrapper are 310+86 or more: only a ruby (191) or node core could beat top 281
+
+## OCaml cell facts (2026-10-22, CG 100% at 379 B, row #4, top 199)
+
+- port of the lua method: `Scanf.scanf" %d %d"(fun w h->...)` wraps everything, decode see `knowledge/lang/ocaml/rle-decode-array-fill.md`, `for x=0 to w` + `while!i<m&&a.(!i)<=a.(!i-x+10)do i:=!i+w done`, `p:=!i` previous-column state, letter `(!i*15/w-52)/h mod 7`, H/Q `"HQ".[a.(!i+5)]`, separator `o` ref printed by `Printf.printf"%s%c%c"`
+- single recursive `g i q` over column-major i (no for/refs, `%*s` width q as separator) is 378: no gain
+- top 199 is ~180 B shorter: needs another method, not micro-golf of this one (decode alone costs ~100 B)
