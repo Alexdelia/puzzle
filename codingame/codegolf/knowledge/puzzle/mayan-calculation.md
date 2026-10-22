@@ -65,6 +65,8 @@ Verified pieces (local 21/21, CG accepted bash 193 = rank 1):
 
 ## Hidden validators
 
+- 2026-10-22: perl 170 relying on `L == H` (only `H` read) and float `/20` printer (wrong above 2^53) scored 100% on CG (rank 1): hidden-only cores pass, fail local validators 05 (>2^53) and 06 (L!=H) only
+
 Probed 2026-10-20 (count probes, details and sources in `puzzle/mayan-calculation/referee/hidden/facts.md`):
 
 - `L == H` in all 12 validators: one of the two numbers is enough (`$h` can be `$l`)
