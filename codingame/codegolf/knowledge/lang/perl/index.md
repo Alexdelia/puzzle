@@ -42,6 +42,7 @@
 - [xor-toggle-flag](xor-toggle-flag.md): `$b^=/B/` toggle + `"$x0"!~/X$b/` so undef and 0 match alike, `.` looser than `!~`, verified on CG
 - [pair-sum-teleport](pair-sum-teleport.md): `$t-=1-pos while/T/g` index sum, `$p=$t-$p` jumps to the other marker, verified on CG
 - [substr4-mark-and-test](substr4-mark-and-test.md): `C eq substr$_,OFF,1,R` marks a grid cell and tests its old char, -5 vs `s/..\K./R/;$&eq C`; `read ARGV` -1 vs STDIN in -n, verified on CG
+- [shared-adjacency-pattern](shared-adjacency-pattern.md): one `$f` lookahead string `(?=(?<=X.)|(?<=X\H{30}.)()|X()|\H{30}X())` reused by flood `s/[.T]$f/X/g` and stop test `/R$f/`, `$#-` = direction, `\H` matches `\n` (no `/s`), verified on CG
 - [subst-e-loop](subst-e-loop.md): `s/\d+ /CODE/ge` query loop, `$&`/`$'` numify to X/Y, `$w=s/.+\n.+\n//+$&` header, `.+ ` timeout trap, verified
 - [numify-line-first-field](numify-line-first-field.md): `$e{0+$_}` instead of `$e{$F[0]}`, line numifies to its first integer, -1, verified on CG
 - [exec-wrapper](exec-wrapper.md): `exec bash,-c=>'core'` runs another interpreter with inherited stdio, no wait; `-c=>` autoquotes (bare `-c` is a filetest); CG Perl box has bash/lua/python3/php, ruby unverified, verified on CG
@@ -60,3 +61,4 @@
 - [memo-key-local-cells](memo-key-local-cells.md): memo key = state + slice of cells that still matter `"@_@z[$i>>2,S($i,1)>>2]$."`, 150x faster than whole-grid key, verified on CG
 - [glob-brace-table](glob-brace-table.md): `(<"O({1,log n,n{,^2,^3}{, log n}})">)[i]` brace-expanded string table, quoted `<"...">` keeps spaces, `<n^{2,3}>`, verified on CG
 - [pre-post-increment-weights](pre-post-increment-weights.md): `$s=-<>;$b+=++$s*X,$a+=$s++*Y` two sums with equal centered weights, 2 under `$s+=2`, verified on CG
+- [foreach-arg-alias](foreach-arg-alias.md): `for($_[0]){...}` binds the sub arg to `$_`, restored around recursion, 14 under `my($i)=@_` + `$_=$i`; `S$_` truthy flag; `A|B&&C` no parens, verified on CG
