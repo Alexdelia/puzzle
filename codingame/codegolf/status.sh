@@ -6,6 +6,7 @@ shopt -s nullglob
 
 bold=1
 dim=2
+italic=3
 red=31
 green=32
 yellow=33
@@ -63,9 +64,22 @@ is_lang() {
 }
 
 lang_label() {
-	local slug=$2 width=${3:-0} painted_icon
-	paint painted_icon "${lang_sgr[$slug]:-}" "${lang_icon[$slug]:- }"
-	printf -v "$1" '%s %-*s' "$painted_icon" "$width" "$slug"
+	paint "$1" "${lang_sgr[$2]:-}" "${lang_icon[$2]:-?}"
+}
+
+puzzle_label() {
+	local padded
+	printf -v padded '%-*s' "${3:-0}" "$2"
+	paint "$1" "${4:+$4;}$italic" "$padded"
+}
+
+subject_label() {
+	local kind=${2% *} name=${2#* }
+	if [[ $kind == lang || $kind == wrap || $kind == review ]] && is_lang "$name"; then
+		lang_label "$1" "$name"
+	else
+		puzzle_label "$1" "$name"
+	fi
 }
 
 status_sgr() {
@@ -166,7 +180,8 @@ blocked_line() {
 		labels+=("$label")
 	done < <(names_with_status blocked "$state/lang")
 	while read -r name; do
-		labels+=("$name")
+		puzzle_label label "$name"
+		labels+=("$label")
 	done < <(names_with_status blocked "$state/referee")
 	((${#labels[@]})) || return 0
 	paint heading "$red" "blocked:"
@@ -206,14 +221,14 @@ count_table() {
 		((${#total} <= digits)) || digits=${#total}
 	done < <(cell_rows "$key_field")
 	local row label_width=$name_width
-	[[ $key_field != 2 ]] || label_width=$((name_width + 2))
+	[[ $key_field != 2 ]] || label_width=1
 	for row in "${rows[@]}"; do
 		IFS=$'\t' read -r key first ran wrapped total <<<"$row"
 		progress_ratio ratio "$first" "$ran" "$wrapped" "$total" "$digits"
 		if [[ $key_field == 2 ]]; then
-			lang_label label "$key" "$name_width"
+			lang_label label "$key"
 		else
-			printf -v label '%-*s' "$name_width" "$key"
+			puzzle_label label "$key" "$name_width"
 		fi
 		entries+=("$label $ratio")
 	done
@@ -227,7 +242,7 @@ smallest_gaps() {
 		puzzle=${cell%/*}
 		((${#puzzle} <= puzzle_width)) || puzzle_width=${#puzzle}
 	done < <(awk -F'\t' '$2 != "first" && $4 != "" && $5 != "" { print $4 - $5 "\t" $1 "\t" $4 "\t" $5 }' <<<"$cells" | sort -n | head -10 || true)
-	local row padded_gap painted_gap label ours_tag top_tag
+	local row padded_gap painted_gap label painted_puzzle ours_tag top_tag
 	paint ours_tag "$dim" ours
 	paint top_tag "$dim" top
 	for row in "${rows[@]}"; do
@@ -236,15 +251,19 @@ smallest_gaps() {
 		lang=${cell#*/}
 		printf -v padded_gap '+%-4s' "$gap"
 		paint painted_gap "$yellow" "$padded_gap"
-		lang_label label "$lang" 12
-		printf '  %s %s %-*s  %s %4s  %s %4s\n' "$painted_gap" "$label" "$puzzle_width" "$puzzle" "$ours_tag" "$ours" "$top_tag" "$top"
+		lang_label label "$lang"
+		puzzle_label painted_puzzle "$puzzle" "$puzzle_width"
+		printf '  %s %s %s  %s %4s  %s %4s\n' "$painted_gap" "$label" "$painted_puzzle" "$ours_tag" "$ours" "$top_tag" "$top"
 	done
 }
 
 task_subject() {
 	local kind=$2 puzzle=$3 lang=$4 task_text label
 	printf -v task_text '%-7s' "$kind"
-	[[ $puzzle == - ]] || task_text+=" $puzzle"
+	if [[ $puzzle != - ]]; then
+		puzzle_label label "$puzzle"
+		task_text+=" $label"
+	fi
 	if [[ $lang != - ]]; then
 		lang_label label "$lang"
 		task_text+=" $label"
@@ -331,7 +350,7 @@ wrap_queue_line() {
 	if ((${#jobs[@]})); then
 		IFS=$'\t' read -r ready retry soonest newest < <(jq -rs --argjson now "$(date +%s)" '
 			[.[] | .retry_after // 0 | select(. > $now)] as $retry
-			| [length - ($retry | length), ($retry | length), (($retry | min // $now) - $now), (sort_by(.queued_at) | reverse | .[:3] | map(.puzzle) | join(", "))]
+			| [length - ($retry | length), ($retry | length), (($retry | min // $now) - $now), (sort_by(.queued_at) | reverse | .[:3] | map(.puzzle) | join(" "))]
 			| @tsv' "${jobs[@]}")
 		paint painted "$green" "$ready ready"
 		line+=": $painted"
@@ -340,8 +359,13 @@ wrap_queue_line() {
 			paint painted "$yellow" "$retry retry"
 			line+=", $painted (first in $soonest)"
 		fi
-		paint painted "$dim" "newest: $newest"
+		paint painted "$dim" "newest:"
 		line+="  $painted"
+		local puzzle
+		for puzzle in $newest; do
+			puzzle_label painted "$puzzle" 0 "$dim"
+			line+=" $painted"
+		done
 	fi
 	echo "$line"
 }
@@ -392,7 +416,7 @@ wrap_runs() {
 
 wrap_generator() {
 	wrap_queue_line
-	local kind first second third fourth fifth sixth label painted_outcome painted_detail painted_start outcome_sgr age run_state
+	local kind first second third fourth fifth sixth label source_label painted_puzzle painted_outcome painted_detail painted_start outcome_sgr age run_state
 	while IFS=$'\t' read -r kind first second third fourth fifth sixth; do
 		if [[ $kind == run ]]; then
 			case $fourth in
@@ -402,14 +426,17 @@ wrap_generator() {
 			esac
 			age_text age "$second"
 			paint painted_start "$dim" "${second:11:5}, $age"
-			printf '  %s  est gain %s  %s  %s\n' "$first" "$third" "$run_state" "$painted_start"
+			puzzle_label painted_puzzle "$first"
+			printf '  %s  est gain %s  %s  %s\n' "$painted_puzzle" "$third" "$run_state" "$painted_start"
 			continue
 		fi
-		lang_label label "$first" 12
+		lang_label label "$first"
+		source_label=" "
+		[[ $fourth == - ]] || lang_label source_label "$fourth"
 		status_sgr outcome_sgr "$fifth"
 		paint painted_outcome "$outcome_sgr" "$fifth"
 		paint painted_detail "$dim" "${sixth:0:80}"
-		printf '    %s %5s -> %-5s  %-10s  %s%s\n' "$label" "$second" "$third" "$fourth" "$painted_outcome" "${sixth:+ $painted_detail}"
+		printf '    %s %5s -> %-5s from %s  %s%s\n' "$label" "$second" "$third" "$source_label" "$painted_outcome" "${sixth:+ $painted_detail}"
 	done < <(wrap_runs)
 }
 
@@ -542,15 +569,19 @@ still_open() {
 }
 
 rejection_text() {
-	local key=$2 message=$3 puzzle lang length row cg label source="" wrap=""
+	local key=$2 message=$3 puzzle lang length row cg label painted_puzzle source="" wrap=""
 	read -r puzzle lang <<<"${key#wrap }"
 	[[ $key != wrap\ * ]] || wrap="wrap "
 	[[ $message =~ length=([0-9]+) ]] && length=${BASH_REMATCH[1]}
-	[[ $message =~ source=([^:]+): ]] && source=" (${BASH_REMATCH[1]} core)"
+	if [[ $message =~ source=([^:]+): ]]; then
+		lang_label source "${BASH_REMATCH[1]}"
+		source=" from $source"
+	fi
 	row=${message#*row=}
 	cg=$(jq -r 'if . == null then "no row" else "\(.length) \(.score * 10 | round / 10)%" end' <<<"$row" 2>/dev/null || echo "?")
 	lang_label label "$lang"
-	printf -v "$1" '%s%s %s %s -> CG %s%s' "$wrap" "$puzzle" "$label" "${length:-?}" "$cg" "$source"
+	puzzle_label painted_puzzle "$puzzle"
+	printf -v "$1" '%s%s %s %s -> CG %s%s' "$wrap" "$label" "$painted_puzzle" "${length:-?}" "$cg" "$source"
 }
 
 needs_you() {
@@ -568,7 +599,7 @@ needs_you() {
 	((${#lines[@]})) || return 0
 	echo
 	section "needs you"
-	local wanted heading sgr age times text prefix_width=20 line
+	local wanted heading sgr age times text label prefix_width=20 line
 	for wanted in stop blocked attention rejected review; do
 		((${shown[$wanted]:-0})) || continue
 		case $wanted in
@@ -586,11 +617,14 @@ needs_you() {
 			((count < 2)) || times="x$count"
 			case $group in
 			rejected) rejection_text text "$key" "$message" ;;
-			blocked) text="$key: ${message#*blocked: }" ;;
-			review) text=${key#review } ;;
-			*) text=${message#attention } ;;
+			blocked)
+				subject_label label "$key"
+				text=${message#*blocked: }
+				text="${key% *} $label: ${text:0:$((screen_width - prefix_width - ${#key} - 2))}"
+				;;
+			review) text=${key#review } && text=${text:0:$((screen_width - prefix_width))} ;;
+			*) text=${message#attention } && text=${text:0:$((screen_width - prefix_width))} ;;
 			esac
-			text=${text:0:$((screen_width - prefix_width))}
 			paint age "$dim" "$(printf '%-11s' "$age")"
 			printf '  %s %-5s %s\n' "$age" "$times" "$text"
 		done
