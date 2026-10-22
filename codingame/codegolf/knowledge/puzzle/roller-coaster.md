@@ -71,6 +71,11 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 - packing gain and next as a "t idx" string and matching `/\d+/g` per ride: 7 bytes more and times out at C=1e7
 - bash tops (91) and perl (84) are 50+ below this: unknown trick or tops predate test 06
 
+### Perl 135 (2026-10-22, CG rank 9)
+
+- method B with two memo arrays `$g[$i]||=do{..;$x[$i]=$j%$n;$l-$r},$i=$x[$i]` (8 under packing gain and next in one number), walk `$r-=$p[$j++]while$j<$i&$r>=$p[$j]` from `$j=$i-$n` (negative-index wrap, `knowledge/lang/perl/negative-index-wrap.md`), remaining capacity `$r` (1 under counting up)
+- answer in `$_` cleared by `($l,$c,$n,@p,$_)=@F`, loop `while$c--`; 1.4 s max locally on tests/validators
+
 ### Hidden validators (probed 2026-10-20, perl)
 
 - 23 validators on CG (score grain 100/23)
