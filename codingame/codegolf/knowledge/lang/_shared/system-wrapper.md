@@ -67,3 +67,5 @@ Pascal box (verified 2026-10-22, temperature-code-golf test 1 probe, `knowledge/
 Go box (verified 2026-10-22, `knowledge/lang/go/spawn-interpreters.md`): `/usr/bin/perl`, `/usr/bin/python3`, `/bin/bash`, `/bin/lua` (not `/usr/bin/lua`), `/bin/php`, ruby only `/usr/local/bin/ruby`, no node. `syscall.Exec` wrappers of perl/python3/ruby/php/lua/sh pass on CG.
 
 Bash box (verified 2026-10-22, temperature-code-golf test 1 probe, `knowledge/lang/bash/spawn-interpreters.md`): perl, python3, `/bin/lua`, `/bin/php` on PATH (`python` = python2); ruby only at `/usr/local/bin/ruby`; no node. A bash host runs the interpreter in the foreground, no wait needed.
+
+C++ box (verified 2026-10-22, temperature-code-golf test 1 probe, `knowledge/lang/cpp/system-wrapper.md`): perl, python3, python, bash, lua, php on PATH; ruby only at `/usr/local/bin/ruby`; no node. `#import<ios>` + `main(){system(...);}` wrappers of all six pass on CG. A bash core whose only dash failure is bare `read;` runs under `system` as `read a;` (+2 bytes instead of `bash -c` +10; super-computer cpp 77).
