@@ -1,0 +1,7 @@
+core	status	evidence
+perl	yes	mayan-calculation lua CG accepted (os.execute"perl ..."), knowledge/lang/lua/os-execute-wrapper.md
+bash	yes	shadows-of-the-knight-episode-1 lua CG accepted (os.execute"bash -c ..."), the-descent lua (sh body)
+python	yes	temperature-code-golf Lua test 3 success 2026-10-22 (os.execute"python3 -c...", Python 3.11.5)
+ruby	yes	temperature-code-golf Lua test 3 success 2026-10-22 (os.execute"/usr/local/bin/ruby -e...", ruby 3.1.2 off PATH)
+php	yes	temperature-code-golf Lua test 3 success 2026-10-22 (os.execute php -r, PHP 7.3.9, warnings on stdout: test 6 fails without -ddisplay_errors=)
+javascript	no	no node in the CG Lua box (command -v node/nodejs empty, not in /usr/bin or /usr/local/bin), probe 2026-10-22
