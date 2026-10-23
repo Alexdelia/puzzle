@@ -408,23 +408,6 @@ eta_text() {
 	fi
 }
 
-wrap_eta_grid() {
-	((${#wrap_eta_queued[@]})) || return 0
-	local puzzle name_width=0 eta label entries=() eta_width=7 indent='  '
-	local screen_width=$((screen_width - ${#indent}))
-	for puzzle in "${wrap_eta_queued[@]}"; do
-		((${#puzzle} <= name_width)) || name_width=${#puzzle}
-	done
-	for puzzle in "${wrap_eta_queued[@]}"; do
-		puzzle_label label "$puzzle" "$name_width"
-		eta_text eta "${wrap_eta[$puzzle]}"
-		printf -v eta '%*s' "$eta_width" "$eta"
-		paint eta "$dim" "$eta"
-		entries+=("$label $eta")
-	done
-	print_grid $((name_width + 1 + eta_width)) "${entries[@]}" | sed "s/^/$indent/"
-}
-
 wrap_queue_line() {
 	local jobs=("$state"/wrapq/*.json) daemon ready retry soonest newest line painted eta
 	if [[ -n $(loop_pids wrapd) ]]; then
@@ -513,7 +496,6 @@ wrap_runs() {
 wrap_generator() {
 	load_wrap_eta
 	wrap_queue_line
-	wrap_eta_grid
 	local kind first second third fourth fifth sixth label source_label painted_puzzle painted_outcome painted_detail painted_start outcome_sgr age run_state eta
 	while IFS=$'\t' read -r kind first second third fourth fifth sixth; do
 		if [[ $kind == run ]]; then
@@ -522,6 +504,7 @@ wrap_generator() {
 				paint run_state "$cyan" running
 				[[ -z ${wrap_eta[$first]:-} ]] || {
 					eta_text eta "${wrap_eta[$first]}"
+					paint eta "$magenta" "$eta"
 					run_state+=" $eta"
 				}
 				;;
