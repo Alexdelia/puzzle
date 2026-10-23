@@ -4,13 +4,14 @@ cd "$(dirname "$0")"
 source agent/tool/lib.sh
 shopt -s nullglob
 
-usage="usage: start.sh [--workers n] [--once] [--best] [--full-window] [--full-week]; --full-window: no 97% five-hour cap, --full-week: no weekly pace stop"
+usage="usage: start.sh [--workers n | --wrap-only] [--once] [--best] [--full-window] [--full-week]; --wrap-only: wrap generator alone, no workers, no weekly pace check, --full-window: no 97% five-hour cap, --full-week: no weekly pace stop"
 arguments=("$@")
 count=$workers
 once=
 best=
 full_window=
 full_week=
+wrap_only=
 while (($#)); do
 	case $1 in
 	--workers) count=$2 && shift 2 ;;
@@ -18,9 +19,14 @@ while (($#)); do
 	--best) best=1 && shift ;;
 	--full-window) full_window=1 && shift ;;
 	--full-week) full_week=1 && shift ;;
+	--wrap-only) wrap_only=1 && shift ;;
 	*) echo "$usage" >&2 && exit 2 ;;
 	esac
 done
+if [[ -n $wrap_only ]]; then
+	[[ -z $once ]] || { echo "start.sh: --wrap-only and --once exclude each other (--once runs no wrap generator)" >&2 && exit 2; }
+	count=0
+fi
 
 export CG_FULL_WEEK=$full_week
 if [[ -z ${CG_PYTHON:-} ]]; then
@@ -28,7 +34,7 @@ if [[ -z ${CG_PYTHON:-} ]]; then
 fi
 
 refresh_usage
-if over_weekly_pace; then
+if [[ -z $wrap_only ]] && over_weekly_pace; then
 	read -r used elapsed < <(weekly_pace)
 	echo "start.sh: weekly usage ${used}% >= ${elapsed}% of the week elapsed (margin ${weekly_pace_margin_percent}%): not starting" >&2
 	exit 1
@@ -57,15 +63,22 @@ agent/tool/seed.sh wraps >/dev/null
 
 systemctl --user set-property --runtime codegolf.slice MemoryMax="$workers_memory_max" MemorySwapMax=infinity
 export CG_BEST_MODEL=$best CG_FULL_WINDOW=$full_window
-event "start workers=$count ${once:+once} ${best:+best} ${full_window:+full-window} ${full_week:+full-week}"
+event "start workers=$count ${wrap_only:+wrap-only} ${once:+once} ${best:+best} ${full_window:+full-window} ${full_week:+full-week}"
 pids=()
-[[ -n $once ]] || setsid agent/tool/wrapd.sh >>"$state/worker/wrapd.log" 2>&1 &
+if [[ -z $once ]]; then
+	setsid agent/tool/wrapd.sh >>"$state/worker/wrapd.log" 2>&1 &
+	[[ -z $wrap_only ]] || pids+=($!)
+fi
 for ((worker = 1; worker <= count; worker++)); do
 	setsid agent/tool/worker.sh "$worker" $once >>"$state/worker/worker-$worker.log" 2>&1 &
 	pids+=($!)
 	sleep 2
 done
-echo "start.sh: $count workers${best:+, best model for every task}${full_window:+, five-hour window used up to 100%}${full_week:+, weekly pace ignored}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
+if [[ -n $wrap_only ]]; then
+	echo "start.sh: wrap generator only, log in agent/state/worker/wrapd.log, stop with ./stop.sh"
+else
+	echo "start.sh: $count workers${best:+, best model for every task}${full_window:+, five-hour window used up to 100%}${full_week:+, weekly pace ignored}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
+fi
 wait "${pids[@]}" || true
 event "all workers stopped"
 commit_time_log
