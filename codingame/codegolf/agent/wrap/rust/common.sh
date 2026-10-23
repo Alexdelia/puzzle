@@ -25,11 +25,6 @@ rust_arguments() {
 	printf '%s' "$arguments"
 }
 
-emit_rust_nul() {
-	candidate_count=$((candidate_count + 1))
-	printf '%s\0%s' "$1" "$2" >"$out_dir/$candidate_count.rs"
-}
-
 emit_rust_command() {
 	local interpreter=$1 body=${!#} literal arguments
 	shift
@@ -42,14 +37,9 @@ emit_rust_command() {
 }
 
 emit_rust_system() {
-	local command=$1 hashes
+	local command=$1
 	[[ $command == *$'\r'* ]] && return 0
 	emit rs "$rust_system_prefix\"$(escape_double_quoted "$command")\\0\");}"
-	emit_rust_nul "$rust_system_prefix\"$(escape_double_quoted "$command")" '");}'
-	if [[ $command == *[\\\"]* ]]; then
-		hashes=$(rust_raw_hashes "$command")
-		emit_rust_nul "${rust_system_prefix}r$hashes\"$command" "\"$hashes);}"
-	fi
 }
 
 emit_rust() {

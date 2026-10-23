@@ -1,7 +1,7 @@
 core	status	evidence
-perl	yes	temperature-code-golf rust test 2 CG success 2026-10-22 (extern system, NUL literal, io); the-descent-codesize test 3 CG game 910946330 2026-10-22 (same form, interactive)
+perl	yes	temperature-code-golf rust test 2 CG success 2026-10-22 (extern system, NUL literal, io); the-descent-codesize test 3 CG game 910946330 2026-10-22 (same form, interactive); raw NUL byte in source is stripped by CG on submit (dont-panic 141 scored 0%, 2026-10-23): only the \0 escape form
 python	yes	temperature-code-golf rust test 2 CG success 2026-10-22 (Command python3 -c .spawn, io)
-bash	yes	temperature-code-golf rust test 2 CG success 2026-10-22 (extern system "...\0" direct dash)
+bash	yes	temperature-code-golf rust test 2 CG success 2026-10-22 (extern system "...\0" direct dash); raw NUL byte in source is stripped by CG on submit (dont-panic 141 scored 0%, 2026-10-23): only the \0 escape form
 lua	yes	temperature-code-golf rust test 2 CG success 2026-10-22 (Command lua -e .spawn, raw string)
 php	yes	temperature-code-golf rust test 2 CG success 2026-10-22 (Command php -r .spawn, raw string)
 ruby	yes	temperature-code-golf rust test 2 CG success 2026-10-22 (Command /usr/local/bin/ruby -e .spawn)
