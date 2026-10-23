@@ -16,6 +16,7 @@ fallback_width=120
 close_pace_points=10
 usage_bar_width=20
 needs_you_per_group=5
+wrap_eta_history=10
 
 use_color=0
 [[ -t 1 && -z ${NO_COLOR:-} ]] && use_color=1
@@ -339,8 +340,92 @@ age_text() {
 	printf -v "$1" '%s ago' "$duration"
 }
 
+wrap_schedule() {
+	local jobs=("$state"/wrapq/*.json) pids uptime
+	pids=$(loop_pids wrapd)
+	[[ -s $state/worker/wrapd.log && -n $pids ]] || return 0
+	uptime=$(ps -o etimes= -p "${pids//$'\n'/,}" | sort -n | tail -1)
+	awk -v now="$EPOCHSECONDS" -v daemon_start=$((EPOCHSECONDS - uptime)) -v slots="$wrap_puzzles" -v history="$wrap_eta_history" '
+		function iso_epoch(iso) { return mktime(gensub(/[-T:Z]/, " ", "g", iso), 1) }
+		function recent_mean(values, count, taken, sum, index_) {
+			for (index_ = count; index_ > count - history && index_ >= 1; index_--) { sum += values[index_]; taken++ }
+			return taken ? sum / taken : 0
+		}
+		FNR == NR {
+			if ($2 != "wrapd:") next
+			if ($3 == "run" && $5 == "estimated" && iso_epoch($1) >= daemon_start) started[$4] = iso_epoch($1)
+			else if ($4 == "finished" && $5 == "exit") { run_seconds[++runs] = $8 + 0; delete started[$3] }
+			else if ($3 == "estimated" && $5 == "jobs") estimate_seconds[++estimates] = $7 + 0
+			next
+		}
+		{ split($0, job, "\t"); queued[++jobs] = job[1]; retry_at[jobs] = job[2] }
+		END {
+			run_cost = recent_mean(run_seconds, runs)
+			if (!run_cost) exit
+			start_cost = recent_mean(estimate_seconds, estimates)
+			for (slot = 1; slot <= slots; slot++) free_at[slot] = now
+			slot = 0
+			for (puzzle in started) {
+				finish = started[puzzle] + run_cost
+				if (finish < now) finish = now
+				if (++slot <= slots) free_at[slot] = finish
+				printf "%s\t%d\trunning\n", puzzle, finish
+			}
+			for (index_ = 1; index_ <= jobs; index_++) {
+				if (queued[index_] in started) continue
+				earliest = 1
+				for (slot = 2; slot <= slots; slot++) if (free_at[slot] < free_at[earliest]) earliest = slot
+				begin = free_at[earliest] > retry_at[index_] ? free_at[earliest] : retry_at[index_]
+				free_at[earliest] = begin + start_cost + run_cost
+				printf "%s\t%d\tqueued\n", queued[index_], free_at[earliest]
+			}
+		}
+	' "$state/worker/wrapd.log" <(((${#jobs[@]})) && jq -rs --argjson now "$EPOCHSECONDS" '
+		sort_by([([(.retry_after // 0) - $now, 0] | max), .queued_at])[]
+		| [.puzzle, (.retry_after // 0)] | @tsv' "${jobs[@]}")
+}
+
+declare -A wrap_eta
+wrap_eta_queued=()
+wrap_eta_all=0
+load_wrap_eta() {
+	local puzzle finish kind
+	while IFS=$'\t' read -r puzzle finish kind; do
+		wrap_eta[$puzzle]=$finish
+		[[ $kind != queued ]] || wrap_eta_queued+=("$puzzle")
+		((finish <= wrap_eta_all)) || wrap_eta_all=$finish
+	done < <(wrap_schedule)
+}
+
+eta_text() {
+	local finish=$2 duration
+	if ((finish <= EPOCHSECONDS)); then
+		printf -v "$1" 'due'
+	else
+		duration_text duration $((finish - EPOCHSECONDS))
+		printf -v "$1" '~%s' "$duration"
+	fi
+}
+
+wrap_eta_grid() {
+	((${#wrap_eta_queued[@]})) || return 0
+	local puzzle name_width=0 eta label entries=() eta_width=7 indent='  '
+	local screen_width=$((screen_width - ${#indent}))
+	for puzzle in "${wrap_eta_queued[@]}"; do
+		((${#puzzle} <= name_width)) || name_width=${#puzzle}
+	done
+	for puzzle in "${wrap_eta_queued[@]}"; do
+		puzzle_label label "$puzzle" "$name_width"
+		eta_text eta "${wrap_eta[$puzzle]}"
+		printf -v eta '%*s' "$eta_width" "$eta"
+		paint eta "$dim" "$eta"
+		entries+=("$label $eta")
+	done
+	print_grid $((name_width + 1 + eta_width)) "${entries[@]}" | sed "s/^/$indent/"
+}
+
 wrap_queue_line() {
-	local jobs=("$state"/wrapq/*.json) daemon ready retry soonest newest line painted
+	local jobs=("$state"/wrapq/*.json) daemon ready retry soonest newest line painted eta
 	if [[ -n $(loop_pids wrapd) ]]; then
 		paint daemon "$green" running
 	else
@@ -366,6 +451,12 @@ wrap_queue_line() {
 			puzzle_label painted "$puzzle" 0 "$dim"
 			line+=" $painted"
 		done
+	fi
+	if ((wrap_eta_all)); then
+		eta_text eta "$wrap_eta_all"
+		printf -v painted '%s, at %(%H:%M)T' "$eta" "$wrap_eta_all"
+		paint painted "$bold" "$painted"
+		line+="  all done $painted"
 	fi
 	echo "$line"
 }
@@ -419,12 +510,20 @@ wrap_runs() {
 }
 
 wrap_generator() {
+	load_wrap_eta
 	wrap_queue_line
-	local kind first second third fourth fifth sixth label source_label painted_puzzle painted_outcome painted_detail painted_start outcome_sgr age run_state
+	wrap_eta_grid
+	local kind first second third fourth fifth sixth label source_label painted_puzzle painted_outcome painted_detail painted_start outcome_sgr age run_state eta
 	while IFS=$'\t' read -r kind first second third fourth fifth sixth; do
 		if [[ $kind == run ]]; then
 			case $fourth in
-			'') paint run_state "$cyan" running ;;
+			'')
+				paint run_state "$cyan" running
+				[[ -z ${wrap_eta[$first]:-} ]] || {
+					eta_text eta "${wrap_eta[$first]}"
+					run_state+=" $eta"
+				}
+				;;
 			0) paint run_state "$green" "done" ;;
 			*) paint run_state "$yellow" "deferred (exit $fourth)" ;;
 			esac
