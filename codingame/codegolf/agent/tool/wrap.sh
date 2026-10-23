@@ -83,6 +83,12 @@ own_row_of() {
 	jq -c --arg language "$(tsv_field lang "$1" cg_name)" '[.[] | select(.language == $language)] | first' <<<"$2"
 }
 
+settle_seconds() {
+	awk -F'\t' -v host=" $1" -v floor="$wrap_settle_seconds" -v factor="$wrap_settle_factor" -v cap="$wrap_confirm_seconds" '
+		substr($1, length($1) - length(host) + 1) == host && $2 ~ /^judged/ && $3 ~ /^submitted after [0-9]+s/ { split($3, words, " "); if (words[3] + 0 > slowest) slowest = words[3] + 0 }
+		END { settle = slowest * factor; settle = settle < floor ? floor : settle; print int(settle > cap ? cap : settle) }' "$state/worker/wrapd.log" 2>/dev/null || echo "$wrap_settle_seconds"
+}
+
 main_of() {
 	echo "$root/puzzle/$puzzle/solution/$1/main.$(tsv_field lang "$1" extension)"
 }
@@ -118,7 +124,7 @@ attempt_host() {
 }
 
 submit_pipeline() {
-	local -A next_index=() host_started=() host_ours=() local_pid=() pending=() retries=()
+	local -A next_index=() host_started=() host_ours=() local_pid=() pending=() retries=() resubmitted=() settle=()
 	local waiting=() host main ours cap= next_check=0
 	finish_host() {
 		local host=$1 winner=$2
@@ -135,7 +141,7 @@ submit_pipeline() {
 		fi
 		ours=$(jq -r '.ours // empty' "$(ensure_status cell "$puzzle" "$host")")
 		ours=${ours%.*}
-		host_started[$host]=$EPOCHSECONDS host_ours[$host]=$ours next_index[$host]=0
+		host_started[$host]=$EPOCHSECONDS host_ours[$host]=$ours next_index[$host]=0 settle[$host]=$(settle_seconds "$host")
 		candidates "$host" | sort -n -k1,1 | awk -F'\t' -v ours="$ours" 'ours == "" || $1 < ours + 0' >"$work/$host.queue"
 		if [[ ! -s $work/$host.queue ]]; then
 			finish_host "$host" -
@@ -193,7 +199,7 @@ submit_pipeline() {
 		done
 		if ((${#pending[@]})) && ((EPOCHSECONDS >= next_check)); then
 			next_check=$((EPOCHSECONDS + 10))
-			local rows row verdict judged
+			local rows row verdict judged moved
 			if ! rows=$(leaderboard_rows "$puzzle" KEYWORD "$nickname"); then
 				echo "wrap.sh: own rows fetch failed, judging again in 10 s" >&2
 				rows=
@@ -203,11 +209,23 @@ submit_pipeline() {
 				[[ -n $rows ]] || continue
 				row=$(own_row_of "$host" "$rows")
 				if [[ $baseline == unknown ]]; then
-					[[ $(jq -r '.length // 0 | floor' <<<"$row") == "$length" ]] || ((EPOCHSECONDS - posted_at >= wrap_confirm_seconds)) || continue
+					[[ $(jq -r '.length // 0 | floor' <<<"$row") == "$length" ]] && moved=1 || moved=
 				else
-					[[ $row != "$baseline" ]] || ((EPOCHSECONDS - posted_at >= wrap_confirm_seconds)) || continue
+					[[ $row != "$baseline" ]] && moved=1 || moved=
 				fi
+				[[ -n $moved ]] || ((EPOCHSECONDS - posted_at >= settle[$host])) || continue
 				unset "pending[$host]"
+				if [[ -z $moved && ${resubmitted[$host]:-} != "${next_index[$host]}" ]]; then
+					if [[ -n $cap ]]; then
+						deferred=1
+						finish_host "$host" "$length $source unconfirmed: row unchanged after $((EPOCHSECONDS - posted_at))s, no resubmit after stop or cap"
+						continue
+					fi
+					resubmitted[$host]=${next_index[$host]} next_index[$host]=$((next_index[$host] - 1))
+					printf '%s\tresubmit %s %s\trow unchanged after %ss on CG (lost leaderboard update or failed validator)\n' "$host" "$length" "$source" "$((EPOCHSECONDS - posted_at))"
+					waiting=("$host" "${waiting[@]}")
+					continue
+				fi
 				judged=$(CG_WRAP_SOURCE=$source "$tool_dir/submit.sh" --judge "$row" --candidate "$candidate" "$(main_of "$host")" 2>&1) && verdict=submitted || verdict=
 				[[ -n $verdict ]] || verdict=$({ grep -v '^submit.sh: time ' <<<"$judged" || true; } | tail -n 1)
 				printf '%s\tjudged %s %s\t%s after %ss on CG\n' "$host" "$length" "$source" "$verdict" "$((EPOCHSECONDS - posted_at))"
