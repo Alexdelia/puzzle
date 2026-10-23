@@ -27,7 +27,7 @@ read -r tokens_in tokens_out cost_usd turns api_s input_tokens cache_write_token
 	 (.usage.output_tokens_details.thinking_tokens // 0), (.permission_denials // [] | length)] | @tsv' "$claude_json" 2>/dev/null ||
 	echo "0 0 0 0 0 0 0 0 0 0")
 read -r cg_calls cg_test_games cg_submits < <(awk -F'\t' -v id="$id" '
-	$2 == id { calls++; if ($3 == "POST" && $4 ~ /\/test-games$/) tests++; if ($3 == "POST" && $4 ~ /\/submissions$/) submits++ }
+	$2 == id { calls++; if ($3 == "POST" && $5 < 300 && $4 ~ /\/test-games$/) tests++; if ($3 == "POST" && $5 == 201 && $4 ~ /\/submissions$/) submits++ }
 	END { print calls + 0, tests + 0, submits + 0 }' "$state/cg.log" 2>/dev/null || echo "0 0 0")
 
 status_path=$(ensure_status "$kind" "$puzzle" "$lang")

@@ -50,7 +50,7 @@ own_row() {
 
 submit_and_wait() {
 	recent_submits=$(awk -F'\t' -v since="$(date -u -d '5 hours ago' +%Y-%m-%dT%H:%M:%SZ)" -v path="/puzzles/$pretty_id/submissions" \
-		'$1 >= since && $3 == "POST" && $4 == path' "$state/cg.log" 2>/dev/null | wc -l)
+		'$1 >= since && $3 == "POST" && $4 == path && $5 == 201' "$state/cg.log" 2>/dev/null | wc -l)
 	if ((recent_submits >= submit_cap_5h)); then
 		echo "submit.sh: refused, $recent_submits agent submits on $puzzle in the last 5 h (cap $submit_cap_5h per puzzle, rest kept for the user): note it in the journal and move on" >&2
 		exit 1
@@ -61,7 +61,7 @@ submit_and_wait() {
 	probe_cap=$probe_submits_per_task
 	[[ ${CG_TASK_ID:-} == validator.* ]] && probe_cap=$validator_submits_per_task
 	if [[ -n $probe ]]; then
-		task_submits=$(awk -F'\t' -v id="${CG_TASK_ID:--}" '$2 == id && $3 == "POST" && $4 ~ /\/submissions$/' "$state/cg.log" 2>/dev/null | wc -l)
+		task_submits=$(awk -F'\t' -v id="${CG_TASK_ID:--}" '$2 == id && $3 == "POST" && $4 ~ /\/submissions$/ && $5 == 201' "$state/cg.log" 2>/dev/null | wc -l)
 		if ((task_submits >= probe_cap)); then
 			echo "submit.sh: refused, this task already used $task_submits submits (probe cap $probe_cap)" >&2
 			exit 1
