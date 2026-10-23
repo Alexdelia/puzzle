@@ -10,6 +10,7 @@ italic=3
 red=31
 green=32
 yellow=33
+magenta=35
 cyan=36
 column_gap=2
 fallback_width=120
@@ -454,8 +455,8 @@ wrap_queue_line() {
 	fi
 	if ((wrap_eta_all)); then
 		eta_text eta "$wrap_eta_all"
-		printf -v painted '%s, at %(%H:%M)T' "$eta" "$wrap_eta_all"
-		paint painted "$bold" "$painted"
+		printf -v painted '%s at %(%H:%M)T' "$eta" "$wrap_eta_all"
+		paint painted "$magenta" "$painted"
 		line+="  all done $painted"
 	fi
 	echo "$line"
