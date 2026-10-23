@@ -79,6 +79,10 @@ busy() {
 	! git -C "$root" diff --quiet -- "$main"
 }
 
+own_row_of() {
+	jq -c --arg language "$(tsv_field lang "$1" cg_name)" '[.[] | select(.language == $language)] | first' <<<"$2"
+}
+
 main_of() {
 	echo "$root/puzzle/$puzzle/solution/$1/main.$(tsv_field lang "$1" extension)"
 }
@@ -162,11 +166,15 @@ submit_pipeline() {
 			fi
 			wait "${local_pid[$host]}" || true
 			unset "local_pid[$host]"
-			local outcome index length source submission posted_at candidate reason
+			local outcome index length source submission posted_at candidate reason baseline rows
 			IFS=$'\t' read -r outcome index length source submission posted_at candidate <"$work/$host.result"
 			next_index[$host]=$index
 			case $outcome in
-			posted) pending[$host]="$length"$'\t'"$source"$'\t'"$posted_at"$'\t'"$candidate" ;;
+			posted)
+				baseline=unknown
+				rows=$(leaderboard_rows "$puzzle" KEYWORD "$nickname") && baseline=$(own_row_of "$host" "$rows") || true
+				pending[$host]="$length"$'\t'"$source"$'\t'"$posted_at"$'\t'"$candidate"$'\t'"$baseline"
+				;;
 			none) finish_host "$host" - ;;
 			retry)
 				IFS=$'\t' read -r _ _ length source reason <"$work/$host.result"
@@ -185,13 +193,20 @@ submit_pipeline() {
 		done
 		if ((${#pending[@]})) && ((EPOCHSECONDS >= next_check)); then
 			next_check=$((EPOCHSECONDS + 10))
-			local rows row row_length verdict judged
-			rows=$(leaderboard_rows "$puzzle" KEYWORD "$nickname")
+			local rows row verdict judged
+			if ! rows=$(leaderboard_rows "$puzzle" KEYWORD "$nickname"); then
+				echo "wrap.sh: own rows fetch failed, judging again in 10 s" >&2
+				rows=
+			fi
 			for host in "${!pending[@]}"; do
-				IFS=$'\t' read -r length source posted_at candidate <<<"${pending[$host]}"
-				row=$(jq -c --arg language "$(tsv_field lang "$host" cg_name)" '[.[] | select(.language == $language)] | first' <<<"$rows")
-				row_length=$(jq -r '.length // 1e9 | floor' <<<"$row")
-				((row_length <= length || EPOCHSECONDS - posted_at >= wrap_confirm_seconds)) || continue
+				IFS=$'\t' read -r length source posted_at candidate baseline <<<"${pending[$host]}"
+				[[ -n $rows ]] || continue
+				row=$(own_row_of "$host" "$rows")
+				if [[ $baseline == unknown ]]; then
+					[[ $(jq -r '.length // 0 | floor' <<<"$row") == "$length" ]] || ((EPOCHSECONDS - posted_at >= wrap_confirm_seconds)) || continue
+				else
+					[[ $row != "$baseline" ]] || ((EPOCHSECONDS - posted_at >= wrap_confirm_seconds)) || continue
+				fi
 				unset "pending[$host]"
 				judged=$(CG_WRAP_SOURCE=$source "$tool_dir/submit.sh" --judge "$row" --candidate "$candidate" "$(main_of "$host")" 2>&1) && verdict=submitted || verdict=
 				[[ -n $verdict ]] || verdict=$({ grep -v '^submit.sh: time ' <<<"$judged" || true; } | tail -n 1)
