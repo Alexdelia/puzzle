@@ -268,6 +268,24 @@ loop_pids() {
 }
 
 wrap_rejected=$state/wrap/rejected.tsv
+wrap_lottery=$state/wrap/lottery.tsv
+
+wrap_lottery_round() {
+	local hash=$1 puzzle=$2 lang=$3 length=$4 source=$5 row=$6
+	if jq -e --argjson length "$length" '.length == $length and .score == 0' <<<"$row" >/dev/null; then
+		echo 0
+		return
+	fi
+	mkdir -p "$(dirname "$wrap_lottery")"
+	with_lock wrap-lottery bash -c '
+		file=$1 hash=$2 rounds=$7
+		touch "$file"
+		round=$(($(awk -F"\t" -v hash="$hash" "\$1 == hash { print \$6 }" "$file") + 1))
+		awk -F"\t" -v hash="$hash" "\$1 != hash" "$file" >"$file.tmp"
+		((round < rounds)) && printf "%s\t%s\t%s\t%s\t%s\t%s\n" "$hash" "$3" "$4" "$5" "$6" "$round" >>"$file.tmp"
+		mv "$file.tmp" "$file"
+		((round < rounds)) && echo "$round" || echo 0' _ "$wrap_lottery" "$hash" "$puzzle" "$lang" "$length" "$source" "$wrap_lottery_rounds"
+}
 
 wrap_cores() {
 	local generator

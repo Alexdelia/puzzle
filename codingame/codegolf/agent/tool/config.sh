@@ -30,6 +30,7 @@ wrap_in_flight=8
 wrap_confirm_seconds=1800
 wrap_settle_seconds=300
 wrap_settle_factor=3
+wrap_lottery_rounds=3
 wrap_puzzles=3
 cg_network_attempts=6
 wrap_post_attempts=3

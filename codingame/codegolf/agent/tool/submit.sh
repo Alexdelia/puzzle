@@ -129,8 +129,15 @@ if [[ -n $row_length ]] && ((row_length < length)) && jq -e '.score == 100' <<<"
 	exit 1
 fi
 if [[ -n ${CG_WRAP_SOURCE:-} ]] && { [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; }; then
+	hash=$(sha256sum <"$code" | cut -c1-64)
+	round=$(wrap_lottery_round "$hash" "$puzzle" "$lang" "$length" "$CG_WRAP_SOURCE" "$row")
+	if ((round)); then
+		event "wrap lottery $puzzle $lang length=$length round=$round/$wrap_lottery_rounds source=$CG_WRAP_SOURCE row=$row"
+		echo "submit.sh: lottery round $round of $wrap_lottery_rounds lost for generated wrapper length $length, next round in a later wrap run: $row" >&2
+		exit 1
+	fi
 	mkdir -p "$(dirname "$wrap_rejected")"
-	printf '%s\t%s\t%s\t%s\t%s\n' "$(sha256sum <"$code" | cut -c1-64)" "$puzzle" "$lang" "$length" "$CG_WRAP_SOURCE" >>"$wrap_rejected"
+	printf '%s\t%s\t%s\t%s\t%s\n' "$hash" "$puzzle" "$lang" "$length" "$CG_WRAP_SOURCE" >>"$wrap_rejected"
 	event "attention wrap rejected $puzzle $lang length=$length source=$CG_WRAP_SOURCE row=$row"
 	echo "submit.sh: CG did not confirm generated wrapper length $length: $row" >&2
 	exit 1
