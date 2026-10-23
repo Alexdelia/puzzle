@@ -203,13 +203,59 @@ leaderboard_summary() {
 		. as $rows
 		| ($rows | map(select(.score == 100))) as $valid
 		| ($valid | min_by(.length)) as $best
-		| ($rows | to_entries | map(select(.value.pseudo == $me)) | first) as $mine
+		| ($rows | to_entries | map(select(.value.pseudo == $me and .value.score == 100)) | first) as $mine
 		| {top: $best.length, top_player: $best.pseudo,
 		   top_count: ([$valid[] | select(.length == $best.length)] | length),
 		   ours: $mine.value.length,
 		   rank: (if $mine then $mine.key + 1 else null end),
 		   best_tie_rank: (if $mine then ([$valid[] | select(.length < $mine.value.length)] | length) + 1 else null end),
 		   players: ($rows | length)}'
+}
+
+leaderboard_table_header() {
+	printf 'lang\ttop\ttop_player\ttop_count\tours\trank\tbest_tie_rank\tplayers\tfetched_at\n'
+}
+
+leaderboard_table_row() {
+	jq -r --arg lang "$1" --arg at "$(now)" \
+		'[$lang, .top, .top_player, .top_count, .ours, .rank, .best_tie_rank, .players, $at] | map(. // "-") | @tsv' <<<"$2"
+}
+
+store_language_summary() {
+	local puzzle=$1 lang=$2 summary=$3 cell previous
+	cell=$(ensure_status cell "$puzzle" "$lang")
+	previous=$(jq -r .status "$cell")
+	json_update "$cell" --argjson summary "$summary" \
+		'. + ($summary | {top, top_player, ours, rank, best_tie_rank}) | del(.rank_stale)
+		 | if .best_tie_rank == 1 then .status = "first" else . end'
+	if [[ $previous == first && $(jq -r .best_tie_rank "$cell") != 1 ]]; then
+		json_update "$cell" '.status = "todo"'
+		"$tool_dir/enqueue.sh" cell "$puzzle" "$lang" --reason dropped >/dev/null
+		event "dropped $puzzle $lang"
+	fi
+}
+
+store_table_row() {
+	local puzzle=$1 lang=$2 summary=$3 table=$state/leaderboard/$1.tsv row
+	row=$(leaderboard_table_row "$lang" "$summary")
+	with_lock "leaderboard-$puzzle" bash -c '
+		table=$1 lang=$2 row=$3 header=$4
+		{ [[ -s $table ]] && awk -F"\t" -v lang="$lang" "NR == 1 || \$1 != lang" "$table" || printf "%s\n" "$header"; printf "%s\n" "$row"; } >"$table.tmp"
+		mv "$table.tmp" "$table"' _ "$table" "$lang" "$row" "$(leaderboard_table_header)"
+}
+
+store_own_rows() {
+	local puzzle=$1 rows=$2 skipped=${3:-} lang cell stored current
+	while read -r lang; do
+		[[ $lang != "$skipped" ]] || continue
+		cell=$(ensure_status cell "$puzzle" "$lang")
+		current=$(jq -c --arg language "$(tsv_field lang "$lang" cg_name)" \
+			'[.[] | select(.language == $language and .score == 100) | .length] | min' <<<"$rows")
+		stored=$(jq -c '.ours // null | if type == "number" then floor else . end' "$cell")
+		[[ $current != "$stored" ]] || continue
+		json_update "$cell" --argjson ours "$current" '.ours = $ours | .rank_stale = true'
+		event "own row $puzzle $lang ours $stored -> $current (rank stale until next language fetch)"
+	done < <(langs)
 }
 
 commit_time_log() {

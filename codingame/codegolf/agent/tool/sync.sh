@@ -17,27 +17,16 @@ for puzzle in "${selected[@]}"; do
 	[[ -n $(tsv_field puzzle "$puzzle" slug) ]] || { echo "$usage" >&2; exit 2; }
 	mine=$(leaderboard_rows "$puzzle" KEYWORD "$nickname")
 	table=$state/leaderboard/$puzzle.tsv
-	printf 'lang\ttop\ttop_player\ttop_count\tours\trank\tbest_tie_rank\tplayers\tfetched_at\n' >"$table.tmp"
+	leaderboard_table_header >"$table.tmp"
 	while read -r lang; do
 		cg_name=$(tsv_field lang "$lang" cg_name)
 		summary=$(leaderboard_rows "$puzzle" LANGUAGE "$cg_name" | leaderboard_summary)
 		if [[ $(jq .ours <<<"$summary") == null ]]; then
-			ours=$(jq --arg language "$cg_name" '[.[] | select(.language == $language) | .length] | min' <<<"$mine")
+			ours=$(jq --arg language "$cg_name" '[.[] | select(.language == $language and .score == 100) | .length] | min' <<<"$mine")
 			summary=$(jq -c --argjson ours "$ours" '.ours = $ours' <<<"$summary")
 		fi
-		jq -r --arg lang "$lang" --arg at "$(now)" \
-			'[$lang, .top, .top_player, .top_count, .ours, .rank, .best_tie_rank, .players, $at] | map(. // "-") | @tsv' \
-			<<<"$summary" >>"$table.tmp"
-		cell=$(ensure_status cell "$puzzle" "$lang")
-		previous=$(jq -r .status "$cell")
-		json_update "$cell" --argjson summary "$summary" \
-			'. + ($summary | {top, top_player, ours, rank, best_tie_rank})
-			 | if .best_tie_rank == 1 then .status = "first" else . end'
-		if [[ $previous == first && $(jq -r .best_tie_rank "$cell") != 1 ]]; then
-			json_update "$cell" '.status = "todo"'
-			"$tool_dir/enqueue.sh" cell "$puzzle" "$lang" --reason dropped >/dev/null
-			event "dropped $puzzle $lang"
-		fi
+		leaderboard_table_row "$lang" "$summary" >>"$table.tmp"
+		store_language_summary "$puzzle" "$lang" "$summary"
 		sleep 0.2
 	done < <(langs)
 	mv "$table.tmp" "$table"

@@ -219,6 +219,7 @@ submit_pipeline() {
 					waiting+=("$host")
 				fi
 			done
+			[[ -z $rows ]] || store_own_rows "$puzzle" "$rows"
 		fi
 		sleep 1
 	done

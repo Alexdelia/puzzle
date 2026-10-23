@@ -43,9 +43,9 @@ report_time() {
 }
 length=$("$tool_dir/count.sh" "$code")
 ours=$(jq -r '.ours // empty' "$cell")
-own_row() {
-	leaderboard_rows "$puzzle" KEYWORD "$nickname" |
-		jq -c --arg language "$cg_name" '[.[] | select(.language == $language)] | first'
+fetch_own_row() {
+	own_rows=$(leaderboard_rows "$puzzle" KEYWORD "$nickname")
+	row=$(jq -c --arg language "$cg_name" '[.[] | select(.language == $language)] | first' <<<"$own_rows")
 }
 
 submit_and_wait() {
@@ -102,12 +102,13 @@ submit_and_wait() {
 	done
 	mark cg
 
-	row=$(own_row)
+	fetch_own_row
 	for _ in $(seq 21); do
 		(($(jq -r '.length // 1e9 | floor' <<<"$row") <= length)) && break
 		sleep 10
-		row=$(own_row)
+		fetch_own_row
 	done
+	store_own_rows "$puzzle" "$own_rows" "$lang"
 	mark row
 }
 
@@ -142,11 +143,10 @@ if [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score =
 	exit 1
 fi
 
-summary=$(leaderboard_rows "$puzzle" LANGUAGE "$cg_name" | leaderboard_summary)
-json_update "$cell" --argjson summary "$summary" --argjson length "$length" --arg wrap_source "${CG_WRAP_SOURCE:-}" \
-	'. + ($summary | {top, top_player, rank, best_tie_rank}) | .ours = $length
-	 | if .best_tie_rank == 1 then .status = "first" else . end
-	 | if $wrap_source != "" then .wrap_source = $wrap_source else . end'
+summary=$(leaderboard_rows "$puzzle" LANGUAGE "$cg_name" | leaderboard_summary | jq -c --argjson length "$length" '.ours = $length')
+store_language_summary "$puzzle" "$lang" "$summary"
+store_table_row "$puzzle" "$lang" "$summary"
+[[ -z ${CG_WRAP_SOURCE:-} ]] || json_update "$cell" --arg wrap_source "$CG_WRAP_SOURCE" '.wrap_source = $wrap_source'
 rank=$(jq -r '.rank // "1000+"' "$cell")
 best_tie_rank=$(jq -r '.best_tie_rank // empty' "$cell")
 message="feat(golf): solution $puzzle $lang $length #$rank"
