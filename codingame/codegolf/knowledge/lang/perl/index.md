@@ -85,3 +85,5 @@
 - [unpack-checksum-key](unpack-checksum-key.md): `unpack"%C*"` = byte sum of `$_` (9 B), `%32C*` = Adler-32, `(unpack...)`+parens before `%m` (list-operator precedence trap), nibble table key for many validators, verified locally
 - [flush-print-assign](flush-print-assign.md): `$|=print EXPR,...` prints and flushes in one operator, 2 under `$|=1;print`; `COND&&$|=print` is a syntax error, verified on CG referee
 - [bitwise-or-negative](bitwise-or-negative.md): `EXPR|0` truncates only non-negative floats; a negative gives 2^64-n (invalid answer), use `int`/`printf %d`, verified on CG referee
+- [e-subst-brace-delimiter](e-subst-brace-delimiter.md): `s{PAT}{CODE}ge` costs the same as `s/PAT/CODE/ge` and lets unescaped inner `//` (`s/O//`, `split//`) parse in the replacement; verified
+- [array-subst-delete-mark](array-subst-delete-mark.md): `$a[$i]=~s/O//` = test-and-mark an array cell in 13 B (vs 20 B 4-arg substr), no pad needed; 1M-char `split//` per query too slow for 300-query validators, verified
