@@ -214,6 +214,12 @@ store_table_row "$puzzle" "$lang" "$summary"
 [[ -z ${CG_WRAP_SOURCE:-} ]] || json_update "$cell" --arg wrap_source "$CG_WRAP_SOURCE" '.wrap_source = $wrap_source'
 rank=$(jq -r '.rank // "1000+"' "$cell")
 best_tie_rank=$(jq -r '.best_tie_rank // empty' "$cell")
+if [[ -n $probe && ${CG_TASK_ID:-} != "cell.$puzzle.$lang."* ]]; then
+	resolve_probe "yes: 100% at length $length, row moved, solution/$lang untouched (probe outside a $lang cell task)"
+	event "probe gain $puzzle $lang length=$length previous=${ours%.*} rank=$rank best_tie_rank=${best_tie_rank:--} task=${CG_TASK_ID:--}"
+	echo "submit.sh: probe gain $puzzle $lang $length #$rank: row and cache moved, solution/$lang untouched (only a $lang cell task adopts its probes)"
+	exit 0
+fi
 message="feat(golf): solution $puzzle $lang $length #$rank"
 if [[ -n $best_tie_rank && $best_tie_rank != "$rank" ]]; then
 	message+=" (tie #$best_tie_rank)"
