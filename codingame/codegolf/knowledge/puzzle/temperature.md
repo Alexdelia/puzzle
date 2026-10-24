@@ -61,13 +61,13 @@ Leaderboard tops vs skeleton (unexplained, do not chase with the general method)
 
 ## Hidden validators
 
-Details, sources, probe list: `puzzle/temperature/referee/hidden/facts.md` (partial, probed 2026-10-20).
+Details, sources, probe list: `puzzle/temperature/referee/hidden/facts.md` (per-validator report, probed 2026-10-20 and 2026-10-24). Exact files for V1, V2, V3, V7, V8, V11 in `hidden/`; no `complete` yet.
 
-- 15 validators (score step 6.667), none equals an IDE test or the classic hint inputs
-- N: one 0, one 1, three 2, nine in 3..6, one > 6
-- no temperature is 0 (verified: 100% with a solution failing on any 0)
-- tie `-t`/`t` at min abs in 6 validators: 5 with `-t` first, 1 with `t` first. Last-of-tie-wins fails 1 validator, first-of-tie-wins fails 5
-- 5 negative answers; one answer has abs >= 10, the other 14 are single digit
+- 12 validators (not 15: the 6.667 grain is one 250 weight of 3750), weights 250 except V1 500, V5 750. None equals an IDE test
+- answers: V1 -1, V2 -173, V3 1, V4 7, V5 7, V6 7, V7 -8, V8 0, V9 7, V10 2, V11 8, V12 -2
+- N: V8 0; V2 1; V3, V7, V11 2; V1, V4, V9, V10 5; V5, V6 6; V12 10
+- KEY (verified per validator): with L = line 2 without newline, answer = last token of the input when len(L) < 6 (N = 0 gives line 1's `0`), else len(L) 10 -> -1, 11 -> 2, 12 -> 7, 15 -> 7, 27 -> -2
+- no temperature is 0; tie `-t`/`t` at min abs in V3, V5, V11 (`-t` first) and V6 (`t` first): last-of-tie-wins fails only V6
 
 Shell-wrapper core (any lang with system(), verified OCaml CG 58 100% 2026-10-22): `perl -ape'}{$_=(sort{$a*$a-$b*$b-$a}@F)[0]+0'` = 46 B shell command, no `"` or `\`. Eskimo `}{`: after the -p loop @F still holds line 2 split, $_ printed once; N = 0 -> empty @F -> `+0`. `perl -pe'$_=(sort{..}glob<>)[0]+0'` +1. `($_)=sort{..}@F,0` fails (0 sorts first; also `=` binds tighter than `,`). OCaml = `Sys.command"<core>"` 58.
 
