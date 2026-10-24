@@ -74,7 +74,7 @@ More encodings (python core 1022 -> 908, 26/26 local + hidden 7/7, CG 100% insid
 
 ## Hidden validators
 
-Summary (count probes 2026-10-20, details and sources in `puzzle/the-fall-episode-2/referee/hidden/facts.md`): probably 50 validators (all scores even, 58 and 90 seen, so not 25); 8 are exact copies of IDE tests 1-5, 42 are maps of sizes no IDE test has (all W<=16: 8 with W<=8, 18 with W 9..12, 16 with W 13..16; 21 with H<=8); 10 have rocks, all new maps with W<=10, none a copy of tests 6-7. No hardcode possible: a general solver with rock handling is needed. Earlier lines below that read 16% as "4 of 25" mean 8 of 50.
+Summary (2026-10-24, per-validator CG reports; details, probes and sources in `puzzle/the-fall-episode-2/referee/hidden/facts.md`): 7 validators, 1:1 with the IDE tests (same titles), weights 160 x5 (V1-V5) + 100 x2 (rocks V6, V7). The old "50 validators" count was a score-grain misread (16% = V1 alone). V1 = test 1 exactly. V3..V7 each contain the nonzero-bbox core of their own test k, not mirrored, with 2 / 2 / 1 / 1 / 0 unlocked rooms rotated (V3 / V4 / V5 / V6 / V7), inside other dimensions (V3 W<=8 H>=9; V4 W 13..16 H>=10; V5 W 13..16 H=8; V6 9x8 = test 6 minus its empty column 0; V7 W 9..10 H>=9 with rocks). V2 (W 9..12, H<=8) has its own layout, not test 2 up to rotation. Exact grids, exits, starts, rock schedules not yet recovered: no hardcode yet. Lines below that count "of 25" or "of 50" are wrong, read them as weight sums.
 
 Facts (CG probes in python, row 5431, 2026-10-20; a probe "fails" = row did not move to the probe's length):
 
