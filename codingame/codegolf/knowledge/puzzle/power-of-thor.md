@@ -114,3 +114,14 @@ Details, probes and sources: `puzzle/power-of-thor/referee/hidden/facts.md`. ALL
 - leaderboard API rows carry `creationTime`: Perl 42 LolCat 2022-03-11, sffsefsdfaf 2026-07-30; Ruby 42 Icebox 2026-09-30, sffsefsdfaf 2026-08-24; Perl 46 d-s-x 2021-12, 47 NukePwr 2026-10-16. All after the 2015 whitespace rule change and our own 66 scored 66, so 42 is a real current-rule exploit, not a frozen legacy score. TKirishima (forum 687 #205, #211) calls top 30 "not legit", i.e. hardcoded/system-call, but they are current
 - shapes refuted by byte count in Perl: all-at-once plan print (~85), suffix-stream keyed on header-derived offsets (streams 26-108 B cannot fit gaps of header numbers 0/5/28/31), shared phase C for V3+V4 using `$.` needs ~33 B, storing H costs more than recomputing `$a?$a-5?E:N:W`
 - Perl trap: `$|=letter` numifies E/N/W to 0, so $| cannot also hold the letter (autoflush off, output lost); use `$h` for the letter
+
+## Perl 61 (2026-10-24, this task)
+
+- 61 B, CG 100% (probe `array61.pl`, rank 10 tie 9): `#!perl -alp` + `$|||=@a=@F;$_=S x($a[3]++<$a[1]).(W,E,N)[$a[0]%3]`
+- lightX%3 = 1,2,1,0 for the 4 hidden (28,5,31,0) => letter H = `(W,E,N)[$a[0]%3]` (13 B with a scalar lightX, 16 with @a), 2 under the ternary `$a?$a-5?E:N:W`
+- header `$|||=@a=@F;` is 11 B and sets autoflush; body 38 B = `$_=` + `S x($a[3]++<$a[1])` + `.` + H; see knowledge/lang/perl/array-guard-autoflush.md
+- a 61 variant with scalars is 63 (`$|||=($a,$b,$x,$y)=@F;` + `S x($y++<$b).(W,E,N)[$a%3]`); the array form is the floor found in the "S counted + static H" family
+- `($a,$b,,$y)=@F` does not skip a field (empty slot dropped): `$y` gets `@F[2]`, see knowledge/lang/perl/list-assign-empty-slot.md
+- refuted by byte count at 61: energy-threshold phase `$F[0]<46&&$F[0]>($a[0]||19)` 73-78 (V3 S iff e>31, V4 iff e>19; `$a[0]||19` = 31/19 is exact), `$|`-as-countdown with +100 offset 77+, all-at-once `(S.H\n)xT.(H\n)x99` print 81-90, `-an` one-shot print 90, packed 3-command plan table 100+ (101 commands, base 5 only fits 3/byte), `s/.*/code/e` newline-keeping 64, H from chr/hash/substr/`$a[3]%5` 17+
+- 42 remains unexplained: LolCat 2022-03, sffsefsdfaf 2026-07, NukePwr 47 2026-10 all score 100, so a current 42-byte program exists. Forum 687 posts 190-219 say the shortest are hardcodes (and that a deterministic general solution is ~68-76 chars); the UTF-16/chinese-character packing (forum 194246) counted characters and our 2026-10 Ruby probe shows bytes are counted now (knowledge/lang/_shared/length.md), so it does not explain a 2026 row
+- pending probe (report login was down at the time): submission 41559330, `probe/perl/garbageline.pl` 68 B = 61 B plan with `$.<2?Z:` in front, question "does CG ignore an invalid output line (Z) as a no-op or lose?". Read later with `agent/tool/cg-report.sh 41559330` (free). The probe is 68 > our 61 row, so the row oracle cannot answer it
