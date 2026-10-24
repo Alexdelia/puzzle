@@ -78,7 +78,7 @@ commit_scope() {
 			cd "$root"
 			git add -A -- "$@" || exit 1
 			git diff --cached --quiet -- "$@" && exit 0
-			git commit -q -m "$message" -- "$@" && event "commit $message"
+			git commit -q --no-verify -m "$message" -- "$@" && event "commit $message"
 		) 8>"$state/lock/git.lock"; then
 			return 0
 		fi
