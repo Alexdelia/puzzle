@@ -57,8 +57,8 @@ Details, sources and probe log: `puzzle/network-cabling/referee/hidden/facts.md`
 
 - 9 validators (CG per-validator report), weights 100 (1-6) and 200 (7-9); the old "12 validators" was the weight grain 1200/100
 - recovered exactly, in `referee/hidden/01..05`: `(0 0)(2 2)(4 4)` -> 8, `(2 3)(1 1)(4 4)` -> 6, `(1 2)(0 0)(2 2)(5 3)` -> 8, `1` / `9 9` -> 0, `(-5 -3)(-9 2)(9 -4)` -> 24
-- answers known: 7 (N = 100000) -> 12788481, 8 (N = 99999, L = 99998 * 25002) -> 2500149996; open intervals: 6 (N 8..9) in 5714781001..5714781105, 9 (N 10..11 likely) in 2067588608..2067588863
-- key: N separates 4, 6, 7, 8, 9 and the N = 3 group (1, 2, 5: first char of line 2 `0`, `2`, `-`) from 3 (N = 4). Full hardcode still blocked on 6 and 9 (about 8 more bisection probes)
+- all 9 answers known (p01-p36 bisection, confirmed together by p37 perl full hardcode CG 100 %, 2026-10-24): 6 (N = 8) -> 5714781103, 7 (N = 100000) -> 12788481, 8 (N = 99999) -> 2500149996, 9 (N = 11) -> 2067588810; inputs of 6-9 not recovered (no `complete`)
+- key: N alone separates 3 (4 -> 8), 4 (1 -> 0), 6, 7, 8, 9; the N = 3 group (1, 2, 5) splits on first char of line 2 (`0` -> 8, `2` -> 6, `-` -> 24). V6 > 2^32, V8 > 2^31: 64-bit or string literals
 - perl `sort{$a-$b}` (comparator truncated to 32 bits, wrong when two values differ by >= 2^31, fails local validators 03/12 at +-2^30 corners) passes all 9 hidden validators: CG 100 % on OCaml 102 perl wrapper, 2026-10-22 (probe log). Drop `<=>` for `-` in every perl core of this puzzle
 - probe rows (sub-100 %, to be replaced by real solutions): php 380, lua 375, typescript 475, ruby 161, perl 209
 
