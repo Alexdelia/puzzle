@@ -298,7 +298,7 @@ rank_text() {
 }
 
 latest_gains() {
-	local rows=() row at puzzle lang previous new_length rank tie source puzzle_width=0 cell age label painted_puzzle painted_previous painted_rank wrap_text source_label
+	local rows=() row at puzzle lang previous new_length rank tie top source puzzle_width=0 cell age label painted_puzzle painted_previous painted_top painted_rank wrap_text source_label
 	mapfile -t rows < <(gain_rows)
 	((${#rows[@]})) || return 0
 	for row in "${rows[@]}"; do
@@ -308,7 +308,8 @@ latest_gains() {
 	for row in "${rows[@]}"; do
 		IFS=$'\t' read -r at puzzle lang previous new_length rank tie source <<<"$row"
 		cell=$state/cell/$puzzle/$lang.json
-		[[ ! -s $cell ]] || IFS=$'\t' read -r rank tie < <(jq -r --arg rank "$rank" --arg tie "$tie" '[.rank // $rank, .best_tie_rank // $tie] | @tsv' "$cell")
+		top=-
+		[[ ! -s $cell ]] || IFS=$'\t' read -r rank tie top < <(jq -r --arg rank "$rank" --arg tie "$tie" '[.rank // $rank, .best_tie_rank // $tie, .top // "-"] | @tsv' "$cell")
 		age_text age "$at"
 		paint age "$dim" "$(printf '%-11s' "$age")"
 		lang_label label "$lang"
@@ -321,7 +322,8 @@ latest_gains() {
 			paint wrap_text "$dim" "wrap from"
 			wrap_text="  $wrap_text $source_label $source"
 		fi
-		printf '  %s %s %s  %s -> %-5s  %s%s\n' "$age" "$label" "$painted_puzzle" "$painted_previous" "$new_length" "$painted_rank" "$wrap_text"
+		paint painted_top "$dim" "$(printf 'first %5s' "$top")"
+		printf '  %s %s %s  %s -> %-5s  %s  %s%s\n' "$age" "$label" "$painted_puzzle" "$painted_previous" "$new_length" "$painted_top" "$painted_rank" "$wrap_text"
 	done
 }
 
@@ -844,7 +846,7 @@ if [[ -n $cells ]]; then
 fi
 
 echo
-section "latest gains (previous -> new, current rank)"
+section "latest gains (previous -> new, first length, current rank)"
 latest_gains
 
 echo
