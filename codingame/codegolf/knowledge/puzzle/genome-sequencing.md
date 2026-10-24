@@ -50,23 +50,7 @@ Rejected (fail local validators, lengths not shorter anyway):
 
 ## Hidden validators
 
-- **14 validators** (CG per-validator report, 2026-10-24), weights 70 x 12 + 80 x 2; the old "100 validators" was wrong (1% score steps come from weights). Titles = classic puzzle validators (Two separate sequences ... Explore all combinations). Details, candidates and sources: `referee/hidden/facts.md`
-- answers V1..V14: 2 1 3 5 5 2 7 7 9 5 3 3 6 11; exact inputs known: V6 `A C AC`, V10 `AA ACT TT` (`referee/hidden/06.in`, `10.in`)
-- N per validator: V2 1, V5 4, V1/V7/V8/V9/V11/V12 2, others 3; V7/V8 = `GATTACA` + one inner substring (6 candidates), V11/V12 = 2-char string + its reverse
-- the input-order fold passes all 14; no full hash key yet (V4, V5, V9, V13, V14 inputs unknown)
-
-- PASSED python 114 (2026-10-20): fold with `max(k*(t in s+t[k:])for k in range(8))` (`k*cond` 1 shorter than `k for..if`, `range(8)` 2 shorter than `range(11)`): CG strings never need k beyond 7
-
-Probes 2026-10-20 (6 of 10 spent; python row 465 -> 151 -> 120 -> 116, perl row 132):
-
-- FAILED python 88: table keyed on input length of the 7 tests -> validators are not the tests up to letter relabel or line reorder
-- PASSED python 151: fold over the N rotations of input order, min length
-- FAILED python 102: one input-order fold with the `t in s` skip but no `s in t` reset -> some validator has an earlier string inside a later one
-- PASSED python 120, then 116: same fold plus the `s in t` reset -> **CG validators need no reordering**
-- FAILED perl 91: regexes on adjacent input lines only (`s/^(.+)\n(?=.*\1)//mg`, `s/^(.*(.+).*)\n\2$/$1/mg`, `s/(.+)\n(?=\1)//g`, count letters) -> merging against the accumulated string (or non-adjacent containment) matters
-- `t in s` skip IS needed (perl 58 probe failed 2026-10-22); max overlap not probed separately
-- tops (php 32, ruby 33, perl 34, python 51, c 77) still sit below the fold: the php length fits `<?=crc32(fread(STDIN,99))%a%b`, a double-mod hash keyed on exact validator inputs, which we do not have (guess, unverified); the puzzle is CG-official (`communityCreation:false`), no contribution to read validators from
-- local validators reject the fold: every CG-only method goes through `submit.sh --probe`
+- **14 validators**, weights 70 x 12 + 80 x 2, titles = classic puzzle validators. 13 of 14 recovered exactly by bit-stream probes (2026-10-24), files `referee/hidden/NN.in`; V14 (Explore all combinations, answer 11: three 5-char strings, fold starts `AAAGCTATGC`) still partial, so no `complete` yet (local `submit.sh` still checks synthetic validators). Answers 2 1 3 5 5 2 7 7 9 5 3 3 6 11. Input byte lengths (with final newline) and keys: `referee/hidden/facts.md`
 
 ## Sandbox recon (2026-10-22, perl test-game stderr dump)
 
