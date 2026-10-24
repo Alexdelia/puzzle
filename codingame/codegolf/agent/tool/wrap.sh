@@ -4,7 +4,7 @@ source "$(dirname "$0")/lib.sh"
 trap 'echo "wrap.sh: failed at line $LINENO (exit $?): $BASH_COMMAND" >&2' ERR
 shopt -s nullglob
 
-usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, no referee; --submit: submit.sh the winners (on STOP: no new attempt, posted ones still judged); exit 3: some host deferred (busy cell, submit cap, STOP, generator error, lottery round lost)"
+usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, cached per puzzle, referee only on cores; cores failing the local referee (CG-only exploits) are never wrapped; --submit: submit.sh the winners (on STOP: no new attempt, posted ones still judged); exit 3: some host deferred (busy cell, submit cap, STOP, generator error, lottery round lost)"
 puzzle=${1:?$usage}
 shift
 host_filter=
@@ -27,6 +27,8 @@ mkdir -p "$work/derived"
 local_sets=(--validators)
 [[ -e $root/puzzle/$puzzle/referee/hidden/complete ]] && local_sets=(--hidden)
 deferred=
+wrap_core_check=$state/wrap/core-check.tsv
+wrap_estimate_dir=$state/wrap/estimate
 
 derived_perl_core() {
 	local file=$1 text
@@ -34,17 +36,73 @@ derived_perl_core() {
 	[[ $text != *$'\n'* && $text =~ ^perl((\ -[A-Za-z0-9]+)+)\'([^\']*)\'$ ]] || return 0
 	local derived=$work/derived/$(basename "$(dirname "$file")")-$(basename "$file").pl
 	printf '#!perl%s\n%s' "${BASH_REMATCH[1]}" "${BASH_REMATCH[3]}" >"$derived"
-	printf 'perl\t%s\n' "$derived"
+	printf '%s\n' "$derived"
+}
+
+core_verdict() {
+	local core=$1 file=$2 hash fingerprint verdict output failed_test
+	hash=$(sha256sum <"$file" | cut -c1-64)
+	fingerprint=$(referee_fingerprint "$puzzle" "$core")
+	verdict=$(awk -F'\t' -v hash="$hash" -v fingerprint="$fingerprint" '$1 == hash && $2 == fingerprint { verdict = $5 } END { print verdict }' "$wrap_core_check" 2>/dev/null) || verdict=
+	if [[ -z $verdict ]]; then
+		if output=$("$root/puzzle/$puzzle/referee/run.sh" "$file" --lang "$core" "${local_sets[@]}" 2>&1); then
+			verdict=pass failed_test=
+		elif failed_test=$(grep -m 1 -E '^(test [^ ]* fail |build fail )' <<<"$output"); then
+			verdict=fail
+		else
+			echo "wrap.sh: local referee errored on core ${file#"$root"/}: $(tail -n 1 <<<"$output")" >&2
+			echo error
+			return
+		fi
+		mkdir -p "$(dirname "$wrap_core_check")"
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$hash" "$fingerprint" "$puzzle" "$core" "$verdict" "${file#"$root"/}" \
+			"$(cut -c1-200 <<<"${failed_test//$'\t'/ }")" >>"$wrap_core_check"
+	fi
+	echo "$verdict"
+}
+
+gated_core() {
+	local core=$1 file=$2
+	[[ $(core_verdict "$core" "$file") != pass ]] || printf '%s\t%s\n' "$core" "$file"
 }
 
 cores() {
-	local core file
+	local core file derived
 	for core in $(wrap_cores); do
 		for file in "$root/puzzle/$puzzle/solution/$core"/main.* "$root/puzzle/$puzzle/core/$core"/*; do
-			printf '%s\t%s\n' "$core" "$file"
-			[[ $core != bash ]] || derived_perl_core "$file"
+			gated_core "$core" "$file"
+			[[ $core == bash ]] || continue
+			derived=$(derived_perl_core "$file")
+			[[ -z $derived ]] || gated_core perl "$derived"
 		done
 	done
+}
+
+puzzle_rows() {
+	local file=$1 column=$2
+	[[ -s $file ]] || return 0
+	awk -F'\t' -v puzzle="$puzzle" -v column="$column" '$column == puzzle' "$file"
+}
+
+estimate_key() {
+	local core file
+	local -a statuses=("$state/cell/$puzzle"/*.json)
+	{
+		sha256sum "$tool_dir/wrap.sh" "$tool_dir/count.sh"
+		git -C "$root" ls-files -co --exclude-standard -- agent/wrap | sort | while IFS= read -r file; do
+			printf '%s %s\n' "$file" "$(sha256sum <"$root/$file" | cut -c1-64)"
+		done
+		printf 'kind %s host %s\n' "$kind" "$host_filter"
+		while IFS=$'\t' read -r core file; do
+			printf 'core %s %s\n' "$core" "$(sha256sum <"$file" | cut -c1-64)"
+		done <"$work/cores"
+		referee_fingerprint "$puzzle" ""
+		if ((${#statuses[@]})); then
+			jq -r '"\(input_filename | sub(".*/"; "")) \(.ours // "-")"' "${statuses[@]}"
+		fi
+		puzzle_rows "$wrap_rejected" 2
+		puzzle_rows "$wrap_local_fail" 3
+	} | sha256sum | cut -c1-64
 }
 
 available() {
@@ -254,6 +312,15 @@ if [[ $mode == submit ]]; then
 	[[ -z $deferred ]] || exit 3
 	exit 0
 fi
+if [[ $mode == estimate ]]; then
+	estimate_key=$(estimate_key)
+	estimate_cache=$wrap_estimate_dir/$puzzle.tsv
+	if [[ $(head -n 1 "$estimate_cache" 2>/dev/null) == "key $estimate_key" ]]; then
+		tail -n +2 "$estimate_cache"
+		exit 0
+	fi
+	: >"$work/estimate.tsv"
+fi
 for host_dir in "$wrap_root"/*/; do
 	host=$(basename "$host_dir")
 	[[ -f $host_dir/available.tsv && ( -z $host_filter || $host == "$host_filter" ) ]] || continue
@@ -269,7 +336,7 @@ for host_dir in "$wrap_root"/*/; do
 	if [[ $mode == estimate ]]; then
 		best=-
 		((${#sorted[@]})) && best=${sorted[0]%%$'\t'*}
-		printf '%s\t%s\t%s\n' "$host" "${ours:--}" "$best"
+		printf '%s\t%s\t%s\n' "$host" "${ours:--}" "$best" >>"$work/estimate.tsv"
 		continue
 	fi
 	winner=-
@@ -285,4 +352,10 @@ for host_dir in "$wrap_root"/*/; do
 	done
 	printf '%s\t%s\t%s\n' "$host" "${ours:--}" "$winner"
 done
+if [[ $mode == estimate ]]; then
+	mkdir -p "$wrap_estimate_dir"
+	{ echo "key $estimate_key" && cat "$work/estimate.tsv"; } >"$work/estimate.cached"
+	mv "$work/estimate.cached" "$estimate_cache"
+	cat "$work/estimate.tsv"
+fi
 [[ -z $deferred ]] || exit 3
