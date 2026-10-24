@@ -206,9 +206,27 @@ opencode_result() {
 	' "$1"
 }
 
-opencode_fatal_error() {
-	jq -r 'select(.type == "error" and .error.data.isRetryable == false and (.error.data.statusCode | IN(401, 402, 403)))
+opencode_error_with_status() {
+	jq -r --argjson codes "[$2]" 'select(.type == "error" and .error.data.isRetryable == false and (.error.data.statusCode | IN($codes[])))
 		| "\(.error.data.statusCode) \(.error.data.message)"' "$1" 2>/dev/null | tail -n 1 | grep .
+}
+
+opencode_out_of_credit() {
+	opencode_error_with_status "$1" 402
+}
+
+opencode_fatal_error() {
+	opencode_error_with_status "$1" 401,402,403
+}
+
+opencode_fallback_file=$state/opencode_fallback
+
+opencode_task_model() {
+	if [[ -e $opencode_fallback_file ]]; then
+		echo "$opencode_free_model"
+	else
+		echo "$opencode_model"
+	fi
 }
 
 services_query() {

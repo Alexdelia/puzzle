@@ -97,7 +97,7 @@ claim() {
 	read -r kind puzzle lang < <(jq -r '[.kind, .puzzle, .lang] | @tsv' "$running")
 	status_path=$(ensure_status "$kind" "$puzzle" "$lang")
 	if [[ $backend == opencode ]]; then
-		task_model=$opencode_model task_effort=$opencode_effort
+		task_model=$(opencode_task_model) task_effort=$opencode_effort
 	elif [[ -z ${CG_BEST_MODEL:-} && $kind == cell ]] && (($(jq '.plateau_count // 0' "$status_path") < cell_escalate_after_plateaus)); then
 		task_model=$cell_model task_effort=$cell_effort
 	fi

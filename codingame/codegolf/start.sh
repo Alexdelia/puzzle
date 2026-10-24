@@ -49,7 +49,7 @@ if ((alive)); then
 	echo "start.sh: $alive worker loops still alive (a soft stop lets them finish their task first): wait for them to exit, or ./stop.sh --now" >&2
 	exit 1
 fi
-rm -f "$state/STOP"
+rm -f "$state/STOP" "$opencode_fallback_file"
 commit_time_log
 [[ -n $(ls "$state"/lang/*.json 2>/dev/null) ]] || agent/tool/rebuild.sh
 for running in "$state"/running/*.json; do

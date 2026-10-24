@@ -1,6 +1,7 @@
 workers=8
-backend=claude
+backend=opencode
 opencode_model=deepseek/deepseek-flash
+opencode_free_model=opencode/deepseek-v4.1-flash-free
 opencode_effort=max
 model=claude-opus-5-5
 effort=high

@@ -16,6 +16,23 @@ log() {
 	echo "$(now) worker $worker: $*"
 }
 
+run_agent() {
+	local agent
+	case $task_backend in
+	opencode)
+		agent=(opencode run --model "$task_model" --variant "$task_effort" --title "$id" --format json --auto "$(<"$output.prompt")")
+		;;
+	*)
+		agent=(claude -p "$(<"$output.prompt")" --model "$task_model" --effort "$task_effort"
+			--output-format stream-json --verbose --permission-mode auto --max-budget-usd "$task_budget_usd")
+		;;
+	esac
+	CG_TASK_ID=$id OPENCODE_ENABLE_EXA=1 command time -f '%e %U %S' -o "$output.time" \
+		timeout --kill-after=60 "$task_wall_seconds" \
+		systemd-run --user --scope --quiet --slice=codegolf.slice -p MemoryMax="$task_memory_max" \
+		direnv exec "$root" "${agent[@]}" >"$output.jsonl" 2>"$output.err" </dev/null
+}
+
 cd "$root"
 worker_pid=$BASHPID
 waiting=
@@ -61,20 +78,17 @@ while [[ ! -e $state/STOP ]]; do
 	log "start $id backend=$task_backend model=$task_model effort=$task_effort"
 	output=$state/worker/$id
 	"$tool_dir/prompt.sh" "$running" >"$output.prompt"
-	case $task_backend in
-	opencode)
-		agent=(opencode run --model "$task_model" --variant "$task_effort" --title "$id" --format json --auto "$(<"$output.prompt")")
-		;;
-	*)
-		agent=(claude -p "$(<"$output.prompt")" --model "$task_model" --effort "$task_effort"
-			--output-format stream-json --verbose --permission-mode auto --max-budget-usd "$task_budget_usd")
-		;;
-	esac
-	CG_TASK_ID=$id OPENCODE_ENABLE_EXA=1 command time -f '%e %U %S' -o "$output.time" \
-		timeout --kill-after=60 "$task_wall_seconds" \
-		systemd-run --user --scope --quiet --slice=codegolf.slice -p MemoryMax="$task_memory_max" \
-		direnv exec "$root" "${agent[@]}" >"$output.jsonl" 2>"$output.err" </dev/null
+	run_agent
 	code=$?
+	if [[ $task_backend == opencode && $task_model != "$opencode_free_model" ]] && credit=$(opencode_out_of_credit "$output.jsonl"); then
+		touch "$opencode_fallback_file"
+		event "opencode $task_model out of credit ($credit): $id reruns on $opencode_free_model, every later task too until ./start.sh"
+		log "out of credit on $task_model, rerun on $opencode_free_model"
+		task_model=$opencode_free_model
+		json_update "$running" --arg model "$task_model" '.model = $model'
+		run_agent
+		code=$?
+	fi
 	if [[ $task_backend == opencode ]]; then
 		opencode_result "$output.jsonl" >"$output.json"
 		if fatal=$(opencode_fatal_error "$output.jsonl"); then
