@@ -9,7 +9,7 @@ pretty_id `shadows-of-the-knight-episode-1`, leaderboard `shadows-of-the-knight-
 - win: Batman on bomb window after the jump (checked before the jump count: winning on jump N is a win)
 - lose: N jumps used, not on bomb ("you are too late"); x or y out of `0..W` / `0..H` ("invalid input. Expected '0 <= x < 4'")
 - jumping to the current window is allowed, costs a jump
-- bomb fixed during a game, never printed by CG logs (only read off the win frame); same bomb in every log seen, no evasive behavior despite test names "Evasive", "Not there?"
+- bomb never printed by CG logs (only read off the win frame). Tests 1-5 / validators 1-5: fixed bomb, a direct jump to it wins. Tests 6 "Evasive", 7 "Not there?" and validators 6, 7: EVASIVE, the bomb moves when Batman lands on it before the replies pin it down (CG test games 2026-10-24: first jump straight to the test 6 bomb (0,1) got "below and to the right", test 7 (9753,2531) got "below and to the left"; every direct jump on V6/V7 failed). A hardcoded jump cannot pass 6/7, a real search can. The local referee has fixed bombs on 6/7, so it cannot catch this
 - tests: 4x8 N40, 25x33 N49, 40x60 N32, 1x80 N6, 50x50 N6, 100x100 N7, 9999x9999 N14. Tests 4-7 need near-optimal bisection (binary search with `(lo+hi)//2` uses exactly N on 4-7)
 
 ## Output format (probed on CG 2026-10-19)
@@ -78,7 +78,7 @@ python (2026-10-20): 120 submitted and CG-validated (#5, top 114): `import os;os
 
 ## Hidden validators
 
-7 validators = IDE tests with sizes nudged and start/bomb flipped, translated or swapped (2026-10-24, per-validator report probes b1-b41). V1-V5 exact in `referee/hidden/01.json`..`05.json`. Bombs keyed on `W` (separates all 7): 4 -> 3 8, 25 -> 0 1, 40 -> 6 6, 1 -> 0 42, 50 -> 27 27 (confirmed by direct jump), 101 -> one of 6 cells on the bisection path to (0,1) (not (0,1)), 9998 -> 9741 2474 (deduced, unconfirmed). V6 start (5,99) N7; V7 9998x9998 N14, start unknown, so no `complete`. Validator sizes: 4x9, 25x33, 40x61, 1x79, 50x50, 101x101, 9998x9998; V2 and V5 share W and H with tests 2 and 5, so a bomb hardcode cannot pass the IDE tests too without a start key. Details and sources: `puzzle/shadows-of-the-knight-episode-1/referee/hidden/facts.md`.
+7 validators = IDE tests with sizes nudged and start/bomb flipped, translated or swapped (2026-10-24, per-validator report probes b1-b46). V1-V6 in `referee/hidden/01.json`..`06.json`. Key `W` separates all 7. Bombs verified by direct jump: 4 -> 3 8, 25 -> 0 1, 40 -> 6 6, 1 -> 0 42, 50 -> 27 27. W 101 (V6) and 9998 (V7) are evasive (see Rules): no hardcode possible, fall back to bisection. `06.json` holds (0,1), the cell where an honest bisection wins. V7 9998x9998 N14, start unknown, so no `complete`. V2 and V5 share W and H with tests 2 and 5, so a bomb hardcode keyed on W fails those IDE tests locally. Details and sources: `puzzle/shadows-of-the-knight-episode-1/referee/hidden/facts.md`.
 
 javascript (2026-10-20): 153 submitted (#20, top 114): `for(readline(readline(readline([L,U]=readline().split` `))),U*=M=2e4,R=D=0;;){print(x=(+L+R)%M>>1,y=(D+U)/M>>1);p=x+y*M;for(c of readline())eval(c+"=p")}` (packed p variant; nested `readline(readline(...))` evaluates args first, skips lines inside for-init). `+L` needed (L still a string). 4-slot `charCodeAt()%5` array variant 169. Child_process wrapper overhead >50: no.
 
