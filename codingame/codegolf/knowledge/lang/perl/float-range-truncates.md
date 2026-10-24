@@ -9,3 +9,4 @@ Verified 2026-10-24 with CG Perl 5.34 (`join",",...`):
 - `4..2.5` -> empty (so `$#a/2..$#a` works as `int($#a/2)..$#a`, no `int`)
 
 Useful for slice half-splits like `@a[0..$#a/2]` without `int`.
+- integer ranges only ascend: `7..0` is an empty list, `7,6,5,4,3,2,1,0`/`reverse 0..7` are needed for descending order (verified CG Perl 5.34)

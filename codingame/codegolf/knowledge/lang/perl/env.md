@@ -10,3 +10,4 @@ Verified 2026-10-19 with test games on chuck-norris (stderr probe):
 - `@INC` differs (CG `/etc/perl /usr/share/perl5 ...`, local nix store + `PERL5LIB` set by the withPackages wrapper): `$ENV{PERL5LIB}` exists locally only
 - stderr shows in test-games `output` but is not judged
 - local launcher startup ~8 ms (wrapper script around perl)
+- raw NUL in source is whitespace/ignored between tokens on CG perl 5.34 (`print 1\0+2` -> 3, `my\0$x` -> 1, trailing/leading NUL ok; `q\0ab\0` uses NUL as quote delimiter), verified locally with `$CG_PERL`. CG strips NULs on submit, so this never saves bytes: the stored (stripped) program must stand alone; probe auto-commit compares the CG row length with the LOCAL `count.sh` length, so padding cannot fake a gain either.
