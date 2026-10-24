@@ -105,3 +105,18 @@ perl (2026-10-24, run 3): 92 re-verified 16/16 + 13/13 `--hidden`. Leaderboard: 
 ocaml (2026-10-22): 104 submitted, CG #1 (top 105). Bare toplevel `Sys.command"bash -c '<core>'"` (wrapper 23, no `let _=`). Core 81, local 16/16 and CG 100%: two savings over the 87 core, valid for every wrapper and for bash itself:
 - `sed Q` instead of `sed 3q>&2` (-4): GNU sed `Q` quits without printing, but its buffered read has already swallowed the whole chunk in the pipe (lines 2-4). Relies on lines 2-4 being in the pipe when sed starts (true locally and on CG)
 - `let $c=${c,}||echo` instead of `(($c=${c,},1))||echo` (-3): `let` saves 2, and dropping `,1` (an assigned midpoint of 0 also triggers an extra echo) still passes 16/16 local and CG. Keep `,1` (+2) if a cell fails on it
+
+perl (2026-10-24, run 5): 92 -> 91, submitted and CG-confirmed (#6, tie #5):
+`#!perl -alp` + `$|||=(<>,<>,<>,($L,$U)=@F);$$_=$m[/U|D/]for/\D/g;@m=($R+$L>>1,$D+$U>>1);$_="@m"`.
+The `-alp` loop's first iteration is line 1 (W H): header reads lines 2-4 with `<>`
+inside a `$|||=` run-once parenthesised comma list, then prints the centre; the loop's
+next read is dir2, so dir1 is ignored (same method as the native 92). `$|||` needs the
+list assignment last, otherwise `$|` gets the dir1 string (numeric 0, no flush).
+Trap: `$|||=<>,<>,<>,($L,$U)=@F` without outer parens deparses as
+`$| ||= (...) , readline, readline, readline` -> reads every turn, deadlocks on CG.
+Hardcode/evasion note: the honest CG-passing bisection wins V6 at jump 7 with box
+x[0,1] y[0,3] and V7 at jump 14 with box x[9740,9743] y[2472,2474] (local simulation),
+so the "box must be a single cell" rationale for evasion is wrong; the honest hit is
+the first hit of the bomb. V7 A=(9741,2473) path and B=(9741,2474) path share jumps 1-11, so a
+blind sequence cannot pin both by jump 14. A W-keyed hardcode needs 6 bomb entries +
+14/7-jump paths (>= ~45 packed bytes + decoder), cannot reach 81.
