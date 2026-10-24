@@ -88,3 +88,4 @@
 - [e-subst-brace-delimiter](e-subst-brace-delimiter.md): `s{PAT}{CODE}ge` costs the same as `s/PAT/CODE/ge` and lets unescaped inner `//` (`s/O//`, `split//`) parse in the replacement; verified
 - [array-subst-delete-mark](array-subst-delete-mark.md): `$a[$i]=~s/O//` = test-and-mark an array cell in 13 B (vs 20 B 4-arg substr), no pad needed; 1M-char `split//` per query too slow for 300-query validators, verified
 - [div-field-selector](div-field-selector.md): `A+B/field|0` truncates the sum, so a field that is 1 vs large selects between two hardcoded answers in 15 B, verified on CG
+- [alp-implicit-loop-golf](alp-implicit-loop-golf.md): perl honors `#!perl -alp` when run as `perl main.pl`; `if!$|` 5 B first-line gate, `$_=""` = 0 output with -p (blank line with -l), `$$_` on digits dies (use `/\D/g`), `glob` gobbles commas, verified locally
