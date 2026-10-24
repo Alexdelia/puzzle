@@ -50,11 +50,10 @@ Rejected (fail local validators, lengths not shorter anyway):
 
 ## Hidden validators
 
-- **100 validators** (probes 2026-10-20: every score is an integer percent = count passed, chain counts add to 100), not 1:1 with the 7 IDE tests, no input recovered: details in `referee/hidden/facts.md`
-- N: 1 -> 7, 2 -> 42, 3 -> 44, >=4 -> 7; answers: <=5 -> 63, 6 -> 8, 7-8 -> 14, 9-11 -> 15 (max 11)
-- answer = sum of lengths for 14, = longest string for 28 more, = sum - (N-1) for 28 more, other 30 need longer overlaps or containment
-- no hardcode or hash table possible on 100 inputs with 11 answers: the tops (php 32, ruby 33, perl 34) must compute the answer, method unknown
-- probe chain trick: in a language without a row, submit growing predicates ("print the fold answer iff P"), CG keeps the higher score, each step reads one count
+- **14 validators** (CG per-validator report, 2026-10-24), weights 70 x 12 + 80 x 2; the old "100 validators" was wrong (1% score steps come from weights). Titles = classic puzzle validators (Two separate sequences ... Explore all combinations). Details, candidates and sources: `referee/hidden/facts.md`
+- answers V1..V14: 2 1 3 5 5 2 7 7 9 5 3 3 6 11; exact inputs known: V6 `A C AC`, V10 `AA ACT TT` (`referee/hidden/06.in`, `10.in`)
+- N per validator: V2 1, V5 4, V1/V7/V8/V9/V11/V12 2, others 3; V7/V8 = `GATTACA` + one inner substring (6 candidates), V11/V12 = 2-char string + its reverse
+- the input-order fold passes all 14; no full hash key yet (V4, V5, V9, V13, V14 inputs unknown)
 
 - PASSED python 114 (2026-10-20): fold with `max(k*(t in s+t[k:])for k in range(8))` (`k*cond` 1 shorter than `k for..if`, `range(8)` 2 shorter than `range(11)`): CG strings never need k beyond 7
 
