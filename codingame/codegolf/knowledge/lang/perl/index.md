@@ -97,3 +97,4 @@
 - [prematch-store](prematch-store.md): `$`` of a 4 B `/ /;` as a free per-turn store under `-n` (reset under `-p`); `$|=print"X"x(...)` flush+print, bareword `S` after print is a filehandle, verified on CG (power-of-thor perl 59 -> 56)
 - [y-count-identity](y-count-identity.md): `y/C//` with empty replacement list = identity translation returning the count (8 B count test, no side effect); `//d` deletes unpaired chars, verified on CG perl 5.34
 - [double-quote-escapes](double-quote-escapes.md): regex in `"..."` drops the backslash of `\H`/`\d`/`\w`/`\s`; keep them single-quoted or double the backslash; `\n` in `"..."` is a 1 B literal newline usable in patterns/y, verified on CG perl 5.34
+- [print-to-say](print-to-say.md): `perl -E` + bare `say` prints `$_` in 3 B vs `print` 5: -2 B for any wrapper embedding a perl `-e` core whose last statement prints `$_`; not for `main.pl` (no -E); verified on CG (roller-coaster ruby 120->118)
