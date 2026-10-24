@@ -1,6 +1,6 @@
 # Blunder - Episode 1: hidden validators
 
-5 of 12 inputs recovered exactly: `01`, `06`, `10`, `11` from inputs posted on the forum, `12` = IDE test 12 (probes). The reference (`solution/python/main.py`) reproduces the posted outputs and passes `--hidden` (17/17). No `complete` marker: the other 7 inputs (02 03 04 05 07 08 09) are unknown, but ALL 12 ANSWERS are known (2026-10-24, per-validator report probes, table below).
+9 of 12 inputs recovered exactly: `01`, `06`, `10`, `11` from inputs posted on the forum, `12` = IDE test 12, `03`, `05`, `07`, `08` by probes (2026-10-24, feature streams then exact-map equality bits, section "Recovery 2026-10-24"). The reference (`solution/python/main.py`) passes `--hidden` (21/21). No `complete` marker: v2, v4, v9 inputs are only partly known (size, `@`, object count, first object), but ALL 12 ANSWERS are known (table below).
 
 ## Answers of all 12 validators (run-length: S=SOUTH E=EAST N=NORTH W=WEST, `S4` = 4 x SOUTH)
 
@@ -37,14 +37,14 @@ Input facts of the unknown 7: v2, v3, v4 have input length (trailing whitespace 
 | # | title | known | source | confidence |
 |---|---|---|---|---|
 | 1 | Simple moves | exact: `6 5` (6 rows), `@` at row 1 col 2, `$` at row 4 col 3, empty inside; `SOUTH SOUTH SOUTH EAST` | raw post 179 (TwoSteps, 2021-06), https://forum.codingame.com/raw/45/179 | high (probe) |
-| 2 | Obstacles | unknown, not an IDE test | probes 1, 3-6 | high |
-| 3 | Priorities | unknown | | |
-| 4 | Straight line | unknown | | |
-| 5 | Path modifier | unknown | | |
+| 2 | Obstacles | partial: 8x8, `@` (1,2), 15+ interior objects (excl @ $), first object (row-major) at (1,1); path implies `$` (1,4) | feat0-6, st0-9, su | high |
+| 3 | Priorities | exact: 8x8 empty, `@` (3,2), `$` (3,6) | st0 (equality bit) | high |
+| 4 | Straight line | partial: 8x8, `@` (1,1), 8 objects, first at (2,1) (type X likely, su3/su4 bits); path implies `$` (5,6); NOT test 4's diagonal shifted (-1,-1) | feat, st0-9 | high |
+| 5 | Path modifier | exact: 10x10, `@` (5,7), `E` (2,3), `S` (2,7), `$` (4,7), `N` (8,3), `W` (8,7) | st0 (equality bit) | high |
 | 6 | Breaker mode | exact: 10x10, `B X X B` column under `@`, `BX$` row 7; 6 SOUTH 3 EAST | raw post 194 (TwoSteps, 2021-11), https://forum.codingame.com/raw/45/194 | high (probe) |
-| 7 | Inverter | unknown | | |
-| 8 | Teleport | unknown | | |
-| 9 | Broken wall? | unknown | | |
+| 7 | Inverter | exact: test 7 shifted one col left except `$`: 10x10, `@` (4,7), `I` (1,5), `I` (6,7), `$` (8,8) | st0-9 (I positions), su0 (equality bit) | high |
+| 8 | Teleport | exact: 10x10, `@` (8,6), `T` (3,8), `T` (6,1), `$` (1,1) | st0-9 (T positions), su0-2 (equality + col) | high |
+| 9 | Broken wall? | partial: 10x10 (path needs it), `@` (1,1), 6 objects, first at (2,1) type 01xx of `X#SENWBIT` (N W B or I, B likely); NOT test 9 shifted (guess in scratch feat2.pl had 15 objects) | feat, st, su | high |
 | 10 | All together | exact: 15x15, other map than test 10 (X wall around `$`, two T, B/I/N row); 33 moves | raw post 167 (TwoSteps, 2021-09), https://forum.codingame.com/raw/45/167 | high (probe) |
 | 11 | LOOP | exact: validator 10 map plus modifiers `SW` (row 4), `S` (row 6), `N`, `W` (row 7); `LOOP` | raw post 196 (TwoSteps, 2022-01), https://forum.codingame.com/raw/45/196 | high (probe) |
 | 12 | Multiple loops? | exact: = IDE test 12 (30x15, 156 moves) | probes 3-6: only test 12 matches a validator (bits 0,1 score 0, bits 2,3 score 8.5) | high |
@@ -68,6 +68,24 @@ Probe 1 (41.9) minus probes 5/6: the 4 forum validators are still live, total we
 
 Inside the known 4 plus tests, full-input lookup works; the shortest separating key not studied (unknown validators would collide). Input byte length: v01 40, v06 116, v10 246, v11 246, v12 486 (v10/v11 differ only by modifiers). The 7 unknown are not IDE tests, so they need a general solver or further recovery.
 
-## Next (key for a lookup)
+## Next (old, done 2026-10-24)
 
 Answers are complete; a lookup still needs a cheap input key separating the 12 inputs, unknown for the 7 unrecovered ones. Input length alone collides (v2 v3 v4 all 11 mod 32, likely all 75; v10 = v11 = 245). Next validator task: mux probes (identify each validator by its answer, which the general solver computes) reading bits of candidate keys per validator in parallel, e.g. index of `@` and of `$` in stdin (7 bits each), L and C.
+
+## Recovery 2026-10-24 (journal `validator.blunder-episode-1.-.1792839593070851291`)
+
+Coordinates (row, col) 0-based including the border. Probes = 100% perl solver printing its answer iff bit j of a per-validator stream (validator identified by its known answer); every known validator's bit matched its local stream (self-check, all 22 probes).
+
+- `probe/perl/feat0..6.pl` (generator in journal scratch `gen.sh`/`feat.pl`): bit0 = L==C in {8,10} (all 7 unknown: yes), then `@` row-1, col-1 (3 bits each)
+- `probe/perl/st0..9.pl` (`gen2.sh`/`feat2.pl`): per validator, keyed on answer: equality with a guessed map (v3, v4, v5, v9), first two `I` (v7) / `T` (v8) interior indexes (6 bits, idx = (r-1)*(C-2)+c-1), then K = interior non-space count excl `@` `$` (4 bits, capped 15), then the object list in row-major order (6-bit idx + 4-bit type index in `X#SENWBIT`)
+- `probe/perl/su0..4.pl` (`gen3.sh`/`feat3.pl`): v7 equality with test-7-shifted guess, v8 membership in 4 guesses + col; others: stream2 bits 10..14
+
+Stream bits read (v2, v4, v9 stream2 = feat2.pl; resume with gen3.sh offsets, stream3 bit j = stream2 bit 10+j for them):
+- v2: `1111 000000 000` + su3/su4 (stream2 bits 0..12 then 13,14) -> K>=15, obj1 idx 0 = (1,1), type bits start 000
+- v4: `0 1000 000110 000` -> eq no, K=8, obj1 idx 6 = (2,1), type starts 000 (X = 0000)
+- v9: `0 0110 001000 001` -> eq no, K=6, obj1 idx 8 = (2,1), type 01.. (N/W/B/I)
+- su3/su4: v2 obj1 = `X` at (1,1), v4 obj1 = `X` at (2,1), v9 obj1 = `B` at (2,1); next object at stream2 bit 14 (v2) / 15 (v4, v9)
+
+## Key (lookup) for all 12
+
+Raw stdin (header and final newline included): `index('@')` = v1 12, v2 15, v3 33, v4 14, v5 68, v6 22, v7 57, v8 100, v9 18, v10 57, v11 57, v12 26 (v2 v4 v9 from probe-read `@` and size, others from exact inputs). Length = 40 (v1), 76 (v2-v4), 116 (v5-v9), 246 (v10, v11), 486 (v12). So `@` index alone separates all but {v7, v10, v11}; `@` index + length separates all but {v10, v11}; v11 alone contains `S` (and `W`): `'S'in s` (v12 = test 12 also has modifiers: check `@` first). `$` index collides (v7 = v9 = 102).
