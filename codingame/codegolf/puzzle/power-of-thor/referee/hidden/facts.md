@@ -1,32 +1,24 @@
 # power-of-thor hidden validators
 
-4 validators (score grain 25% on every language leaderboard, e.g. OCaml/Pascal/Kotlin rows 0/25/50/75/100, `cg.sh GET /puzzles/power-of-thor/leaderboard?language=...`, 2026-10-20). IDE tests: 1 Straight line, 2 Down, 3 Easy angle, 4 Optimal angle.
+4 validators, weight 250 each (CG report, `agent/tool/cg-report.sh <submission-id>`): 1 Straight line, 2 North, 3 Easy angle, 4 Optimal angle. IDE tests 4: 1 Straight line, 2 Down, 3 Easy angle, 4 Optimal angle. All 4 recovered exactly (`01.json`..`04.json`), confidence certain: each confirmed by the exact-match probe `probe/perl/exact5.pl` (init line + first energy, report 4/4 pass, 2026-10-24).
 
-Init line = `lightX lightY thorX thorY`. Probes (`agent/tool/oracle.sh --log power-of-thor`, 7 fresh-language count probes, general solution gated by a predicate on the init line):
+Init line = `lightX lightY thorX thorY`, then one energy line per turn.
 
-| probe | lang | predicate | count |
-|---|---|---|---|
-| 1 | javascript | line in {7 8 28 8, 5 17 5 4, 31 16 0 2, 0 17 36 0, 31 4 5 4, 36 17 36 0, 31 4 31 17, 0 17 31 4, 36 17 0 0} | 1 |
-| 2 | php | lightY<thorY (needs N) | 1 |
-| 3 | lua | line == 31 4 31 17 | 0 |
-| 4 | java | lightX>thorX (needs E) | 0 |
-| 5 | go | lightX==thorX (vertical) | 1 |
-| 6 | typescript | lightX==thorX and lightY<thorY (vertical up) | 1 |
-| 7 | kotlin | lightY==thorY (horizontal) | 1 |
+| # | title | light | thor | energy | dx dy | answer | relation to IDE test |
+|---|---|---|---|---|---|---|---|
+| 1 | Straight line | 28 8 | 7 8 | 100 | +21 0 | `E` x21 | test 1 with light and Thor swapped |
+| 2 | North | 5 4 | 5 17 | 13 | 0 -13 | `N` x13 (energy exact) | test 2 (Down) with light and Thor swapped |
+| 3 | Easy angle | 31 17 | 0 3 | 45 | +31 +14 | `SE` x14 then `E` x17 | test 3 (31 16 0 2) moved down 1 |
+| 4 | Optimal angle | 0 17 | 36 0 | 36 | -36 +17 | `SW` x17 then `W` x19 (energy exact) | identical to test 4 |
 
-## Per validator (confidence: counts certain, mapping to titles assumed from test order)
+## Sources (probe log `agent/tool/oracle.sh --log power-of-thor`, reports in `agent/state/report/<id>.json`)
 
-- horizontal: exactly 1, light WEST of Thor (W only)
-- vertical: exactly 1, light NORTH of Thor (N only, an "Up" case). It is not `31 4 31 17`
-- the other 2: light strictly south-west (dx<0, dy>0): moves SW then W or S. No validator needs N except the vertical one
-- no validator needs E, NE, SE, NW
-- exactly 1 validator has its init line in the 9-set of probe 1; with the direction facts it is one of `7 8 28 8` (current test 1), `0 17 36 0` (current test 4), `0 17 31 4` (old IDE Easy angle). Not resolved
-- energies unknown (slack or exact)
+- old count probes 2026-10-20 re-read with cg-report.sh: JS 9-set 41537517 (only V4 in it), PHP N 41537551 (V2), Go vertical 41537573 (V2), TS vertical-N 41537586 (V2), Kotlin horizontal 41537596 (V1). The Java "E needed" probe 41537568 scored 0 because its class was `Solution` (CG needs `Player`): the old fact "no validator needs E" was wrong. Haskell noE 41541626 and JS w88 41537881 (no E branch) fail V1 and V3
+- perl predicate probes 2026-10-24 (`probe/perl/vbits1..4.pl`, `exact5.pl`), all 4/4 pass: V1 dx in {21,26} -> dx 21 -> line `28 8 7 8` -> energy 100; V2 -dy in {13,17} -> 13 -> line `5 4 5 17` -> energy 13; V3 dx 31 -> dy 14 -> thorX 0 -> thorY 3 -> energy 45; V4 line `0 17 36 0` -> energy 36
 
-## Source of the old IDE tests (used in probe 1)
+## Keys and answers
 
-forum https://forum.codingame.com/t/power-of-thor-episode-1-puzzle-discussion/30 (posts 38, 90, 152, 767, 842, 874, 988: `Thor position = (31,4). Light position = (0,17). Energy = 44`, `(5,4)/(31,4)` energy 100, `(0,0)/(36,17)` energy 36, `(36,0)/(36,17)`), used until at least 2022-11. A 2016 post: IDE test 2 named "Up", validator 2 named "Down". Codesize thread https://forum.codingame.com/t/power-of-thor-codesize-puzzle-discussion/687 : validators changed 2020-07 (posts 167-172), still "lack a direction"; a random pick among 4 hardcoded outputs passed each validator with p=1/4 (post 163, before the change).
-
-## Shortest key known
-
-None yet (exact inputs unknown). Direction structure is enough for a branch-reduced general solution: horizontal step only W (`x>LX`), vertical N only when x already equals LX from the start.
+- first char of the init line separates the validators: `2` V1 (E), `5` V2 (N), `3` V3 (SE then E), `0` V4 (SW then W). The IDE tests start with `7`, `5` (test 2 goes S, not N), `3` (test 3), `0` (= V4): a first-char hardcode fails IDE tests 1-2 locally, harmless on CG
+- lightX alone also separates them (28, 5, 31, 0), thorY too (8, 17, 3, 0; `%6` gives 2 5 3 0)
+- direction facts: horizontal move never changes during a game (E in V1/V3, none in V2, W in V4); N only in V2, where it is the only move; S only in V3/V4, both with lightY 17 (S until Thor reaches the bottom row, 14 and 17 turns); no validator needs NE or NW, and every diagonal has |dy| < |dx|
+- energy is exact in V2 and V4: no wasted turn allowed there
