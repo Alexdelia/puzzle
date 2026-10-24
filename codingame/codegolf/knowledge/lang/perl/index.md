@@ -87,3 +87,4 @@
 - [bitwise-or-negative](bitwise-or-negative.md): `EXPR|0` truncates only non-negative floats; a negative gives 2^64-n (invalid answer), use `int`/`printf %d`, verified on CG referee
 - [e-subst-brace-delimiter](e-subst-brace-delimiter.md): `s{PAT}{CODE}ge` costs the same as `s/PAT/CODE/ge` and lets unescaped inner `//` (`s/O//`, `split//`) parse in the replacement; verified
 - [array-subst-delete-mark](array-subst-delete-mark.md): `$a[$i]=~s/O//` = test-and-mark an array cell in 13 B (vs 20 B 4-arg substr), no pad needed; 1M-char `split//` per query too slow for 300-query validators, verified
+- [div-field-selector](div-field-selector.md): `A+B/field|0` truncates the sum, so a field that is 1 vs large selects between two hardcoded answers in 15 B, verified on CG
