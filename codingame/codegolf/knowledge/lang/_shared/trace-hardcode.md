@@ -12,3 +12,5 @@ How to build one:
 Verified instances: the-fall-episode-2 perl 187 rank 1 (2026-10-24, 7 hidden, rotations printed from turn 1 then WAIT, submission 41559199); the-fall-episode-3 perl 137 (hardcode keyed on H%5, printable packed cells, direction from the index).
 
 Transport fact (same submit, verified 2026-10-24): raw ASCII control bytes 0x0F..0x1F inside a perl single-quoted literal reached CG intact (source committed and row 187 at 100%). NUL bytes are stripped on submit (CLAUDE.md quirk); bytes 1..127 other than NUL are safe, bytes >= 128 are NOT valid single-byte UTF-8 and unverified.
+
+More verified instances: the-fall-episode-2 ruby 174 (submission 41559893, 2026-10-24, rank 1) packs the same 7 packed traces in a `%w{}` literal, key `gets.sum%13/2` (contiguous 0..6), line `i=0;%w{...}[gets.sum%13/2].each_byte{|v|puts"...";i+=1}`; raw control bytes inside `%w{}` survive CG too (see `knowledge/lang/ruby/percent-w-packed-chunks.md`).
