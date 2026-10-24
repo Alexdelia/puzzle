@@ -203,3 +203,22 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - Rejected in a correct single-thread sim validated against the referee (A lands turn 170 with `int(sin($./2)*-42)` exactly as the referee): X/D-C with D -1000..1000 step .5, C -150..150, P 2..4: ZERO A landers (completes the php x1.c partial); pure-time K*sin|cos(t/D) (K +-90, D 1..2500): 2 A landers, 0 B; time ramp t/D-C; zero-lag X%M-C, C-X%M (M 2..999, C +-99), cos(X/D)*K; line length-C, ord(line)-C, length/ord modulo families; fuel-field families F/D-C, F/D*K-C, F%M-C, (F/D)%M-C, F/D+-X/D-C (fuel gives A/B a 50-turn schedule offset; the surface-line answers are f(0)); time sawtooth (t/D)%M*K-C; dual rule rotate=X/D-C + power=t/E or X/E (t/E 4..200, X/E 1400..6999); 3-segment schedules with the 50-turn offset plus a 0 4 prelude of N+1 turns: no joint lander in the searched boxes.
 - Perl per-line template costs measured: `$|=print EXPR," 4\n"while<>` = 22+len(EXPR); `$|=printf"%d 4\n",EXPR while<>` = 24+len(EXPR); `#!perl -apl` + `$|=$_=EXPR." 4"` = 23+len(EXPR). For 37 B the EXPR budget is 13-15 chars.
 - The 44's answers must start at turn 1: a 0 4 prelude of N+1 turns (the surface-line answers of any `while<>` lag-on solution) changes A's trajectory and fails.
+
+## Landing timing and fixed-plan y offset (verified local, 2026-10-24)
+- the 44's `0 4` tail is a real flight phase, not keepalive only: A touches down turn 151 (tail starts 113),
+  B ~176 (tail starts 139), rotate ramping to 0 and vs ~-30 carried into it; a cyclic plan that restarts the
+  tilt at 113/139 lands both at rotate 8 (crash). So any cyclic/open-loop plan needs ~39 `0 4` turns before
+  its first repeat.
+- with identical answers A and B get identical accelerations, so y_A(t)=y_B(t)+650 and h_A=h_B-20 (plus a
+  ~30 px transient from the initial rotate 45 vs 0). A fixed (unkeyed) plan therefore needs B to land early
+  and far right (x_B ~ x_A+20*t_B, A's flat 2200..3150) while clearing the y=2050 ridge at x~4900; an
+  exhaustive-ish scan of lead+brake+tail (r1 +-16, r2 +-40, p 0..4, lengths 20..110, tail 0 q) found zero.
+  The fuel cutoff (A 250 turns at power 4, B 300) is the only other free asymmetry and cannot buy 650 px
+  within the |vs|<=40 landing window.
+- cyclic 3-segment (2 tilts + `0 4`, rotate 0 last) costs 42 B (11+8k+sum(d)+sum(c) with literal newlines
+  and the forced space before each concat dot); it can in principle host both landings in one 0-phase
+  (B lands, A 650 px higher lands ~20 turns later with x frozen by rotate 0) but a 47M-tuple scan
+  (r1 4..20, r2 -30..-4, l1 8..40, l2 20..80, l3 20..70, powers 4/3/4) found no joint yet.
+- per-line forms: `$.` is synchronized with the turn counter (turn t eats the answer printed for input
+  line t), so a `$.`-keyed schedule is just a fixed plan; only data-dependent code has the N+1 lag, and
+  `$|` (+4-5 B) pushes the cheapest per-line 3-segment form to >=45 B.
