@@ -66,12 +66,14 @@ agent/tool/sync.sh --if-stale
 agent/tool/seed.sh wrappers >/dev/null
 agent/tool/seed.sh wraps >/dev/null
 
+start_report_broker
+[[ -s $report_dir/cookies.txt ]] || echo "start.sh: no CG session for the report broker, submits carry no per-validator report: run agent/tool/report-login.sh in a terminal of your own"
 systemctl --user set-property --runtime codegolf.slice MemoryMax="$workers_memory_max" MemorySwapMax=infinity
 export CG_BEST_MODEL=$best CG_FULL_WINDOW=$full_window
 event "start workers=$count backend=$backend ${wrap_only:+wrap-only} ${once:+once} ${best:+best} ${full_window:+full-window} ${full_week:+full-week}"
 pids=()
 if [[ -z $once ]]; then
-	setsid agent/tool/wrapd.sh >>"$state/worker/wrapd.log" 2>&1 &
+	setsid agent/tool/sandbox.sh agent/tool/wrapd.sh >>"$state/worker/wrapd.log" 2>&1 &
 	[[ -z $wrap_only ]] || pids+=($!)
 fi
 for ((worker = 1; worker <= count; worker++)); do

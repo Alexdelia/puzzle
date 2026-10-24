@@ -2,6 +2,16 @@
 
 User rule (2026-10-20): hardcoding and exploits are allowed and part of the challenge; on some puzzles finding the hidden exploit is the whole puzzle.
 
+## Per-validator report (2026-10-24)
+
+- `submit.sh` (and `oracle.sh` through it) reads CG's report of every submission it sends: pass/fail of each hidden validator by number and title, plus its weight. Printed as `report 50.0%: 1 Avoiding rocks fail, 2 Rock interception pass, ...`, written in the probe's `probes.tsv` row and in `agent/state/report/<submission-id>.json`; `agent/tool/cg-report.sh <submission-id>` reads it again for any of our submissions
+- the report holds whatever our row: a probe longer than our row, or under 100%, still answers per validator. Validator count, titles and weights come with the first submit; no score-grain deduction needed
+- one probe = one bit per validator: answer correctly iff the input satisfies a predicate, garbage otherwise, and the report says which validators satisfy it. Bisect a value per validator in parallel (each probe halves every validator's range at once), test the candidate transform of test k against validator k, read one answer bit per validator
+- a 100% report on a submit shorter than our row, with the row unmoved, is a lost leaderboard update (`submit.sh` says so): resubmit the same code, never mark the referee suspect
+- when `submit.sh` prints `report unavailable` (broker down or CG session expired, the user fixes it), the row oracle below is the fallback
+
+## Row oracle (fallback without report)
+
 - CG scores a submission on its hidden validators only, not on the IDE tests; tops far below any general method usually hardcode answers keyed on validator inputs or rely on weak validators
 - local `validators/` are synthetic (written by our referee tasks): an exploit fails them, which proves nothing about CG
 - probes live in `puzzle/<p>/probe/<lang>/<name>.<ext>`, sent with `agent/tool/oracle.sh <probe> "<question>"` (log `puzzle/<p>/probe/probes.tsv`, committed `chore(golf): probes <p>`); a probe CG confirms at 100% and shorter is copied to `solution/<lang>/main.<ext>` and committed as the solution

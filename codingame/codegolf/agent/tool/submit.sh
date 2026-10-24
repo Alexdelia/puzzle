@@ -65,6 +65,34 @@ resolve_probe() {
 		_ "$probe_log" "$probe_pending $submission" "$answer"
 }
 
+validator_report=
+fetch_validator_report() {
+	local attempt
+	for ((attempt = 1; attempt <= report_wait_attempts; attempt++)); do
+		validator_report=$("$tool_dir/cg-report.sh" "$submission" 2>/dev/null) || break
+		jq -e .completed <<<"$validator_report" >/dev/null && break
+		sleep 10
+	done
+	jq -e .completed <<<"$validator_report" >/dev/null 2>&1 && printf '%s\n' "$validator_report" >"$state/report/$submission.json"
+	return 0
+}
+
+report_completed() {
+	jq -e "${1:-true} and .completed" <<<"$validator_report" >/dev/null 2>&1
+}
+
+report_line() {
+	if report_completed; then
+		jq -r '([.validators[].weight] | unique | length > 1) as $weighted
+			| "report \(.score)%: " + ([.validators | to_entries[] | "\(.key + 1) \(.value.name) \(if .value.success then "pass" else "fail" end)"
+				+ (if $weighted then " (weight \(.value.weight))" else "" end)] | join(", "))' <<<"$validator_report"
+	else
+		local reason
+		reason=$(jq -r 'if .completed == false then "not completed" else .error // empty end' <<<"$validator_report" 2>/dev/null || true)
+		echo "report unavailable (${reason:-no report})"
+	fi
+}
+
 submit_and_wait() {
 	recent_submits=$(awk -F'\t' -v since="$(date -u -d '5 hours ago' +%Y-%m-%dT%H:%M:%SZ)" -v path="/puzzles/$pretty_id/submissions" \
 		'$1 >= since && $3 == "POST" && $4 == path && $5 == 201' "$state/cg.log" 2>/dev/null | wc -l)
@@ -119,10 +147,13 @@ submit_and_wait() {
 		sleep 10
 	done
 	mark cg
+	fetch_validator_report
+	mark report
 
 	fetch_own_row
 	for _ in $(seq 21); do
 		(($(jq -r '.length // 1e9 | floor' <<<"$row") <= length)) && break
+		report_completed '.score < 100' && break
 		sleep 10
 		fetch_own_row
 	done
@@ -136,9 +167,12 @@ else
 	submit_and_wait
 fi
 if [[ -n $probe ]] && { [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; }; then
-	resolve_probe "progress $(jq -c 'del(.limits)' <<<"$progress"), own row $row"
-	echo "submit.sh: probe result, progress $(jq -c 'del(.limits)' <<<"$progress"), own row $row"
-	echo "submit.sh: CG keeps the best submission per language: a lower score than the row shown stays hidden"
+	resolve_probe "$(report_line), own row $row"
+	echo "submit.sh: probe result, $(report_line)"
+	echo "submit.sh: own row $row (CG keeps the best submission per language: a lower score than the row shown stays hidden)"
+	if report_completed '.score == 100' && [[ -n $ours ]] && ((length < ${ours%.*})); then
+		echo "submit.sh: CG scored this probe 100% but our row did not move (lost leaderboard update): copy it to the solution file and submit it again"
+	fi
 	exit 3
 fi
 row_length=$(jq -r '.length // empty | floor' <<<"$row")
@@ -162,10 +196,15 @@ if [[ -n ${CG_WRAP_SOURCE:-} ]] && { [[ $(jq -r '.length // empty' <<<"$row") !=
 	exit 1
 fi
 if [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; then
+	if report_completed '.score == 100'; then
+		event "unconfirmed $puzzle $lang length=$length: report 100%, row $row (lost leaderboard update)"
+		echo "submit.sh: CG scored length $length at 100% but our row did not move (lost leaderboard update): submit the same file again" >&2
+		exit 1
+	fi
 	json_update "$(ensure_status referee "$puzzle" -)" '.status = "suspect"'
 	"$tool_dir/enqueue.sh" referee "$puzzle" - --reason "CG rejected $relative length $length: row $row" >/dev/null
-	event "rejected $puzzle $lang length=$length row=$row"
-	echo "submit.sh: CG did not confirm length $length at 100%: $row" >&2
+	event "rejected $puzzle $lang length=$length row=$row $(report_line)"
+	echo "submit.sh: CG did not confirm length $length at 100%: $(report_line); own row $row" >&2
 	exit 1
 fi
 

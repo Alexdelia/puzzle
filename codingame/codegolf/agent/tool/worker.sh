@@ -37,7 +37,7 @@ run_agent() {
 		command time -a -f '%e %U %S' -o "$output.time" \
 		timeout --kill-after=60 "$((deadline - EPOCHSECONDS))" \
 		systemd-run --user --scope --quiet --unit="$scope" --slice=codegolf.slice -p MemoryMax="$task_memory_max" \
-		direnv exec "$root" "${agent[@]}" >>"$output.jsonl" 2>>"$output.err" </dev/null
+		direnv exec "$root" "$tool_dir/sandbox.sh" "${agent[@]}" >>"$output.jsonl" 2>>"$output.err" </dev/null
 	status=$?
 	if systemctl --user is-active --quiet "$scope"; then
 		log "stopping leftover processes of $id: $(systemctl --user show -p TasksCurrent --value "$scope") tasks"
@@ -98,6 +98,12 @@ while [[ ! -e $state/STOP ]]; do
 	esac
 	waiting=
 	read -r id task_backend task_model task_effort < <(jq -r --arg backend "$backend" '[.id, .backend // $backend, .model, .effort] | @tsv' "$running")
+	if [[ ! $id =~ ^[A-Za-z0-9+#-][A-Za-z0-9._+#-]*$ ]]; then
+		touch "$state/STOP"
+		event "attention worker $worker: task id '$id' in $running is no plain file name, STOP set"
+		log "bad task id $id, STOP set"
+		break
+	fi
 	log "start $id backend=$task_backend model=$task_model effort=$task_effort"
 	output=$state/worker/$id
 	"$tool_dir/prompt.sh" "$running" >"$output.prompt"

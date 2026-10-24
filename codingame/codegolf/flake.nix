@@ -131,6 +131,7 @@
           git
           jq
           curl
+          socat
           sqlite
           zip
           unzip

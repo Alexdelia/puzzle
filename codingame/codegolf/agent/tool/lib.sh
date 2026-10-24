@@ -3,7 +3,7 @@ root=$(cd "$tool_dir/../.." && pwd)
 state=$root/agent/state
 source "$tool_dir/config.sh"
 backend=${CG_BACKEND:-$backend}
-mkdir -p "$state"/{queue,running,done,journal,lock,leaderboard,lang,referee,validator,puzzle,cell,worker}
+mkdir -p "$state"/{queue,running,done,journal,lock,leaderboard,lang,referee,validator,puzzle,cell,worker,report}
 
 now() {
 	date -u +%Y-%m-%dT%H:%M:%SZ
@@ -365,4 +365,15 @@ wrap_enqueue() {
 		fi
 		mv "$file.tmp" "$file"' _ "$state" "$puzzle" "$reason" "$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)"
 	event "wrap enqueue $puzzle reason=$reason"
+}
+
+report_socket=$report_socket_dir/report.sock
+
+start_report_broker() {
+	systemctl --user is-active --quiet codegolf-report.service && return 0
+	mkdir -p "$report_dir" "$report_socket_dir"
+	chmod 700 "$report_dir" "$report_socket_dir"
+	systemd-run --user --quiet --collect --unit=codegolf-report.service --setenv=PATH="$PATH" \
+		socat -t 150 -T 180 "UNIX-LISTEN:$report_socket,fork,unlink-early,mode=600" "EXEC:$tool_dir/report-serve.sh"
+	event "report broker started"
 }

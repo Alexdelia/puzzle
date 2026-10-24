@@ -33,6 +33,10 @@ cell) [[ -n $(tsv_field puzzle "$puzzle" slug) && -n $(tsv_field lang "$lang" sl
 *) false ;;
 esac || { echo "enqueue.sh: bad target $kind $puzzle $lang" >&2; exit 2; }
 
+if [[ $kind == lang ]]; then
+	echo "enqueue.sh: refused lang $lang: toolchains live in agent/tool/lang, read-only in the worker sandbox, the user sets them up"
+	exit 0
+fi
 if ((depth > propagation_max_depth)); then
 	echo "enqueue.sh: refused $kind $puzzle $lang: depth $depth > $propagation_max_depth"
 	exit 0

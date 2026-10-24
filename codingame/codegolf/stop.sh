@@ -5,7 +5,13 @@ source agent/tool/lib.sh
 shopt -s nullglob
 
 kill_session() {
-	[[ $1 =~ ^[0-9]+$ && $(ps -o sid= -p "$1" | tr -d ' ') == "$1" ]] && pkill -TERM -s "$1"
+	local session
+	[[ $1 =~ ^[0-9]+$ ]] || return 0
+	session=$(ps -o sid= -p "$1" | tr -d ' ')
+	[[ -n $session ]] || return 0
+	if [[ $session == "$1" || $(ps -o comm= -p "$session") == bwrap ]]; then
+		pkill -TERM -s "$session"
+	fi
 	true
 }
 
