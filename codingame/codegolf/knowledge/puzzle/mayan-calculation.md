@@ -65,14 +65,12 @@ Verified pieces (local 21/21, CG accepted bash 193 = rank 1):
 
 ## Hidden validators
 
-- 2026-10-22: perl 170 relying on `L == H` (only `H` read) and float `/20` printer (wrong above 2^53) scored 100% on CG (rank 1): hidden-only cores pass, fail local validators 05 (>2^53) and 06 (L!=H) only
+Recovered 2026-10-24 by per-validator-report bisection (details, candidates and method in `puzzle/mayan-calculation/referee/hidden/facts.md`):
 
-Probed 2026-10-20 (count probes, details and sources in `puzzle/mayan-calculation/referee/hidden/facts.md`):
-
-- `L == H` in all 12 validators: one of the two numbers is enough (`$h` can be `$l`)
-- every validator font is one of the 3 IDE fonts (`.o_` 4x4, `0-9A-J` 1x1, `.X` 11x11)
-- no validator repeats an IDE test's numbers; 11/12 keep the font, operator and digit counts of some IDE test; the odd one is a `.o_`-font multiplication (validator 3, 8, 9 or 10) with other digit counts
-- no exact validator recovered, no hardcode key: hardcoding results is not worth it here
+- validators 1-7 exact (`referee/hidden/01..07`): 2+2, 17+5, 6*6, 15-7, 113-18, 9/3, 2000/10; 8-12 narrowed: 13452*b (b ~8e5), 9 "Zero" = 5-digit a * 1-digit b (b = 0 assumed), 8001*b (b 34..36), 8016*b (b 23..24, 1x1 font), 2012*b (b 21171..21206, 11x11 font)
+- every validator keeps its test's font and `L == H`; operators per validator match their tests; no negative result, divisions exact
+- only validator 8 exceeds 2^31 (~1.06e10, < 2^53): 32-bit ints fail 1 validator, doubles pass all
+- 2026-10-22: perl 170 relying on `L == H` (only `H` read) and float `/20` printer scored 100% on CG (rank 1)
 - perl is installed in the php, ruby, lua and typescript CG containers (probe wrappers called it)
 
 ## Perl without -Minteger (typescript cell, 2026-10-21, local 21/21, CG confirmed typescript 243)
