@@ -62,12 +62,12 @@ Rejected:
 
 ## Hidden validators
 
-Re-probed 2026-10-24 with CG's per-validator report, details in `referee/hidden/facts.md`. 7 validators (weights 140 x6, V7 160), none equal to an IDE test; the 2026-10-20 "25 validators" reading was wrong. Answers and keys known; exact inputs of V1, V5, V6 in `referee/hidden/` (01, 05, 06), V2/V3/V4 partly, V7 (10000 random numbers, not test 5 edited) out of reach:
+Re-probed 2026-10-24 with CG's per-validator report, details in `referee/hidden/facts.md`. 7 validators (weights 140 x6, V7 160), none equal to an IDE test; the 2026-10-20 "25 validators" reading was wrong. Answers and keys known; exact inputs of V1, V2, V5, V6 in `referee/hidden/` (01, 02, 05, 06), V3/V4 partly, V7 (10000 random numbers, not test 5 edited) out of reach:
 
 - answers V1..V7: 9, 8, 18, 32, 11, 12, 45438; N: 1, 3, 3, 5, 1, 3, 10000
 - input length T (bytes, final `\n` included) V1..V6: 12, 21, 23, 57, 14, 41, distinct mod 32 and mod 13; V7 T = 92833 (mod 32 = 1, mod 13 = 0; test 5 is 92778)
 - second line length V1..V6: 9, 3, 6, 10, 11, 12 (N=1 validators: answer = that length)
-- second line V1..V6: `044887778`, `123`, `496123`, `052345678?`, `55555555555`, `123456789012` (V2 = `123`,`12399`,`12399???`; V6 = same number 3 times)
+- second line V1..V6: `044887778`, `123`, `496123`, `0523456788`, `55555555555`, `123456789012` (V2 = `123`,`12399`,`12399989`; V3 line 2 `7894??`; V4 line 2 `01...`; V6 = same number 3 times)
 - hardcode cost = key + table vs general method: likely a gain only in verbose languages; check locally against facts.md, not against `validators/` (synthetic)
 
 - verified on all CG validators: final newline present, digits + LF only, N >= 1, lengths 2..20. Methods relying on the final newline (Python `s[:~i]`) are safe
