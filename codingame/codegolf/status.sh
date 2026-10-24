@@ -18,6 +18,7 @@ close_pace_points=10
 usage_bar_width=20
 needs_you_per_group=5
 wrap_eta_history=10
+latest_gains_shown=8
 
 use_color=0
 [[ -t 1 && -z ${NO_COLOR:-} ]] && use_color=1
@@ -259,6 +260,71 @@ smallest_gaps() {
 	done
 }
 
+gain_rows() {
+	[[ -s $state/events.log ]] || return 0
+	awk -F'\t' -v shown="$latest_gains_shown" '
+		FILENAME ~ /wrapd\.log$/ {
+			if (match($0, /^[^ ]+ wrapd: ([^ ]+) ([^\t]+)\t[^\t]*\t([0-9]+) ([^:]+):[^ ]+ submitted$/, host))
+				wrapped[host[1] "\t" host[2] "\t" host[3]] = host[4]
+			next
+		}
+		{ split($2, word, " ") }
+		word[1] != "gain" { next }
+		{
+			cell = word[2] "\t" word[3]
+			new_length = ""; previous = last_length[cell]; rank = ""; tie = ""; source = ""
+			for (index_ = 4; index_ in word; index_++) {
+				split(word[index_], pair, "=")
+				if (pair[1] == "length") new_length = pair[2]
+				else if (pair[1] == "previous") previous = pair[2]
+				else if (pair[1] == "rank") rank = pair[2]
+				else if (pair[1] == "best_tie_rank") tie = pair[2]
+				else if (pair[1] == "source") source = pair[2]
+			}
+			if (source == "") source = wrapped[cell "\t" new_length]
+			last_length[cell] = new_length
+			gain[++gains] = mktime(gensub(/[-T:Z]/, " ", "g", $1), 1) "\t" cell "\t" (previous == "" ? "-" : previous) "\t" new_length "\t" rank "\t" tie "\t" (source == "" ? "-" : source)
+		}
+		END { for (index_ = gains; index_ >= 1 && index_ > gains - shown; index_--) print gain[index_] }
+	' $([[ -s $state/worker/wrapd.log ]] && echo "$state/worker/wrapd.log") "$state/events.log"
+}
+
+rank_text() {
+	local rank=$2 tie=$3 text sgr=
+	text="#$rank"
+	[[ -z $tie || $tie == - || $tie == "$rank" ]] || text+=" (tie #$tie)"
+	[[ $rank != 1 && $tie != 1 ]] || sgr="$bold;$green"
+	paint "$1" "$sgr" "$text"
+}
+
+latest_gains() {
+	local rows=() row at puzzle lang previous new_length rank tie source puzzle_width=0 cell age label painted_puzzle painted_previous painted_rank wrap_text source_label
+	mapfile -t rows < <(gain_rows)
+	((${#rows[@]})) || return 0
+	for row in "${rows[@]}"; do
+		IFS=$'\t' read -r at puzzle lang _ <<<"$row"
+		((${#puzzle} <= puzzle_width)) || puzzle_width=${#puzzle}
+	done
+	for row in "${rows[@]}"; do
+		IFS=$'\t' read -r at puzzle lang previous new_length rank tie source <<<"$row"
+		cell=$state/cell/$puzzle/$lang.json
+		[[ ! -s $cell ]] || IFS=$'\t' read -r rank tie < <(jq -r --arg rank "$rank" --arg tie "$tie" '[.rank // $rank, .best_tie_rank // $tie] | @tsv' "$cell")
+		age_text age "$at"
+		paint age "$dim" "$(printf '%-11s' "$age")"
+		lang_label label "$lang"
+		puzzle_label painted_puzzle "$puzzle" "$puzzle_width"
+		paint painted_previous "$dim" "$(printf '%5s' "$previous")"
+		rank_text painted_rank "$rank" "$tie"
+		wrap_text=
+		if [[ $source != - ]]; then
+			lang_label source_label "$source"
+			paint wrap_text "$dim" "wrap from"
+			wrap_text="  $wrap_text $source_label $source"
+		fi
+		printf '  %s %s %s  %s -> %-5s  %s%s\n' "$age" "$label" "$painted_puzzle" "$painted_previous" "$new_length" "$painted_rank" "$wrap_text"
+	done
+}
+
 task_subject() {
 	local kind=$2 puzzle=$3 lang=$4 task_text label
 	printf -v task_text '%-7s' "$kind"
@@ -276,10 +342,11 @@ task_subject() {
 running_rows() {
 	local running_files=("$state"/running/*.json)
 	((${#running_files[@]})) || return 0
-	jq -n -R -r '
+	jq -n -R -r --arg paid_model "$opencode_model" --arg paid_name "$opencode_model_name" '
 		reduce inputs as $line ({}; .[input_filename] += $line + "\n")
 		| .[] | fromjson?
-		| [.id, .worker, (try ((now - (.started_at | fromdateiso8601)) / 60 | floor) catch 0), .kind, .puzzle, .lang]
+		| [.id, .worker, (try ((now - (.started_at | fromdateiso8601)) / 60 | floor) catch 0), .kind, .puzzle, .lang,
+			((if .model == $paid_model then $paid_name else (.model // "-" | split("/") | last) end) + " " + (.effort // ""))]
 		| map(. // "-") | @tsv
 	' "${running_files[@]}" 2>/dev/null || true
 }
@@ -298,22 +365,32 @@ journal_last_lines() {
 	' "${journals[@]}"
 }
 
+model_label() {
+	local model=$2 padded sgr=$magenta
+	printf -v padded '%-*s' "$3" "$model"
+	[[ $model != *-free\ * ]] || sgr=$yellow
+	paint "$1" "$sgr" "$padded"
+}
+
 running_tasks() {
-	local rows=() row id worker minutes kind puzzle lang ids=() last_line running_tag subject painted_id painted_line
+	local rows=() row id worker minutes kind puzzle lang model ids=() last_line running_tag subject painted_id painted_line painted_model model_width=0
 	declare -A last_lines
 	mapfile -t rows < <(running_rows)
 	for row in "${rows[@]}"; do
 		ids+=("${row%%$'\t'*}")
+		model=${row##*$'\t'}
+		((${#model} <= model_width)) || model_width=${#model}
 	done
 	while IFS=$'\t' read -r id last_line; do
 		last_lines[$id]=$last_line
 	done < <(journal_last_lines "${ids[@]}")
 	paint running_tag "$cyan" running
 	for row in "${rows[@]}"; do
-		IFS=$'\t' read -r id worker minutes kind puzzle lang <<<"$row"
+		IFS=$'\t' read -r id worker minutes kind puzzle lang model <<<"$row"
 		task_subject subject "$kind" "$puzzle" "$lang"
 		paint painted_id "$dim" "$id"
-		printf '%s %-3s %4sm  %s  %s\n' "$running_tag" "w$worker" "$minutes" "$subject" "$painted_id"
+		model_label painted_model "$model" "$model_width"
+		printf '%s %-3s %4sm  %s  %s  %s\n' "$running_tag" "w$worker" "$minutes" "$painted_model" "$subject" "$painted_id"
 		last_line=${last_lines[$id]:-}
 		[[ -z $last_line ]] || {
 			paint painted_line "$dim" "$last_line"
@@ -580,18 +657,21 @@ usage_bars() {
 	usage_bar bar "$used" "$sgr" "$elapsed"
 	if ((used + weekly_pace_margin_percent >= elapsed)); then
 		paint verdict "$red" "over pace"
+		every_task_on_claude || paint verdict "$red" "over pace, $claude_kinds held"
 	else
 		paint verdict "$sgr" "headroom $((elapsed - used - weekly_pace_margin_percent)) pts"
 	fi
 	echo "weekly  $bar ${used}% used / ${elapsed}% elapsed  $verdict  $painted_as_of"
-	local five_hour resets_at resets_in running_files=("$state"/running/*.json)
+	local five_hour resets_at resets_in claude_running blocked_text="claims blocked"
 	five_hour=$(five_hour_used)
 	resets_at=$(five_hour_resets_at)
+	claude_running=$(jq -s --arg backend "$backend" '[.[] | select((.backend // $backend) == "claude")] | length' "$state"/running/*.json </dev/null)
+	every_task_on_claude || blocked_text="$claude_kinds held"
 	sgr=$green
 	verdict=
-	if ((five_hour + five_hour_task_reserve_percent * (${#running_files[@]} + 1) > five_hour_limit_percent)); then
+	if ((five_hour + five_hour_task_reserve_percent * (claude_running + 1) > five_hour_limit_percent)); then
 		sgr=$red
-		paint verdict "$red" "  claims blocked"
+		paint verdict "$red" "  $blocked_text"
 	fi
 	usage_bar bar "$five_hour" "$sgr"
 	if ((resets_at > $(date +%s))); then
@@ -761,6 +841,10 @@ if [[ -n $cells ]]; then
 	section "smallest gaps not first (ours - top)"
 	smallest_gaps
 fi
+
+echo
+section "latest gains (previous -> new, current rank)"
+latest_gains
 
 echo
 section work
