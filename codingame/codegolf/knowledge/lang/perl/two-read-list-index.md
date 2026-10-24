@@ -14,8 +14,11 @@ submission 41559851). Stops a hardcode exploit from needing `||G`:
   fractional corrections free: `7 - 2/875000 = 6.999998`-ish truncates to 6.
   So `f(N) - K/<>` can pull a large slot value down by one *only* when the
   second field is huge, and leave it exact when the field is 1.
-- short step functions from one field: `K-K/<>` = 0 for field 1 and K-1..K-2
-  for fields >= 2 (e.g. `3-3/<>`: 0,1,1,...); `K/<>` = K for 1 and 0 for >= K.
+- short step functions from one field: `K-K/<>` = 0 at field 1, then
+  `int(K-K/J1)` rises with J1 and saturates at K-1 once J1 > K (K=3:
+  0,1,2,2,2,...; K=2: 0,1,1,1,...). `K/<>` = K at field 1 and a fraction
+  <1 for J1 > K, which contributes 0 only when the surrounding sum is
+  truncated to an integer.
 - negative indices count from the end (`-1` = last element, `-L` = first of
   an L-element list), which lets a two-read key map some validators to slots
   at the tail of a short list.
