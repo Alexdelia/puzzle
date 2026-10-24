@@ -25,3 +25,4 @@
 - [pl-loop-shebang](pl-loop-shebang.md): `#!ruby -pl`/`-nl` switches honoured by CG; `$.` first input line is 2; `$>.sync=1` still needed (67 B no-sync probe failed), verified
 - [grep-beginless-range](grep-beginless-range.md): `a.grep(..v)` = elements <= v (beginless Range), `[-1]` = largest on a sorted array, 5-6 B under `select{_1<=v}[-1]`; cap two bounds with `[l,t].min`; verified Ruby 3.1.2 (roller-coaster native method C)
 - [bytesum-perfect-hash](bytesum-perfect-hash.md): `String#sum` is bytes mod 2**16, brute-force perfect hash of stdin (`s.sum/4%15`), `%w` dummy slots, `strip` for trailing newline, digit table `chr(40+d)` decoded by `bytes`+`c%20`; mayan-calculation 145 CG 100%
+- [index-assign-int-indicator](index-assign-int-indicator.md): `h="WEN"[i=gets.sum%3]` assignment in index, `0**i` integer indicator for String#*, `puts arr*999` flush without $>.sync, verified CG
