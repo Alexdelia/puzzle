@@ -52,11 +52,15 @@ available() {
 }
 
 rejected() {
-	[[ -s $wrap_rejected ]] && grep -q -F "$(sha256sum <"$1" | cut -c1-64)" "$wrap_rejected"
+	local candidate=$1 fingerprint=$2 hash
+	hash=$(sha256sum <"$candidate" | cut -c1-64)
+	[[ -s $wrap_rejected ]] && grep -q -F "$hash" "$wrap_rejected" && return 0
+	[[ -s $wrap_local_fail ]] && grep -q -F "$hash"$'\t'"$fingerprint" "$wrap_local_fail"
 }
 
 candidates() {
-	local host=$1 core file count=0
+	local host=$1 core file count=0 fingerprint
+	fingerprint=$(referee_fingerprint "$puzzle" "$host")
 	while IFS=$'\t' read -r core file; do
 		[[ $core != "$host" && -x $wrap_root/$host/$core.sh ]] && available "$host" "$core" || continue
 		count=$((count + 1))
@@ -65,7 +69,7 @@ candidates() {
 		"$wrap_root/$host/$core.sh" "$file" "$kind" "$out" || { echo "wrap.sh: $host/$core.sh failed on ${file#"$root"/}" >&2; continue; }
 		local candidate
 		for candidate in "$out"/*; do
-			rejected "$candidate" && continue
+			rejected "$candidate" "$fingerprint" && continue
 			printf '%s\t%s\t%s\n' "$("$tool_dir/count.sh" "$candidate")" "$candidate" "$core:${file#"$root"/}"
 		done
 	done <"$work/cores"
@@ -272,7 +276,10 @@ for host_dir in "$wrap_root"/*/; do
 	for line in "${sorted[@]}"; do
 		IFS=$'\t' read -r length candidate source <<<"$line"
 		[[ -z $ours ]] || ((length < ours)) || break
-		"$root/puzzle/$puzzle/referee/run.sh" "$candidate" --lang "$host" "${local_sets[@]}" >"$candidate.referee" 2>&1 || continue
+		if ! "$root/puzzle/$puzzle/referee/run.sh" "$candidate" --lang "$host" "${local_sets[@]}" >"$candidate.referee" 2>&1; then
+			wrap_remember_local_fail "$candidate" "$puzzle" "$host" "$length" "$source" "$(<"$candidate.referee")"
+			continue
+		fi
 		winner="$length $source"
 		break
 	done

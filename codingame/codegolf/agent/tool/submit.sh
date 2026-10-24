@@ -111,7 +111,8 @@ submit_and_wait() {
 			echo "submit.sh: refused, this task already used $task_submits submits (probe cap $probe_cap)" >&2
 			exit 1
 		fi
-	elif ! "$root/puzzle/$puzzle/referee/run.sh" "$code" --lang "$lang" "${local_sets[@]}" >/dev/null; then
+	elif ! referee_output=$("$root/puzzle/$puzzle/referee/run.sh" "$code" --lang "$lang" "${local_sets[@]}"); then
+		[[ -z ${CG_WRAP_SOURCE:-} ]] || wrap_remember_local_fail "$code" "$puzzle" "$lang" "$length" "$CG_WRAP_SOURCE" "$referee_output"
 		echo "submit.sh: refused, local referee fails: run puzzle/$puzzle/referee/run.sh ${code#"$root"/} --lang $lang ${local_sets[*]} (hidden-validator exploit: use --probe)" >&2
 		exit 1
 	elif [[ -n $ours ]] && ((length >= ${ours%.*})); then
