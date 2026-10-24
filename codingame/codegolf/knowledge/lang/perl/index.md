@@ -74,3 +74,4 @@
 - [xor-mod-key-table](xor-mod-key-table.md): `<>%a^<>%b` = injective 2-field hardcode key, no parens, empty glob-brace alternatives fill gaps, verified on CG
 - [packed-trace-table](packed-trace-table.md): fixed-scenario hardcode = packed byte table keyed by an init-line expression, `map{printf"%d %d %sT\n",$_%14,$_/14,$i++%6?RIGH:LEF}unpack"C*",(split/~/,'...')[$expr]`, then WAIT; control bytes in a single-quoted literal survive CG, NUL does not, verified on CG
 - [packed-3-command-table](packed-3-command-table.md): 3 commands/byte single-quoted table, `map{$_%5,$_/5%5,$_/25}unpack"C*",...`, code permutation keeps bytes printable, `split/~/` slots keyed on `y/0//%k`, bare `sleep` keepalive, verified the-bridge perl 165 rank 1
+- [capture-persists](capture-persists.md): `$1` survives later group-less matches and failed matches, read one header field once in a `-p` loop without an assignment, verified locally
