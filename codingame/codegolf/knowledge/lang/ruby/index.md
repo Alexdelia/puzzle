@@ -19,3 +19,4 @@
 - [line-number-keys](line-number-keys.md): `gets.oct`/`gets.hex`/`gets.sum` 8-char keys with other spreads than to_i, `"s"*1e5` float repeat
 - [percent-w-packed-chunks](percent-w-packed-chunks.md): `%w{}` 1-byte chunk table, key `gets.sum%m/div` to 0..6, inline `each_byte`, escape a literal space; the-fall-episode-2 174 CG rank 1
 - [puts-final-newline](puts-final-newline.md): `puts` adds the final newline, raw LF in literals, `$&.bytes` in scan block, parens before `+`
+- [prefix-key-double-mod](prefix-key-double-mod.md): `$<.first(5).join.sum` key, `%A%B` permutation, inline `%w` index, 1-byte cell codes, `?\1*3` tail; vox-codei-1 131 rank 1 CG
