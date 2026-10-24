@@ -26,4 +26,5 @@ done
 for session in $(loop_pids 'worker|wrapd'); do
 	kill_session "$session"
 done
+systemctl --user stop 'codegolf-task-*.scope'
 echo "stop.sh: workers killed, their tasks back in queue, journals kept"
