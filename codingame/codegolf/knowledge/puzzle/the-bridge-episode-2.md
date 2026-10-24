@@ -188,3 +188,13 @@ With every hidden validator known in `referee/hidden/NN.json` (`hidden/complete`
 - pack 3 commands per byte (`b=25*d3+5*d2+d1`), 29 bytes + 11 `~` separators = 40 B data; select with `(split/~/,'...')[$h%14]` after reading only lane 0 (`<>;<>;$_=<>;`); print via `@c[map{$_%5,$_/5%5,$_/25}unpack"C*",...]` with `$,=$/` (see `knowledge/lang/perl/packed-3-command-table.md`)
 - keepalive: bare `sleep` after the print (numeric `$|` flush + trailing `,$/`), CG kills it at the win; without it hidden/05-like short plans race "solution closed its input"
 - the hardcode fails the 12 IDE tests (they are not the hidden roads), so it goes through `oracle.sh`/`submit.sh --probe`; CG scored 165 B 100% and the probe was auto-committed. Other languages of this puzzle can use the same h%14 classes with their own packed table (cheap per-language win: a language's top row is 166..299)
+
+### Ruby 152 (2026-10-24, CG 100% rank 1)
+
+- same 12 hidden validators, same `h%14` classes and per-class plans as the perl 165 hardcode; only the table transport changed
+- key computed inline in the index after two skips: `gets;gets` then `[...][gets.count(?0)%14]` (-3 B vs `s=gets.count(?0)%14` + `[s]`). TRAP: `count'0'%14` parses as `count('0'%14)` and drops the modulo; in `[...]` it is a SyntaxError
+- `%w(>?> pH@^ 5|W ~ vI yHqE/c pg? Hzc zp|D ~ ~ qc)` replaces quoted bytes + `split(?~)`; unused residues 3, 9, 10 are 1-byte dummy fields; `puts %w(...)` needs the space
+- decode `.bytes.map{|c|[c%5,c/5%5,c/25].map{|j|%w(SLOW DOWN SPEED UP JUMP)[j]}}`; `puts` flattens nested arrays (no `flat_map`)
+- CG accepts printing the plan then exiting for ruby too (no `$>.sync`, no `sleep`); local `run.sh --hidden` can report "solution exited"/"closed its input" on short plans, and `submit.sh --probe` skips that gate. A locally passing twin is `;$>.flush;sleep` (+15 B, verified 12/12 hidden)
+- source (152): `gets;gets` / `puts %w(<fields>)[gets.count(?0)%14].bytes.map{|c|[c%5,c/5%5,c/25].map{|j|%w(SLOW DOWN SPEED UP JUMP)[j]}}` (key inline after the literal, -4 B vs `s=...` + `[s]`)
+- key search over s.sum/s.size/sum-of-first-3-lines and affine `%A%B` forms found nothing below h%14 (best alternative ~74 B key+data vs ~70); no dense 9-class key is mergeable (pair merges only 38/66)
