@@ -342,7 +342,7 @@ wrap_local_fail=$state/wrap/local-fail.tsv
 
 referee_fingerprint() {
 	local puzzle=$1 lang=$2 file
-	git -C "$root" ls-files -co --exclude-standard -- "puzzle/$puzzle/referee" agent/tool/referee-core agent/tool/referee.sh "agent/tool/lang/$lang" |
+	git -C "$root" ls-files -co --exclude-standard -- "puzzle/$puzzle/referee" agent/tool/referee-core agent/tool/referee.sh agent/tool/lang/cache.sh "agent/tool/lang/$lang" |
 		grep -v -E '/bench\.txt$|\.md$' | sort | while IFS= read -r file; do
 		[[ -f $root/$file ]] && printf '%s %s\n' "$file" "$(sha256sum <"$root/$file" | cut -c1-64)"
 	done | sha256sum | cut -c1-16
@@ -350,7 +350,7 @@ referee_fingerprint() {
 
 wrap_remember_local_fail() {
 	local code=$1 puzzle=$2 lang=$3 length=$4 source=$5 referee_output=$6 failed_test
-	failed_test=$(grep -m 1 '^test [^ ]* fail ' <<<"$referee_output") || return 0
+	failed_test=$(grep -m 1 -E '^(test [^ ]* fail |build fail )' <<<"$referee_output") || return 0
 	mkdir -p "$(dirname "$wrap_local_fail")"
 	printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(sha256sum <"$code" | cut -c1-64)" "$(referee_fingerprint "$puzzle" "$lang")" \
 		"$puzzle" "$lang" "$length" "$source" "$(cut -c1-200 <<<"${failed_test//$'\t'/ }")" >>"$wrap_local_fail"

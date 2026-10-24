@@ -36,7 +36,17 @@ CG_PUZZLE_KIND=$(awk -F'\t' -v slug="$slug" '$1 == slug { print $4 }' "$root/dat
 export CARGO_TARGET_DIR=$root/agent/state/build/cargo/$slug
 cargo build --release --quiet --manifest-path "$referee_dir/Cargo.toml"
 referee=$CARGO_TARGET_DIR/release/$(basename "$(dirname "$referee_dir")")-referee
-launcher=$("$tool_dir/lang/$lang/build.sh" "$solution")
+build_status=0
+launcher=$("$tool_dir/lang/$lang/build.sh" "$solution") || build_status=$?
+if ((build_status)); then
+	smoke=$(compgen -G "$tool_dir/lang/$lang/smoke/main.*" | head -n 1)
+	if ((build_status < 128)) && "$tool_dir/lang/$lang/build.sh" "$smoke" >/dev/null 2>&1; then
+		echo "build fail exit $build_status"
+	else
+		echo "build broken exit $build_status: toolchain fails on smoke/${smoke##*/} too"
+	fi
+	exit 1
+fi
 baseline_args=()
 for baseline_source in "$tool_dir/lang/$lang"/baseline.*; do
 	[[ -f $baseline_source ]] && baseline_args=(--baseline "$("$tool_dir/lang/$lang/build.sh" "$baseline_source")")
