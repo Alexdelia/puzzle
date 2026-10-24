@@ -31,6 +31,8 @@ fi
 pretty_id=$(tsv_field puzzle "$puzzle" pretty_id)
 cg_name=$(tsv_field lang "$lang" cg_name)
 cell=$(ensure_status cell "$puzzle" "$lang")
+probe_log=$root/puzzle/$puzzle/probe/probes.tsv
+probe_pending="pending, submission"
 
 started=$EPOCHSECONDS
 marks=()
@@ -46,6 +48,21 @@ ours=$(jq -r '.ours // empty' "$cell")
 fetch_own_row() {
 	own_rows=$(leaderboard_rows "$puzzle" KEYWORD "$nickname")
 	row=$(jq -c --arg language "$cg_name" '[.[] | select(.language == $language)] | first' <<<"$own_rows")
+}
+
+log_pending_probe() {
+	[[ -n $probe ]] || return 0
+	local question=${CG_PROBE_QUESTION:-no question given: ${code#"$root"/}}
+	mkdir -p "$(dirname "$probe_log")"
+	with_lock oracle bash -c 'log=$1 && shift && printf "%s\t%s\t%s\t%s\t%s\t%s\n" "$@" >>"$log"' _ "$probe_log" \
+		"$(now)" "${CG_TASK_ID:--}" "$lang" "$length" "${question//[$'\t\n']/ }" "$probe_pending $submission"
+}
+
+resolve_probe() {
+	[[ -n $probe && -n ${submission:-} ]] || return 0
+	local answer=${1//[$'\t\n']/ }
+	with_lock oracle bash -c 'awk -F"\t" -v OFS="\t" -v pending="$2" -v answer="$3" "\$6 == pending { \$6 = answer } 1" "$1" >"$1.tmp" && mv "$1.tmp" "$1"' \
+		_ "$probe_log" "$probe_pending $submission" "$answer"
 }
 
 submit_and_wait() {
@@ -88,6 +105,7 @@ submit_and_wait() {
 		exit 1
 	fi
 	event "${probe:+probe }submit $puzzle $lang length=$length submission=$submission"
+	log_pending_probe
 	if [[ $mode == no-wait ]]; then
 		echo "$submission"
 		exit 0
@@ -118,6 +136,7 @@ else
 	submit_and_wait
 fi
 if [[ -n $probe ]] && { [[ $(jq -r '.length // empty' <<<"$row") != "$length" ]] || ! jq -e '.score == 100' <<<"$row" >/dev/null; }; then
+	resolve_probe "progress $(jq -c 'del(.limits)' <<<"$progress"), own row $row"
 	echo "submit.sh: probe result, progress $(jq -c 'del(.limits)' <<<"$progress"), own row $row"
 	echo "submit.sh: CG keeps the best submission per language: a lower score than the row shown stays hidden"
 	exit 3
@@ -165,6 +184,7 @@ if [[ $code != "$main" ]]; then
 	mkdir -p "$(dirname "$main")"
 	cp "$code" "$main"
 fi
+resolve_probe "yes: 100% at length $length, committed"
 commit_scope "$message" "puzzle/$puzzle/solution/$lang"
 mark commit
 event "gain $puzzle $lang length=$length rank=$rank best_tie_rank=${best_tie_rank:--}"

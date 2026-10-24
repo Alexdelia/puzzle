@@ -37,6 +37,7 @@ wrap_settle_factor=3
 wrap_lottery_rounds=3
 wrap_puzzles=3
 cg_network_attempts=6
+cg_allowed_services="Leaderboards/getFilteredPuzzleLeaderboard"
 wrap_post_attempts=3
 commit_attempts=20
 commit_retry_seconds=3

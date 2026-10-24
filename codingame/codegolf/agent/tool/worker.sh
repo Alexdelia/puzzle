@@ -27,10 +27,17 @@ run_agent() {
 			--output-format stream-json --verbose --permission-mode auto --max-budget-usd "$task_budget_usd")
 		;;
 	esac
+	local scope=codegolf-task-$id.scope status
 	CG_TASK_ID=$id OPENCODE_ENABLE_EXA=1 command time -f '%e %U %S' -o "$output.time" \
 		timeout --kill-after=60 "$task_wall_seconds" \
-		systemd-run --user --scope --quiet --slice=codegolf.slice -p MemoryMax="$task_memory_max" \
+		systemd-run --user --scope --quiet --unit="$scope" --slice=codegolf.slice -p MemoryMax="$task_memory_max" \
 		direnv exec "$root" "${agent[@]}" >"$output.jsonl" 2>"$output.err" </dev/null
+	status=$?
+	if systemctl --user is-active --quiet "$scope"; then
+		log "stopping leftover processes of $id: $(systemctl --user show -p TasksCurrent --value "$scope") tasks"
+		systemctl --user stop "$scope"
+	fi
+	return "$status"
 }
 
 cd "$root"

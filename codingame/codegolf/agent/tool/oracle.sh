@@ -25,14 +25,9 @@ if [[ -s $log ]] && awk -F'\t' -v question="$question" -v lang="$lang" '$3 == la
 fi
 
 length=$("$tool_dir/count.sh" "$solution")
-output=$("$tool_dir/submit.sh" --probe "$solution" 2>&1)
+CG_PROBE_QUESTION=$question "$tool_dir/submit.sh" --probe "$solution"
 code=$?
-printf '%s\n' "$output"
 case $code in
-0) answer="yes: 100% at length $length, committed" ;;
-3) answer=$(grep -o 'progress .*' <<<"$output" | head -n 1) ;;
-*) echo "oracle.sh: probe not sent (submit.sh exit $code), nothing logged" >&2 && exit "$code" ;;
+0 | 3) echo "oracle.sh: logged in puzzle/$puzzle/probe/probes.tsv" ;;
+*) echo "oracle.sh: submit.sh exit $code: if it got as far as the POST, its row in puzzle/$puzzle/probe/probes.tsv says pending with the submission id" >&2 && exit "$code" ;;
 esac
-with_lock oracle bash -c 'printf "%s\t%s\t%s\t%s\t%s\t%s\n" "$@" >>"$0"' "$log" \
-	"$(now)" "${CG_TASK_ID:--}" "$lang" "$length" "$question" "$answer"
-echo "oracle.sh: logged in puzzle/$puzzle/probe/probes.tsv"

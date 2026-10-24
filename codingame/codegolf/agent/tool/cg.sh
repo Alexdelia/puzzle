@@ -30,6 +30,13 @@ if [[ -n $body ]]; then
 	curl_args+=(-H 'Content-Type: application/json' --data-binary "@$body")
 fi
 
+if [[ $path == /services/* ]] && ! grep -q -x -F "${path#/services/}" <(tr ' ' '\n' <<<"$cg_allowed_services"); then
+	printf '%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${CG_TASK_ID:--}" "$method" "$path" refused >>"$lock_dir/../cg.log"
+	printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "attention cg.sh refused $method $path for ${CG_TASK_ID:--}: not in cg_allowed_services" >>"$lock_dir/../events.log"
+	echo "cg.sh: refused, $path is not an allowed service ($cg_allowed_services): only the documented API (https://www.codingame.com/api/v1/) and the services agent/tool scripts use; other players' solutions are off limits" >&2
+	exit 3
+fi
+
 exec 9>"$lock_dir/cg.lock"
 flock 9
 
