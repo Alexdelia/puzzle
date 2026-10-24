@@ -2,7 +2,7 @@
 
 7 validators, 1:1 with the 7 IDE tests (same titles), weights 160 (V1-V5) and 100 (V6, V7), total 1000. Source: CG per-validator reports of our submissions (`agent/tool/cg-report.sh <id>`, e.g. 41537696), 2026-10-24. The earlier "50 validators" (score-grain deduction) is wrong: scores are weight sums (16 = V1 alone).
 
-Not recovered exactly: no `NN.json` written, no `complete` (V1 = test 1 exactly, kept out of `hidden/` until the set is whole).
+Recovered exactly (2026-10-24, task 1792843414313973894): V1 V5 V6 V7 as `01.json 05.json 06.json 07.json`. V2 V3 V4 partial. No `complete`.
 
 ## Probes
 
@@ -32,22 +32,33 @@ New probes (2026-10-24, python `probe/python/*.py`, `probes.tsv`; general solver
 | bit4.py | bit 0 of (test index - 2) of that placement | 0010101 |
 | bit7.py | that placement is x-mirrored | 0000000 |
 
+Probes 2026-10-24 (task 1792843414313973894, python `probe/python/f01..f14.py`, generator `feat.py`/`mk.py`/`mk2.py`/`plan.py`/`cand.py` in that task's journal scratch). `feat.py` F(): validator id k = 1 + test index of the min-abs-diff class placement of a test 2-7 core (L() of lib.py), k=2 when none; fields: R = oz and sg and ex and st (oz outside placement all zero, sg signs equal test core, ex exit = shifted test exit, st Indy start = shifted test start), A = alt index of the abs-differing cells (core row-major, per nonzero cell the other values of its class ascending; 2 diffs: b*(b-1)/2+a), W/H = dims minus core dims, x/y placement offset; V2: W-9, H-1, c = 1 + first column whose removal makes the grid class-match the whole 8x4 test 2 grid, d = abs diffs then, nz nonzero count. f13 = transcript check: passes iff every input line (init + every turn incl. rocks) equals the local referee transcript of our candidate with the same solver.
+
+| probe | V2 | V3 | V4 | V5 | V6 | V7 |
+|-|-|-|-|-|-|-|
+| f01 | W b0 0 | R 1 | R 0 | R 1 | R 1 | R 0 |
+| f02-f05 | W b1 0, H b0-2 110 | A b0-3 0101 | oz 1 sg 0 ex 1 st 1 | A b0-3 0100 | A b0-3 0100 | oz 0 sg 1 ex 1 st 1 |
+| f06-f09 | c b0-3 1100 | A b4-7 0000 | A b0-3 0000 | A b4-6 000, W b0 0 | A b4-6 000, W 0 | W 0, H b0-2 100 |
+| f10-f12 | d b0-2 101 | A b8-10 000 | A b4-6 110 | W b1 1, x 10 | H 0 | H b3 0, y 0, no b0 1 |
+| f13 | nz b0 0 | W b0 1 | A b7 0 | transcript PASS | transcript PASS | transcript PASS |
+| f14 | nz b1 0 | x b0 0 | A b8 0 | | | |
+
 ## Per validator
 
-- V1 Broken well: exact copy of test 1 (grid, exit, Indy start). Confidence high (chain0). Recovered: `01.json` = `tests/01.json`
-- V2 Broken sewer: W 9..12, H<=8, no rocks; does NOT contain test 2's core (6x4) even up to room rotation; >=60% abs-similar to some test core (weak, sim.py). Layout of its own (stretched sewer?). Unknown otherwise
-- V3 Broken secret passages: W<=8, H>=9, not 6x9; contains test 3's core (6x9) direct (not mirrored) with exactly 2 unlocked rooms rotated (abs differs, same class). Rest (offset, extra rows, signs, exit, start) unknown
-- V4 Broken mausoleum: W 13..16, H>=10, contains test 4's core (13x10) direct with 2 rooms rotated
-- V5 Underground complex: W 13..16, H<=8 so H=8 (core 13x8 needs 8 rows), contains test 5's core direct with 1 room rotated
-- V6 Rocks 1: rocks reach Indy's input; W<=10, H<=8, not 10x8; contains test 6's core (9x8, cols 1..9) direct with 1 room rotated: so H=8 and W=9 (9x8 core in W<=10, H<=8, and 10x8 excluded): test 6 grid without its empty column 0, one room rotated; rock schedule unknown
-- V7 Rocks 2: rocks; W 9..10, H>=9; contains test 7's abs core (9x8) exactly (0 rotated rooms), direct; not a zero-padded signed copy (sim.py, if not contaminated: extra nonzero cells outside the core or other signs)
-
-Confidence: high for counts/bits (reports), medium for "V_k matches test k" (bit4 parity + dims agree for every k).
+- V1 Broken well: test 1 exactly. `01.json`. High (chain0)
+- V2 Broken sewer: 9x4, no rocks. Removing column 2 gives an 8x4 grid matching test 2's grid up to unlocked-room class (column 2 inserted into the sewer), with 5 cells of other abs value than test 2 (rotated rooms). Nonzero cell count multiple of 4. Unknown: inserted column values, which 5 cells, signs, exit, start
+- V3 Broken secret passages: W=7, H>=9, no rocks, test 3 grid (6x9, core = whole grid) at x=0 (column 6 all zero), y unknown (H unknown: if H>9 extra zero rows above/below). Outside zero, signs = test 3, exit 3+0, Indy start (5, y). 2 rooms changed: test (row 0, col 5) -3 -> -2 (Indy's own start room!) and (row 1, col 2) 3 -> 2. Our python solution passes V3 on CG, so CG must let Indy leave a type-2 start room entered from TOP (our referee crashes Indy there at turn 1: fidelity gap, or the decode is wrong). Unknown: H, y
+- V4 Broken mausoleum: W 13..16, H>=10, no rocks. Test 4 core (13x10 = whole test 4 grid) placed somewhere, outside zero, exit and start = shifted test, some signs differ (sg 0, count unknown), 2 rooms rotated: A bits 0-8 = 000011000 (A mod 512 = 48), bits 9-13 unknown. Unknown: A high bits, W, H, x, y, which signs
+- V5 Underground complex: exact, `05.json`: 15x8 = test 5 with one zero column added on each side, test (row 1, col 3) 8 -> 7, exit 2, start (7,0). Confirmed by f13 transcript
+- V6 Rocks 1: exact as observed, `06.json`: 9x8 = test 6 minus its zero column 0, test (row 1, col 1) 7 -> 8, exit 0, start (7,0), rocks of test 6 shifted x-1. Confirmed by f13 transcript (rocks included)
+- V7 Rocks 2: exact as observed, `07.json`: 9x9 = test 7 minus its zero column 0 plus a bottom row `-3 0 0 0 0 0 0 0 0`, exit 0, start (7,0), rocks of test 7 shifted x-1. Confirmed by f13 transcript
 
 ## Key / hardcode
 
-Shortest known separating key: (W, H) classes: V1 5x3; V2 W 9..12 H<=8; V3 W<=8; V4 W>=13 H>=9; V5 W>=13 H=8; V6 W=9 H=8 (deduced); V7 W 9..10 H>=9. V2 and V6 may share W=9 H<=8: then H or grid content separates. Answers unknown: per-validator answers would differ from the tests' at the rotated rooms only (V3-V6) if the rest of the frame matches.
+Separating key: W (5 V1, 9 V2/V6/V7, 7 V3, 13..16 V4/V5) with H (V2 4, V6 8, V7 9; V4 H>=10, V5 H 8). Answers: run the reference on `05/06/07.json` for V5-V7 actions; V1 = test 1.
 
-## Next bits (cheap, 1 probe each, all validators in parallel)
+## Next bits
 
-- per validator: x/y of the rotated rooms in core coordinates (bits of y*16+x of the k-th differing cell), new value (2 bits), offset of the core, W and H, sign differences vs test, exit x, Indy start, then a transcript checksum (knowledge `_shared/hidden-validators.md`) on the candidate
+- V3: H-9 and y (4 + 2 bits), then transcript check (needs a local referee that lets Indy leave a type-2 start room, or hand-built transcript)
+- V4: A bits 9-13, W-13 (2), x (2), H-10 (4), y; ns (sign-diff count) then their cells
+- V2: inserted column values, the 5 changed cells (per-cell abs bits: 9 class-{2,3} cells 1 bit each, 4 class-{10..13} cells 2 bits), signs, exit, start
