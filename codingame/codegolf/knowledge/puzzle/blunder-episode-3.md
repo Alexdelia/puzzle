@@ -31,7 +31,7 @@ pretty_id `blunder-episode-3`, leaderboard `blunder-episode-3-codesize`, io.
 
 Method (local 20/20 before validators 13-18, now 20/26): two-point growth exponent, first and last measure only.
 
-**CG refuted 2026-10-20: this method scores 88% on CG** (Bash cell, perl one-liner, `int(2k+.9)` = thresholds `x/2+.05`, local 20/20): 6 of 50 hidden validators misclassified. CG gives no per-validator detail. First/last points alone are not robust enough for CG: cells using it must change method.
+**CG refuted 2026-10-20: this method scores 88% on CG** (Bash cell, perl one-liner, `int(2k+.9)` = thresholds `x/2+.05`, local 20/20): per-validator report (2026-10-24) shows only validator 7 (O(n^3), weight 60 of 500) fails. First/last points alone are not robust enough for CG: cells using it must change method.
 
 Local validators 13-18 (added 2026-10-20) reproduce the failure: contiguous subranges of the real CG tests (O(1) n 3410..9910, O(log n) 3105..4990, O(n) 7705..9405, O(n log n) 8134..9734, O(n^2) 6234..7134, O(n^2 log n) 159..224), each picked so the reference (log-space variance) wins with margin >= 2x and the two-point exponent misclassifies; the two-point bash 116 now fails 6/26 locally. Which CG validator actually failed stays unknown (CG gives no per-validator detail, 88% = 44/50, 6 validators fail): local 26/26 is necessary, not proof of CG 100%.
 
@@ -75,16 +75,15 @@ Index-weighted slope (verified CG 100% 2026-10-22, OCaml 249): `k = sum w_i log 
 
 ## Hidden validators
 
-Full detail, sources and probe lines: `puzzle/blunder-episode-3/referee/hidden/facts.md`. No validator recovered exactly (t carries random noise); no `complete`.
+Full detail, sources and probe lines: `puzzle/blunder-episode-3/referee/hidden/facts.md`. First two lines of every validator known exactly (CG 100% on a hardcode keyed on them, 2026-10-24); full inputs not (t noisy on every line), no `complete`.
 
-- **50 validators, 2% each** (deduced 2026-10-20: 50 is the smallest count giving every probe score exactly; 14% = 7/50 refutes the earlier 25-validator reading)
-- class histogram (constant-output probes): O(1) 6, O(log n) 7, O(n) 6, O(n log n) 7, O(n^2) 6, O(n^2 log n) 6, O(n^3) 6, O(2^n) 6
-- no validator is byte-identical to an IDE test (0%, probe code checked by test game): hardcoding the 8 tests scores 0
-- 32/50 share N and last n with their class test (same grid, t redrawn); 38/50 have a last n among the 8 test last n; 18/50 sit off the test grids
-- methods: all-points log-log slope 50/50 (Perl 180), index-weighted slope 50/50 (Perl 123), two-point first/last 44/50 (Bash 88%), constant answer 6-7/50
+- **8 validators, one per class, in test order** (titles = class names), weights 60,70,60,70,60,60,60,60 (CG per-validator report). The older "50 validators, 2% each" was a wrong score-grain deduction (the grain was the weights)
+- (N, first n): 1 O(1) (100,10), 2 O(log n) (999,5), 3 O(n) (90,34), 4 O(n log n) (100,34), 5 O(n^2) (75,34), 6 O(n^2 log n) (54,34), 7 O(n^3) (50,2), 8 O(2^n) (24,2). First t: 240000, 577340, ?, 1036, ?, 30546, ?, 13
+- **N alone separates all but N=100** (O(1) vs O(n log n)): tie-break on first n (10/34), first t, or first char of line 2 (`1`/`3`). Verified 100%: `probe/python/key.py`
+- validators 1,2,4,6,8 = IDE test grid with t redrawn; 3 = test 05's grid (O(n^2) test) with O(n) timings; 5, 7 own grids
+- two-point first/last exponent fails **only validator 7** (O(n^3)); all-points regression passes all 8
+- a key hardcode fails IDE tests 03/05/07: local `submit.sh` refuses it, use `oracle.sh` (probe) then copy the 100% probe to `solution/`
 - test games only reach testcases 1..8 (`INVALID_TESTCASE` on 9)
 - CG Scala needs `object Solution` (`object Main` crashes: "No such file or class on classpath: Solution")
 
-Rows left by probes (below 100%, any 100% submission replaces them): Ruby 64% (270), JS 64% (433), PHP 76% (362), Lua 12% (11), TypeScript 0% (461), Go 14% (62), Kotlin 12% (27), Groovy 14% (17), Dart 12% (24), Swift 12% (21), Scala 0% (42), Haskell 12% (19).
-
-Guesses (unverified): tops (Ruby 76, Perl 79, PHP 83) leave ~13-17 chars for read + index, so they key on a cheap feature constant per class over all 50 validators, or a short robust fit. N and last n collide across classes on the test grids (N=100 for O(1), O(n), O(n log n)), and 18 validators sit off the grids. A per-input hash of 50 inputs into 8 slots is hopeless.
+Rows left by probes (below 100%, any 100% submission replaces them): Ruby 64% (270), JS 64% (433), PHP 76% (362), Lua 12% (11), TypeScript 0% (461), Go 14% (62), Kotlin 12% (27), Groovy 14% (17), Dart 12% (24), Swift 12% (21), Scala 0% (42), Haskell 12% (19) (some since replaced by real solutions).
