@@ -4,7 +4,7 @@ source "$(dirname "$0")/lib.sh"
 trap 'echo "wrap.sh: failed at line $LINENO (exit $?): $BASH_COMMAND" >&2' ERR
 shopt -s nullglob
 
-usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, cached per puzzle, referee only on cores; cores failing the local referee (CG-only exploits) are never wrapped; --submit: submit.sh the winners (on STOP: no new attempt, posted ones still judged); exit 3: some host deferred (busy cell, submit cap, STOP, generator error, lottery round lost)"
+usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, cached per puzzle, referee only on cores; cores failing the local referee --cg are never wrapped (failing one CG accepted raises an attention event); --submit: submit.sh the winners (on STOP: no new attempt, posted ones still judged); exit 3: some host deferred (busy cell, submit cap, STOP, generator error, lottery round lost)"
 puzzle=${1:?$usage}
 shift
 host_filter=
@@ -24,8 +24,6 @@ mkdir -p "$state/build/wrap"
 work=$(mktemp -d "$state/build/wrap/$puzzle.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/derived"
-local_sets=(--validators)
-[[ -e $root/puzzle/$puzzle/referee/hidden/complete ]] && local_sets=(--hidden)
 deferred=
 wrap_core_check=$state/wrap/core-check.tsv
 wrap_estimate_dir=$state/wrap/estimate
@@ -39,16 +37,30 @@ derived_perl_core() {
 	printf '%s\n' "$derived"
 }
 
+flag_accepted_core() {
+	local core=$1 file=$2 output=$3 ours length mismatch
+	ours=$(jq -r '.ours // empty' "$(status_file cell "$puzzle" "$core")" 2>/dev/null) || return 0
+	length=$("$tool_dir/count.sh" "$file")
+	[[ -n $ours && ${ours%.*} == "$length" ]] || return 0
+	if [[ -e $root/puzzle/$puzzle/referee/hidden/complete ]]; then
+		mismatch=$(grep -m 1 -E "$referee_failure" <<<"$output") || return 0
+	else
+		mismatch=$(grep -m 1 -E '^test (validators|hidden)/[^ ]* (fail|timeout) ' <<<"$output") || return 0
+	fi
+	event "attention wrap core $puzzle $core: CG accepted length $length, local referee fails ${file#"$root"/}: $(cut -c1-200 <<<"$mismatch")"
+}
+
 core_verdict() {
 	local core=$1 file=$2 hash fingerprint verdict output failed_test
 	hash=$(sha256sum <"$file" | cut -c1-64)
 	fingerprint=$(referee_fingerprint "$puzzle" "$core")
 	verdict=$(awk -F'\t' -v hash="$hash" -v fingerprint="$fingerprint" '$1 == hash && $2 == fingerprint { verdict = $5 } END { print verdict }' "$wrap_core_check" 2>/dev/null) || verdict=
 	if [[ -z $verdict ]]; then
-		if output=$("$root/puzzle/$puzzle/referee/run.sh" "$file" --lang "$core" "${local_sets[@]}" 2>&1); then
+		if output=$("$root/puzzle/$puzzle/referee/run.sh" "$file" --lang "$core" --cg 2>&1); then
 			verdict=pass failed_test=
-		elif failed_test=$(grep -m 1 -E '^(test [^ ]* fail |build fail )' <<<"$output"); then
+		elif failed_test=$(grep -m 1 -E "$referee_failure" <<<"$output"); then
 			verdict=fail
+			flag_accepted_core "$core" "$file" "$output"
 		else
 			echo "wrap.sh: local referee errored on core ${file#"$root"/}: $(tail -n 1 <<<"$output")" >&2
 			echo error
@@ -343,7 +355,7 @@ for host_dir in "$wrap_root"/*/; do
 	for line in "${sorted[@]}"; do
 		IFS=$'\t' read -r length candidate source <<<"$line"
 		[[ -z $ours ]] || ((length < ours)) || break
-		if ! "$root/puzzle/$puzzle/referee/run.sh" "$candidate" --lang "$host" "${local_sets[@]}" >"$candidate.referee" 2>&1; then
+		if ! "$root/puzzle/$puzzle/referee/run.sh" "$candidate" --lang "$host" --cg >"$candidate.referee" 2>&1; then
 			wrap_remember_local_fail "$candidate" "$puzzle" "$host" "$length" "$source" "$(<"$candidate.referee")"
 			continue
 		fi

@@ -339,6 +339,7 @@ loop_pids() {
 wrap_rejected=$state/wrap/rejected.tsv
 wrap_lottery=$state/wrap/lottery.tsv
 wrap_local_fail=$state/wrap/local-fail.tsv
+referee_failure='^(test [^ ]* (fail|timeout) |build fail )'
 
 referee_fingerprint() {
 	local puzzle=$1 lang=$2 file
@@ -350,7 +351,7 @@ referee_fingerprint() {
 
 wrap_remember_local_fail() {
 	local code=$1 puzzle=$2 lang=$3 length=$4 source=$5 referee_output=$6 failed_test
-	failed_test=$(grep -m 1 -E '^(test [^ ]* fail |build fail )' <<<"$referee_output") || return 0
+	failed_test=$(grep -m 1 -E "$referee_failure" <<<"$referee_output") || return 0
 	mkdir -p "$(dirname "$wrap_local_fail")"
 	printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(sha256sum <"$code" | cut -c1-64)" "$(referee_fingerprint "$puzzle" "$lang")" \
 		"$puzzle" "$lang" "$length" "$source" "$(cut -c1-200 <<<"${failed_test//$'\t'/ }")" >>"$wrap_local_fail"

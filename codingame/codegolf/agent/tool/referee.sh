@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-usage="usage: run.sh <solution-file> [--lang <lang>] [--bench] [referee options] [test...]"
+usage="usage: run.sh <solution-file> [--lang <lang>] [--bench] [--cg] [referee options] [test...]; --cg: the cases CG grades, hidden/ only when hidden/complete exists, else tests + synthetic validators"
 referee_dir=$(cd "${1:?$usage}" && pwd)
 shift
 solution=${1:?$usage}
@@ -9,6 +9,18 @@ shift
 tool_dir=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$tool_dir/../.." && pwd)
 slug=$(basename "$(dirname "$referee_dir")")
+
+cg_graded_args() {
+	local case found=
+	if [[ -e $referee_dir/hidden/complete ]]; then
+		for case in "$referee_dir"/hidden/*.in "$referee_dir"/hidden/*.json; do
+			[[ -e $case ]] || continue
+			printf 'hidden/%s\n' "$(basename "${case%.*}")"
+			found=1
+		done
+	fi
+	[[ -n $found ]] && echo --hidden || echo --validators
+}
 
 lang=$(basename "$(dirname "$(realpath "$solution")")")
 bench=false
@@ -21,6 +33,10 @@ while (($#)); do
 		;;
 	--bench)
 		bench=true
+		shift
+		;;
+	--cg)
+		mapfile -t -O "${#referee_args[@]}" referee_args < <(cg_graded_args)
 		shift
 		;;
 	*)

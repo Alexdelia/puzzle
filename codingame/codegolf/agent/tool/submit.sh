@@ -100,9 +100,8 @@ submit_and_wait() {
 		echo "submit.sh: refused, $recent_submits agent submits on $puzzle in the last 5 h (cap $submit_cap_5h per puzzle, rest kept for the user): note it in the journal and move on" >&2
 		exit 1
 	fi
-	hidden_complete=$root/puzzle/$puzzle/referee/hidden/complete
-	local_sets=(--validators)
-	[[ -e $hidden_complete ]] && local_sets=(--hidden)
+	exploit_hint="hidden-validator exploit: use --probe"
+	[[ -e $root/puzzle/$puzzle/referee/hidden/complete ]] && exploit_hint="only CG's hidden validators ran: CG would fail it too"
 	probe_cap=$probe_submits_per_task
 	[[ ${CG_TASK_ID:-} == validator.* ]] && probe_cap=$validator_submits_per_task
 	if [[ -n $probe ]]; then
@@ -111,9 +110,9 @@ submit_and_wait() {
 			echo "submit.sh: refused, this task already used $task_submits submits (probe cap $probe_cap)" >&2
 			exit 1
 		fi
-	elif ! referee_output=$("$root/puzzle/$puzzle/referee/run.sh" "$code" --lang "$lang" "${local_sets[@]}"); then
+	elif ! referee_output=$("$root/puzzle/$puzzle/referee/run.sh" "$code" --lang "$lang" --cg); then
 		[[ -z ${CG_WRAP_SOURCE:-} ]] || wrap_remember_local_fail "$code" "$puzzle" "$lang" "$length" "$CG_WRAP_SOURCE" "$referee_output"
-		echo "submit.sh: refused, local referee fails: run puzzle/$puzzle/referee/run.sh ${code#"$root"/} --lang $lang ${local_sets[*]} (hidden-validator exploit: use --probe)" >&2
+		echo "submit.sh: refused, local referee fails: run puzzle/$puzzle/referee/run.sh ${code#"$root"/} --lang $lang --cg ($exploit_hint)" >&2
 		exit 1
 	elif [[ -n $ours ]] && ((length >= ${ours%.*})); then
 		echo "submit.sh: refused, length $length not below ours $ours" >&2
