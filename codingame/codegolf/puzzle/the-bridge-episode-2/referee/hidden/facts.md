@@ -1,6 +1,30 @@
 # The Bridge (episode 2) hidden validators
 
-Validator tasks 2026-10-20 and 2026-10-21. Nothing recovered exactly: no `NN.json`, no `complete`. Exact roads are out of reach of the score channel (each validator is a test moved/edited in ~4..12 cells, about 30+ bits each; a probe returns one (lights, heavies) pair).
+## Recovered 2026-10-24 (per-validator report, bit-extraction probes)
+
+Titles (CG report, weights per 1000): 1 One lonely hole (83), 2 Chained jumps of increasing length (83), 3 Chained jumps of decreasing length (83), 4 Chained jumps of equal length (83), 5 Diagonal columns of holes + 3 hole row (83), 6 Scattered pits (83), 7 Big jump chained with hole columns (83), 8 Diagonal columns of holes + 4 hole row with mandatory sacrifice (83), 9 Obstacle course for 1 bike (84), 10 Obstacle course for 2 bikes (84), 11 Mandatory sacrifice (84), 12 Well worn road (84).
+
+Method: perl probes `probe/perl/bit00..07.pl`, `c08..c22.pl` (template in the journal scratch of task 1792834544389442463): the general DFS answers iff bit j of a per-validator encoding is 1; the report gives one bit per validator per submit.
+
+### Validators 1, 5, 6, 7, 8, 9, 10, 11, 12: EXACT (high confidence)
+
+Validator k = IDE test k mirrored across lanes: road lane y = test lane 3-y, same L, V, S, no x shift, no edit; bike lanes y -> 3-y (v1 lane 1, v7 lanes 1,2,3, v9 lane 1, v10 lanes 1,3, v6 1,2 unchanged, v5/v8/v11/v12 0..3). Checked by probes c08..c22: each answers iff road and bike-lane set equal the flipped test exactly (pass on all of them). Bike X = 0, all active. Files `NN.json` (bike order in the input not probed, written sorted).
+
+### Validators 2, 3, 4: block holes (all 4 lanes identical, 4 bikes at X=0)
+
+Lane-0 run lengths (first gap p, hole widths w, gaps g), from bits:
+- v4 (L 36, V 4, S 1, triple of test 4): p = 14, all widths 2, all gaps 2, 4 groups: `..............00..00..00..00` + `.` to L = 36 (exact if L = 36, which the t4 triple gate proved). EXACT
+- v3 (L, S not test 3's; (V, S) matches no test): p = 22, 3 groups, w1 = 5, g1 = 6, w2 = 4, widths not all equal; g2, w3, L, V, S unknown. Matches test 3 (`14:5,6:4,5:2`) shifted +8 in x so far, so likely L >= 44 (test 3: 42)
+- v2 (L not 56; (V, S) equals some test's): p = 6, 4 groups, w1 = 2, g1 = 5, w2 = 3, widths not all equal, gaps not all equal; w3, w4, g2, g3, L, V, S unknown
+- v4 tail bits (c20..c22) = 100x, consistent with L - 28 = 8
+
+Next probes (tpl2 bit order, J = probe index): 23..25 v2 w3 / v3 w3, 26..28 v2 w4 / v3 g2(4 bits 26..29), v2 g2 29..32, g3 33..36, tail 37..40; v3 tail 30..33, pair 34..37, V 38..40, S 41..44. Cheaper for v3: one probe testing 'lane = test 3 shifted +8, all 4 lanes' then L and S bits.
+
+## Shortest separating key
+
+(L, V, S) separates all validators except v5/v8 (both (36, 3, 6)); v2 and v3 carry triples of no test. v5 vs v8: lane 0 (flipped test lane 3) at x 27..30.
+
+## Earlier notes (2026-10-20/21, before the report)
 
 ## Count and weights
 
