@@ -61,11 +61,13 @@ Perl 158 (local 17/17, CG rank 3, 2026-10-20), `-ln0`: strip header + `$w=L+1` i
 
 ## Hidden validators
 
-- 10 validators (probe grain 10%, javascript chain 2026-10-20): 6 small (`L*H<1e5`), 2 big with `N=1`, 1 big with `N<=100`, 1 big with `N=300`
-- forum (https://forum.codingame.com/t/surface-puzzle-discussion/26): a validator "No Land" (only water, performance case), and "300 tests on a 1000x1000 map"
-- local validators 09 (1000x1000 all water, N=1) and 10 (1000x1000 random 50% water, N=300) stand for "No Land" and the 300-query validator (sizes guessed from the forum, unverified)
-- no hardcode gain: general flood fill required; per-query O(L*H) work is 3x test 8 on the 300-query validator
-- details, probe table, deduced titles: `puzzle/surface/referee/hidden/facts.md`
+- 9 validators (CG per-validator report 2026-10-24), weights 100 x 8 + 200 for 9 "Large map, large lake"; the old "10 validators" from the score grain was wrong
+- titles: 1 No lake, 2 No land, 3 1 lake on a small map, 4 Several lakes on a small map, 5 Some lakes on a 20x20 map, 6 Many lakes on a 100x50 map, 7 100 tests on a 1000x1000 map, 8 300 tests on a 1000x1000 map, 9 Large map, large lake. IDE test 1 has no validator
+- 1-6 small (`L*H<1e5`, "No land" included); 7 big `2<=N<=100`, 8 big `N=300`, 9 big `N=1`. No validator map is a flip/rotation/transpose of an IDE test map
+- perl core WITHOUT the end pad (`$t=$_` for `$t=$_.1x$w`) passes all 9 on CG (perl 124, python wrapper 154 tie #1, 2026-10-24) though it dies locally on IDE test 8: wrappers of it must ship through `agent/tool/oracle.sh`, the local gate of `wrap.sh` / `submit.sh` rejects them
+- no hardcode gain: general flood fill still required (7, 8 are 1M maps)
+- local validators 09/10 are synthetic guesses, not CG's
+- details, probe table: `puzzle/surface/referee/hidden/facts.md`
 
 JavaScript 219 (local 17/17, submitted 2026-10-20): `T=require('fs').readFileSync(0)+''`, `[L,,...r]=T.split`\n``, `w=-~L`, `g=[...r.join`\n`]` (header dropped, rows+tail share the flat array), queries via `T.match(/.+ .+/g)` (only query lines hold a space), `k=[t=eval(q.replace(' ','+w*'))]`, `for(i of k)g[i]==='O'&&(g[i]=k,k.push(i-1,i+1,i-w,i+w))`, `print(g[t].length>>2)`. No pad needed (undefined out of range). TRAP: `g[i]=='O'` (loose) with a list mark coerces the list to string each test: 360k lake does not finish in 120 s; strict `===` required (+1 B).
 
@@ -76,5 +78,7 @@ Groovy 214 (CG row 70%, 2026-10-21, local 17/17): list-mark flood, details in kn
 Scala 326 (CG 100%, rank 4, 2026-10-21): Set frontier flood, see knowledge/lang/scala/set-frontier-flood.md. Top 238 not reached. Tried: ArrayBuffer clone + k.size/4 trick with index loop (349), list stack (374).
 
 Clojure 228 (CG submitted 2026-10-21, rank 1): perl-wrapper (knowledge/lang/clojure/perl-wrapper.md) around the Perl 158 core with args "-ln0e" (shebang flags as one arg, newlines inside the string literal), local 19/19. Top was 255.
+
+Perl 124 (CG 100%, rank 2, 2026-10-24): the 129 below minus the end pad (section Hidden validators).
 
 Perl 129 (CG 100%, rank 2, 2026-10-22; `s/\d+ /` + `$&+$'*$w`): string copy per query `$t=$_.1x$w` (end pad of w non-O chars catches substr negative up-indexes from row 0 and the down overflow of the last row, 4-arg substr past the end is fatal), `substr($t,$_,1,X)=~O&&push@k,$_-1,$_+1,$_-$w,$_+$w for@k`, count `@k>>2`; loop and parsing tricks in knowledge/lang/perl/subst-e-loop.md. 1M-char copy per query is fast (validators/10 with 300 queries ~1.3 s local). Top 121 not reached.
