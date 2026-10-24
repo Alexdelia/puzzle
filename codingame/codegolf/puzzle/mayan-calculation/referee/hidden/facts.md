@@ -3,7 +3,7 @@
 12 validators, titles = the 12 IDE test titles, weights 83 x 10 (1-10) + 85 x 2 (11, 12) (CG per-validator report, 2026-10-24).
 Every validator keeps the font of its own test (`L == H`); validators 1-8 and 10-12 keep the operator and digit counts of their own test, 9 does not.
 
-Recovered exactly: 01-07 and 09-12 (`NN.in`/`NN.out` here, each md5-verified on CG). No `complete`: 08 has 906 candidates left, best guess 13452 * 789012 (unverified).
+Recovered exactly: all 12 (`NN.in`/`NN.out` here, each md5-verified on CG), `complete` written, python reference passes `--hidden` 24/24 (2026-10-24).
 
 ## Method (2026-10-24, probes perl `bis01`..`bis25` in `probe/probes.tsv`)
 
@@ -20,23 +20,23 @@ Perl general solution printing the right answer iff a per-validator predicate ho
 | 5 | Subtraction | `.o_` | 113 - 18 | 95 | exact, md5 verified |
 | 6 | Simple division | `.o_` | 9 / 3 | 3 | exact, md5 verified |
 | 7 | Division | `.o_` | 2000 / 10 | 200 | exact, md5 verified |
-| 8 | Great multiplication | `.o_` | 13452 * b, b in 788521..789426 (906 candidates); test 8's b = 789012 is inside and 13452 is a digit permutation of test 8's 12345: guess 13452 * 789012 | ~1.06e10 (> 2^32, < 2^53) | a exact by bisection, b open, guess unverified |
+| 8 | Great multiplication | `.o_` | 13452 * 789120 | 10615242240 (> 2^32, < 2^53) | exact, md5 verified (bis42); guesses 789012 (bis31) and 789123 (bis38) refuted |
 | 9 | Zero | `.o_` | 234561 * 0 (5-digit a, test 9 has 4) | 0 | exact, md5 verified (bis30) |
 | 10 | Missing power | `.o_` | 8001 * 36 | 288036 | exact, md5 verified (bis28) |
 | 11 | Base 20 | `0-9A-J` 1x1 | 8016 * 24 | 192384 | exact, md5 verified (bis28) |
 | 12 | Other symbols | `.X` 11x11 | 2012 * 21202 | 42658424 | exact, md5 verified (bis30) |
 
-Validator 8 after bis30: `Z = a*20^5 + b` in `[43047188521, 43047189427)`. Next worker: one probe md5-checking the 13452 * 789012 reconstruction (`state.json` in the scratch dir: set v8 lo/hi to the single Z 43047189012, `step.sh NN verify`); if it fails, ~10 bisection probes (`step.sh NN`). Then write 08, run `--hidden`, touch `complete`.
+Validator 8 (2026-10-24, second worker): bis31 refuted 789012, bis32-37 Z bisection to b in 789115..789128, bis38 refuted 789123, bis39-41 to {789120, 789121}, bis42 md5 matched 789120 with all 12 validators passing (100%).
 
 ## Facts for golf (certain)
 
 - `L == H` everywhere; fonts are the 3 IDE fonts
 - no negative result, divisions exact, one result is 0 (validator 9) -> zero must print one glyph
-- results: only validator 8 exceeds 2^31 (13452 * ~7.9e5 ~ 1.06e10 -> needs 64-bit, fits double exactly); all others < 2^31 (largest 12: 42658424)
-- answers 1-7, 9-12: 4, 22, 36, 8, 95, 3, 200, 0, 288036, 192384, 42658424
+- results: only validator 8 exceeds 2^31 (10615242240 -> needs 64-bit, fits double exactly); all others < 2^31 (largest 12: 42658424)
+- answers 1-12: 4, 22, 36, 8, 95, 3, 200, 10615242240, 0, 288036, 192384, 42658424
 - operators per validator: `+` 1-2, `*` 3, `-` 4-5, `/` 6-7, `*` 8-12
 
-Sources: CG per-validator report of probes bis01-bis30 (perl, `puzzle/mayan-calculation/probe/probes.tsv`, raw `agent/state/report/<id>.json`). Forum https://forum.codingame.com/t/mayan-calculation-puzzle-discussion/48 quotes no validator input (2026-10-20 journal).
+Sources: CG per-validator report of probes bis01-bis42 (perl, `puzzle/mayan-calculation/probe/probes.tsv`, raw `agent/state/report/<id>.json`). Forum https://forum.codingame.com/t/mayan-calculation-puzzle-discussion/48 quotes no validator input (2026-10-20 journal).
 
 ## Key
 
