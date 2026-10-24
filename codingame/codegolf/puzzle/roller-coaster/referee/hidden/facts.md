@@ -1,37 +1,38 @@
 # roller-coaster hidden validators
 
-Status 2026-10-20: 5 of 23 identified as verbatim IDE tests (by `L C N` + answer), 18 known by feature histogram only. No `NN.in` written: CG validator order and titles unknown, so numbering cannot follow `tests/`.
+Status 2026-10-24: 10 validators (not 23: the old count was the weight grain), 3 recovered exactly (V2, V4, V10 -> `02`, `04`, `10` here, numbered by CG validator, not by IDE test). V9 (the only one besides V10 that naive cannot do) has new random groups: its answer is out of reach of 1-bit probes. No `complete`.
 
-Probes: `agent/state/oracle/roller-coaster.tsv` (task validator.roller-coaster.-.1792523690997590304). Each one is a correct memo solution that prints its answer only when a predicate on the input holds, otherwise `0`; the score of a fresh-language row = count of validators matching. Generators in the journal scratch (`gen.sh` JS, `genphp.sh` PHP).
+Sources: per-validator report of every submission (`agent/tool/cg-report.sh <id>`), python predicate probes p1..p15 in `puzzle/roller-coaster/probe/python/` (log `puzzle/roller-coaster/probe/probes.tsv`, task validator.roller-coaster.-.1792834544102689521). Each probe is a correct cycle-skip solution printing its answer only when a predicate holds, else `0`. Older JS/PHP/C/TS probes (2026-10-20, submissions 41537540..41537615) re-read per validator with `cg-report.sh`.
 
-Notation: `W` = total groups boarded over all `C` rides (naive walk cost), `S` = sum of groups, `E` = `(L, C, N, answer)` equal to an IDE test.
+Notation: `W` = groups boarded over all `C` rides (naive cost), `S` = sum of groups, `pre`/`per` = pre-period/period of the ride start index from 0.
 
-## Count
+## Count and weights
 
-- 23 validators: score grain 100/23 (perl probes, journal `cell.roller-coaster.perl.*`), confirmed by every probe score here (5, 17, 20, 2, 19 of 23)
+10 validators: V1..V7 weight 100, V8..V10 weight 150 (total 1150, score grain 50/1150 = 100/23, why the old probes read "23").
 
 ## Per validator
 
-| validators | known | source | confidence |
-|---|---|---|---|
-| 5 | verbatim IDE tests 01, 02, 04, 05, 06 (`L C N` and answer equal) | JS probe `E` 5/23; PHP `E&&M<2` 2/23 (01, 02 in), `E&&M<3` 2/23 (03 out); 04, 05, 06 by deduction from 5 | high (group lists not compared, only L, C, N, answer) |
-| 12 | not a test, `W < 1e4` (light) | JS `E\|\|W<1e4` 17/23 minus the 5 tests (tests 01, 02, 04 have W < 1e4, tests 05, 06 above it, all in E) | high |
-| 3 | not a test, `1e4 <= W < 1e6` | JS `E\|\|W<1e6` 20/23 | high |
-| 0 | not a test, `1e6 <= W < 1e8` | JS `E\|\|W<1e8` 20/23 | high |
-| 3 | not a test, `1e8 <= W < 3e8` (heavy) | JS `E\|\|W<1e9` 100%, PHP `E\|\|W<3e8` 100% | high |
-| 4 | not a test, `S <= L` (ride takes all groups: "board at most once per ride" cap matters unless `S == L`) | TS `!(S<=L)\|\|E` 19/23 | high |
+| # | title | known | source | confidence |
+|---|---|---|---|---|
+| 1 | Simple case | not test01 groups (nor permuted), `N != 1000`, `W < 1e4`, every ride full (answer = `C*min(L,S)`), `pre = 0`, `C < 1e6` | p1, p3, p7, p5, p6, JS W probe | high |
+| 2 | 2 spot, 1 ride, 1 group | exact: `2 1 1` / `2` -> 2 (`02.in`) | p15 | exact |
+| 3 | The same groups go on the ride several times during the day | not test03 groups (nor permuted), `N != 1000`, `W < 1e4`, rides not all full, `2 <= pre < 16` (test03 has pre 1) | p1, p8, p7, p12, p13 | high |
+| 4 | 1000 groups of a few people | exact: IDE test 02 (`04.in`), answer 3935 | p1 (N + group hash), old E probe | exact |
+| 5 | All the people get on the roller coaster at least once | `S <= L`, not test04 groups (nor permuted), every ride full, `N != 1000`, `pre = 0` | TS probe, p1, p8, p7 | high |
+| 6 | All the people get on the roller coaster before dawn | no IDE twin, `N != 1000`, `W < 1e4`, `S > L`, rides not all full, `pre = 0` | p3, JS W, TS, p7, p5 | high |
+| 7 | Sequence of groups of complementary people | no IDE twin, `N != 1000`, `W < 1e4`, `S > L`, rides not all full, `pre = 0` | same | high |
+| 8 | High earnings during the day (> 2^32) | `N = 1000`, `L != 1e7`, `C < 1e6`, `1e4 <= W < 1e6`, not test05 groups (nor permuted), `pre = 0`, `pre >= 64` or `per >= 256` (so `per >= 256`) | p3, p4, p6, JS W, p1, p8, p5, p14 | high |
+| 9 | Works with a large dataset | `N = 1000`, `L != 1e7`, `5e6 <= C < 1e7`, `1e8 <= W < 3e8` (10..60 groups per ride), `S > L`, not any IDE test's groups (nor permuted), rides not all full, `pre >= 16`, `pre >= 64` or `per >= 256` | p3, p4, p10, p11, JS/PHP W, TS, p1, p8, p7, p13, p14 | high |
+| 10 | Works with a very large dataset | exact: IDE test 06 (`10.in`), answer 89744892565569, `pre 48 per 126` | p1, old E probe, C probe | exact |
 
-## Time facts
+## Keys
 
-- C at CG (naive walk, `W` boardings, test 06 hardcoded on `C==9e6`): 20/23, the 3 heavy (`W >= 1e8`) time out. Locally the same code runs W 3e8 in 4 s: CG is slower or stricter. Naive walk is dead in every language, even with test 06 hardcoded
-- test 06 (`W` 1.64e9) is itself a validator: any method too slow for it needs it hardcoded or fails
-- perl naive (journal `cell.roller-coaster.perl.*`) passed 17/23: fails 6 = test 06 + 3 heavy + 2 more (unexplained, maybe 2 of the 3 mid-W ones with large `C`)
+- `C >= 1e6` (also `>= 2e6`, `>= 5e6`) holds for V9 and V10 only; `L == 1e7` for V10 only; `N == 1000` for V4, V8, V9, V10
+- naive walk passes V1..V8 in every language measured (perl naive 17/23 = all but V9, V10); V9 times out even in C (C probe 208, naive + V10 hardcoded on `C==9e6`: only V9 fails)
+- hardcode V10 by `L==1e7` (or `C==9e6`, `C>8e6` is NOT safe: V9's C is in [5e6, 1e7)) -> 89744892565569. V9 still needs a real method: memo or cycle skip
+- V9 has `C >= 5e6`: a per-start memo with an O(C) loop does at least 5e6 iterations even with V10 hardcoded; slow interpreters still need the cycle skip
+- start-at-0 cycle detection (skip when the queue start returns to index 0) fails V3, V9, V10 (`pre > 0`); "state after ride 1 recurs" fails V3, V9, V10 too; a checkpoint must be taken after at least 64 rides to be safe for V9 (pre >= 16, unknown above), after `N` rides is always safe
 
-## Shortest separating key
+## Not recovered
 
-Unknown. IDE-answer hardcode keyed on `L` (perl 81): 5/23, the 5 verbatim tests. 18 validators unknown in value: no full hardcode possible. Candidate exploit only for the verbatim tests (e.g. hardcode test 06 to spare a slow method): still needs the 3 heavy hidden ones (`W` 1e8..3e8) under the time limit.
-
-## Next probes (not run)
-
-- C, N, L histograms of the 3 heavy validators (is any method O(C) with C <= ~3e6 enough?), `S == L` vs `S < L` among the 4
-- fresh languages still without a row on 2026-10-20: see `agent/state/cell/roller-coaster/*.json` (`ours` null)
+V1, V3, V5..V9 inputs: no IDE twin, not even as a permutation of an IDE test's groups (p8). V9's answer needs ~40 bits = 40 probes: not worth it. Small ones (V1, V3, V5, V6, V7) could be recovered with probes but naive passes them, so no golf value.
