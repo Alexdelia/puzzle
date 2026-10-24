@@ -1,0 +1,1 @@
+$_=readlink"/dev/fd/0";s/in/out/;print`cat $_`
