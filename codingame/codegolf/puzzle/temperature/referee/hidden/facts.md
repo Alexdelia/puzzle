@@ -1,47 +1,49 @@
 # Temperatures: hidden validators
 
-Partial: features and counts known, no exact input recovered. No `complete`.
+12 validators, titles `Validator 1` .. `Validator 12` (no names), weights 250 except V1 500 and V5 750 (total 3750, so one 250-validator = 6.667%). Source: CG per-validator report (`agent/tool/cg-report.sh 41537674`, 2026-10-24); the old "15 validators" deduction from the 6.667 score grain was wrong.
 
-## Count
+Exact inputs known for V1, V2, V3, V7, V8, V11 (files `NN.in`/`NN.out` here, python reference passes `--hidden` on them); V4, V5, V6, V9, V10, V12 partial. No `complete`.
 
-15 validators: partial rows step by 6.667 (bash, perl, php leaderboards, 2026-10-20). History: 8 in 2016-01, 12 from 2016-01-29 (https://forum.codingame.com/t/temperature-code-golf-puzzle-discussion/1239?page=1), 15 today. Titles unknown (not the 6 IDE titles 1:1).
+## Per validator
 
-## Measured (probes 2026-10-20, `agent/tool/oracle.sh --log temperature`, task validator.temperature.-.1792523691273414481)
+All facts from python probes in `puzzle/temperature/probe/python/` (`agent/tool/oracle.sh --log temperature`, task validator.temperature.-.1792834544348586235, 2026-10-24) plus re-read reports of the 2026-10-20 JS/PHP/Lua/Perl/TS/Dart probes. Confidence: measured (one probe bit per fact), exact ones double-checked by two independent probes.
 
-| feature | count of 15 | probe |
-|---|---|---|
-| N = 0 | 1 | JS chain 1 |
-| N = 1 | 1 | JS chain 4 |
-| N = 2 | 3 | JS chain 8 |
-| N in 3..6 | 9 | JS chain 9 |
-| N > 6 | 1 | JS chain 9 |
-| line 2 == `-273` or `5526` exactly | 0 | JS chain 2, 3 |
-| line 2 == `-10 -10` (exact or trimmed) | 0 | JS chain 5, 7 |
-| line 2 (trimmed) == an IDE test line 1..5 | 0 | JS chain 6 |
-| line 2 (trimmed) == classic hints `-15 -7 -9 -14 -12`, `15 -7 9 14 7 12` | 0 | JS chain 7 |
-| answer >= 0 (N = 0 included) | 10 | PHP fresh, prints min abs |
-| min-abs, first of tie wins, correct | 10 | Lua fresh: 5 validators have `-t` before `t` at min abs |
-| min-abs, last of tie wins, correct | 14 | Perl fresh: 1 validator has `t` before `-t` at min abs |
-| some temperature is 0 | 0 | TS fresh (100%, row committed) |
-| abs(answer) < 10 | 14 | Dart fresh: 1 validator has abs(answer) >= 10 |
+| V | weight | N | line 2 | len(line 2) | answer | notes |
+|---|---|---|---|---|---|---|
+| 1 | 500 | 5 | `7 5 9 -1 4` | 10 | -1 | 15-bit mixed-radix index, probes mx0..8 + my0..5 |
+| 2 | 250 | 1 | `-173` | 4 | -173 | bits of abs + `r==-45` false (45 or 173 left) |
+| 3 | 250 | 2 | `-1 1` | 4 | 1 | candidate-set probe cands1, unique |
+| 4 | 250 | 5 | `o0 7 o1 o2 o3`, o0 in 10..99 | 12 | 7 | no -7 (no tie) |
+| 5 | 750 | 6 | 7 at index 4, -7 before it, o0 in 10..99 | 15 | 7 | |
+| 6 | 250 | 6 | `o0 7 ...` -7 after, o0 in 10..99 | 15 | 7 | |
+| 7 | 250 | 2 | `-8 -8` | 5 | -8 | a0==a1, a0==-8 |
+| 8 | 250 | 0 | empty (as test 06, assumed) | 0 | 0 | |
+| 9 | 250 | 5 | `7 o0 o1 o2 o3`, o0 in 10..99 | 12 | 7 | no -7; same N/len/answer as V4, same (o0,o1) congruence: maybe V4 with 7 moved |
+| 10 | 250 | 5 | `o0 o1 o2 o3 2`, o0 in 3..9, no -2 | 11 | 2 | |
+| 11 | 250 | 2 | `-8 8` | 4 | 8 | cands1 unique, a0==-8 |
+| 12 | 250 | 10 | -2 at index 8, first value in -3..-9 | 27 | -2 | |
 
-Consequences:
-
-- 5 negative answers, 6 ties `-t`/`t` at the minimum (5 with `-t` first, 1 with `t` first), 4 other non-negative answers (incl. N = 0 -> 0)
-- no 0 among temperatures: a falsy/zero sentinel for "no value yet" is safe
-- "last of tie wins" (`<=` running min, stable sort then take last, ...) fails exactly one validator; "first of tie wins" fails 5
-- validators are not copies of the IDE tests nor of the classic puzzle hint inputs
-
-## Classic puzzle (other validator set, context only)
-
-Classic Temperatures has 11 validators: v2 "-273 alone", v3 "5526 alone", v7 "Two negative temperatures that are equal: {-10 -10}" (5DN1L, 2025-04-14, https://forum.codingame.com/t/temperatures-puzzle-discussion/33?page=50); old hints `{-15 -7 -9 -14 -12} -> -7`, `{15 -7 9 14 7 12} -> 7` (https://forum.codingame.com/t/temperatures-puzzle-discussion/33?page=2). Golf forum posts quoting "validator 7 = same negative number twice" (2021, https://forum.codingame.com/t/temperature-code-golf-puzzle-discussion/1239?page=9) date from the 12-validator set; exact `-10 -10` is not in today's set.
+No temperature is 0 in any validator (TS probe 2026-10-20). Validators are not copies of the IDE tests nor of simple transforms of them (rotate, reverse, negate, value substitution, one removal/replacement, one swap: probe `cands1`).
 
 ## Key
 
-None known yet. N alone does not separate (3 at N = 2, 9 in 3..6).
+`len(line 2)` (raw line, without newline) decides the answer:
 
-## Next probes (not run)
+- len < 6 (N 0..2): answer = last token of the whole input (N = 0: the `0` of line 1; `-173`, `-1 1`, `-8 -8`, `-8 8`)
+- 10 -> -1, 11 -> 2, 12 -> 7, 15 -> 7, 27 -> -2
 
-- N of the single `t`-before-`-t` validator (Perl row at 93.3%: a "last wins, but first wins when N == k" probe reaching 100% moves the row): binary search over N in 2..6, >6
-- N histogram inside 3..6 (fresh languages: each first submit is a count)
-- abs(answer) histogram, sign per N group
+Equivalently, with N: N = 5 -> {len 10: -1, 11: 2, 12: 7}, N = 6 -> 7, N = 10 -> -2, N <= 2 -> last token.
+
+## Partial constraints (for a later worker)
+
+`o` = line 2 without the answer (first occurrence of the answer value, index p), in order. Probes mx0..8 read bits 0..8 of X = p + n*(o0+100) + n*1100*(o1+100) (o clamped to [-100, 999]); with p known this pins (o0, o1) to a congruence, enumerated in the task scratch `narrow.py` (journal validator.temperature.-.1792834544348586235):
+
+| V | n | p | X mod 512 | o0 | (o0, o1) candidates |
+|---|---|---|---|---|---|
+| 4 | 5 | 1 | 12 | 10..99 | 196, e.g. (11, 36), (15, 9) |
+| 9 | 5 | 0 | 11 | 10..99 | same 196 as V4 |
+| 10 | 5 | 4 | 207 | 3..9 | 17, e.g. (3, 42), (7, 15) |
+| 5 | 6 | 4 | 154 | 10..99 | 373 |
+| 6 | 6 | 1 | 219 | 10..99 | 392 |
+
+Next step: bits 9..22 of the same X (power-of-2 radices would have decoded earlier: use 8/2048 radices next time), then the remaining values; V12 needs all 9 other values. A crc32 candidate-set probe (`probe/python/cands1.py` shape) checks thousands of guesses in one submit.
