@@ -111,3 +111,15 @@ Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`
 - in all 8 tests and all 8 hidden validators `A == dist(start,C) == dist(C,T)` (BFS on the fixture mazes); the return leg after C is forced to be a shortest path of exactly A moves, so any hardcode cannot shorten the return
 - nearest-`?`/`C` exploration reaches C at these turn numbers (turn = coords line index, our 191 solver, `--hidden --trace`): 01 8, 02 22, 03 140, 04 143, 05 117, 06 48, 07 211, 08 180. Only 01/02 reach C in A moves; turn-keyed phase switching needs a per-A table (8 values up to 211) keyed by A or start col, not shorter than `C eq substr` state
 - move hardcode floor (computed, not built): 8 forward shortest paths = 351 moves / 70 maximal runs; the return is `map{$_^1}reverse` (free). 1-byte/run RLE + `(split/~/)[$&%11]` selector + `unpack C*` + `print map{...}` + drain is ~205-215 B, above the 177 top. Bit packing (2 bits/move = 88 B, or axis-alternation sign bits ~53 B) saves data but the perl decode loop costs more than it saves; no sub-177 hardcode found
+
+## Perl 190 and the 177 gap (cell worker 2026-10-24)
+
+- 191 -> 190 by absorbing the consumed cell into the up lookbehind: `(?<=X\H{30}.)` -> `(?<=X\H{31})`, see `lang/perl/shared-adjacency-pattern.md`. Submitted, CG 100 %, row 190 #2
+- **T is exactly the start cell in all 8 tests and all 8 hidden** (jq over `tests/` and `hidden/`): the maze is an out-and-back, start=T, C at distance A, alarm A = dist(C,T) = dist(start,C). So the return is the reverse of a shortest start->C path, and the T goal char is visible from turn 1 (start cell scanned)
+- Perl `s///g` matches the **pre-substitution** string (verified: `"X...."` + `s/(?<=X)[.]/X/g` = `"XX..."`, 1 sub; `"aaaa"` + `s/(?<=a)a/` = 3 subs), so one pass = one BFS layer; `y/$s/X/` does **not** interpolate `$s` (literal chars only), `s/[$s]/X/g` does
+- phase latch (`$s|=C eq substr..,1,R`) + goal select `?y/T/X/:y/?C/X/` is 20 B beyond the mark+test; killed alternatives, all tested 0/16 or worse:
+  - `/C/` (C visible) as phase, goals `?C` then `T`: once C is seen the shortest C->T path usually bypasses C, Rick reaches T without alarm, then T under R = no goal = infinite flood (timeouts at the turn C is first seen)
+  - `/C/` with goals `CT`: after stepping C, C is 1 behind and always nearer than T -> bounce until alarm 0
+  - goal `?CT` always: Rick steps off T, T is re-marked as goal, steps back: oscillation at start, out of fuel 0/16
+  - flood class `[.]` (T impassable before C): 13/16, phase-1 route needs the start T cell
+- hardcode floor re-checked with the T=start facts: only the 8 shortest start->C paths are needed (return = reverse, dir^1); 351 moves / 70 runs, same as the 2026-10-22 estimate. Open-loop printing (forum: "skip reading the input and just move") does not change it: run expansion to move letters (`join'',map{chr(48+$_%4)x($_/4-7)}split//,$r`) + reverse+flip (`y/0123/1032/r`) + word lookup + selector is >= 190 code before the data
