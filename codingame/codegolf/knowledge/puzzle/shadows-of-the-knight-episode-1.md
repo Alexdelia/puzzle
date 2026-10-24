@@ -94,6 +94,14 @@ scala (2026-10-21): wrapper `import sys.process._;object Solution extends App{Se
 
 perl (2026-10-22): 92 submitted (#6): header `$|=($L,$U)=glob<>.<>.<>.<>;` (glob splits words, reads lines 1-4) then same loop as 96 (`knowledge/lang/perl/glob-split.md`). Top 81 needs -11 more. Longer on paper: `-n`/`-an` with `$.` gates (~104), using start position (+4), float-packed p, `%m` hash, partner `y/UDLR/DURL/r`.
 
+perl (2026-10-24, run 3): 92 re-verified 16/16 + 13/13 `--hidden`. Leaderboard: Icebox 81 (2026-10-07), sffsefsdfaf 86, saito_ta 90, YALOKGAR 90, Eric 91, us 92. Facts (all measured locally, details in journal `cell.shadows-of-the-knight-episode-1.perl.1792690585588806409.md`):
+- `$|` is mandatory: without it (89 B) turn 1 times out, and padding the answer line with `" "x1e4` (trailing spaces are legal) also times out — perl's 8192 B buffer leaves the newline in the unwritten tail. `knowledge/lang/perl/flush-oversized-print.md`
+- dotless `glob<><><><>` is a syntax error; the `.` separators are required (header 27 B)
+- 3-line `($L,$U,$|,@m)=glob<>.<>.<>;` is also 27 B and gives @m=(X0,Y0), but only with the read-first loop (`while(<>){...;print}`, 65 B, total 92, uses dir1 = more slack). The print-first loop with it is 89 B but applies dir1 relative to the first mid instead of the start: fails tests 4 and 5 (concrete: test4 1x80 start (0,1) bomb (0,36), D:=40 excludes 36)
+- `-p` needs a BEGIN (95-97 B); `-l` breaks the glob token split (chomped lines join via `.`: 3 tokens, not 5)
+- position-maintained (print @p, compute folded into the per-letter apply) needs @p=(W/2,H/2) in the header: 108 B, and a 2-letter dir1 corrupts the second letter
+- no submit run 3 (no gain). 81 needs a structurally different mid source; hardcode cannot fit (V1-V5 + V6 path + 14 V7 answers >= 150 B of coordinates)
+
 ocaml (2026-10-22): 104 submitted, CG #1 (top 105). Bare toplevel `Sys.command"bash -c '<core>'"` (wrapper 23, no `let _=`). Core 81, local 16/16 and CG 100%: two savings over the 87 core, valid for every wrapper and for bash itself:
 - `sed Q` instead of `sed 3q>&2` (-4): GNU sed `Q` quits without printing, but its buffered read has already swallowed the whole chunk in the pipe (lines 2-4). Relies on lines 2-4 being in the pipe when sed starts (true locally and on CG)
 - `let $c=${c,}||echo` instead of `(($c=${c,},1))||echo` (-3): `let` saves 2, and dropping `,1` (an assigned midpoint of 0 also triggers an extra echo) still passes 16/16 local and CG. Keep `,1` (+2) if a cell fails on it
