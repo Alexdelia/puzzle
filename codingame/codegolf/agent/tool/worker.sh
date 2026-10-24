@@ -17,12 +17,12 @@ log() {
 }
 
 run_agent() {
-	local resume_session=${1:-} agent
+	local until=$1 resume_session=${2:-} resume_message=${3:-} agent
 	case $task_backend in
 	opencode)
 		agent=(opencode run --model "$task_model" --variant "$task_effort" --format json --auto)
 		if [[ -n $resume_session ]]; then
-			agent+=(--session "$resume_session" "$opencode_length_resume_message")
+			agent+=(--session "$resume_session" "$resume_message")
 		else
 			agent+=(--title "$id" "$(<"$output.prompt")")
 		fi
@@ -35,7 +35,7 @@ run_agent() {
 	local scope=codegolf-task-$id.scope status
 	CG_TASK_ID=$id OPENCODE_ENABLE_EXA=1 OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX=$opencode_output_token_max \
 		command time -a -f '%e %U %S' -o "$output.time" \
-		timeout --kill-after=60 "$((deadline - EPOCHSECONDS))" \
+		timeout --kill-after=60 "$((until - EPOCHSECONDS))" \
 		systemd-run --user --scope --quiet --unit="$scope" --slice=codegolf.slice -p MemoryMax="$task_memory_max" \
 		direnv exec "$root" "$tool_dir/sandbox.sh" "${agent[@]}" >>"$output.jsonl" 2>>"$output.err" </dev/null
 	status=$?
@@ -108,8 +108,10 @@ while [[ ! -e $state/STOP ]]; do
 	output=$state/worker/$id
 	"$tool_dir/prompt.sh" "$running" >"$output.prompt"
 	deadline=$((EPOCHSECONDS + task_wall_seconds))
+	work_until=$deadline
+	[[ $task_backend == opencode ]] && work_until=$((deadline - opencode_wrap_up_seconds))
 	start_fresh
-	run_agent
+	run_agent "$work_until"
 	code=$?
 	if [[ $task_backend == opencode && $task_model != "$opencode_free_model" ]] && credit=$(opencode_out_of_credit "$output.jsonl"); then
 		touch "$opencode_fallback_file"
@@ -118,19 +120,27 @@ while [[ ! -e $state/STOP ]]; do
 		task_model=$opencode_free_model
 		json_update "$running" --arg model "$task_model" '.model = $model'
 		start_fresh
-		run_agent
+		run_agent "$work_until"
 		code=$?
 	fi
 	resumes=0
-	while [[ $task_backend == opencode ]] && ((resumes < opencode_length_resumes && deadline - EPOCHSECONDS > 60)) &&
-		opencode_cut_by_length "$output.jsonl" && jq -e '.outcome == null' "$running" >/dev/null; do
+	while [[ $task_backend == opencode ]] && ((resumes < opencode_stall_resumes && work_until - EPOCHSECONDS > 60)) &&
+		stall=$(opencode_stall_reason "$output.jsonl") && jq -e '.outcome == null' "$running" >/dev/null; do
 		resumes=$((resumes + 1))
 		session=$(opencode_session "$output.jsonl")
-		event "opencode $id cut by output cap without report: resume $resumes/$opencode_length_resumes of session $session"
-		log "cut by output cap, resume $resumes of $session"
-		run_agent "$session"
+		event "opencode $id stopped by $stall without report: resume $resumes/$opencode_stall_resumes of session $session"
+		log "stopped by $stall, resume $resumes of $session"
+		run_agent "$work_until" "$session" "$opencode_stall_resume_message"
 		code=$?
 	done
+	if [[ $task_backend == opencode ]] && ((code == 124 || code == 137 || work_until - EPOCHSECONDS <= 60)) &&
+		((deadline - EPOCHSECONDS > 60)) && jq -e '.outcome == null' "$running" >/dev/null &&
+		session=$(opencode_session "$output.jsonl") && [[ -n $session ]]; then
+		event "opencode $id out of work time without report: wrap-up of session $session"
+		log "out of work time, wrap-up of $session"
+		run_agent "$deadline" "$session" "$opencode_wrap_up_message"
+		code=$?
+	fi
 	sum_time_segments
 	if [[ $task_backend == opencode ]]; then
 		opencode_result "$output.jsonl" >"$output.json"

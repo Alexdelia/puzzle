@@ -217,8 +217,10 @@ opencode_session() {
 	jq -r 'select(.sessionID != null) | .sessionID' "$1" 2>/dev/null | tail -n 1
 }
 
-opencode_cut_by_length() {
-	[[ $(jq -r 'select(.type == "step_finish") | .part.reason' "$1" 2>/dev/null | tail -n 1) == length ]]
+opencode_stall_reason() {
+	jq -rs '[.[] | select(.type == "step_finish") | .part] | last // {}
+		| if .reason == "length" then "output cap" elif .reason == "stop" and .tokens.output == 0 then "empty reply" else empty end' \
+		"$1" 2>/dev/null | grep .
 }
 
 opencode_error_with_status() {
