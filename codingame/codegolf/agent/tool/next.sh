@@ -36,29 +36,39 @@ pick() {
 			elif far($context) and (.plateau_streak // 0) < $context.max_streak then 0
 			else .plateau_count // 0 end;
 		def kind_rank: {"lang": 0, "referee": 1, "validator": 2, "wrap": 3, "puzzle": 4, "cell": 5, "review": 6}[.kind];
-		def puzzle_leaders($cells):
-			$cells | to_entries
-			| map(select((.value.top // 0) > 0) | (.key | split("/")) as [$puzzle, $lang] | {puzzle: $puzzle, lang: $lang, top: .value.top, ours: .value.ours})
+		def core_ladders($context; $live_keys):
+			$context.cells | to_entries
+			| map(select((.value.top // 0) > 0) | (.key | split("/")) as [$puzzle, $lang]
+				| {puzzle: $puzzle, lang: $lang, top: .value.top,
+				   reached: (.value.ours != null and .value.ours <= .value.top),
+				   live: ("cell/" + .key | IN($live_keys[]))})
 			| group_by(.puzzle)
-			| map((map(.top) | min) as $shortest_top | map(select(.top == $shortest_top)) as $leaders
-				| {(.[0].puzzle): {langs: ($leaders | map(.lang)), reached: ($leaders | any(.ours != null and .ours <= .top))}})
+			| map((map(.top) | min) as $shortest_top
+				| map(select(.top == $shortest_top or (.lang | IN($context.core_langs[])))) as $core
+				| ($core | group_by(.top) | map({top: .[0].top, langs: map(.lang), reached: any(.reached), live: any(.live)})) as $levels
+				| ($levels | map(select((.reached | not) and .live)) | first) as $frontier
+				| {(.[0].puzzle): {core_langs: ($core | map(.lang)), leader_reached: $levels[0].reached, frontier: $frontier}})
 			| add // {};
-		def leader_rank($leaders; $task):
-			$leaders[$task.puzzle] as $leader
-			| if $leader == null or $leader.reached then 1
-			elif ($task.lang | IN($leader.langs[])) then 0
-			else 2 end;
+		def ladder_rank($ladders; $task; $cell):
+			$ladders[$task.puzzle] as $ladder
+			| if $task.kind != "cell" or $ladder == null then 1
+			elif ($task.lang | IN($ladder.core_langs[])) | not then (if $ladder.leader_reached then 1 else 2 end)
+			elif $ladder.frontier == null then 1
+			elif $task.lang | IN($ladder.frontier.langs[]) then 0
+			elif $cell.top > $ladder.frontier.top then "held"
+			else 1 end;
 		$context_file[0] as $context
-		| puzzle_leaders($context.cells) as $leaders
+		| core_ladders($context; map(.key) + $context.running_keys) as $ladders
 		| map(select(ready($context) and ($context.only_kind == "" or .kind == $context.only_kind) and ((.kind | IN($context.held_kinds[])) | not) and ((.key | IN($context.running_keys[])) | not)))
 		| map(. as $task
 			| ($context.cells[$task.puzzle + "/" + $task.lang] // {}) as $cell
-			| leader_rank($leaders; $task) as $leader_rank
+			| ladder_rank($ladders; $task; $cell) as $ladder_rank
+			| select($ladder_rank != "held")
 			| {id: $task.id, key: [
 				($task | kind_rank),
 				(if $task.urgent then 0 else 1 end),
-				$leader_rank,
-				($cell | plateau_rank($context; $task.lang; $leader_rank == 0)),
+				$ladder_rank,
+				($cell | plateau_rank($context; $task.lang; $ladder_rank == 0)),
 				($context.lang_priority[$task.lang] // 99),
 				(if $task.lang == $context.last_lang then 0 else 1 end),
 				(if $cell.ours != null and $cell.top != null then $cell.top - $cell.ours else -1000000 end),
