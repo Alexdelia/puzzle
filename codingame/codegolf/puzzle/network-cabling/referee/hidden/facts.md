@@ -1,6 +1,6 @@
 # network-cabling hidden validators
 
-Status 2026-10-24: 9 validators (same count as the IDE tests), weights 100 (1-6) and 200 (7-9), total 1200. 5 recovered exactly (`01`..`05`); 6-9 known by N range and an answer interval (bisected by per-validator report probes). Probe log: `agent/tool/oracle.sh --log network-cabling`, journals `agent/state/journal/validator.network-cabling.-.1792523690892798040.md` (2026-10-20) and `agent/state/journal/validator.network-cabling.-.1792834544020293290.md` (2026-10-24, every probe and the interval after it).
+Status 2026-10-24: 9 validators (same count as the IDE tests), weights 100 (1-6) and 200 (7-9), total 1200. 5 recovered exactly (`01`..`05`); 6-9 known by exact N and exact answer (bisected by per-validator report probes p01-p36), inputs not recovered. All 9 answers confirmed together: p37 perl full answer hardcode keyed on N scored CG 100 % (probes.tsv, 2026-10-24). Probe log: `agent/tool/oracle.sh --log network-cabling`, journals `agent/state/journal/validator.network-cabling.-.1792523690892798040.md` (2026-10-20), `agent/state/journal/validator.network-cabling.-.1792834544020293290.md` (2026-10-24, p01-p27) and `agent/state/journal/validator.network-cabling.-.1792840157227578692.md` (2026-10-24, p28-p37), every probe and the interval after it.
 
 The 2026-10-20 "12 validators" count was the weight grain (1200 / 100), not the count: P4 ruby `N<=11` 66.67 % = V1-6 + V9 (800), P5 perl `N>=99999` 33.33 % = V7 + V8 (400).
 
@@ -29,15 +29,17 @@ Probes p01..p27 (perl, `puzzle/network-cabling/probe/perl/pNN.pl`): general solu
 | 3 | `4` / `1 2` / `0 0` / `2 2` / `5 3` | 8 | title + P1, P3 | high |
 | 4 | `1` / `9 9` | 0 | p01 x0==y0, p02-p07 bisect x0 = 9 | high (test 04 is `1 1`) |
 | 5 | `3` / `-5 -3` / `-9 2` / `9 -4` | 24 | title + P1 | high |
-| 6 | N = 8 or 9 (p01 N>=8, p02 N<10), L > 2^32 | 5714781001 <= L <= 5714781105 | p03-p27 bisect | interval exact, value open (7 bits) |
-| 7 | N = 100000 | 12788481 | p01 != 3142894 (test 07), p02-p27 bisect | high |
-| 8 | N = 99999; L multiple of 99998 (p03), L = 99998 q | 2500149996 (q = 25002) | p03, p04-p21 bisect of q | high; first point x0 in 0..33554431 (p22-p27) |
-| 9 | N <= 11 (2026-10-20 P4); N 10..11 per p02 only if L > 1000 (likely) | 2067588608 <= L <= 2067588863 | p03-p27 bisect | interval exact, value open (8 bits) |
+| 6 | N = 8 (p35 n<9 pass), L > 2^32 | 5714781103 | p03-p34 bisect (p33 L<5714781104 pass, p34 L<5714781103 fail), p37 | high |
+| 7 | N = 100000 | 12788481 | p01 != 3142894 (test 07), p02-p27 bisect, p37 | high |
+| 8 | N = 99999; L multiple of 99998 (p03), L = 99998 q | 2500149996 (q = 25002) | p03, p04-p21 bisect of q, p37 | high; first point x0 in 0..65535 (p22-p36) |
+| 9 | N = 11 (p02 N in 10..11, p36 n<11 fail) | 2067588810 | p03-p35 bisect (p34 L<2067588810 fail, p35 L<2067588811 pass), p37 | high |
 
 V8 shape (deduction, unverified beyond L % 99998 == 0): test 08 is x = i - 49999, y = 50000 - i (i = 0..99998), L = 99998 + 2(1+..+49999) = 99998 * 25001. Any arithmetic layout x = a i + b, y = c i + d gives L = 99998 (|a| + 25000 |c|); q = 25002 means |c| = 1, |a| = 2 if arithmetic (e.g. x = 2i + b, y = +-i + d). Exact input not recovered: offsets, signs, point order unknown (x0 >= 0).
 
 ## Separating key
 
-N separates 4 (1), 7 (100000), 8 (99999), 6 (8..9), 9 (10..11, if L > 1000 holds); N = 3 holds 1, 2, 5 (first char of line 2: `0`, `2`, `-`), N = 4 is 3. Answers: 1->8, 2->6, 3->8, 4->0, 5->24, 6->5714781001..5714781105 (open), 7->12788481, 8->2500149996, 9->2067588608..2067588863 (open).
+N alone separates every validator except the N = 3 group: 1 -> 0 (V4), 4 -> 8 (V3), 8 -> 5714781103 (V6), 11 -> 2067588810 (V9), 99999 -> 2500149996 (V8), 100000 -> 12788481 (V7). N = 3 holds V1, V2, V5: first char of line 2 `0` -> 8, `2` -> 6, `-` -> 24 (any feature splitting `0 0`/`2 3`/`-5 -3` works). Verified on CG: p37 (`puzzle/network-cabling/probe/perl/p37.pl`, N lookup + first char of line 2) 100 %.
 
-A full hardcode needs V6 (7 bits) and V9 (8 bits) still: about 8 more probes of this kind (p27 state in the journal: `scratch/state.json`, rerun `scratch/loop.py` style predicates `$L<mid` for V6 and V9). V7/V8 cannot be stored exactly as inputs (1e5 points), so `complete` stays absent; `hidden/` has 01-05 only.
+Note V6 > 2^32 and V8 > 2^31: languages with 32-bit int literals need a 64-bit literal or a string for these two. Printing the answer as a string avoids it.
+
+`complete` stays absent: inputs of V6-V9 are not recovered (V6 8 points and V9 11 points unknown, V7/V8 1e5 points), so `--hidden` cannot check 6-9 locally; a hardcode cell checks 1-5 locally and relies on this table for 6-9.
