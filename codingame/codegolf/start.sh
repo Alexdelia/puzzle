@@ -4,9 +4,10 @@ cd "$(dirname "$0")"
 source agent/tool/lib.sh
 shopt -s nullglob
 
-usage="usage: start.sh [--workers n | --wrap-only] [--once] [--best] [--full-window] [--full-week]; --wrap-only: wrap generator alone, no workers, no weekly pace check, --full-window: no 97% five-hour cap, --full-week: no weekly pace stop"
+usage="usage: start.sh [--workers n | --wrap-only] [--backend claude|opencode] [--once] [--best] [--full-window] [--full-week]; --backend: agent CLI of the workers (opencode: $opencode_model at $opencode_effort, no Claude usage windows), --wrap-only: wrap generator alone, no workers, no weekly pace check, --full-window: no 97% five-hour cap, --full-week: no weekly pace stop"
 arguments=("$@")
 count=$workers
+backend_choice=$backend
 once=
 best=
 full_window=
@@ -15,6 +16,7 @@ wrap_only=
 while (($#)); do
 	case $1 in
 	--workers) count=$2 && shift 2 ;;
+	--backend) backend_choice=$2 && shift 2 ;;
 	--once) once=--once && shift ;;
 	--best) best=1 && shift ;;
 	--full-window) full_window=1 && shift ;;
@@ -28,6 +30,9 @@ if [[ -n $wrap_only ]]; then
 	count=0
 fi
 
+[[ $backend_choice == claude || $backend_choice == opencode ]] || { echo "$usage" >&2 && exit 2; }
+export CG_BACKEND=$backend_choice
+backend=$backend_choice
 export CG_FULL_WEEK=$full_week
 if [[ -z ${CG_PYTHON:-} ]]; then
 	exec direnv exec "$root" "$0" "${arguments[@]}"
@@ -63,7 +68,7 @@ agent/tool/seed.sh wraps >/dev/null
 
 systemctl --user set-property --runtime codegolf.slice MemoryMax="$workers_memory_max" MemorySwapMax=infinity
 export CG_BEST_MODEL=$best CG_FULL_WINDOW=$full_window
-event "start workers=$count ${wrap_only:+wrap-only} ${once:+once} ${best:+best} ${full_window:+full-window} ${full_week:+full-week}"
+event "start workers=$count backend=$backend ${wrap_only:+wrap-only} ${once:+once} ${best:+best} ${full_window:+full-window} ${full_week:+full-week}"
 pids=()
 if [[ -z $once ]]; then
 	setsid agent/tool/wrapd.sh >>"$state/worker/wrapd.log" 2>&1 &
@@ -77,7 +82,7 @@ done
 if [[ -n $wrap_only ]]; then
 	echo "start.sh: wrap generator only, log in agent/state/worker/wrapd.log, stop with ./stop.sh"
 else
-	echo "start.sh: $count workers${best:+, best model for every task}${full_window:+, five-hour window used up to 100%}${full_week:+, weekly pace ignored}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
+	echo "start.sh: $count $backend workers${best:+, best model for every task}${full_window:+, five-hour window used up to 100%}${full_week:+, weekly pace ignored}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
 fi
 wait "${pids[@]}" || true
 event "all workers stopped"

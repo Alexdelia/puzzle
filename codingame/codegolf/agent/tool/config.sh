@@ -1,4 +1,7 @@
 workers=8
+backend=claude
+opencode_model=deepseek/deepseek-flash
+opencode_effort=max
 model=claude-opus-5-5
 effort=high
 cell_model=claude-sonnet-5-5

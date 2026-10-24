@@ -99,6 +99,7 @@
       devShells.${system}.default = pkgs.mkShell {
         packages = with pkgs; [
           claude-code
+          opencode
           refereeRust
           agentPython
           pypy3

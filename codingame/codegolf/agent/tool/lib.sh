@@ -2,6 +2,7 @@ tool_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root=$(cd "$tool_dir/../.." && pwd)
 state=$root/agent/state
 source "$tool_dir/config.sh"
+backend=${CG_BACKEND:-$backend}
 mkdir -p "$state"/{queue,running,done,journal,lock,leaderboard,lang,referee,validator,puzzle,cell,worker}
 
 now() {
@@ -131,7 +132,12 @@ sync_usage_from_running() {
 	record_usage "$stream" "$modified"
 }
 
+paced_by_claude_windows() {
+	[[ $backend == claude ]]
+}
+
 refresh_usage() {
+	paced_by_claude_windows || return 0
 	local age=$((usage_max_age_minutes * 60))
 	sync_usage_from_running
 	if [[ -s $usage_file ]] && (($(date +%s) - $(jq .recorded_at "$usage_file") < age)); then
@@ -153,7 +159,7 @@ weekly_pace() {
 }
 
 over_weekly_pace() {
-	[[ -s $usage_file && -z ${CG_FULL_WEEK:-} ]] || return 1
+	paced_by_claude_windows && [[ -s $usage_file && -z ${CG_FULL_WEEK:-} ]] || return 1
 	local used elapsed
 	read -r used elapsed < <(weekly_pace)
 	((used + weekly_pace_margin_percent >= elapsed))
@@ -171,14 +177,38 @@ five_hour_resets_at() {
 }
 
 five_hour_full() {
-	[[ -s $usage_file && -z ${CG_FULL_WINDOW:-} ]] || return 1
+	paced_by_claude_windows && [[ -s $usage_file && -z ${CG_FULL_WINDOW:-} ]] || return 1
 	local running_tasks=$1
 	(($(five_hour_used) + five_hour_task_reserve_percent * (running_tasks + 1) > five_hour_limit_percent))
 }
 
 rejected_until() {
-	[[ -s $usage_file ]] || return 1
+	paced_by_claude_windows && [[ -s $usage_file ]] || return 1
 	jq -e -r --argjson now "$(date +%s)" 'select(.status == "rejected" and .resetsAt > $now) | .resetsAt' "$usage_file"
+}
+
+opencode_result() {
+	jq -s -c '
+		[.[] | select(.type == "step_finish") | .part] as $steps
+		| (([.[] | select(.type == "step_finish") | .timestamp] | add // 0) - ([.[] | select(.type == "step_start") | .timestamp] | add // 0)) as $api_ms
+		| {type: "result",
+		   usage: {input_tokens: ([$steps[].tokens.input] | add // 0),
+		           cache_creation_input_tokens: ([$steps[].tokens.cache.write] | add // 0),
+		           cache_read_input_tokens: ([$steps[].tokens.cache.read] | add // 0),
+		           output_tokens: ([$steps[] | .tokens.output + .tokens.reasoning] | add // 0),
+		           output_tokens_details: {thinking_tokens: ([$steps[].tokens.reasoning] | add // 0)}},
+		   total_cost_usd: ([$steps[].cost] | add // 0),
+		   num_turns: ($steps | length),
+		   duration_api_ms: $api_ms,
+		   permission_denials: [.[] | select(.type == "tool_use") | .part
+		     | select(.state.status == "error" and (.state.error // "" | startswith("The user has specified a rule")))
+		     | {tool, input: .state.input}]}
+	' "$1"
+}
+
+opencode_fatal_error() {
+	jq -r 'select(.type == "error" and .error.data.isRetryable == false and (.error.data.statusCode | IN(401, 402, 403)))
+		| "\(.error.data.statusCode) \(.error.data.message)"' "$1" 2>/dev/null | tail -n 1 | grep .
 }
 
 services_query() {

@@ -57,18 +57,34 @@ while [[ ! -e $state/STOP ]]; do
 		;;
 	esac
 	waiting=
-	read -r id task_model task_effort < <(jq -r '[.id, .model, .effort] | @tsv' "$running")
-	log "start $id model=$task_model effort=$task_effort"
+	read -r id task_backend task_model task_effort < <(jq -r --arg backend "$backend" '[.id, .backend // $backend, .model, .effort] | @tsv' "$running")
+	log "start $id backend=$task_backend model=$task_model effort=$task_effort"
 	output=$state/worker/$id
 	"$tool_dir/prompt.sh" "$running" >"$output.prompt"
-	CG_TASK_ID=$id command time -f '%e %U %S' -o "$output.time" \
+	case $task_backend in
+	opencode)
+		agent=(opencode run --model "$task_model" --variant "$task_effort" --title "$id" --format json --auto "$(<"$output.prompt")")
+		;;
+	*)
+		agent=(claude -p "$(<"$output.prompt")" --model "$task_model" --effort "$task_effort"
+			--output-format stream-json --verbose --permission-mode auto --max-budget-usd "$task_budget_usd")
+		;;
+	esac
+	CG_TASK_ID=$id OPENCODE_ENABLE_EXA=1 command time -f '%e %U %S' -o "$output.time" \
 		timeout --kill-after=60 "$task_wall_seconds" \
 		systemd-run --user --scope --quiet --slice=codegolf.slice -p MemoryMax="$task_memory_max" \
-		direnv exec "$root" claude -p "$(<"$output.prompt")" --model "$task_model" --effort "$task_effort" \
-		--output-format stream-json --verbose --permission-mode auto --max-budget-usd "$task_budget_usd" \
-		>"$output.jsonl" 2>"$output.err" </dev/null
+		direnv exec "$root" "${agent[@]}" >"$output.jsonl" 2>"$output.err" </dev/null
 	code=$?
-	jq -c 'select(.type == "result")' "$output.jsonl" | tail -n 1 >"$output.json"
+	if [[ $task_backend == opencode ]]; then
+		opencode_result "$output.jsonl" >"$output.json"
+		if fatal=$(opencode_fatal_error "$output.jsonl"); then
+			touch "$state/STOP"
+			event "attention opencode $task_model failed ($fatal): STOP set, fix the provider account and restart by hand"
+			log "provider error $fatal, STOP set"
+		fi
+	else
+		jq -c 'select(.type == "result")' "$output.jsonl" | tail -n 1 >"$output.json"
+	fi
 	record_usage "$output.jsonl"
 	"$tool_dir/finish.sh" "$running" "$output.json" "$output.time" "$code"
 	log "end $id exit=$code"
