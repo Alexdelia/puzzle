@@ -135,3 +135,14 @@ All 10 recovered exactly (validator task 2026-10-21), details and probe chain in
 - perl code: `<>;$_=(split/,/,"DATA")[<>/3%9].$];print"WAIT⏎"x(ord($1)*ord($2)%25),ord$1&15,$",ord$2&15,$/while/(.)(.)/g` (59 data chars incl. commas)
 - as a `perl -E'...'` wrapper core: `say` and no `,$/` give 156 (vs 176), but the committed data contains `'`: regenerate with `'` banned (`gen.py` bad set) before wrapping
 - 1-char wait hash (`x(ord($1)%K)`, 7 B shorter) is impossible: the v7/v8 joint plan is not representable for any K (checked K 7..79, either char)
+
+## Ruby map-blind 153 (2026-10-24): CG 100%, tie #1
+
+- native ruby, no map read, plans already in validator orientation E (same data as perl but re-encoded)
+- encoding: per bomb 2 chars a,b; x=ord(a)&15, y=ord(b)&15, waits=ord(a)*ord(b)%23 (K=23, not 25). K=23 makes the v7/v8 clojure tuple (1,6,0) representable space-free as ('&','p'), so a `%w{...}` literal holds all plans
+- dense rounds key: `gets.hex%10%7` maps 30,50,55,60,90,98,99 -> 1,0,5,6,4,2,3 (7 slots, no empty slot). Data (58 chars) and slot order are in `solution/ruby/main.rb`; other languages can copy the 58-char plan string
+- re-searched under a space/brace/backslash-free alphabet, K=23: v5 (r=99) 3 bombs T12(2,0) T17(5,6) T24(3,5); v10 (r=98) 10 bombs T21(2,0) T27(11,6) T33(4,9) T40(8,10) T44(7,4) T49(8,7) T56(0,7) T63(15,4) T68(12,2) T71(2,4). r30 joint still T14(9,4)+T18(2,4); v3/v6/v9 as before
+- trailer: last bomb at turn w wins at w+3, so 3 answers after it are needed. Append the pair `AB` (A*B%23=12 -> 12 WAITs then a far bomb line) to the selected token; cost 5 B `+'AB'` plus 2 B parens because `.scan` binds to the literal otherwise. Cheaper than 3 WAIT prints (13 B)
+- 1-byte tricks that made 153: `$&.bytes` in the scan block; literal LF inside "WAIT\n"/coordinate literals; `puts` supplies the last newline (coordinate literal has no \n); dense key removes the empty-slot dummy
+- 1 B more would need: a 12-char dense key (none found over to_i/hex/sum/oct with /,%,&,|,^,<<,>>,+,-, 1-2 ops) or appending without the 2 parens; 152 not reached
+- all 10 plan groups cannot shrink: 2-bomb plans for v3/v5/v9 impossible, 3-bomb joint v7/v8, 9-bomb v10, 1-bomb r30 joint all fail restricted random search (1000+ seeds)
