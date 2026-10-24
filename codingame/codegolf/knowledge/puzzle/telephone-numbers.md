@@ -18,7 +18,9 @@ pretty_id `telephone-numbers-codesize`, leaderboard `telephone-numbers-codesize`
 
 ## Validators (ours)
 
-- mirrors of tests 1-4 with other values, a long list with test 5 length histogram, 10000 numbers of length 20, 50 copies of one 2-digit number, all 100 2-digit numbers plus 3-digit ones, shuffled prefix chain of lengths 2..20, many numbers with leading `0`/`00`
+- mirrors of tests 1-4 with other values, a long list with test 5 length histogram, 10000 numbers of length 20, 50 copies of one 2-digit number (07), all 100 2-digit numbers plus 3-digit ones (08), shuffled prefix chain of lengths 2..20 (09), 3500 random numbers (10), many numbers with leading `0`/`00`
+- 07/09/10 regenerated 2026-10-24 so every validator follows the P9 identity: line 1 contributes exactly one new prefix (N itself). 07 N=50 50x `51`, 09 N=18 shuffled chain 2..20 of `1023...`, 10 N=3500 with one `3501...` and the rest 0-prefixed
+- all 27 cores at our CG row length pass all 15 local cases (tests + 10 validators), P9 and line-1-skipping methods alike
 - numbers must stay strings: leading zeros matter (`0123` and `123` differ), int conversion is wrong
 
 ## Shortest known
@@ -57,7 +59,7 @@ Rejected:
 ## Perl (2026-10-20)
 
 - native 37 (old): `<>;s/./$h{$`.$&}++/ge for<>;print~~%h`
-- 31 = top tie, CG 100% (2026-10-22): P9 identity (no line-1 skip) + `/s` prefix form + `\$h{..}` key vivify, `print%h-2` (empty key + line 1). See `lang/perl/prefix-set-subst.md`. Fails synthetic validators 07/09/10 (P9 breakers), tests 5/5
+- 31 = top tie, CG 100% (2026-10-22): P9 identity (no line-1 skip) + `/s` prefix form + `\$h{..}` key vivify, `print%h-2` (empty key + line 1). See `lang/perl/prefix-set-subst.md`. Passes all 15 local cases since 07/09/10 were regenerated P9-consistent (2026-10-24)
 - hardcoding 5 test answers keyed on N cannot fit 31 (tests 2 and 3 both have N=2 with answers 20 and 10) and local validators differ anyway; not probed
 
 ## Hidden validators
@@ -71,7 +73,7 @@ Re-probed 2026-10-24 with CG's per-validator report, details in `referee/hidden/
 - hardcode cost = key + table vs general method: likely a gain only in verbose languages; check locally against facts.md, not against `validators/` (synthetic)
 
 - verified on all CG validators: final newline present, digits + LF only, N >= 1, lengths 2..20. Methods relying on the final newline (Python `s[:~i]`) are safe
-- verified (P9, 100%): line 1 adds exactly one new prefix on every validator and every test: answer = distinct non-empty prefixes over ALL lines, line 1 included, minus 1. Drop the line-1 skip, subtract one more. Python whole-input slice form measured 56 (vs 60 row): passes tests 5/5 but fails 3 of our synthetic `validators/` (they break the identity), so submit with `submit.sh --probe` (CG pass implied by P9, not submitted yet)
+- verified (P9, 100%): line 1 adds exactly one new prefix on every validator and every test: answer = distinct non-empty prefixes over ALL lines, line 1 included, minus 1. Drop the line-1 skip, subtract one more. Python whole-input slice form measured 56 (vs 60 row): passes all 15 local cases since 07/09/10 were regenerated P9-consistent (2026-10-24); still unsubmitted
 - refuted (P6, 0%): counting all lines with no correction (line 1 always adds a prefix)
 
 ## PHP (2026-10-21)
