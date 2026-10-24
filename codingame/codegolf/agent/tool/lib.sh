@@ -190,7 +190,10 @@ rejected_until() {
 opencode_result() {
 	jq -s -c '
 		[.[] | select(.type == "step_finish") | .part] as $steps
-		| (([.[] | select(.type == "step_finish") | .timestamp] | add // 0) - ([.[] | select(.type == "step_start") | .timestamp] | add // 0)) as $api_ms
+		| (reduce (.[] | select(.type == "step_start" or .type == "step_finish")) as $event ({total: 0, start: null};
+			if $event.type == "step_start" then .start = $event.timestamp
+			elif .start != null then .total += $event.timestamp - .start | .start = null
+			else . end) | .total) as $api_ms
 		| {type: "result",
 		   usage: {input_tokens: ([$steps[].tokens.input] | add // 0),
 		           cache_creation_input_tokens: ([$steps[].tokens.cache.write] | add // 0),
