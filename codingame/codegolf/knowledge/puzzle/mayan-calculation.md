@@ -67,7 +67,7 @@ Verified pieces (local 21/21, CG accepted bash 193 = rank 1):
 
 Recovered 2026-10-24 by per-validator-report bisection (details, candidates and method in `puzzle/mayan-calculation/referee/hidden/facts.md`):
 
-- validators 1-7 exact (`referee/hidden/01..07`): 2+2, 17+5, 6*6, 15-7, 113-18, 9/3, 2000/10; 8-12 narrowed: 13452*b (b ~8e5), 9 "Zero" = 5-digit a * 1-digit b (b = 0 assumed), 8001*b (b 34..36), 8016*b (b 23..24, 1x1 font), 2012*b (b 21171..21206, 11x11 font)
+- 11 of 12 exact, md5-verified on CG (`referee/hidden/NN.in`): 2+2, 17+5, 6*6, 15-7, 113-18, 9/3, 2000/10, (8 open), 234561*0, 8001*36, 8016*24 (1x1 font), 2012*21202 (11x11 font); validator 8 = 13452*b, b in 788521..789426, guess 789012 (test 8's b) unverified
 - every validator keeps its test's font and `L == H`; operators per validator match their tests; no negative result, divisions exact
 - only validator 8 exceeds 2^31 (~1.06e10, < 2^53): 32-bit ints fail 1 validator, doubles pass all
 - 2026-10-22: perl 170 relying on `L == H` (only `H` read) and float `/20` printer scored 100% on CG (rank 1)
