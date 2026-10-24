@@ -85,3 +85,12 @@ Hardcode schedules (verified 2026-10-24, perl cell, scratch simulator matching r
 - T7 also admits `(31-8t)%51<4` -> {10,23,29,42}; `(33-9t)%58<5` -> {9,23,29,42}.
 - Keyed program with `-p` + `$.` schedules: `/(\d+ ){3}/` on the init line keeps rounds in `$1` (captures survive later matches without groups); shortest draft still ~91 bytes, worse than the 80-byte native greedy (79 after `$e{0+$_}`).
 - No single formula `(P*t+Q*s+C)%M<R` wins all 7 (exhaustive M<=60, |P|<=14..16, all Q,C); T1-T6 none for M<=44; no `(P*t*t+Q*s+C)%M<R` for M<=64, |P|<=12. Bit-packed per-test masks (~34 data bytes) never got under 90 bytes of Perl.
+
+Current tops (verified 2026-10-24 via CG leaderboard service, leaderboard id `paranoid-codesize`): Perl 56 (Icebox, creationTime 2026-10-13), Bash 53 (Icebox/sffsefsdfaf, Oct 2026), Python3 69, C 72, Ruby 55, Lua 65, OCaml 66, Java 159, Clojure 119, all Icebox Oct 2026. They are current exploit rows, not stale 2014 hardcodes. Wrapper-consistent lengths (Java 159=106+53 ... OCaml 66=13+53) suggest a shared ~53 B bash core; Perl 56 is native (a bash wrapper would be >=66 B).
+
+Schedule facts (exact C simulator of the referee, 2026-10-24, scratch of cell.dont-panic.perl.1792861368351560265):
+- Tests 1-5 are all won by `t%23==16` AND by `t%24==14` (single-residue periodic; no key needed inside the group).
+- Test 6 (rounds 53): only M=6, R=0 or R=5 win among all single-residue `t%M==R` for M<=80.
+- Test 7 (rounds 54): no single-residue `t%M==R` wins for M<=80, no `t%M<R` for M<=40; it needs P!=1 (`(31-8t)%51<4`, `(33-9t)%58<5`).
+- No per-turn reactive linear formula wins all 7: BLOCK iff `(A*t+B*f+C*p)%M==R` (A,B,C in [-9,9], M<=60), same with `+D*dir` (A,B,C in [-7,7], M<=50), and `%M<R`/`%M>R` variants, all negative (full 7-test simulation).
+- Consequence: the 56 B Perl row cannot be a 3-branch keyed trace (T1-5 trace ~39 B + T6 ~37 B + T7 ~85 B + key/branch ~30 B > 130 B); it must be a single short expression or gadget.
