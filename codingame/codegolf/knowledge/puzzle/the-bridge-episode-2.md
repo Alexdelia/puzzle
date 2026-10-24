@@ -68,7 +68,17 @@ Rejected:
 - shallow greedy + SPEED cap (SPEED only while speed < c, c 1..15, all 120 orders): 1 ply best 10 cases fail, 2 plies best 6 fail
 - simpler lane-change check (only new lane, both lanes full x+1..e, only old lane): fails 4..9 cases at 3..6 plies
 
-## Hidden validators (exploit search 2026-10-20, 2026-10-21)
+## Hidden validators (recovered 2026-10-24 with the per-validator report; older notes below)
+
+Details in `puzzle/the-bridge-episode-2/referee/hidden/facts.md`, files `hidden/NN.json`:
+
+- 12 validators, titles = the 12 test titles, weights 83 x8 (1..8), 84 x4 (9..12) per 1000
+- validators 1, 5, 6, 7, 8, 9, 10, 11, 12 = their IDE test mirrored across lanes (lane y <- test lane 3-y, bike lanes y -> 3-y), same L, V, S, no other change: EXACT (probes c08..c22 all pass). So UP and DOWN swap roles vs the tests: a DFS lacking DOWN that solves the tests locally fails the hidden ones (perl no-UP DFS failed v9, v10, v12); check `run.sh <sol> --hidden`
+- validator 4 = `..............00..00..00..00........` on all 4 lanes, V 4, S 1, 4 bikes: EXACT
+- validators 2, 3: block holes (4 identical lanes, 4 bikes). v3: first hole at x 22 width 5, gap 6, 3 holes, L and S not test 3's (likely test 3 shifted +8). v2: first hole at x 6 width 2, gap 5, 4 holes of unequal widths/gaps, L not 56. Not exact
+- key: (L, V, S) separates all but v5/v8 (both (36,3,6); v5 = flipped test 5, v8 = flipped test 8: lane 0 at x 27 `000` vs `0000`); v2/v3 have triples of no test
+
+## Hidden validators (superseded where it conflicts; exploit search 2026-10-20, 2026-10-21)
 
 Details and probe tables in `puzzle/the-bridge-episode-2/referee/hidden/facts.md`:
 
