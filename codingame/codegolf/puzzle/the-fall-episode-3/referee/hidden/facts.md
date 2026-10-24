@@ -6,7 +6,8 @@ Probe method: general solver (python, passes 100% on CG) that crashes or prints 
 
 ## Count and titles
 
-- 4 validators (bash 75% probe; every count probe is a multiple of 25%). Titles unknown (CG hides them); IDE tests: 1 Avoiding rocks, 2 Rock interception, 3 Multiple choice and rocks, 4 Only one way
+- 4 validators (bash 75% probe; every count probe is a multiple of 25%). Titles equal the IDE test titles: 01 Avoiding rocks, 02 Rock interception, 03 Multiple choice and rocks, 04 Only one way. The IDE submit report shows pass/fail per validator to the user; the API only gives the total score
+- 2026-10-24 perl `probe/perl/plans.pl` 450 (plans keyed on W,H, no general fallback): 01 fail, 02 pass, 03 fail, 04 pass. So validator 04 is solved by the replayed test 4 plan, 02 by the recovered 6x6 plan; 01 and 03 still need their own plans
 - general method (replanning DFS, python 869) passes all 4
 
 ## Dimensions (W H), confidence high
