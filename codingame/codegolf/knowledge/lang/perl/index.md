@@ -2,6 +2,7 @@
 
 - [env](env.md): Perl 5.34.0, 64-bit ints, CG non-core modules (List::MoreUtils, Set::Scalar, ...) mirrored locally, `#!perl -nl` shebang switches honored, verified
 - [literal-newline](literal-newline.md): raw newline in regex/string instead of `\n`, saves 1 byte, verified
+- [source-final-newline](source-final-newline.md): CG appends a newline to the code, a construct left open at EOF (`s; ;` closed by the `-p` wrapper) gets it as content: chuck-norris 66 failed every test, local build now matches, verified on CG
 - [sprintf-vector-flag](sprintf-vector-flag.md): `sprintf"%v07b",$&` = 7-bit binary of a char, 2 bytes under `"%07b",ord$&`, verified
 - [autoflush](autoflush.md): interactive puzzles need `$|=1;` or turn 1 times out (stdout block-buffered), verified on CG
 - [clear-underscore-autosplit](clear-underscore-autosplit.md): `-ap` + `($x,$y,$_)=@F` reads header and empties `$_` for `-p` output, `s/^/X/` prepend, verified
