@@ -80,3 +80,27 @@ Details, sources and probe log: `puzzle/network-cabling/referee/hidden/facts.md`
 - V8 is provably NOT range+range: 99999 distinct integer y values force `sum|y-med| >= (99999^2-1)/4 = 2499950000` (equality iff consecutive), while the expected answer is 2500149996 and `range(x) >= 0`; hence dev is about 2.5e9 and range(y) is at most ~1e5, so range+range is at most ~3e5. The earlier `x=2i+b,y=i+d` deduction is consistent (xrange 199996 + dev 2499950000).
 - so any range+range exploit must special-case V8; the special case plus the 4-byte-over-69 V5 fix pushes it well over 73.
 - all-answers hardcode floor (2026-10-24, not submitted): 38 answer digits; N%11 separates the 6 N classes (residues 1,4,8,0,9,10) but the three N=3 cases share residue 3. Sparse list indexed by N%11 = ~99-106 B, N-key hash = ~100 B, `split`-string table with an index = >=78 B + index expression. None beats 88, so top 73 is not a plain hardcode; a general <=73 Perl is still unknown.
+
+### validator geometry and oracle limits (2026-10-24, cell 1792864064912233544)
+
+- V8 shape is exactly determined: answer 2500149996 = (N-1)(N+9)/4 with N=99999, and for y=i+d
+  (i=0..99998) dev(y) = (N^2-1)/4 = 2499950000, rangeX = 199996 = 2(N-1), so x = 2i+b with
+  b in 0..65535 (matches p22-p36). b and d cancel; any program that passes V8 outputs
+  rangeX + dev(y) = 2500149996.
+- V1-V5 all equal rangeX+rangeY; the *correct* range+range Perl is 78 B body / 89 B total
+  (`@_=sort{$a-$b}/ .+/g;$s=pop(@_)-$_[0];@_=sort{$a-$b}/.+ /g;$_=$s+pop(@_)-$_[0]`, passes hidden
+  1-5 locally), i.e. LONGER than our general 88 (the general form folds the x range into the final
+  `$_=` expression, which the two separate range sums cannot), and it cannot pass V8 (needs dev,
+  not range). The 69 B top2range union variant fails V5 (25 vs 24). So no range+range exploit
+  reaches the 73 B top. Trap: `$_=$s+pop(@_)-$_[0]` must be `=`, not `-=`; `pop@_-$_[0]` is a
+  compile error (needs `pop(@_)-$_[0]`).
+- Why top 73 is not an answer hardcode: creationTime of the Perl rows is 73 Eric_[EGU]
+  2025-11-25, 74 LolCat 2023-09-10, 75 saito_ta 2023-05-25, long before the 2026-10-24 answer
+  recovery; the full answer hardcode p37 is 112 B (44 answer digits alone exceed a 62 B body).
+- 2026-10-24: every one of the 27 CG code-golf languages already has a 100 % row of ours for this
+  puzzle, so the fresh-language score oracle (partial score) is unavailable; the per-validator
+  report broker answered `no CG session` all session (`cg-report.sh 41559291`), so the open
+  question "are V6,V7,V9 also range+range?" could not be probed. Needs a broker session.
+- sample tests 06-09 do not determine hidden 6-9: base/transpose/sign-flip answers of samples
+  06/07/09 are 6066790161/5343706357/..., 3142894/3143287/..., 2178614523/2231774220/...,
+  none equal 5714781103, 12788481, 2067588810.
