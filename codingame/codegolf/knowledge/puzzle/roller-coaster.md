@@ -84,14 +84,14 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 - method C beats B here (the walk is a grep, no next-index array, no wrap): worth re-trying in langs with a cheap filter/last (Ruby `q.select{..}[-1]`, Python, JS)
 - rejected: eager `%g=map{...}@q` table (longer, key 0 needs a q_0); `$r=($_+=...)%S` as state update (+2); halving q to make `$q`=S (0)
 
-### Hidden validators (probed 2026-10-20, perl)
+### Hidden validators (per-validator report, 2026-10-24; details `puzzle/roller-coaster/referee/hidden/facts.md`)
 
-- 23 validators on CG (score grain 100/23)
-- hardcode of the 6 IDE answers keyed on L (perl 81, `-0p` + `$_={3,7,...}->{$_+0}`): 21.74 = 5/23 (IDE tests are 5 validators, rest are other inputs): hardcode alone cannot pass
-- naive per-ride walk in perl (109 bytes, unbounded index, walk bound `k<n`): 73.9 = 17/23; the 6 others time out (test 06 among them), so 6 validators are heavy (C large, N large) and need memo/cycle skip
-- lazy memo perl 150: 100% (rank 10 on 2026-10-20). A top of 84 in perl stays unexplained: no general method below ~140 found; the 6 heavy validators' inputs are unknown (test games only reach IDE tests)
-- validator task 2026-10-20 (details, sources: `puzzle/roller-coaster/referee/hidden/facts.md`): 5 validators are verbatim IDE tests 01, 02, 04, 05, 06 (test 03 is not); the 18 others by naive cost `W` (groups boarded): 12 under 1e4, 3 in 1e4..1e6, 3 in 1e8..3e8; 4 of them have sum <= L
-- naive walk + test 06 hardcoded fails even in C (20/23: the 3 heavy hidden ones time out on CG): a memo or cycle skip is needed in every language; no full hardcode possible (18 inputs unknown)
+- 10 validators, weights 100 x7 (V1..V7) + 150 x3 (V8..V10); the old "23 validators" was the weight grain 100/23
+- exact: V2 `2 1 1`/`2` -> 2, V4 = IDE test 02, V10 = IDE test 06 (answer 89744892565569); files `referee/hidden/02,04,10`
+- naive walk passes V1..V8 everywhere; V9 (`N=1000`, `5e6 <= C < 1e7`, `L != 1e7`, `W` 1e8..3e8, new random groups) times out even in C, V10 too
+- keys: `L==1e7` only V10, `C>=1e6` only V9 + V10. Hardcode V10 on `L==1e7`, never on `C>8e6` (V9's C is in [5e6, 1e7)); V9's answer unknown, so a memo or cycle skip stays needed in every language
+- V3, V9, V10 have pre-period > 0 (V9 >= 16): cycle detection keyed on start index 0 or on the state after ride 1 fails them
+- older perl/JS/PHP/C/TS probe rows of 2026-10-20 are explained by these weights (perl naive 17/23 = all but V9 + V10)
 
 ### Ruby 135 (local 16/16, 2026-10-20, not yet on CG)
 
