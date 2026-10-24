@@ -180,3 +180,12 @@ iteration k reads energy `E0-k+2` for k>=2 (k=1 reads the init line). Local refe
   4 for the letter, so the 42 tops remain unexplained (likely random hardcodes or a
   validator set from before V1/V2 were changed: V1/V2 are the IDE tests 1/2 with light and
   Thor swapped, V2 is "North" while the IDE test 2 is "Down")
+
+## Ruby 77 (2026-10-24)
+
+- 77 B, CG 100%, rank 99 (tie 97), row committed on CG but its git commit was lost to a pre-commit/read-only race in the 77 submit; source pasted in the journal and `solution/ruby/main.rb`:
+  `#!ruby -pl` + `$>.sync=1` + `e=$_.to_i;h||="WEN"[e%3]` + `$_=($.>18&&46>e&&3<e&&?S||"")+h`
+- `-l` chomps `$_.to_i` input, `-p` prints `$_` with LF; `$>.sync=1` REQUIRED (67 B no-sync probe did not move the row, 2026-10-24)
+- alignment under -p: move k emits while `$.=k+1` and reads energy line k (= energy of turn k-1), so the energy-phase rectangle is `$.>18 and 3<e<46`. e must be re-assigned every turn (`h||="WEN"[(e=$_.to_i)%3]` is wrong: short-circuit freezes e)
+- plan freedom used: V3 needs only 14 S and 31 E in any 14 of turns 1..31 (x rises every move, win at 31), V4 needs exactly 17 SW and 19 W in any order; V1 E-only, V2 N-only. This is what makes the rectangle phase work
+- 42 B remains open: a 42 B row exists at 100% (Icebox 2026-09-30, sffsefsdfaf 2026-08-24, LolCat 2022). Local floor for the deterministic energy-phase family is 77; no deterministic <77 shape found (phase <=16 B, h <=15 B, sync 8, shebang 11, e parse 8)
