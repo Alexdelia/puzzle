@@ -40,4 +40,4 @@ jq -e 'type == "object" and has("submissionId")' "$body" >/dev/null 2>&1 ||
 jq -e --argjson me "$cg_codingamer_id" '.codingamerId == $me' "$body" >/dev/null ||
 	reply_error "submission $submission is not ours"
 jq -c '{submission: .submissionId, score, criteria, criteria_score: .criteriaScore, completed: (.completedTime != null),
-	validators: [.validators[]? | {name, success, weight: .difficulty}]}' "$body"
+	validators: [.validators[]? | {name, method: .methodName, success, weight: .difficulty}]}' "$body"

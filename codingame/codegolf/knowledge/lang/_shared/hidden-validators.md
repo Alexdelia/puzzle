@@ -4,7 +4,7 @@ User rule (2026-10-20): hardcoding and exploits are allowed and part of the chal
 
 ## Per-validator report (2026-10-24)
 
-- `submit.sh` (and `oracle.sh` through it) reads CG's report of every submission it sends: pass/fail of each hidden validator by number and title, plus its weight. Printed as `report 50.0%: 1 Avoiding rocks fail, 2 Rock interception pass, ...`, written in the probe's `probes.tsv` row and in `agent/state/report/<submission-id>.json`; `agent/tool/cg-report.sh <submission-id>` reads it again for any of our submissions
+- `submit.sh` (and `oracle.sh` through it) reads CG's report of every submission it sends: pass/fail of each hidden validator by number, title and CG method name, plus its weight. Printed as `report 50.0%: 1 Avoiding rocks [Validator_1] fail, 2 Rock interception [Validator_2] pass, ...`, written in the probe's `probes.tsv` row and in `agent/state/report/<submission-id>.json`; `agent/tool/cg-report.sh <submission-id>` reads it again for any of our submissions
 - the report holds whatever our row: a probe longer than our row, or under 100%, still answers per validator. Validator count, titles and weights come with the first submit; no score-grain deduction needed
 - one probe = one bit per validator: answer correctly iff the input satisfies a predicate, garbage otherwise, and the report says which validators satisfy it. Bisect a value per validator in parallel (each probe halves every validator's range at once), test the candidate transform of test k against validator k, read one answer bit per validator
 - a 100% report on a submit shorter than our row, with the row unmoved, is a lost leaderboard update (`submit.sh` says so): resubmit the same code, never mark the referee suspect

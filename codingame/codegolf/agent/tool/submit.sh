@@ -84,7 +84,7 @@ report_completed() {
 report_line() {
 	if report_completed; then
 		jq -r '([.validators[].weight] | unique | length > 1) as $weighted
-			| "report \(.score)%: " + ([.validators | to_entries[] | "\(.key + 1) \(.value.name) \(if .value.success then "pass" else "fail" end)"
+			| "report \(.score)%: " + ([.validators | to_entries[] | "\(.key + 1) \(.value.name)\(if .value.method then " [\(.value.method)]" else "" end) \(if .value.success then "pass" else "fail" end)"
 				+ (if $weighted then " (weight \(.value.weight))" else "" end)] | join(", "))' <<<"$validator_report"
 	else
 		local reason
