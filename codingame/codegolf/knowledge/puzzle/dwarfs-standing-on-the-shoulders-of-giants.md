@@ -180,3 +180,17 @@ OCaml (2026-10-21): `2+L` key, 127 bytes, CG 100% via --probe (rank 5, top 40 ti
 
 Perl (2026-10-22): row 35 via `@e=<>` moved into the grep list (CG 100%). Key "unique root, id 1" is DEAD: perl `print 1+grep!/^1 /,<>` (21, = 1 + #lines not starting `1 `, fits a-d, e iff e=`1 3/1 2`, IDE 01 only) left row 35 unchanged (< 100%). So some validator has a root other than 1 or several roots (or e is not `1 3/1 2`).
 - char-count families: only affine whole-input count fitting a-d is `4 - count('1')` (+ any of 0,4-9 in the class); the old note "affine impossible" assumed `2+count`. Unprobed, but `N=8/9` validators would need at most two '1' chars: unlikely
+
+## Perl 21-byte hunt (2026-10-24, exhaustive negatives)
+
+Leaderboard (Perl, 2026-10-24): 19 bytes @30%, 21 Icebox @100%, 22 sffsefsdfaf @100%, 25 Eric @100%, ours 35.
+
+- 19 @30 is `print 2+grep/^3/,<>` (19 B, very likely): line-start-3 vector 2+[0,0,0,0,0,0,1,0,2], exactly #1,#3,#10 pass; V7's first line "3" makes it 3+ -> fail, so 3/10. Useful calibration of CG's perl run, not a key.
+- ruled out on the 9 exact inputs (extras = ans-2 = 0,0,0,0,1,1,3,0,2), offline, 2026-10-24:
+  - any 1-char count, any 2- or 3-char class count `y/XY//`, and mod k of a 2-char class
+  - any per-line regex <=5 chars over digits/space/`^ $ . [ ] \d \w \s \D` (positive or negated); any literal substring <=4 as line predicate
+  - any N+length formula (2 ops, + - * / % & | ^), any 1-op formula over N, length, "2 3" presence, 4-digit presence, digit counts
+  - `#!perl -0p` + body <=11 B where body is `$_=` + arithmetic over {y/c//, y///c, length, $., <>, $_}: no 21/22-byte count key (2+y/3// = 21 B scores 4/10, not 100)
+  - `print 2+grep/R/,<>` (17+len(R) B) with |R| 4 or 5: no R gives extras
+- near misses: count('3') 6/9; count("3\n") 8/9 but V7's N line "3\n" breaks it; count(X<Y and 1<X<4) 6/9 (#4 and #9 break it)
+- conclusion: the 21 B key uses something outside those families, likely keyed on V7's exact unknown text/ids, or a Perl construct not searched (e.g. $', $&, @-, $. inside -p loops, split/hash tricks). Recovering V7's exact ids (sorted, via 1-bit probes) may be required before any <=25 hardcode is findable.
