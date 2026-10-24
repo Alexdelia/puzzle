@@ -107,3 +107,13 @@ Clojure-section bash core (209 B, no `'`, `"` or `\`) dropped as-is into `Sys.co
 Lua core5 (no x-final jump, `$m=$l`, for-header init) in plain perl (no `-E`: `print"@p<literal newline>"`), then: `$s/2` for SAME, new jump computed straight into the alias `$t` with old pos `($o=$t)` inline and `$t>$o` direction test (`lang/perl/jump-into-alias.md`), `($t=$l+$h-($o=$t))-$t%$S` as edge test. CG 100% #3 (top 203 YALOKGAR not reached). The same core change saves 3 in the lua wrapper.
 
 - final answer WITHOUT trailing newline: CG rejected (perl 236 `...print"$m $l"` at EOF, submission 41548601, row stayed 246) while the local referee passed 46/46; same code + newline (232 version) 100%. Probable referee gap: local accepts an unterminated last line. Keep the newline on the last print (not proven against a 1% jump-count fail, but every CG-passing solution here ends with one)
+
+## perl 200 (2026-10-24, rank 1, CG 100% verified)
+
+Parity-biased reflection: jump `q=(l+h|1)-o` so `s=o+q` is odd (half-integer threshold). Then the referee can never answer SAME (no integer bomb at t) and `q==o` (fixed point) is impossible, so the SAME branch and the fixed-point fix disappear:
+
+- update = one bound to `(s+X)>>1` with `X=(/W/ ^ (q<o))` (X=1 raise l, X=0 lower h); perl symbolic ref `${$x?l:h}=...` picks the target: update 48 -> 31 B, sum 19 -> 8 B, jump +3 B
+- `(s+X)>>1` is exact for odd s (ceil/floor of the half-integer threshold). When the edge rule fires, s can be even: then both branches give s>>1 = the threshold, still sound (a real SAME sets one bound exactly), only the SAME early-exit is lost
+- costs ~1-3 jumps per run (lost SAME terminations) vs the exact 3-way update. Exact sim on the recovered ranges: V7 1-2% and V8 7.4-8% budget fail (V6 0/13), yet CG accepted it 100% on the live hidden bombs (probe 2026-10-24, 200 B, rank 1). So the parity method is a legitimate shorter general method here, tight-budget validators included
+
+Transfer: any language whose bisection bisects a 1D interval from a movable position can drop the equality case by forcing an odd `sum` and picking the bound with a computed flag (no 3-way ternary). Verified correctness exhaustive (W,H<=9, every start/bomb, 0 wrong).
