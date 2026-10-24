@@ -42,7 +42,7 @@ if [[ -z ${CG_PYTHON:-} ]]; then
 fi
 
 refresh_usage
-if [[ -z $wrap_only ]] && over_weekly_pace; then
+if [[ -z $wrap_only ]] && every_task_on_claude && over_weekly_pace; then
 	read -r used elapsed < <(weekly_pace)
 	echo "start.sh: weekly usage ${used}% >= ${elapsed}% of the week elapsed (margin ${weekly_pace_margin_percent}%): not starting" >&2
 	exit 1

@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 shopt -s nullglob
 
-usage="usage: next.sh <worker-id> <worker-pid> [task-id]; task-id: claim that queued task instead of the best one; exit 0 claimed (prints running file), 1 nothing claimable, 3 rate limited, 4 over weekly pace (STOP set), 5 five-hour window full (prints running task count)"
+usage="usage: next.sh <worker-id> <worker-pid> [task-id]; task-id: claim that queued task instead of the best one; exit 0 claimed (prints running file), 1 nothing claimable, 3 rate limited, 4 over weekly pace (STOP set), 5 five-hour window full (prints running task count); when only some kinds run on claude (claude_kinds), a full claude window holds those kinds back instead"
 worker=${1:?$usage}
 worker_pid=${2:?$usage}
 forced_task=${3:-}
@@ -37,7 +37,7 @@ pick() {
 			else .plateau_count // 0 end;
 		def kind_rank: {"lang": 0, "referee": 1, "validator": 2, "wrap": 3, "puzzle": 4, "cell": 5, "review": 6}[.kind];
 		$context_file[0] as $context
-		| map(select(ready($context) and ($context.only_kind == "" or .kind == $context.only_kind) and ((.key | IN($context.running_keys[])) | not)))
+		| map(select(ready($context) and ($context.only_kind == "" or .kind == $context.only_kind) and ((.kind | IN($context.held_kinds[])) | not) and ((.key | IN($context.running_keys[])) | not)))
 		| map(. as $task
 			| ($context.cells[$task.puzzle + "/" + $task.lang] // {}) as $cell
 			| {id: $task.id, key: [
@@ -52,22 +52,38 @@ pick() {
 	' "$state"/queue/*.json
 }
 
+running_claude_tasks() {
+	jq -s --arg backend "$backend" '[.[] | select((.backend // $backend) == "claude")] | length' "$state"/running/*.json </dev/null
+}
+
+claude_gate() {
+	local running_tasks
+	running_tasks=$(running_claude_tasks)
+	if over_weekly_pace; then
+		echo 4
+	elif rejected_until >/dev/null; then
+		echo 3
+	elif five_hour_full "$running_tasks"; then
+		echo 5 "$running_tasks"
+	fi
+}
+
 claim() {
 	local queued=("$state"/queue/*.json)
 	((${#queued[@]})) || return 1
-	if over_weekly_pace; then
-		touch "$state/STOP"
-		event "attention weekly usage $(weekly_pace | tr '\t' ' ') (used elapsed %): over pace, STOP set, restart by hand"
-		return 4
+	local gate running_tasks held_kinds=
+	read -r gate running_tasks < <(claude_gate) || true
+	if [[ -n $gate ]] && every_task_on_claude; then
+		case $gate in
+		4)
+			touch "$state/STOP"
+			event "attention weekly usage $(weekly_pace | tr '\t' ' ') (used elapsed %): over pace, STOP set, restart by hand"
+			;;
+		5) echo "$running_tasks" ;;
+		esac
+		return "$gate"
 	fi
-	if rejected_until >/dev/null; then
-		return 3
-	fi
-	local running_tasks=("$state"/running/*.json)
-	if five_hour_full "${#running_tasks[@]}"; then
-		echo "${#running_tasks[@]}"
-		return 5
-	fi
+	[[ -n $gate ]] && held_kinds=$claude_kinds
 	local work id
 	work=$(mktemp -d)
 	status_map "$state"/lang/*.json >"$work/langs.json"
@@ -79,9 +95,9 @@ claim() {
 		--arg last_lang "$(cat "$state/last_cell_lang" 2>/dev/null || true)" \
 		--argjson lang_count "$(langs | wc -l)" \
 		--argjson running_keys "$(jq -s '[.[].key]' "$state"/running/*.json </dev/null)" \
-		--arg only_kind "${CG_ONLY_KIND:-}" --arg core_langs "$core_langs" --argjson far_ratio "$far_from_top_ratio" --argjson max_streak "$max_plateau_streak" \
+		--arg only_kind "${CG_ONLY_KIND:-}" --arg held_kinds "$held_kinds" --arg core_langs "$core_langs" --argjson far_ratio "$far_from_top_ratio" --argjson max_streak "$max_plateau_streak" \
 		'{langs: $langs[0], referees: $referees[0], cells: $cells[0], last_lang: $last_lang, lang_count: $lang_count, lang_priority: $lang_priority[0],
-		  only_kind: $only_kind, core_langs: ($core_langs | split(" ")), far_ratio: $far_ratio, max_streak: $max_streak,
+		  only_kind: $only_kind, held_kinds: ($held_kinds | split(" ") | map(select(. != ""))), core_langs: ($core_langs | split(" ")), far_ratio: $far_ratio, max_streak: $max_streak,
 		  ready_langs: ([$langs[0][] | select(. == "ready")] | length),
 		  running_keys: $running_keys}' >"$work/context.json"
 	if [[ -n $forced_task ]]; then

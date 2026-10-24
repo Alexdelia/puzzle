@@ -140,6 +140,10 @@ task_backend_of() {
 	[[ " $claude_kinds " == *" $1 "* ]] && echo claude || echo "$backend"
 }
 
+every_task_on_claude() {
+	[[ $backend == claude ]] || [[ -n ${CG_ONLY_KIND:-} && $(task_backend_of "$CG_ONLY_KIND") == claude ]]
+}
+
 refresh_usage() {
 	paced_by_claude_windows || return 0
 	local age=$((usage_max_age_minutes * 60))
