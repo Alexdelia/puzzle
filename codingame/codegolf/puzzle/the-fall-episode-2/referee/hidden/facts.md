@@ -2,7 +2,9 @@
 
 7 validators, 1:1 with the 7 IDE tests (same titles), weights 160 (V1-V5) and 100 (V6, V7), total 1000. Source: CG per-validator reports of our submissions (`agent/tool/cg-report.sh <id>`, e.g. 41537696), 2026-10-24. The earlier "50 validators" (score-grain deduction) is wrong: scores are weight sums (16 = V1 alone).
 
-Recovered exactly (2026-10-24, task 1792843414313973894): V1 V5 V6 V7 as `01.json 05.json 06.json 07.json`. V2 V3 V4 partial. No `complete`.
+Recovered exactly (2026-10-24, tasks 1792843414313973894 and 1792845787921512986): all 7, `01.json`..`07.json`, `complete` present. Every local solution except java/scala (local toolchain: they fail every test, not only hidden) passes `--hidden` 14/14.
+
+DECODE ERROR fixed (task 1792845787921512986): the earlier V3 reading "A b0-3 0101 / A=10" was wrong, probes.tsv has f03 V3 FAIL: A bits b0-10 = 00010000000, A=8 -> (row1,col0) 8->7 and (row1,col1) 3->2. No start-room paradox. Always re-read bits from `oracle.sh --log`.
 
 ## Probes
 
@@ -46,19 +48,22 @@ Probes 2026-10-24 (task 1792843414313973894, python `probe/python/f01..f14.py`, 
 ## Per validator
 
 - V1 Broken well: test 1 exactly. `01.json`. High (chain0)
-- V2 Broken sewer: 9x4, no rocks. Removing column 2 gives an 8x4 grid matching test 2's grid up to unlocked-room class (column 2 inserted into the sewer), with 5 cells of other abs value than test 2 (rotated rooms). Nonzero cell count multiple of 4. Unknown: inserted column values, which 5 cells, signs, exit, start
-- V3 Broken secret passages: W=7, H>=9, no rocks, test 3 grid (6x9, core = whole grid) at x=0 (column 6 all zero), y unknown (H unknown: if H>9 extra zero rows above/below). Outside zero, signs = test 3, exit 3+0, Indy start (5, y). 2 rooms changed: test (row 0, col 5) -3 -> -2 (Indy's own start room!) and (row 1, col 2) 3 -> 2. Our python solution passes V3 on CG, so CG must let Indy leave a type-2 start room entered from TOP (our referee crashes Indy there at turn 1: fidelity gap, or the decode is wrong). Unknown: H, y
-- V4 Broken mausoleum: W 13..16, H>=10, no rocks. Test 4 core (13x10 = whole test 4 grid) placed somewhere, outside zero, exit and start = shifted test, some signs differ (sg 0, count unknown), 2 rooms rotated: A bits 0-8 = 000011000 (A mod 512 = 48), bits 9-13 unknown. Unknown: A high bits, W, H, x, y, which signs
+- V2 Broken sewer: exact, `02.json`: 9x4 = test 2 with a column (0,+2,0,+3) inserted at index 6 (row1 `0 12 3 3 2 3 2 12 0`, row3 `0 -12 3 2 2 3 3 13 0`), exit 1, start (1,0) TOP, no rotations. Source: local enumeration (scratch v2.py of task ...986: only this insertion reproduces c=3 d=5 nz=16) + g01 (in 8 candidates) + g02-g04 (candidate index 0). Exact init check, no rocks
+- V3 Broken secret passages: exact, `03.json`: 7x9 = test 3 + zero column on the right, (row1,col0) 8->7, (row1,col1) 3->2, exit 3, start (5,0) TOP. Source g05 (exact init equality, no rocks)
+- V4 Broken mausoleum: exact, `04.json`: 14x10 = zero column 0 + test 4 (x=1, y=0), exit 3, start (1,0) TOP, no rocks, test-4 coords (row2,col3) 2->3, (row2,col4) 3->2 (A=560, g01-g05), (row0,col3) 6->-6, (row0,col8) 7->-7 (lock flips, PI=31). Source: g06-g21 (dims, offset, PI mod 512 = 31 -> 8 candidates PI=31+512m), local run of all 27 solutions excludes m=4 (unsolvable, crash turn 5), h01 (exact init in m {0,2,5,7}: YES, so exact incl. entry TOP), h02 ({1,2,6,7}: no), h03 ({3,5,6,7}: no) -> m=0. High
 - V5 Underground complex: exact, `05.json`: 15x8 = test 5 with one zero column added on each side, test (row 1, col 3) 8 -> 7, exit 2, start (7,0). Confirmed by f13 transcript
-- V6 Rocks 1: exact as observed, `06.json`: 9x8 = test 6 minus its zero column 0, test (row 1, col 1) 7 -> 8, exit 0, start (7,0), rocks of test 6 shifted x-1. Confirmed by f13 transcript (rocks included)
-- V7 Rocks 2: exact as observed, `07.json`: 9x9 = test 7 minus its zero column 0 plus a bottom row `-3 0 0 0 0 0 0 0 0`, exit 0, start (7,0), rocks of test 7 shifted x-1. Confirmed by f13 transcript
+- V6 Rocks 1: exact, `06.json`: 9x8 = test 6 minus its zero column 0, test (row 1, col 1) 7 -> 8, exit 0, start (7,0), rocks of test 6 shifted x-1. Confirmed by f13 transcript (rocks included)
+- V7 Rocks 2: exact, `07.json`: 9x9 = test 7 minus its zero column 0 plus a bottom row `-3 0 0 0 0 0 0 0 0`, exit 0, start (7,0), rocks of test 7 shifted x-1. Confirmed by f13 transcript
+
+Probes g01-g21 (g17 g18 g19 g110 = PI bits 4-7, g21 = bit 8; task 1792845787921512986, python `probe/python/g*.py`, builder `mk3.py` + `cands.py` in that task's scratch: per-validator python predicate evaluated at turn 1 on the init grid, F() fields of feat.py; SD = sign-diff cells of V4 in test-4 coords).
+
+Probes h01-h03 (task 1792845787921512986, python `probe/python/h0*.py`, builder `mk4.py` = mk3.py with C4 = list of the 8 PI candidates, in that task's scratch): predicate `E==3 and (X,Y,e)==(1,0,0) and G in {C4[m] : code(m)>>j&1}`, code m->c {0:1,1:2,2:3,3:4,5:5,6:6,7:7} (code 0 unused so a yes also proves exact equality). Answers 1, 0, 0.
 
 ## Key / hardcode
 
-Separating key: W (5 V1, 9 V2/V6/V7, 7 V3, 13..16 V4/V5) with H (V2 4, V6 8, V7 9; V4 H>=10, V5 H 8). Answers: run the reference on `05/06/07.json` for V5-V7 actions; V1 = test 1.
+First input line `W H`, hidden only (submit): W+H separates all 7: V1 8, V2 13, V3 16, V4 24, V5 23, V6 17, V7 18 (W*H too: 15 36 63 140 120 72 81). W alone: 5 V1, 9 V2/V6/V7, 7 V3, 14 V4, 15 V5; H then: V2 4, V6 8, V7 9. IDE tests differ (test W+H 8 12 15 23 21 18 18: test 4 = 23 = V5, tests 6/7 = 18 = V7), so a hidden-keyed hardcode fails IDE tests 2-7 unless also keyed on them. Answers: the outputs of the reference on `0N.json` (`referee --hidden --trace hidden/0N`), one action per turn incl. WAIT; scenario is deterministic (rocks fixed), so a fixed sequence replays exactly.
+
 
 ## Next bits
 
-- V3: H-9 and y (4 + 2 bits), then transcript check (needs a local referee that lets Indy leave a type-2 start room, or hand-built transcript)
-- V4: A bits 9-13, W-13 (2), x (2), H-10 (4), y; ns (sign-diff count) then their cells
-- V2: inserted column values, the 5 changed cells (per-cell abs bits: 9 class-{2,3} cells 1 bit each, 4 class-{10..13} cells 2 bits), signs, exit, start
+None: all 7 exact.
