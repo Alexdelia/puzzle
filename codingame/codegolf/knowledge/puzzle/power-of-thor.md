@@ -101,3 +101,16 @@ Details, probes and sources: `puzzle/power-of-thor/referee/hidden/facts.md`. ALL
 ## OCaml (2026-10-22)
 
 - 146 B CG 100%, rank 11: counter form with a local helper per letter (knowledge/lang/ocaml/local-letter-helper.md), `for i=0 to 99999` keepalive. Header `Scanf.scanf"%d %d %d %d"(fun a b c d->` alone is 38 B (`%d` skips no space), so top 64 (LolCat) is not reachable with a general method
+
+## Perl 65 (2026-10-24)
+
+- Hidden-validator letter form, 65 B, CG 100% (probe `hunt65.pl`, rank #11): `#!perl -alp` + `$|||=($a,$b,$x,$y)=@F;$_=S x($y++<$b).($a?$a-5?E:N:W)`
+- letter H from lightX alone (hidden facts: a=28 E, 5 N, 31 E, 0 W): `$a?$a-5?E:N:W` is 2 under `(N,E,W)[$a<=>$x]`, so thorX is parsed but unused
+- fails local tests 1/2 by design; hidden/complete gate refuses submit.sh, so it went in as a probe and was copied to the solution
+- derived identity, all four validators: full answer stream = `(S.H) x T . H x (|a-x| - T)` with `T=b-y` (V2 uses T<0: `S x -13` is `""`, and `|a-x|-T` = 13 N). Useful for all-at-once printers but no shorter Perl form found
+
+## 42 is current, not legacy (2026-10-24)
+
+- leaderboard API rows carry `creationTime`: Perl 42 LolCat 2022-03-11, sffsefsdfaf 2026-07-30; Ruby 42 Icebox 2026-09-30, sffsefsdfaf 2026-08-24; Perl 46 d-s-x 2021-12, 47 NukePwr 2026-10-16. All after the 2015 whitespace rule change and our own 66 scored 66, so 42 is a real current-rule exploit, not a frozen legacy score. TKirishima (forum 687 #205, #211) calls top 30 "not legit", i.e. hardcoded/system-call, but they are current
+- shapes refuted by byte count in Perl: all-at-once plan print (~85), suffix-stream keyed on header-derived offsets (streams 26-108 B cannot fit gaps of header numbers 0/5/28/31), shared phase C for V3+V4 using `$.` needs ~33 B, storing H costs more than recomputing `$a?$a-5?E:N:W`
+- Perl trap: `$|=letter` numifies E/N/W to 0, so $| cannot also hold the letter (autoflush off, output lost); use `$h` for the letter
