@@ -69,3 +69,4 @@
 - [nonlocal-dfs-state](nonlocal-dfs-state.md): recursive DFS, `%h=($_)=@_` instead of `local($_,@r,%h)=@_` when nothing reads them after the child call; kill dead movers once with `$_*=$h{..}<2for@_`
 - [format-shared-suffix](format-shared-suffix.md): `printf"..%sT",$l?LEF:RIGH` common suffix of alternative barewords moved into the format, -1 for LEFT/RIGHT, verified on CG
 - [xor-mod-key-table](xor-mod-key-table.md): `<>%a^<>%b` = injective 2-field hardcode key, no parens, empty glob-brace alternatives fill gaps, verified on CG
+- [packed-trace-table](packed-trace-table.md): fixed-scenario hardcode = packed byte table keyed by an init-line expression, `map{printf"%d %d %sT\n",$_%14,$_/14,$i++%6?RIGH:LEF}unpack"C*",(split/~/,'...')[$expr]`, then WAIT; control bytes in a single-quoted literal survive CG, NUL does not, verified on CG
