@@ -82,3 +82,8 @@ Clojure 228 (CG submitted 2026-10-21, rank 1): perl-wrapper (knowledge/lang/cloj
 Perl 124 (CG 100%, rank 2, 2026-10-24): the 129 below minus the end pad (section Hidden validators).
 
 Perl 129 (CG 100%, rank 2, 2026-10-22; `s/\d+ /` + `$&+$'*$w`): string copy per query `$t=$_.1x$w` (end pad of w non-O chars catches substr negative up-indexes from row 0 and the down overflow of the last row, 4-arg substr past the end is fatal), `substr($t,$_,1,X)=~O&&push@k,$_-1,$_+1,$_-$w,$_+$w for@k`, count `@k>>2`; loop and parsing tricks in knowledge/lang/perl/subst-e-loop.md. 1M-char copy per query is fast (validators/10 with 300 queries ~1.3 s local). Top 121 not reached.
+
+## Failed 2026-10-24 (do not retry as is)
+
+- 123 B per-query array variant: `s{\d+ }{@k=$&+$'*$w;@u=split//;$u[$_]=~s/O//&&push@k,$_-1,$_+1,$_-$w,$_+$w for@k;print@k>>2}ge` with the 124-B header strip. Correct on 8/9 IDE tests (array undef/negative slots harmless, so no end pad needed) but IDE test 8 (1M, 100 queries) times out at 6 s: `split//` of 1M chars costs ~60 ms/query; CG validator 8 has 300 queries, so this cannot pass. Braced outer delimiters are needed for the inner `//` (`[[../lang/perl/e-subst-brace-delimiter]]`).
+- `-p0` designs (replacement = answer prints every line at EOF, saves `print` + `-l` = 6 B) need `$_` to be answers only at EOF. Keeping the grid in `$_` prints it; deleting grid+N with `s/\A[^ ]*\n//` (11 B) or as an optional first-match prefix `(?:\A[^ ]*\n)?` (13 B) costs more than 6 B, and a master grid copy (`$g=$_;$t=$g` per query, +6 B) or per-query restore `y/X/O/;` (7 B vs 6 B copy) kills the rest. No sub-124 variant found.
