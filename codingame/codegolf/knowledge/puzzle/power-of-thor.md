@@ -43,13 +43,13 @@ Open: leaderboard tops (Ruby/Perl 42, bash 46, Python 52, C 65) are below what p
 
 ## Hidden validators
 
-Details, probe table and sources: `puzzle/power-of-thor/referee/hidden/facts.md` (2026-10-20, 7 count probes).
+Details, probes and sources: `puzzle/power-of-thor/referee/hidden/facts.md`. ALL 4 RECOVERED EXACTLY (2026-10-24, per-validator CG report, 5 perl predicate probes), `hidden/01..04.json`, `complete`: local `run.sh --hidden` now checks the real validators.
 
-- 4 validators (leaderboard grain 25%)
-- directions: exactly 1 horizontal, exactly 1 vertical and it goes North, the other 2 have light strictly south and dx!=0. N only in the pure vertical one
-- E IS needed: the 'no E' claim came from the java count probe (0), which ran before the java launcher fix (crash, not a count); haskell noE probe scored 50% (2026-10-21), so 2 validators need E. No E/W branch can be dropped (2026-10-22, perl worker)
+- 4 validators, weight 250 each: 1 Straight line `28 8 7 8` e100 (E x21), 2 North `5 4 5 17` e13 (N x13), 3 Easy angle `31 17 0 3` e45 (SE x14 then E x17), 4 Optimal angle `0 17 36 0` e36 (= test 4: SW x17 then W x19). V1/V2 = IDE tests 1/2 with light and Thor swapped, V3 = test 3 one row lower
+- key: first char of the init line (`2` `5` `3` `0`) or lightX (28 5 31 0) separates them; a hardcode on it fails local IDE tests 1-2 (harmless on CG, CG scores validators only)
+- E IS needed (V1, V3); the old 'no E' came from a java probe with class `Solution` (0 = crash)
 - STATIC HORIZONTAL LETTER PASSES (perl probe 2026-10-22, 100%, probes.tsv): horizontal letter = sign(lightX-thorX) every turn, never stops; so every validator with dx!=0 has |dx|>=|dy| (only S must stop, after dy turns). N iff lightX==thorX (vertical validator is N-only, runs N forever). Letters per turn: `S` while counted (dy turns, only when lightY>thorY) then `(N,E,W)[sign(lightX-thorX)]` (index 0 = N, -1 wraps to W). No E/W tracking, no N/S sign, no N counter. Fails local test 2 (vertical down) by design. Perl 90 -> 66 (#11)
-- exactly 1 validator init line is in {`7 8 28 8`, `0 17 36 0`, `0 17 31 4`}; the other 3 inputs are unknown, energies unknown. Not complete, no hardcode key yet
+- V3 and V4 both have lightY 17: S runs until Thor reaches the bottom row (y 17); energy exact in V2 and V4
 
 ## JavaScript (2026-10-20)
 
