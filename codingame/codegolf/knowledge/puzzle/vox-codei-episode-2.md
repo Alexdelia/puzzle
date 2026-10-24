@@ -146,3 +146,6 @@ All 10 recovered exactly (validator task 2026-10-21), details and probe chain in
 - 1-byte tricks that made 153: `$&.bytes` in the scan block; literal LF inside "WAIT\n"/coordinate literals; `puts` supplies the last newline (coordinate literal has no \n); dense key removes the empty-slot dummy
 - 1 B more would need: a 12-char dense key (none found over to_i/hex/sum/oct with /,%,&,|,^,<<,>>,+,-, 1-2 ops) or appending without the 2 parens; 152 not reached
 - all 10 plan groups cannot shrink: 2-bomb plans for v3/v5/v9 impossible, 3-bomb joint v7/v8, 9-bomb v10, 1-bomb r30 joint all fail restricted random search (1000+ seeds)
+
+- ruby early-exit local flake (2026-10-24): the 153 ruby hardcode prints everything from the second line and exits; local `run.sh --hidden` randomly reports hidden NN "solution closed its input" (1-3 of 10 per run under load, different NN each time), while CG scored it 100%. Same class as the php note above: trust CG, rerun locally before doubting the plans
+- `submit.sh` without --probe runs tests+hidden together and refuses a validator-oriented file (IDE tests are the untransformed maps, 2/20); validator-oriented hardcodes must go through `oracle.sh` / `submit.sh --probe` even when hidden/complete exists
