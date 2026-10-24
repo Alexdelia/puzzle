@@ -53,13 +53,13 @@ Rejected:
 
 ## Hidden validators
 
-Details, sources and open probes: `puzzle/network-cabling/referee/hidden/facts.md` (2026-10-20).
+Details, sources and probe log: `puzzle/network-cabling/referee/hidden/facts.md` (2026-10-24).
 
-- 12 validators, not 9 (probe grain 1/12: typescript exact-match probe 3/12 = 25 %)
-- 4 recovered exactly (forum 2015 submit-report names quote them, https://forum.codingame.com/t/network-cabling-puzzle-discussion/41?page=4, confirmed by probes): `(0 0)(2 2)(4 4)` -> 8, `(2 3)(1 1)(4 4)` -> 6, `(1 2)(0 0)(2 2)(5 3)` -> 8, `(-5 -3)(-9 2)(9 -4)` -> 24; in `referee/hidden/01 02 03 05`
-- other 8: 4 with N <= 11 (likely N = 1, a large-L one, a dispersed one, one unnamed), 4 with N >= 99999; none in 12..99998
-- no separating key or answers for the 8 unknown: a full hardcode is not possible yet; weak algorithms must still pass N = 1, large coordinates and N about 100000
-- perl `sort{$a-$b}` (comparator truncated to 32 bits, wrong when two values differ by >= 2^31, fails local validators 03/12 at +-2^30 corners) passes all 12 hidden validators: CG 100 % on OCaml 102 perl wrapper, 2026-10-22 (probe log). Drop `<=>` for `-` in every perl core of this puzzle
+- 9 validators (CG per-validator report), weights 100 (1-6) and 200 (7-9); the old "12 validators" was the weight grain 1200/100
+- recovered exactly, in `referee/hidden/01..05`: `(0 0)(2 2)(4 4)` -> 8, `(2 3)(1 1)(4 4)` -> 6, `(1 2)(0 0)(2 2)(5 3)` -> 8, `1` / `9 9` -> 0, `(-5 -3)(-9 2)(9 -4)` -> 24
+- answers known: 7 (N = 100000) -> 12788481, 8 (N = 99999, L = 99998 * 25002) -> 2500149996; open intervals: 6 (N 8..9) in 5714781001..5714781105, 9 (N 10..11 likely) in 2067588608..2067588863
+- key: N separates 4, 6, 7, 8, 9 and the N = 3 group (1, 2, 5: first char of line 2 `0`, `2`, `-`) from 3 (N = 4). Full hardcode still blocked on 6 and 9 (about 8 more bisection probes)
+- perl `sort{$a-$b}` (comparator truncated to 32 bits, wrong when two values differ by >= 2^31, fails local validators 03/12 at +-2^30 corners) passes all 9 hidden validators: CG 100 % on OCaml 102 perl wrapper, 2026-10-22 (probe log). Drop `<=>` for `-` in every perl core of this puzzle
 - probe rows (sub-100 %, to be replaced by real solutions): php 380, lua 375, typescript 475, ruby 161, perl 209
 
 - ours Clojure 167 (2026-10-21, rank 4, top 158): `F=#(map -(sort > %)(sort %))` on x and y columns; first of F(x) = range, positives of F(y) = deviation sum; trick note `knowledge/lang/clojure/read-pairs-sorted-diff.md`
