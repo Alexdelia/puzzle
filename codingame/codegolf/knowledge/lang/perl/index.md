@@ -68,3 +68,4 @@
 - [local-topic-recursion](local-topic-recursion.md): `local($_,@r,%h)=@_` in a recursive sub so helpers read `$_` bare, `f(S||next,..)` in a for body, verified on CG
 - [nonlocal-dfs-state](nonlocal-dfs-state.md): recursive DFS, `%h=($_)=@_` instead of `local($_,@r,%h)=@_` when nothing reads them after the child call; kill dead movers once with `$_*=$h{..}<2for@_`
 - [format-shared-suffix](format-shared-suffix.md): `printf"..%sT",$l?LEF:RIGH` common suffix of alternative barewords moved into the format, -1 for LEFT/RIGHT, verified on CG
+- [xor-mod-key-table](xor-mod-key-table.md): `<>%a^<>%b` = injective 2-field hardcode key, no parens, empty glob-brace alternatives fill gaps, verified on CG
