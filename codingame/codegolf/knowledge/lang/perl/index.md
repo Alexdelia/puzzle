@@ -37,6 +37,7 @@
 - [postmatch-package-quote](postmatch-package-quote.md): `$'for` = `$main::for` (space needed), bare `log` on "n t" = log n, `map{$_,"$_ $l"}` is a block, verified locally
 - [negative-index-wrap](negative-index-wrap.md): one-lap cyclic walk `$j` from `$i-$n` to `$i` (no `%$n`), `A<B&C>=D` 1 under `&&`, `($a,@p,$_)=@F` + `$_+=` + `while$c--`, verified on CG
 - [regex-fold-redo](regex-fold-redo.md): `-0p` + `s/^..<LF>..//m&&redo` folds lines left to right, leftmost match = longest overlap, `(.+)?..(?(3)$)` conditional fuses two alternatives, verified on CG; line-1-side form `(^\d?)?(.*)<LF>(?=(?(1).*)\2)` fuses merge+reset, `y///c` length, verified on CG
+- [vec-bitfield-lookup](vec-bitfield-lookup.md): `vec"<bytes>",KEY,4` = KEY-th nibble of a packed answer table (4-bit values, no shift/mask), escape costs for NUL/control/high bytes; numeric `0x..>>4*KEY&15` needs a mask (+4), verified on CG
 - [epoch-sentinel](epoch-sentinel.md): `$^T` writable epoch = free +inf init, `` `sort -nr` `` 3 under `sort{$b-$a}<>`, header dropped by `/ /*` in the test, `$'and` pitfall, verified on CG
 - [assign-in-grep-list](assign-in-grep-list.md): `grep{..."@e"...}@e=<>` sees the full array inside the block, 3 under `@e=<>;`, verified on CG
 - [regex-trie-dp](regex-trie-dp.md): `/(?{$d[pos]})($r)(?{$d[pos]+=$^R})\D/` word-split counting DP over a `|` alternation; shorter `($r)(?{$d[pos]+=$d[$-[0]]})` when the only empty alt is trailing; TRIE limit trap, verified on CG
