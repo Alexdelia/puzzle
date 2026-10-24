@@ -23,3 +23,4 @@
 - [packed-plan-table](packed-plan-table.md): `%w` plan table keyed on an input stat, 3 cmds/byte `[c%5,c/5%5,c/25]`, puts flattens nested maps, `puts%w` is a syntax error, `count'0'%14` loses the modulo
 - [hardcode-lookup-rle](hardcode-lookup-rle.md): perfect-hash key on stdin, space-split slot table with 1-char no-op slots, one byte per RLE run (`c%5` dir, `c/5-8` count), `bytes`+`$><<` decode; blunder-episode-1 172 CG 100%
 - [pl-loop-shebang](pl-loop-shebang.md): `#!ruby -pl`/`-nl` switches honoured by CG; `$.` first input line is 2; `$>.sync=1` still needed (67 B no-sync probe failed), verified
+- [grep-beginless-range](grep-beginless-range.md): `a.grep(..v)` = elements <= v (beginless Range), `[-1]` = largest on a sorted array, 5-6 B under `select{_1<=v}[-1]`; cap two bounds with `[l,t].min`; verified Ruby 3.1.2 (roller-coaster native method C)
