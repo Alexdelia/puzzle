@@ -61,7 +61,7 @@ Same method; python 276 on CG (#7, top 240). Gains in `lang/python/alias-input.m
 
 ## Hidden validators
 
-8 validators, bombs random per run (statement + forum https://forum.codingame.com/t/shadows-of-the-knight-episode-2-puzzle-discussion/1676?page=4): no bomb hardcode, no exact recovery. Probed 2026-10-20 (14 probes, `oracle.sh --log`): 6 validators keep a test size and its N, 1 is test 1 transposed (16x5, N80), 1 odd small map (2 <= W < H <= 40, N >= 27, not 45/80, generous); 2 of 8 have an exact test config (start included). Tight budgets stay those of the test sizes, so the general method's ~1% random fail is the only risk. Details: `puzzle/shadows-of-the-knight-episode-2/referee/hidden/facts.md`.
+8 validators, weight 125 each, titles = test titles (CG per-validator report 2026-10-24). Stable configs: V3 1x100 N12 start (0,1); V4 15x15 N12 (2,6); V5 24x24 N15 (22,14); V6 = test 6 config, V7 = test 7 config (start included); V8 8000x8000 N31, start x 3196..3203. V1 (small map, W<=2 H<=5 seen, N large) and V2 (16x5 N80 start (15,4) in some runs, other maps in others) change map between runs. Bombs: V8 on (0,2) or (0,3) (probe + forum https://forum.codingame.com/t/shadows-of-the-knight-episode-2-puzzle-discussion/1676?page=4), V3..V7 bombs bisected to small ranges but not proven fixed, test-sample bombs refuted on V3..V8: no bomb hardcode, general method stays. Details and per-validator ranges: `puzzle/shadows-of-the-knight-episode-2/referee/hidden/facts.md`. Probe failures can be CG flakes or run variation: only passes are proof.
 
 ## php 279 (2026-10-21)
 
