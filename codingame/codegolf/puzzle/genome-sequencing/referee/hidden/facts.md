@@ -8,24 +8,26 @@ Input format assumed as the IDE tests: `N` line, one string per line, final newl
 
 ## Per validator
 
-| # | title | weight | known | answer |
-|---|---|---|---|---|
-| 1 | Two separate sequences | 70 | N=2, two 1-char strings, one of `A C`, `A T`, `C G`, `G A`, `G T`, `T C` | 2 |
-| 2 | One single sequence | 70 | N=1, `A` or `G` | 1 |
-| 3 | Identical sequences | 70 | N=3, the same 3-char string 3 times, string ends in `A` (16 left: `xyA`, x,y any) | 3 |
-| 4 | Example 3, but with the first two words nested | 70 | N=3, w3=`ACT`, w2 strictly inside w1, w1,w2 not `TT`,`T`, lengths <= 5, answer not L, m, L-2 (189 candidates) | 5 |
-| 5 | Multi-solutions | 70 | N=4, four distinct 2-char strings, input order is not a chain w[i][1]==w[i+1][0], fold answer 5 | 5 |
-| 6 | A + C = AC | 70 | **exact**: `A`, `C`, `AC` (`06.in`) | 2 |
-| 7 | Sequence included | 70 | N=2, w1=`GATTACA`, w2 one of `T`, `GA`, `ATT`, `ATTA`, `ATTAC`, `GATTAC` | 7 |
-| 8 | Sequence included, reverse order | 70 | N=2, w2=`GATTACA`, w1 one of the same 6 | 7 |
-| 9 | Almost superimposed | 70 | N=2, overlap >= 2, not both strings of equal length with shift 1, strings not substrings of the IDE test strings | 9 |
-| 10 | Example 3, natural order | 70 | **exact**: `AA`, `ACT`, `TT` (`10.in`) | 5 |
-| 11 | Mirror, reverse order | 70 | N=2, w2 = reverse(w1), 2 chars: one of `CA AC`, `GC CG`, `TG GT` | 3 |
-| 12 | Mirror | 70 | N=2, w2 = reverse(w1), 2 chars: one of `AC CA`, `CG GC`, `GT TG` | 3 |
-| 13 | Sequences included and disjointed | 80 | N=3, L in 8..9, some string inside another, not all strings substrings of the IDE test strings | 6 |
-| 14 | Explore all combinations | 80 | N=3, three strings of equal length, not all substrings of the IDE test strings | 11 |
+Exact inputs from the bit-stream probes `probe/python/b0..b24.py` (2026-10-24, journal `validator.genome-sequencing.-.1792837592016938042`, scratch `bits*.py`, `res.txt`, `dec2.py`): probe j answers right iff bit j of a per-class encoding of the input is 1 (list classes: index+1 in a fixed candidate list; V9/V13/V14: fold string s in base 4 plus positions). Every exact one passes the reference (`run.sh main.py --hidden`) and a brute-force shortest superstring.
 
-Answers (confidence high, each from a bit probe): 2 1 3 5 5 2 7 7 9 5 3 3 6 11.
+| # | title | weight | input (`NN.in`) | answer | status |
+|---|---|---|---|---|---|
+| 1 | Two separate sequences | 70 | `A` `C` | 2 | exact |
+| 2 | One single sequence | 70 | `A` | 1 | exact |
+| 3 | Identical sequences | 70 | `ATA` x3 | 3 | exact |
+| 4 | Example 3, but with the first two words nested | 70 | `GA` `CTG` `ACT` | 5 | exact (old 189 list was wrong, re-listed 629) |
+| 5 | Multi-solutions | 70 | `AC` `TG` `CT` `GA` | 5 | exact |
+| 6 | A + C = AC | 70 | `A` `C` `AC` | 2 | exact |
+| 7 | Sequence included | 70 | `GATTACA` `ATTAC` | 7 | exact |
+| 8 | Sequence included, reverse order | 70 | `ATTAC` `GATTACA` | 7 | exact |
+| 9 | Almost superimposed | 70 | `GATATATA` `ATAC` | 9 | exact |
+| 10 | Example 3, natural order | 70 | `AA` `ACT` `TT` | 5 | exact |
+| 11 | Mirror, reverse order | 70 | `CA` `AC` | 3 | exact |
+| 12 | Mirror | 70 | `AC` `CA` | 3 | exact |
+| 13 | Sequences included and disjointed | 80 | `ATAC` `TAC` `AG` | 6 | exact |
+| 14 | Explore all combinations | 80 | three 5-char strings, fold s (11) starts `AAAGCTATGC` (10 of 11 chars), w0 = s[:5], w2 = s[6:] | 11 | partial |
+
+Answers: 2 1 3 5 5 2 7 7 9 5 3 3 6 11. Input format: `N` line, one string per line, final newline (assumed as IDE tests).
 
 ## Methods vs validators (from reports)
 
@@ -38,13 +40,8 @@ Answers (confidence high, each from a bit probe): 2 1 3 5 5 2 7 7 9 5 3 3 6 11.
 
 ## Key
 
-Exact inputs known for V6, V10 only: no exact hash key yet. Cheap features that separate answers:
-
-- `N`: 1 -> V2 (1); 4 -> V5 (5)
-- N=2: answer 2 (V1, total input length 6), 3 (V11/V12, length 8), 7 (V7/V8, length 12..17), 9 (V9)
-- N=3: 2 (V6, length 9), 3 (V3, length 14, all lines equal), 5 (V4 ends `ACT`; V10 length 12), 6 (V13, length 13..14), 11 (V14)
-- total input length alone collides (V3 and V5 both 14 bytes); `N` plus length, or the last line, separate more
+13 of 14 exact (`NN.in` here); V14 still partial: one char of s and the position of w1 in s (0..6) missing, so no `complete` yet. Input lengths (bytes, with final newline): V1 6, V2 4, V3 14, V4 13, V5 14, V6 9, V7 15, V8 15, V9 16, V10 12, V11 8, V12 8, V13 14, V14 20.
 
 ## Next
 
-- per-validator index probes keep halving the candidate lists (scratch `state.json`, generator `gen.py` + `K*.json`): V2 1 probe, V11/V12 2, V7/V8 3, V1 3, V3 4; V4 8, V5 12; V9, V13, V14 need their lengths first
+- V14 needs 5 more bits: bits 20..24 of `E = b4(s) | s.find(w1)<<22` (`bits4.py` j=25..29 of the scratch of journal `validator.genome-sequencing.-.1792837592016938042`), or one predicate probe per guess; then write `14.in` and `complete`
