@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 source agent/tool/lib.sh
 shopt -s nullglob
 
-usage="usage: start.sh [--workers n | --wrap-only] [--backend claude|opencode] [--once] [--best] [--full-window] [--full-week]; --backend: agent CLI of the workers (opencode: $opencode_model at $opencode_effort, no Claude usage windows), --wrap-only: wrap generator alone, no workers, no weekly pace check, --full-window: no 97% five-hour cap, --full-week: no weekly pace stop"
+usage="usage: start.sh [--workers n | --wrap-only] [--backend claude|opencode] [--once] [--best] [--full-window] [--full-week] [--kind <kind>]; --backend: agent CLI of the workers (opencode: $opencode_model at $opencode_effort; kinds in claude_kinds ($claude_kinds) always on claude $model), --kind: only tasks of that kind, no wrap generator, each worker exits once none is left, --wrap-only: wrap generator alone, no workers, no weekly pace check, --full-window: no 97% five-hour cap, --full-week: no weekly pace stop"
 arguments=("$@")
 count=$workers
 backend_choice=$backend
@@ -13,6 +13,7 @@ best=
 full_window=
 full_week=
 wrap_only=
+only_kind=
 while (($#)); do
 	case $1 in
 	--workers) count=$2 && shift 2 ;;
@@ -22,6 +23,7 @@ while (($#)); do
 	--full-window) full_window=1 && shift ;;
 	--full-week) full_week=1 && shift ;;
 	--wrap-only) wrap_only=1 && shift ;;
+	--kind) only_kind=$2 && shift 2 ;;
 	*) echo "$usage" >&2 && exit 2 ;;
 	esac
 done
@@ -31,9 +33,10 @@ if [[ -n $wrap_only ]]; then
 fi
 
 [[ $backend_choice == claude || $backend_choice == opencode ]] || { echo "$usage" >&2 && exit 2; }
+[[ -z $only_kind || $only_kind =~ ^(lang|referee|validator|wrap|puzzle|cell|review)$ ]] || { echo "$usage" >&2 && exit 2; }
 export CG_BACKEND=$backend_choice
 backend=$backend_choice
-export CG_FULL_WEEK=$full_week
+export CG_FULL_WEEK=$full_week CG_ONLY_KIND=$only_kind
 if [[ -z ${CG_PYTHON:-} ]]; then
 	exec direnv exec "$root" "$0" "${arguments[@]}"
 fi
@@ -70,9 +73,9 @@ start_report_broker
 [[ -s $report_dir/cookies.txt ]] || echo "start.sh: no CG session for the report broker, submits carry no per-validator report: run agent/tool/report-login.sh in a terminal of your own"
 systemctl --user set-property --runtime codegolf.slice MemoryMax="$workers_memory_max" MemorySwapMax=infinity
 export CG_BEST_MODEL=$best CG_FULL_WINDOW=$full_window
-event "start workers=$count backend=$backend ${wrap_only:+wrap-only} ${once:+once} ${best:+best} ${full_window:+full-window} ${full_week:+full-week}"
+event "start workers=$count backend=$backend ${only_kind:+kind=$only_kind} ${wrap_only:+wrap-only} ${once:+once} ${best:+best} ${full_window:+full-window} ${full_week:+full-week}"
 pids=()
-if [[ -z $once ]]; then
+if [[ -z $once && -z $only_kind ]]; then
 	setsid agent/tool/sandbox.sh agent/tool/wrapd.sh >>"$state/worker/wrapd.log" 2>&1 &
 	[[ -z $wrap_only ]] || pids+=($!)
 fi
@@ -84,7 +87,7 @@ done
 if [[ -n $wrap_only ]]; then
 	echo "start.sh: wrap generator only, log in agent/state/worker/wrapd.log, stop with ./stop.sh"
 else
-	echo "start.sh: $count $backend workers${best:+, best model for every task}${full_window:+, five-hour window used up to 100%}${full_week:+, weekly pace ignored}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
+	echo "start.sh: $count $backend workers${only_kind:+, $only_kind tasks only, exiting once none is left}${best:+, best model for every task}${full_window:+, five-hour window used up to 100%}${full_week:+, weekly pace ignored}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
 fi
 wait "${pids[@]}" || true
 event "all workers stopped"

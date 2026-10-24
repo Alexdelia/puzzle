@@ -1,5 +1,6 @@
 workers=8
 backend=opencode
+claude_kinds="validator"
 opencode_model=deepseek/deepseek-flash
 opencode_free_model=opencode/deepseek-v4.1-flash-free
 opencode_effort=max

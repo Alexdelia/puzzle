@@ -133,7 +133,11 @@ sync_usage_from_running() {
 }
 
 paced_by_claude_windows() {
-	[[ $backend == claude ]]
+	[[ $backend == claude || -n $claude_kinds ]]
+}
+
+task_backend_of() {
+	[[ " $claude_kinds " == *" $1 "* ]] && echo claude || echo "$backend"
 }
 
 refresh_usage() {

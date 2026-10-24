@@ -64,7 +64,7 @@ while [[ ! -e $state/STOP ]]; do
 	case $? in
 	0) ;;
 	1)
-		[[ -n $once ]] && break
+		[[ -n $once || -n ${CG_ONLY_KIND:-} ]] && break
 		sleep 60
 		continue
 		;;
