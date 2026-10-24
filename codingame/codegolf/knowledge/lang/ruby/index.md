@@ -21,3 +21,4 @@
 - [puts-final-newline](puts-final-newline.md): `puts` adds the final newline, raw LF in literals, `$&.bytes` in scan block, parens before `+`
 - [prefix-key-double-mod](prefix-key-double-mod.md): `$<.first(5).join.sum` key, `%A%B` permutation, inline `%w` index, 1-byte cell codes, `?\1*3` tail; vox-codei-1 131 rank 1 CG
 - [packed-plan-table](packed-plan-table.md): `%w` plan table keyed on an input stat, 3 cmds/byte `[c%5,c/5%5,c/25]`, puts flattens nested maps, `puts%w` is a syntax error, `count'0'%14` loses the modulo
+- [hardcode-lookup-rle](hardcode-lookup-rle.md): perfect-hash key on stdin, space-split slot table with 1-char no-op slots, one byte per RLE run (`c%5` dir, `c/5-8` count), `bytes`+`$><<` decode; blunder-episode-1 172 CG 100%
