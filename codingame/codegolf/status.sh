@@ -260,6 +260,63 @@ smallest_gaps() {
 	done
 }
 
+stuck_rows() {
+	local cell_files=("$state"/cell/*/*.json)
+	((${#cell_files[@]})) || return 0
+	jq -n -r --argjson max_streak "$max_plateau_streak" --arg core_langs "$core_langs" \
+		--argjson live_keys "$(jq -s '[.[].key]' "$state"/queue/*.json "$state"/running/*.json </dev/null)" '
+		[inputs | {key: (input_filename | split("/") | .[-2:] | join("/") | rtrimstr(".json"))} + .]
+		| (group_by(.key | split("/")[0]) | map({(.[0].key | split("/")[0]): ([.[].top // empty | select(. > 0)] | min)}) | add) as $shortest_top
+		| .[] | (.key | split("/")) as [$puzzle, $lang]
+		| select(.status != "first" and (.plateau_streak // 0) >= $max_streak and (("cell/" + .key) | IN($live_keys[]) | not))
+		| [$puzzle, $lang, (.ours // "-"), (.top // "-"), .plateau_streak,
+			(if ($lang | IN($core_langs | split(" ") | .[])) or (.top != null and .top == $shortest_top[$puzzle]) then "ladder" else "-" end)]
+		| @tsv' "${cell_files[@]}"
+}
+
+stuck_since() {
+	[[ -s $state/events.log ]] || return 0
+	awk -F'\t' '
+		{ split($2, word, " ") }
+		word[1] == "stuck" { sub(/:$/, "", word[3]); at[word[2] "/" word[3]] = mktime(gensub(/[-T:Z]/, " ", "g", $1), 1) }
+		END { for (cell in at) print cell "\t" at[cell] }
+	' "$state/events.log"
+}
+
+stuck_cells() {
+	local rows=() row puzzle lang ours top streak ladder puzzle_width=0 none label painted_puzzle ours_tag top_tag painted_streak painted_ladder age
+	declare -A stuck_at
+	mapfile -t rows < <(stuck_rows)
+	if ((${#rows[@]} == 0)); then
+		paint none "$dim" none
+		echo "  $none"
+		return
+	fi
+	while IFS=$'\t' read -r row age; do
+		stuck_at[$row]=$age
+	done < <(stuck_since)
+	for row in "${rows[@]}"; do
+		puzzle=${row%%$'\t'*}
+		((${#puzzle} <= puzzle_width)) || puzzle_width=${#puzzle}
+	done
+	paint ours_tag "$dim" ours
+	paint top_tag "$dim" top
+	for row in "${rows[@]}"; do
+		IFS=$'\t' read -r puzzle lang ours top streak ladder <<<"$row"
+		lang_label label "$lang"
+		puzzle_label painted_puzzle "$puzzle" "$puzzle_width"
+		paint painted_streak "$yellow" "$(printf '%2s without gain' "$streak")"
+		painted_ladder=
+		[[ $ladder == - ]] || paint painted_ladder "$cyan" "  ladder skipped"
+		age=
+		[[ -z ${stuck_at[$puzzle/$lang]:-} ]] || {
+			age_text age "${stuck_at[$puzzle/$lang]}"
+			paint age "$dim" "  $age"
+		}
+		printf '  %s %s  %s %4s  %s %4s  %s%s%s\n' "$label" "$painted_puzzle" "$ours_tag" "$ours" "$top_tag" "$top" "$painted_streak" "$painted_ladder" "$age"
+	done
+}
+
 gain_rows() {
 	[[ -s $state/events.log ]] || return 0
 	awk -F'\t' -v shown="$latest_gains_shown" '
@@ -843,6 +900,9 @@ if [[ -n $cells ]]; then
 	echo
 	section "smallest gaps not first (ours - top)"
 	smallest_gaps
+	echo
+	section "stuck cells (no gain in $max_plateau_streak tasks in a row, not queued)"
+	stuck_cells
 fi
 
 echo
