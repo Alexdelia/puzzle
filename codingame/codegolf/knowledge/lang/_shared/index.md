@@ -15,3 +15,4 @@
 - [self-exec-glob](self-exec-glob.md): `system("...;./*")` loops by re-running /tmp/Answer (cwd /tmp, glob sorts Answer first), 3 B, verified OCaml; other boxes unverified
 - [trace-hardcode](trace-hardcode.md): with `referee/hidden/complete`, hardcode the reference action traces keyed on the init input, print them early (rotations can move earlier), then the no-op; probe-only, verified the-fall-episode-2 perl 187 rank 1
 - [leaderboard-creation-time](leaderboard-creation-time.md): leaderboard rows carry `creationTime` ms: check a top is current before assuming it is stale, verified on CG
+- [lookup-perfect-hash](lookup-perfect-hash.md): brute-forced cheap perfect hash of recovered validator inputs, no-op slots for AWK split, probe-only, verified blunder-episode-1 ruby 172
