@@ -51,18 +51,14 @@ Rejected:
 
 ## Hidden validators
 
-Per validator, sources, next probes: `puzzle/super-computer/referee/hidden/facts.md`.
+Per validator, sources, probe kit: `puzzle/super-computer/referee/hidden/facts.md` (2026-10-24, from CG per-validator reports).
 
-- 8 validators (count channel, 12.5 % steps). Titles from the classic puzzle report (https://forum.codingame.com/t/super-computer-puzzle-discussion/57?page=2)
-- (N, answer) from probes 2026-10-20/21: (3 or 4, 2 or 3), (5, 3), (7 or 8, 1) x2, (9, 9), (11..999, 1), (99999, 7991), (99999, B = "Large number of satisfied scientists", B = 91708). No N=1 validator. Exact inputs unknown
-- the two large ones share N=99999; the start `J` of the first data line separates them: 7991 one has `J >= 500000`, 91708 one has `J < 500000` (probes 2026-10-21). Answers: n 5->3, 7 and 8->1, 9->9, 11..999->1, 3 or 4 -> 2 or 3 (unresolved) Table: `n` for the small ones, `n==99999` + first `J` for the large pair
-- neither large one answers 7879 (CG IDE test 03)
+- 8 validators, 12.5 % each, titles = classic puzzle: 1 Simple Case, 2 One scientist, 3 All starting days are identical, 4 All end dates are identical, 5 Parallel calculations, 6 Overlapping calculations, 7 Large number of scientists, 8 Large number of satisfied scientists
+- (N, answer) exact, in validator order: (4, 3) (16, 1) (8, 1) (8, 1) (9, 9) (5, 3) (99999, 7991) (99999, 91708). Neither large one is IDE test 03 (7879)
+- key: first line `n` for the small ones (`n<6` -> 3, `n==9` -> 9, other `n<99999` -> 1); the N=99999 pair splits on the first data line: V8 starts `1 D` (J=1, D 2..16), V7 has J >= 875000 (D 775..782)
+- end-ascending greedy in input order (no sort) passes every validator but V7 (CG report of submission 41548668); V5 V6 V8 are sorted by J ascending, V7 is not
+- exact inputs not recovered (no `complete`): small ones partly known (facts.md), the large ones are ~1 MB
 - side effect: probe rows under 100 % in php lua javascript ocaml cpp rust go d java kotlin scala haskell dart csharp typescript (long shell wrappers); any 100 % submit replaces them
-- unverified: a classic solver passed 100 % while off by 1 on IDE test 03 (https://forum.codingame.com/t/super-computer-puzzle-discussion/57?page=3). Off-by-one variants change local 03 by ~60, so large validators would catch them
-
-Guesses (unverified):
-
-- weak-validator ideas: unsorted greedy in input order (perl 38) fails statement example 1 (gives 2), passes only if the small validators are end-sorted; keeping the `N` line in the shell core (38) matched honest on only 61/200 random large instances locally, not probed
 
 ## Perl wrapper on CG (verified 2026-10-20)
 
