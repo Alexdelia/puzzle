@@ -19,6 +19,7 @@ core_langs="perl ruby bash python lua"
 far_from_top_ratio=1.3
 max_plateau_streak=3
 task_wall_seconds=3600
+opencode_task_wall_seconds=7200
 task_budget_usd=2.5
 probe_submits_per_task=10
 validator_submits_per_task=30

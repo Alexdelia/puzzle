@@ -4,7 +4,7 @@ source "$(dirname "$0")/lib.sh"
 shopt -s nullglob
 
 running=${1:?usage: prompt.sh <running-file>}
-read -r id kind puzzle lang depth < <(jq -r '[.id, .kind, .puzzle, .lang, .depth] | @tsv' "$running")
+read -r id kind puzzle lang depth task_backend < <(jq -r --arg backend "$backend" '[.id, .kind, .puzzle, .lang, .depth, .backend // $backend] | @tsv' "$running")
 journals=("$state"/journal/"$kind.$puzzle.$lang".*.md)
 journal_list=
 if ((${#journals[@]})); then
@@ -18,7 +18,7 @@ declare -A values=(
 	[REASONS]=$(jq -r '.reasons | join("; ")' "$running")
 	[TRIGGERS]=$(jq -r 'if .triggers == [] then "none" else .triggers | join(", ") end' "$running")
 	[JOURNALS]=${journal_list:-none}
-	[WALL_MINUTES]=$((task_wall_seconds / 60)) [BUDGET]=$task_budget_usd [MEMORY_MAX]=$task_memory_max [PROBE_CAP]=$([[ $kind == validator ]] && echo "$validator_submits_per_task" || echo "$probe_submits_per_task")
+	[WALL_MINUTES]=$(($(task_wall_seconds_of "$task_backend") / 60)) [BUDGET]=$task_budget_usd [MEMORY_MAX]=$task_memory_max [PROBE_CAP]=$([[ $kind == validator ]] && echo "$validator_submits_per_task" || echo "$probe_submits_per_task")
 	[PRETTY_ID]=$(tsv_field puzzle "$puzzle" pretty_id) [PUZZLE_KIND]=$(tsv_field puzzle "$puzzle" kind)
 	[TITLE]=$(tsv_field puzzle "$puzzle" title)
 	[CG_NAME]=$(tsv_field lang "$lang" cg_name) [EXTENSION]=$(tsv_field lang "$lang" extension)

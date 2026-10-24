@@ -107,7 +107,7 @@ while [[ ! -e $state/STOP ]]; do
 	log "start $id backend=$task_backend model=$task_model effort=$task_effort"
 	output=$state/worker/$id
 	"$tool_dir/prompt.sh" "$running" >"$output.prompt"
-	deadline=$((EPOCHSECONDS + task_wall_seconds))
+	deadline=$((EPOCHSECONDS + $(task_wall_seconds_of "$task_backend")))
 	work_until=$deadline
 	[[ $task_backend == opencode ]] && work_until=$((deadline - opencode_wrap_up_seconds))
 	start_fresh

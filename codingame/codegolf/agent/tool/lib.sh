@@ -140,6 +140,10 @@ task_backend_of() {
 	[[ " $claude_kinds " == *" $1 "* ]] && echo claude || echo "$backend"
 }
 
+task_wall_seconds_of() {
+	[[ $1 == opencode ]] && echo "$opencode_task_wall_seconds" || echo "$task_wall_seconds"
+}
+
 every_task_on_claude() {
 	[[ $backend == claude ]] || [[ -n ${CG_ONLY_KIND:-} && $(task_backend_of "$CG_ONLY_KIND") == claude ]]
 }
