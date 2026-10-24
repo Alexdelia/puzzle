@@ -23,6 +23,17 @@ pretty_id `dwarfs-standing-on-the-shoulders-of-giants-codesize`, io.
 
 ## Hidden validators (CG, probed 2026-10-20)
 
+### Recovered (validator task 2026-10-24, details and sources in `puzzle/dwarfs-standing-on-the-shoulders-of-giants/referee/hidden/facts.md`)
+
+9 of 10 exact in `referee/hidden/NN.in` (raw text confirmed on CG), `run.sh <sol> --lang <l> --hidden` checks them (not `complete`: 7 missing):
+
+- 1 `1/1 2`->2, 2 `2/1 2/3 2`->2, 3 `2/1 2/1 3`->2, 4 `2/1 2/3 4`->2, 5 `2/1 2/2 3`->3, 6 `2/2 3/1 2`->3, 8 `8/6 4/6 5/1 3/2 1/2 3/5 4/3 5/2 4`->5 (forum https://forum.codingame.com/raw/44/99), 9 `9/1 10/.../9 10`->2, 10 `3/2 3/1 2/3 4`->4
+- 7 "Arbitrary indexes": N=3, 3 disjoint edges, answer 2, max id >= 1000, min id < 1000, first X < 1000, 25..28 bytes
+- key by N: 1->2, 8->5, 9->2, 3->4 if 14 bytes else 2, 2->3 iff input holds `2 3` else 2
+- `agent/tool/cg-report.sh <id>` works on old submissions too: per-validator bits of every past probe for free
+
+### Older notes (2026-10-20..22)
+
 Exact inputs (validator task 2026-10-20, details in `puzzle/dwarfs-standing-on-the-shoulders-of-giants/referee/hidden/facts.md`): 4 of 10 recovered, files in `referee/hidden/` (`run.sh <sol> --hidden` checks them; not `complete`):
 
 - `1`/`1 2` -> 2, `2`/`1 2`/`2 3` -> 3, `2`/`2 3`/`1 2` -> 3, `2`/`1 2`/`1 3` -> 2
