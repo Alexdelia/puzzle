@@ -89,3 +89,4 @@
 - [array-subst-delete-mark](array-subst-delete-mark.md): `$a[$i]=~s/O//` = test-and-mark an array cell in 13 B (vs 20 B 4-arg substr), no pad needed; 1M-char `split//` per query too slow for 300-query validators, verified
 - [div-field-selector](div-field-selector.md): `A+B/field|0` truncates the sum, so a field that is 1 vs large selects between two hardcoded answers in 15 B, verified on CG
 - [alp-implicit-loop-golf](alp-implicit-loop-golf.md): perl honors `#!perl -alp` when run as `perl main.pl`; `if!$|` 5 B first-line gate, `$_=""` = 0 output with -p (blank line with -l), `$$_` on digits dies (use `/\D/g`), `glob` gobbles commas, verified locally
+- [header-key-hardcode](header-key-hardcode.md): `#!perl -a` + `$F[2]%k` key, pick k so scenario keys are nonzero and `undef%k` hits an empty field -> hardcode prints only on line 1 and `-n` drains input, no guard/drain bytes, verified locally (the-labyrinth hidden 8/8, 208 B, not on CG)
