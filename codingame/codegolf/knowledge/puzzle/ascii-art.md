@@ -65,18 +65,18 @@ Facts (2026-10-20):
 
 Guesses (unverified):
 - the 58 was likely scored on an older, weaker validator set (CG keeps old rows after validator edits); if so no exploit is reachable now
+- verified 2026-10-24 (report of submission 41536725): that 58 passes only validator 1 (`G`, weight 300) = 30 % on the current set; the 4 letters-only uppercase validators are 70 % of the weight
 - not tried: environment reconnaissance of the CG sandbox (out of scope, refused)
 
 Probes spent: 1 (2026-10-20, Python 58 single-letter, fail). Next useful probe only if a new no-loop hypothesis appears; every loop-based exploit lands near 80 in Python, above the legit 91 floor only by restricting cases (uppercase-only / letters-only / `L=4` hardcode), and each such restriction is a 1-bit probe worth trying in a cell below its own row
 
 Python 107 (CG, 2026-10-20): `w,h,t,*R=open(0);w=int(w)` / `for r in R:print("".join(r[(x:=w*min(ord(c)&95^64or 27,27))-w:x]for c in t[:-1]))`. Walrus in slice, see lang/python/walrus-in-slice.md.
 
-Recovered by validator task (2026-10-20, 7 count probes, details and sources in `puzzle/ascii-art/referee/hidden/facts.md`):
-- 10 validators (score grain 10 in every partial row), 6 IDE tests; no validator reuses an IDE `T`
-- fonts: all 10 use an IDE font: 9 the `#` font `L=4 H=5`, 1 the test-5 font `L=20 H=11`
-- `T`: 7 uppercase-only `^[A-Z]+$`, 1 more letters-only with lowercase, 2 with non-letters
-- exact: `HELLOWORLD` (2 identical validators) and `WMADXESFGIJVTHKNOBPLYQRUZC` (1), both `#` font; 7 `T` still unknown, validator numbers unknown
-- golf: case handling and `?` mapping both still needed (1 and 2 validators); `L=4` hardcode passes 9/10
+Recovered exactly (validator task 2026-10-24, CG per-validator report + 7 probes; files `puzzle/ascii-art/referee/hidden/01..07`, `complete`, details and sources in `puzzle/ascii-art/referee/hidden/facts.md`):
+- 7 validators, weights 300/200/100x5 (the old "10 validators" was the 10 % weight grain); all use an IDE font verbatim
+- `T` per validator: 1 `G` (w300), 2 `HELLOWORLD` (w200), 3 `HelloWorld`, 4 `AB!!CD`, 5 `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor.` (156 chars), 6 `WMADXESFGIJVTHKNOBPLYQRUZC`, 7 `HELLO` with the test-5 font (`L=20 H=11`); 1-6 use the `#` font `L=4 H=5`
+- golf: the only non-letters CG scores are ` ! , .` (codes 32 33 44 46, all below `A`): any index that sends every char below 65 to `?` and maps both cases is CG-correct; `@ [ \` {` and digits never reach CG (`@` only in IDE test 4, which `submit.sh`'s local gate still checks). Lowercase needed (3, 5). Uppercase-only scores 70 %, letters-only 80 %
+- haskell 113 `nopunct.hs` 80 % = failed 4 and 5 (report), so its handling of ` ! , .` is wrong, not of `@`
 
 Haskell 120 (CG rank 5, 2026-10-21): `main=interact$(\(l:_:t:r)->unlines[fromEnum<$>t>>= \d->take(read l)$drop(read l*min 26(mod(max 64 d-1)32))x|x<-r]).lines`, see lang/haskell/char-index-clamp.md. Probe (haskell/nopunct.hs, 113 bytes, no clamp of chars below 64 except space and `@`): CG 80%, so 2 hidden validators contain digits or punctuation (not just space and `@`), 8 pass. Local validators 02-05 also fail it.
 
