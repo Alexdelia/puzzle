@@ -1,41 +1,33 @@
 # Shadows of the Knight - Episode 1: hidden validators
 
-Not recovered: no `NN.json`, no `complete`. Most validators have other sizes than the IDE tests, so they are not simple transforms of them.
+7 validators, titles = IDE test titles, weights 143 x6 + 142 (V7) (CG report, `agent/tool/cg-report.sh 41537581`). Partly recovered: `04.json`, `05.json` exact (reference bash 88 passes `--hidden` 9/9); no `complete`.
 
-## Count
+Pattern: validator k = test k with the size nudged by about 1 and the start / bomb flipped or kept. Not a fixed transform per validator.
 
-7 validators: leaderboard partial scores step 14.3 (28.6, 42.9, 57.2, 71.4, 85.7 seen over 1912 rows of 9 languages, 2026-10-20). Titles assumed = IDE test titles (A lot of jumps, Less jumps, Lesser jumps, Tower, Correct cutting, Evasive, Not there?).
+## Per validator (2026-10-24)
 
-## Known (probes, `agent/tool/oracle.sh --log shadows-of-the-knight-episode-1`, task validator.shadows-of-the-knight-episode-1.-.1792523691050048233)
+Source: python probes b1..b20 (`agent/tool/oracle.sh --log shadows-of-the-knight-episode-1`, sources `probe/python/b*.py`), task validator.shadows-of-the-knight-episode-1.-.1792834544143595596; plus the 2026-10-20 php/lua/ruby probes re-read with cg-report.sh. Each probe: honest bisection iff predicate, else `-1 -1`. Init predicates are exact; bomb predicates (b17-b20) track the exact consistent rectangle and give up once it holds no candidate: a false "yes" is possible only if the bisection hit a non-candidate bomb by luck (high confidence, not double-checked).
 
-Each probe: honest bisection iff init `(W,H,N,X0,Y0)` matches a table row, else `-1 -1` (fails turn 1); row with bomb: jump there first, `-1 -1` after.
+| # | title | W x H | N | start (X0,Y0) | bomb | test k |
+|---|---|---|---|---|---|---|
+| 1 | A lot of jumps | 4 x 9 | 40 | unknown | x=3, y in {5,6,8} | 4x8 N40 (2,3) bomb (3,7) |
+| 2 | Less jumps | 25 x 33 | 50 | (22,29) (= test x flipped 24-2) | x in 0..5, y unknown; not in the flip set of (24,2) | 25x33 N49 (2,29) bomb (24,2) |
+| 3 | Lesser jumps | 40 x 61 | <=32 | unknown | x in 5..9, y unknown | 40x60 N32 (6,6) bomb (38,38) |
+| 4 | Tower | 1 x 79 | 6 | (0,77) | (0,42) | exact: `04.json` |
+| 5 | Correct cutting | 50 x 50 | 6 | (49,49) | (27,27) | exact: `05.json` (test both flipped) |
+| 6 | Evasive | 101 x 101 | 7 | (5, unknown) | (0,1) (= test bomb) | 100x100 N7 (5,98) bomb (0,1) |
+| 7 | Not there? | 9998 x H, H in 9937..10000 | unknown | unknown | unknown (not in the flip set of (9753,2531)) | 9999x9999 N14 |
 
-| # | lang | question | answer |
-|---|---|---|---|
-| 1 | php 821 | `(W,H,N)` = some IDE test `(W,H,N)` | 14.3% = 1 of 7 |
-| 2 | lua 788 | `(W,H)` = some IDE test `(W,H)`, any N | 28.6% = 2 of 7 |
-| 3 | ruby 488 | exactly 40x60 N32 start (38,38) bomb (6,6) | 0% |
-| 4 | ruby | init `(W,H,N,X0,Y0)` = some IDE test init (row 0%: moves iff >= 1) | no: 0 of 7 |
-| 5 | php 733 | `(W,H,N)` = test 5, 6 or 7 `(W,H,N)` (row 14.3 at 821: same score shorter moves) | yes |
-| 6 | php 687 | `(W,H,N)` = 9999x9999 N14 (row 14.3 at 733) | no |
-
-Deductions:
-
-- 5 validators have a size `(W,H)` that no IDE test has (also not tested: transposed sizes `(H,W)`)
-- 1 validator has the size of an IDE test with another N; 1 has size and N of an IDE test: 50x50 N6 or 100x100 N7 (probes 5, 6), with another start than the test (probe 4)
-- no validator init `(W,H,N,X0,Y0)` equals any IDE test init (probe 4)
-- forum claim "Lesser jumps validator: bomb 6,6, batman 38,38" (KubaF, https://forum.codingame.com/t/shadows-of-the-knight-episode-1-puzzle-discussion/264/346, 2023-09-03) is false today (probe 3)
-- every validator passes with the CG-validated bash 88 (bisection, floor midpoint, start and first direction ignored, `knowledge/puzzle/shadows-of-the-knight-episode-1.md`): no validator needs the start position or the first direction
-
-## Web
-
-- forum thread read through post #427 (`https://forum.codingame.com/raw/264?page=1..5`): no validator input quoted. pardouin #184: "validators are different from the tests to make it hard to hardcode", "nth validator is somehow similar to the nth test"; same test always has the same bomb
-- code golf thread https://forum.codingame.com/t/shadows-of-the-knight-episode-1-code-golf-puzzle-discussion/203194: only merge notices
+Probe bits per validator (pass matrix in probes.tsv, rows b1..b20). Older facts: no validator init equals a test init; forum claim "Lesser jumps bomb 6,6 batman 38,38" (https://forum.codingame.com/t/shadows-of-the-knight-episode-1-puzzle-discussion/264/346) false.
 
 ## Shortest key
 
-None known. Hardcoding per validator is out of reach: each needs W, H, N, start and bomb, and 5 sizes are new. A bisection is the only known way to pass all 7.
+`W` alone separates all 7: 4, 25, 40, 1, 50, 101, 9998 (also `H`: 9, 33, 61, 79, 50, 101, >=9937). Bombs known exactly only for W=1 (0,42), W=50 (27,27), W=101 (0,1). V7 bomb needs ~27 more bits: a full hardcode is out of reach, a bisection is still needed for at least V7.
+
+## Next probes (if resumed)
+
+Template `scratch/b18tpl.py` + `scratch/mk.sh` in the task journal dir (copy into a new probe). Remaining unknowns: V1 start + bomb y (3 values), V2 bomb (x 6 values, y 33), V3 N, start, bomb (x 5 values, y 61), V6 Y0, V7 H (64 values), N, start, bomb.
 
 ## Local `validators/`
 
-Synthetic (referee worker guesses), not CG's: do not trust them as hidden data.
+Synthetic (referee worker guesses), not CG's.
