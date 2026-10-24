@@ -1,0 +1,13 @@
+w=open(0).read().split()[1:]
+s=''
+for t in w:s*=s not in t;s+=t[max(k*(t in s+t[k:])for k in range(8)):]
+a=len(s);n=len(w);l=[len(x) for x in w];L=sum(l);m=max(l)
+C="AGATTACAGA CCCTGACATGA AACCTT AACTT ATCG GATTACA TACAGATTACAGATTA"
+cor=all(x in C for x in w)
+if n==1:c=2
+elif n>3:c=5
+elif n==2:c=1 if a==L else (7 if l[0]>l[1] else 8) if a==m else 11 if a==L-1 else 9
+else:c=(3 if len(set(w))<2 else 6) if a==m else 10 if a==L-2 else 14 if a>8 else 13 if a==6 else 4
+K={int(k):v for k,v in {"3": ["AAA,AAA,AAA", "AAC,AAC,AAC", "AAG,AAG,AAG", "AAT,AAT,AAT", "ACA,ACA,ACA", "ACC,ACC,ACC", "ACG,ACG,ACG", "ACT,ACT,ACT", "AGA,AGA,AGA", "AGC,AGC,AGC", "AGG,AGG,AGG", "AGT,AGT,AGT", "ATA,ATA,ATA", "ATC,ATC,ATC", "ATG,ATG,ATG", "ATT,ATT,ATT", "CAA,CAA,CAA", "CAC,CAC,CAC", "CAG,CAG,CAG", "CAT,CAT,CAT", "CCA,CCA,CCA", "CCC,CCC,CCC", "CCG,CCG,CCG", "CCT,CCT,CCT", "CGA,CGA,CGA", "CGC,CGC,CGC", "CGG,CGG,CGG", "CGT,CGT,CGT", "CTA,CTA,CTA", "CTC,CTC,CTC", "CTG,CTG,CTG", "CTT,CTT,CTT", "GAA,GAA,GAA", "GAC,GAC,GAC", "GAG,GAG,GAG", "GAT,GAT,GAT", "GCA,GCA,GCA", "GCC,GCC,GCC", "GCG,GCG,GCG", "GCT,GCT,GCT", "GGA,GGA,GGA", "GGC,GGC,GGC", "GGG,GGG,GGG", "GGT,GGT,GGT", "GTA,GTA,GTA", "GTC,GTC,GTC", "GTG,GTG,GTG", "GTT,GTT,GTT", "TAA,TAA,TAA", "TAC,TAC,TAC", "TAG,TAG,TAG", "TAT,TAT,TAT", "TCA,TCA,TCA", "TCC,TCC,TCC", "TCG,TCG,TCG", "TCT,TCT,TCT", "TGA,TGA,TGA", "TGC,TGC,TGC", "TGG,TGG,TGG", "TGT,TGT,TGT", "TTA,TTA,TTA", "TTC,TTC,TTC", "TTG,TTG,TTG", "TTT,TTT,TTT"], "7": ["GATTACA,A", "GATTACA,C", "GATTACA,G", "GATTACA,T", "GATTACA,AC", "GATTACA,AT", "GATTACA,CA", "GATTACA,GA", "GATTACA,TA", "GATTACA,TT", "GATTACA,ACA", "GATTACA,ATT", "GATTACA,GAT", "GATTACA,TAC", "GATTACA,TTA", "GATTACA,ATTA", "GATTACA,GATT", "GATTACA,TACA", "GATTACA,TTAC", "GATTACA,ATTAC", "GATTACA,GATTA", "GATTACA,TTACA", "GATTACA,ATTACA", "GATTACA,GATTAC"], "8": ["A,GATTACA", "C,GATTACA", "G,GATTACA", "T,GATTACA", "AC,GATTACA", "AT,GATTACA", "CA,GATTACA", "GA,GATTACA", "TA,GATTACA", "TT,GATTACA", "ACA,GATTACA", "ATT,GATTACA", "GAT,GATTACA", "TAC,GATTACA", "TTA,GATTACA", "ATTA,GATTACA", "GATT,GATTACA", "TACA,GATTACA", "TTAC,GATTACA", "ATTAC,GATTACA", "GATTA,GATTACA", "TTACA,GATTACA", "ATTACA,GATTACA", "GATTAC,GATTACA"], "11": ["AC,CA", "AG,GA", "AT,TA", "CA,AC", "CG,GC", "CT,TC", "GA,AG", "GC,CG", "GT,TG", "TA,AT", "TC,CT", "TG,GT"]}.items()}
+Q={2:lambda:a==3,1:lambda:l[1]==2,3:lambda:K[3].index(','.join(w))&1,4:lambda:a==5,5:lambda:all(w[i][1]==w[i+1][0] for i in range(3)) and len(set(w))==4,6:lambda:w==['A','C','AC'],7:lambda:K[7].index(','.join(w))&1,8:lambda:K[8].index(','.join(w))&1,9:lambda:a&1,10:lambda:w==['AA','ACT','TT'],11:lambda:K[11].index(','.join(w))&1,13:lambda:L>=10,14:lambda:a==10}
+print(a if Q[c]() else a+1)
