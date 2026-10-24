@@ -105,3 +105,9 @@ Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`
 
 - 191 #2 (top 177): core shrunk 18 B by one shared neighbour pattern for flood and stop test, see `lang/perl/shared-adjacency-pattern.md`. Other gains: `#!perl -pl` + `$|++or$_=<>;` (turn 1 reads coords in-body, header discarded) + `$_=(LEFT,UP,RIGHT,DOWN)[$#-]` output; `-a` dropped for `/ /;` + `31*$`+$'` (match vars survive `read ARGV,$_,465`). Every perl-core wrapper row (bash, ruby, js, ts, python, c, lua, ocaml...) can take the new flood/check (~11 B)
 - rejected: flood class `\.` (T impassable before C): 13/16; T permanent goal: 0/16 (Rick oscillates on T)
+
+## Distances and hidden phase turns (verified locally 2026-10-24, hidden/complete)
+
+- in all 8 tests and all 8 hidden validators `A == dist(start,C) == dist(C,T)` (BFS on the fixture mazes); the return leg after C is forced to be a shortest path of exactly A moves, so any hardcode cannot shorten the return
+- nearest-`?`/`C` exploration reaches C at these turn numbers (turn = coords line index, our 191 solver, `--hidden --trace`): 01 8, 02 22, 03 140, 04 143, 05 117, 06 48, 07 211, 08 180. Only 01/02 reach C in A moves; turn-keyed phase switching needs a per-A table (8 values up to 211) keyed by A or start col, not shorter than `C eq substr` state
+- move hardcode floor (computed, not built): 8 forward shortest paths = 351 moves / 70 maximal runs; the return is `map{$_^1}reverse` (free). 1-byte/run RLE + `(split/~/)[$&%11]` selector + `unpack C*` + `print map{...}` + drain is ~205-215 B, above the 177 top. Bit packing (2 bits/move = 88 B, or axis-alternation sign bits ~53 B) saves data but the perl decode loop costs more than it saves; no sub-177 hardcode found
