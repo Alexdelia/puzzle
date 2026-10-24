@@ -21,3 +21,4 @@
 2026-10-21T18:51:20Z	cell.vox-codei-episode-2.clojure.1792513436386319656	clojure	289	map-blind hardcode in validator orientation E (v_k flip (k-1)%3+1), no map read, 289B: 100%?	yes: 100% at length 289, committed
 2026-10-22T18:00:35Z	cell.vox-codei-episode-2.ocaml.1792513436809645562	ocaml	201	map-blind perl-in-ocaml hardcode, key r/3%9, joint r=30 plan, 201B: 100%?	yes: 100% at length 201, committed
 2026-10-22T19:54:54Z	cell.vox-codei-episode-2.perl.1792614713605959296	perl	161	map-blind 2-char/bomb hardcode, waits=ord(a)*ord(b)%25, 161B: 100%?	yes: 100% at length 161, committed
+2026-10-24T20:40:17Z	cell.vox-codei-episode-2.ruby.1792523415154170883	ruby	153	map-blind 2-char/bomb hardcode in validator orientation, K=23, dense rounds key hex%10%7, AB trailer, 153B: 100%?	yes: 100% at length 153, committed
