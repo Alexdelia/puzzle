@@ -9,3 +9,5 @@
 2026-10-21T18:33:26Z	cell.power-of-thor.clojure.1792441078444541506	clojure	153	does general counter-map form with (ns Player)(defn -main[_] header pass 100% (155 B)?	yes: 100% at length 153, committed
 2026-10-21T18:37:57Z	cell.power-of-thor.clojure.1792441078444541506	clojure	143	does SNWE 4-pair form (143 B) pass 100%?	yes: 100% at length 143, committed
 2026-10-22T19:54:30Z	cell.power-of-thor.perl.1792698488469221231	perl	66	does S-counted + (N,E,W)[a<=>x] static horizontal (N iff dx==0, needs |dx|>=|dy| in diagonals) pass 100%? 66 B	yes: 100% at length 66, committed
+2026-10-24T10:29:40Z	validator.power-of-thor.-.1792834544062551736	perl	449	per validator: V1 dx in {21,26}; V2 -dy in {13,17}; V3 dx==31; V4 line == 0 17 36 0	report 100.0%: 1 Straight line [Validator_1] pass, 2 North [Validator_2] pass, 3 Easy angle [Validator_3] pass, 4 Optimal angle [Validator_4] pass, own row {"pseudo":"Alexdelia","language":"Perl","length":66,"score":100.0}
+2026-10-24T10:30:13Z	validator.power-of-thor.-.1792834544062551736	perl	408	per validator: V1 dx==21; V2 -dy==13; V3 dy==14; V4 energy==36	pending, submission 41557398
