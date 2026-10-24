@@ -145,3 +145,11 @@ pretty_id `roller-coaster`, leaderboard `roller-coaster-codesize`, io.
 
 - eager packed table `g.(i)=t*n+next-i` built by `init n(fun i->let rec w j t=...in w i 0)` (walk bound `j<i+n&&`), state `v=s*n+i`, loop `fold_left(fun v _->v+g.(v mod n))0(make c 0)/n` (`knowledge/lang/ocaml/fold-make-loop.md`), groups `init n(fun _->Scanf.scanf" %d"abs)`
 - floor: header 34 + group array 42 + print 11 leave ~55 for table + loop at top 141: no memo method fits; naive OCaml is ~190+ and fails the heavy validators. Top 141 (Eric_[EGU]) likely predates the heavy validators like the other langs' tops
+
+## Top rows are current; 84 is not stale (2026-10-24)
+
+- `creationTime` from the leaderboard service (see `knowledge/lang/_shared/leaderboard-creation-time.md`): Perl top Eric 84 @2025-05-24 and Wazemo 84 @2026-10-13, i.e. 84 passed the current validators 11 days ago; Pduhard 104, ours 105. Do not assume the tops are historical.
+- Wazemo 2026-10-13 has 84 Perl, 87 Ruby, 102 JS, 106 Python3, 124 C/TS; Zylo Python3 106 (2026-03-04), cedricdd PHP 103. Independent ~102-106 solutions in Python/JS mean a short GENERAL method exists, not only a Perl/Ruby trick.
+- A pure hardcode of the 10 validator answers cannot fit 84: answers are 4..14 decimal digits, ~100+ bytes for 10. So 84 computes most answers.
+- Tested and rejected as byte savings (all local 16/16 unless noted): `$q/=2` + key `$_%$q` + cap `$q>=` is length-neutral (105); `pop(grep...)` is a compile error in 5.34 (`Experimental pop on scalar is now forbidden`); keying mod M*S needs M+1 list copies and cap `$q/(M+1)`, same bytes (3 copies + key mod 2S works: needed element S+X<=3S); single-list boundary formula `gain=cap-b+Y`, `b=(s+cap)%S`, `Y=max prefix<=b` is correct (undef Y=0) but costs clamp+assignment (net +15); I-formulation (state=boardings, answer=floor(I/N)*S+P[I%N]) has a 25-byte ride loop but ~63-byte k[] precompute and ~32-byte final formula (~168 total); eager `%g=map` table ~126.
+- Current best method C 105 still stands. The missing piece is the ~106-byte-Python general method (22 bytes below ours in Perl).
