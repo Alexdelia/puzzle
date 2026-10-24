@@ -4,7 +4,7 @@ source "$(dirname "$0")/lib.sh"
 trap 'echo "wrap.sh: failed at line $LINENO (exit $?): $BASH_COMMAND" >&2' ERR
 shopt -s nullglob
 
-usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, cached per puzzle, referee only on cores; cores failing the local referee --cg are never wrapped (failing one CG accepted raises an attention event); --submit: submit.sh the winners (on STOP: no new attempt, posted ones still judged); exit 3: some host deferred (busy cell, submit cap, STOP, generator error, lottery round lost)"
+usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, cached per puzzle, referee only on cores; cores failing the local referee --cg are never wrapped (failing one CG accepted raises an attention event and queues a referee task, once per core version); --submit: submit.sh the winners (on STOP: no new attempt, posted ones still judged); exit 3: some host deferred (busy cell, submit cap, STOP, generator error, lottery round lost)"
 puzzle=${1:?$usage}
 shift
 host_filter=
@@ -27,6 +27,7 @@ mkdir -p "$work/derived"
 deferred=
 wrap_core_check=$state/wrap/core-check.tsv
 wrap_estimate_dir=$state/wrap/estimate
+wrap_referee_flagged=$state/wrap/referee-flagged.tsv
 
 derived_perl_core() {
 	local file=$1 text
@@ -37,8 +38,16 @@ derived_perl_core() {
 	printf '%s\n' "$derived"
 }
 
+enqueue_referee_once() {
+	local core=$1 hash=$2 flag=$3
+	[[ -s $wrap_referee_flagged ]] && grep -q -F "$puzzle"$'\t'"$core"$'\t'"$hash" "$wrap_referee_flagged" && return 0
+	mkdir -p "$(dirname "$wrap_referee_flagged")"
+	printf '%s\t%s\t%s\t%s\n' "$puzzle" "$core" "$hash" "$(now)" >>"$wrap_referee_flagged"
+	"$tool_dir/enqueue.sh" referee "$puzzle" - --reason "local referee rejects code CG accepted ($flag). Make every local case (synthetic validators/, hidden/) pass all cores at our CG row length (solution/<lang>/main.* whose length equals agent/state/cell/$puzzle/<lang>.json .ours) with margin under load, keeping each case's role; check against referee/hidden/facts.md (what CG's validators are known to satisfy). Rebench." >&2 || true
+}
+
 flag_accepted_core() {
-	local core=$1 file=$2 output=$3 ours length mismatch
+	local core=$1 file=$2 output=$3 hash=$4 ours length mismatch flag
 	ours=$(jq -r '.ours // empty' "$(status_file cell "$puzzle" "$core")" 2>/dev/null) || return 0
 	length=$("$tool_dir/count.sh" "$file")
 	[[ -n $ours && ${ours%.*} == "$length" ]] || return 0
@@ -47,7 +56,9 @@ flag_accepted_core() {
 	else
 		mismatch=$(grep -m 1 -E '^test (validators|hidden)/[^ ]* (fail|timeout) ' <<<"$output") || return 0
 	fi
-	event "attention wrap core $puzzle $core: CG accepted length $length, local referee fails ${file#"$root"/}: $(cut -c1-200 <<<"$mismatch")"
+	flag="$core: CG accepted length $length, local referee fails ${file#"$root"/}: $(cut -c1-200 <<<"$mismatch")"
+	event "attention wrap core $puzzle $flag"
+	enqueue_referee_once "$core" "$hash" "$flag"
 }
 
 core_verdict() {
@@ -60,7 +71,7 @@ core_verdict() {
 			verdict=pass failed_test=
 		elif failed_test=$(grep -m 1 -E "$referee_failure" <<<"$output"); then
 			verdict=fail
-			flag_accepted_core "$core" "$file" "$output"
+			flag_accepted_core "$core" "$file" "$output" "$hash"
 		else
 			echo "wrap.sh: local referee errored on core ${file#"$root"/}: $(tail -n 1 <<<"$output")" >&2
 			echo error
