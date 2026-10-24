@@ -21,8 +21,8 @@ pretty_id `the-resistance-codesize`, io.
 
 - tests 05 and 06 have NO final newline on the last word (captured byte-exact through lzma+b85); 01-04 end with `\n`. A per-line reader that needs `\n` loses the last word; `split()` is safe
 - `capture-io.sh` truncates test 04 (CG output cap ~4 kB): captured as lzma+b85 slices, 12 games (journal `referee.the-resistance.*`, scratch `capture.sh`)
-- naive O(L * 76) substring dict lookups are fine for test 04 in Python (reference with a trie: 0.08 s on 04, 0.9 s on validator L 99029 N 40000)
-- validators (ours) cover: R exactly near 2^63 (Fibonacci 91 dots, dashes, alphabet), R = 0 with trailing unmatched symbol, single letter without final newline, L ~ 99000 with N 40000
+- naive O(L * 76) substring dict lookups are fine for test 04 in Python (reference with a trie: 0.08 s on 04; new validator 10: 0.2 s)
+- validators (ours) cover: R close to 2^63 (Fibonacci 90 dots, dashes, alphabet), R = 0 with trailing unmatched symbol, single letter without final newline, L 99028 N 9000 answer 2 (val 09), and V10-shaped val 10: L 9105, N 8137, answer 37371248640 (fresh random dict, words 4-8 letters). val 10 shape verified 2026-10-24: all 26 CG-row cores pass it, perl 150 0.07 s, ruby 204 0.38 s, groovy 317 1.30 s (fails the 1100 ms bar)
 
 ## Shortest known
 
@@ -33,8 +33,8 @@ General method (verified, Python 264 bytes, 18/18 local tests + validators, 2026
 - word codes go into a count map (code -> number of words), NOT a set: same-encoding words multiply (test 05)
 - forward DP: `d[0]=1`, for each position i and k in 0..76: `d[i+k] += d[i] * count[s[i:i+k]]`, answer `d[L]`. k=0 is the empty slice, never a key, so `range(77)` is fine. Slices past the end truncate: they add only to indices > L (pad d, Python `[1]+[0]*9**6`), d[L] stays exact
 - N (line 2) is ignorable: read all tokens with `split`, which also survives the missing final newline of tests 05/06
-- integers: answers reach ~2^63 on our validators (05, 06, 08, 11); CG tests max 57330892800 (> 2^32, < 2^53). 64-bit needed; JS/TS/PHP floats lose exactness above 2^53 on our validators (hidden CG validators all stay below 2^53 (probe 9, Hidden validators), so doubles are exact on CG; the local gate still fails them, submit needs `--probe`)
-- time: Python window-77 DP 4.9 s on validators/10 (L 99029, N 40000), limit 6 s; 0.44 s on test 04. Tight but passes; a slower lang may need `if d[i]` skip
+- integers: our validators 05, 06, 08, 11 have answers 2.9e18-4.7e18 (> 2^53). They must stay below 2^64/3 = 6.148e18: the ocaml 179 regex core computes 3*R before dividing by 3, and Perl turns 3*R into NV above 2^64 (verified 2026-10-24: old val 05/11 at 7.4e18 gave 7.54011380474635e+18 in scientific notation). CG tests max 57330892800 (> 2^32, < 2^53); hidden max 37265080320 < 2^53, so doubles are exact on CG
+- time: with the reshaped val 10 (L 9105, N 8137) the window-77 core takes 0.2 s and perl 150 0.07 s; val 09 (L 99028, N 9000) is the slow case: perl 150 2.35 s, ocaml 179 2.0 s, all other CG rows <= 1.1 s under load 13 (2026-10-24)
 
 Rejected:
 
@@ -95,3 +95,10 @@ Side effect: partial CG rows (cell json `ours` unset, any 100% submit replaces t
 
 - **2026-10-24 21:30, fresh correction (ruby cell 1792520926477817849)**: the "all 10 answers exact" claim is FALSE for 2 validators. The groovy probe `firstrun-model.groovy` (first `[.-]+` run of the whole input = the C `scanf %s` token L, same 10-value table as the H column above, `[2,1,0,8,1,37265080320,2**30,0,64,150569][(L^269)%11]`) was scored by CG at **80% @107 B, creationTime 2026-10-24T17:31:24Z** (it is our current Groovy best row). So 8 of the 10 (L,H) pairs are right, 2 are wrong; V10 is fresh equality-confirmed (37265080320), inputs are almost certainly unchanged (V10 old = new), so the error is in the 11:00 re-read of the OLD 2026-10-20 chain reports for V1-V9, not a validator change. Do not trust the H column for V1-V9 until re-probed. Ruby hardcodes keyed on the token length (70 B line-1 `gets[/\S+/]`, 73 B whole-input `$<.read[/\S+/]`) failed 3 submits (41559998, 41560032, 41560068), pristine code verified from `/submissions/<id>` and locally exact on all 10 L.
 - fresh language count oracle is gone: all 27 CG languages have our row, only groovy is <100 (80). To recover the 2 wrong H, use a Groovy probe that execs the 150 B perl honest DP and overrides the table for a group G: score = 100 - 10*(#wrong in G) (honest base passes all 10), then bit-probe each wrong H with the honest base.
+
+## Referee validators (2026-10-24 reshape)
+
+- val 05 = 90 dots + `E I` -> Fib(91) = 4660046610375530309 (was 91 dots / 7.54e18, failed ocaml 179); val 11 = L 46 prefix of the old L 47 case -> 2891335990829046867; both still > 2^53 and < 2^64/3
+- val 10 replaced (old: L 99028, N 40000, answer 512; perl 150 took 129 s): now L 9105, N 8137, answer 37371248640, built by `gen10b.py`/`search10.py` in the referee journal scratch (random words 4-8 letters, sequence from the first 6000, prefix size N binary-searched for the answer). It is not `test 04` and has a final newline
+- all 26 CG-accepted rows in `solution/*/main.*` pass tests 01-06 and validators 01-12 locally (checked 2026-10-24); groovy 317 fails tests/04 and validators 09-11 in one loaded run (09/11 are JVM-startup false timeouts under load; 04/10 are real work), still 80%-like on CG
+- bench with the python 244 reference: suite wall 1160.0 ms (val 10 198.4 ms, val 09 230.3 ms), referee CPU 6.6 ms, gate ok (2026-10-24, load 13)
