@@ -75,7 +75,7 @@ Rejected: per-bit `.replace(/./g,(b,i,s)=>...)` with previous-bit test, about +1
 
 9 validators mirroring the 9 IDE tests 1:1 (titles from CG's report, weight 250 each); 7 recovered exactly in `puzzle/chuck-norris/referee/hidden/01-07`, details, sources and the V8/V9 partial facts in `puzzle/chuck-norris/referee/hidden/facts.md` (2026-10-24).
 - 1 `G`, 2 `GG`, 3 `#`, 4 `Chuck Norris' keyboard has 2 keys: white space and 0.` (1-4 end with `\n`); 5 `ABCDEFGHIJKLMNOPQRSTUVWXYZ`, 6 every non-letter char 33..126 in ASCII order (42 chars), 7 `Chuck Norris can kill two stones with one bird.` (5-9 have no final newline)
-- 8 "qwerty": 19 chars, lowercase-ish first char, contains `q`, not all letters; 9 "Infinity": 33 chars, starts with a digit, contains "infinit"
+- 8 "qwerty": 19 chars, shape `q` + 2 punctuation + (letter, non-letter) x 8, letters other than q unknown; 9 "Infinity": `DDD times, CN counted to infinity` with DDD a 3-digit number (not 100), unknown
 - no single-space validator on CG (the "validator 02 = single space" in Rules is our synthetic one); a solution must handle both final-newline cases
 - length separates all validators, but hardcoding is pointless: outputs (30-700 chars) are longer than any general solution
 
