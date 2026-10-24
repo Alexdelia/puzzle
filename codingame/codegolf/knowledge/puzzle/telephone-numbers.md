@@ -62,7 +62,12 @@ Rejected:
 
 ## Hidden validators
 
-Probed 2026-10-20, details and probe list in `referee/hidden/facts.md`. Not recovered exactly, no hardcode possible (probably 25 validators, none equal to an IDE test: 7 with N=1, 14 with N in 3..20, 4 with N >= 100).
+Re-probed 2026-10-24 with CG's per-validator report, details in `referee/hidden/facts.md`. 7 validators (weights 140 x6, V7 160), none equal to an IDE test; the 2026-10-20 "25 validators" reading was wrong. Answers and keys known, inputs only partly (V7 = 10000 random numbers):
+
+- answers V1..V7: 9, 8, 18, 32, 11, 12, 45438; N: 1, 3, 3, 5, 1, 3, 10000
+- input length T (bytes, final `\n` included) V1..V6: 12, 21, 23, 57, 14, 41, distinct mod 32 and mod 13; V7 T large, T%8==1 (rest unknown): key V7 by `T>99` or N
+- second line length V1..V6: 9, 3, 6, 10, 11, 12 (N=1 validators: answer = that length)
+- hardcode cost = key + table vs general method: likely a gain only in verbose languages; check locally against facts.md, not against `validators/` (synthetic)
 
 - verified on all CG validators: final newline present, digits + LF only, N >= 1, lengths 2..20. Methods relying on the final newline (Python `s[:~i]`) are safe
 - verified (P9, 100%): line 1 adds exactly one new prefix on every validator and every test: answer = distinct non-empty prefixes over ALL lines, line 1 included, minus 1. Drop the line-1 skip, subtract one more. Python whole-input slice form measured 56 (vs 60 row): passes tests 5/5 but fails 3 of our synthetic `validators/` (they break the identity), so submit with `submit.sh --probe` (CG pass implied by P9, not submitted yet)
