@@ -14,3 +14,4 @@
 - [abs-tie-comparator](abs-tie-comparator.md): sort comparator `a*a-b*b-a` = min |t|, positive wins tie, nonzero ints only (-4 Perl vs `||$b-$a`), verified Perl + Node
 - [self-exec-glob](self-exec-glob.md): `system("...;./*")` loops by re-running /tmp/Answer (cwd /tmp, glob sorts Answer first), 3 B, verified OCaml; other boxes unverified
 - [trace-hardcode](trace-hardcode.md): with `referee/hidden/complete`, hardcode the reference action traces keyed on the init input, print them early (rotations can move earlier), then the no-op; probe-only, verified the-fall-episode-2 perl 187 rank 1
+- [leaderboard-creation-time](leaderboard-creation-time.md): leaderboard rows carry `creationTime` ms: check a top is current before assuming it is stale, verified on CG
