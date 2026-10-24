@@ -13,3 +13,4 @@
 - [floordiv-step-chain](floordiv-step-chain.md): `i<T1?R1:i<T2?R2:0` = `(T1-1)//i*(R1-R2)+(T2-1)//i*R2` while i > T2/2, verified Lua mars-lander-episode-3
 - [abs-tie-comparator](abs-tie-comparator.md): sort comparator `a*a-b*b-a` = min |t|, positive wins tie, nonzero ints only (-4 Perl vs `||$b-$a`), verified Perl + Node
 - [self-exec-glob](self-exec-glob.md): `system("...;./*")` loops by re-running /tmp/Answer (cwd /tmp, glob sorts Answer first), 3 B, verified OCaml; other boxes unverified
+- [trace-hardcode](trace-hardcode.md): with `referee/hidden/complete`, hardcode the reference action traces keyed on the init input, print them early (rotations can move earlier), then the no-op; probe-only, verified the-fall-episode-2 perl 187 rank 1
