@@ -14,3 +14,9 @@ Temperature perl 42 -> 40, CG 100% rank #21 (2026-10-24), passes tests + recover
 - `<>;` (3 B) must consume line 1 first: `glob<>` only reads one line
 - value cell is `=$_` 3 B; `mapKEY=VALUE,LIST` with `,` before `glob<>` is 1 B under `for ... glob<>`
 - a C-shift variant `$G[3e3-$_**2+$_]=$_ ...;print pop@G` (answer at the largest index) needs `print pop@G` (11 B) and a constant >= max key, so it is never shorter; `$-` is not abs (`$-=-5` is 0)
+
+## Failed 1-byte shaves for the temperature key (2026-10-24, local 5.34)
+
+- `~-$_*$_` = `(~(-$_)) * $_` = `t(t-1)` for `t > 0` (7 B) but `~` returns a UV complement for non-negative operands, so `t <= 0` gives ~1.8e19 (`~1` is 2^64-2), then `* -1` -> huge float: wrong for -1/-7/-8/-173. `~` is not two's-complement negation for this use.
+- `map$G[$_--*$_]=$_,glob<>`: `$_--*$_` is the exact 7 B key `t(t-1)` (post-decrement reads t, right operand is t-1), but the assignment evaluates the LHS subscript BEFORE the RHS, so `=$_` stores t-1 and all answers shift by 1. `]=++$_` restores the value at +1 B (key 7 + value 4 = 11, same as key 8 + value 3).
+- The 8 B key `$_**2-$_` stays the floor; 40 B total remains.
