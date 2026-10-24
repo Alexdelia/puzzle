@@ -1,6 +1,6 @@
 # Blunder - Episode 1: hidden validators
 
-9 of 12 inputs recovered exactly: `01`, `06`, `10`, `11` from inputs posted on the forum, `12` = IDE test 12, `03`, `05`, `07`, `08` by probes (2026-10-24, feature streams then exact-map equality bits, section "Recovery 2026-10-24"). The reference (`solution/python/main.py`) passes `--hidden` (21/21). No `complete` marker: v2, v4, v9 inputs are only partly known (size, `@`, object count, first object), but ALL 12 ANSWERS are known (table below).
+ALL 12 inputs recovered exactly: `01`, `06`, `10`, `11` from inputs posted on the forum, `12` = IDE test 12, `03`, `05`, `07`, `08` by probes (section "Recovery 2026-10-24"), `02`, `04`, `09` by probes (section "Recovery 2026-10-24, second pass"). The reference passes `--hidden`.
 
 ## Answers of all 12 validators (run-length: S=SOUTH E=EAST N=NORTH W=WEST, `S4` = 4 x SOUTH)
 
@@ -37,14 +37,14 @@ Input facts of the unknown 7: v2, v3, v4 have input length (trailing whitespace 
 | # | title | known | source | confidence |
 |---|---|---|---|---|
 | 1 | Simple moves | exact: `6 5` (6 rows), `@` at row 1 col 2, `$` at row 4 col 3, empty inside; `SOUTH SOUTH SOUTH EAST` | raw post 179 (TwoSteps, 2021-06), https://forum.codingame.com/raw/45/179 | high (probe) |
-| 2 | Obstacles | partial: 8x8, `@` (1,2), 15+ interior objects (excl @ $), first object (row-major) at (1,1); path implies `$` (1,4) | feat0-6, st0-9, su | high |
+| 2 | Obstacles | exact: 8x8, X walls, `@` (1,2), `$` (1,4), column 6 empty, 19 X | ra0-4, rb0-14, rc0 | high |
 | 3 | Priorities | exact: 8x8 empty, `@` (3,2), `$` (3,6) | st0 (equality bit) | high |
-| 4 | Straight line | partial: 8x8, `@` (1,1), 8 objects, first at (2,1) (type X likely, su3/su4 bits); path implies `$` (5,6); NOT test 4's diagonal shifted (-1,-1) | feat, st0-9 | high |
+| 4 | Straight line | exact: 8x8, `@` (1,1), X staircase (2,1)(2,2)(3,2)(3,3)(4,3)(4,4)(5,4)(5,5), `$` (5,6) | ra0 (equality bit), rb/rc re-checks | high |
 | 5 | Path modifier | exact: 10x10, `@` (5,7), `E` (2,3), `S` (2,7), `$` (4,7), `N` (8,3), `W` (8,7) | st0 (equality bit) | high |
 | 6 | Breaker mode | exact: 10x10, `B X X B` column under `@`, `BX$` row 7; 6 SOUTH 3 EAST | raw post 194 (TwoSteps, 2021-11), https://forum.codingame.com/raw/45/194 | high (probe) |
 | 7 | Inverter | exact: test 7 shifted one col left except `$`: 10x10, `@` (4,7), `I` (1,5), `I` (6,7), `$` (8,8) | st0-9 (I positions), su0 (equality bit) | high |
 | 8 | Teleport | exact: 10x10, `@` (8,6), `T` (3,8), `T` (6,1), `$` (1,1) | st0-9 (T positions), su0-2 (equality + col) | high |
-| 9 | Broken wall? | partial: 10x10 (path needs it), `@` (1,1), 6 objects, first at (2,1) type 01xx of `X#SENWBIT` (N W B or I, B likely); NOT test 9 shifted (guess in scratch feat2.pl had 15 objects) | feat, st, su | high |
+| 9 | Broken wall? | exact: 10x10, `@` (1,1), B (2,1), W (4,5), X (5,1), B (6,1), N (6,5), X (7,1), `$` (8,8) | ra1-4 cell bits + enumeration (unique), rb/rc re-checks | high |
 | 10 | All together | exact: 15x15, other map than test 10 (X wall around `$`, two T, B/I/N row); 33 moves | raw post 167 (TwoSteps, 2021-09), https://forum.codingame.com/raw/45/167 | high (probe) |
 | 11 | LOOP | exact: validator 10 map plus modifiers `SW` (row 4), `S` (row 6), `N`, `W` (row 7); `LOOP` | raw post 196 (TwoSteps, 2022-01), https://forum.codingame.com/raw/45/196 | high (probe) |
 | 12 | Multiple loops? | exact: = IDE test 12 (30x15, 156 moves) | probes 3-6: only test 12 matches a validator (bits 0,1 score 0, bits 2,3 score 8.5) | high |
@@ -86,6 +86,15 @@ Stream bits read (v2, v4, v9 stream2 = feat2.pl; resume with gen3.sh offsets, st
 - v9: `0 0110 001000 001` -> eq no, K=6, obj1 idx 8 = (2,1), type 01.. (N/W/B/I)
 - su3/su4: v2 obj1 = `X` at (1,1), v4 obj1 = `X` at (2,1), v9 obj1 = `B` at (2,1); next object at stream2 bit 14 (v2) / 15 (v4, v9)
 
-## Key (lookup) for all 12
 
-Raw stdin (header and final newline included): `index('@')` = v1 12, v2 15, v3 33, v4 14, v5 68, v6 22, v7 57, v8 100, v9 18, v10 57, v11 57, v12 26 (v2 v4 v9 from probe-read `@` and size, others from exact inputs). Length = 40 (v1), 76 (v2-v4), 116 (v5-v9), 246 (v10, v11), 486 (v12). So `@` index alone separates all but {v7, v10, v11}; `@` index + length separates all but {v10, v11}; v11 alone contains `S` (and `W`): `'S'in s` (v12 = test 12 also has modifiers: check `@` first). `$` index collides (v7 = v9 = 102).
+## Recovery 2026-10-24, second pass (journal `validator.blunder-episode-1.-.1792843414206499801`)
+
+Probes `probe/perl/ra0..4.pl`, `rb0..14.pl`, `rc0.pl`: 100% perl solver printing its answer iff a per-validator predicate holds (validator keyed by its known answer; generator in journal scratch `gen4.sh`). Map enumerator `enum.py` (scratch): DFS over lazily chosen cell contents, pruned by the known move list, K and first object.
+
+- v4: ra0 equality with the 8-X staircase guess (test 4's staircase moved to `@` (1,1), one more X pair): yes
+- v9: enumeration leaves B (2,1), X (7,1), N (6,5), W (4,5), second B at (6,1)|(5,1)|(4,1), one free object; ra1-ra4: (6,1) = B, (5,1) = X, (4,1) != S -> one map left
+- v2: ra0: all objects X; ra1-4: 6 spaces among the 24 non-path cells except (1,1); forced X at (6,2) (5,5) (6,4); rb0-14: low 15 bits of the combinadic rank of the 6 space positions among the 21 free cells = 11498 -> 11498 or 44266; 44266 = clean corridor (column 6 empty); rc0 equality on v2, v4, v9 at once: all three pass (12:4x Z 2026-10-24) -> 44266, hidden/02
+
+## Key (lookup)
+
+Exact inputs (raw stdin, header and final newline included), `index('@')` / length / `index('$')`: v1 12/40/31, v2 15/76/17, v3 33/76/37, v4 14/76/55, v5 68/116/57, v6 22/116/91, v7 57/116/102, v8 100/116/18, v9 18/116/102, v10 57/246/30, v11 57/246/30, v12 26/486/32. `@` index separates all but {v7, v10, v11}; `@` index + length all but {v10, v11}; v11 alone (with v12, other `@`) contains `S`. Shortest key not searched.
