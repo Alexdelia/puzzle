@@ -31,19 +31,34 @@ pick() {
 			else $context.referees[.puzzle] == "done" and $context.ready_langs == $context.lang_count
 			end;
 		def far($context): .ours == null or .top == null or .top == 0 or .ours / .top >= $context.far_ratio;
-		def plateau_rank($context; $lang):
-			if ($context.core_langs | index($lang)) then 0
+		def plateau_rank($context; $lang; $leads_puzzle):
+			if $leads_puzzle or ($context.core_langs | index($lang)) then 0
 			elif far($context) and (.plateau_streak // 0) < $context.max_streak then 0
 			else .plateau_count // 0 end;
 		def kind_rank: {"lang": 0, "referee": 1, "validator": 2, "wrap": 3, "puzzle": 4, "cell": 5, "review": 6}[.kind];
+		def puzzle_leaders($cells):
+			$cells | to_entries
+			| map(select((.value.top // 0) > 0) | (.key | split("/")) as [$puzzle, $lang] | {puzzle: $puzzle, lang: $lang, top: .value.top, ours: .value.ours})
+			| group_by(.puzzle)
+			| map((map(.top) | min) as $shortest_top | map(select(.top == $shortest_top)) as $leaders
+				| {(.[0].puzzle): {langs: ($leaders | map(.lang)), reached: ($leaders | any(.ours != null and .ours <= .top))}})
+			| add // {};
+		def leader_rank($leaders; $task):
+			$leaders[$task.puzzle] as $leader
+			| if $leader == null or $leader.reached then 1
+			elif ($task.lang | IN($leader.langs[])) then 0
+			else 2 end;
 		$context_file[0] as $context
+		| puzzle_leaders($context.cells) as $leaders
 		| map(select(ready($context) and ($context.only_kind == "" or .kind == $context.only_kind) and ((.kind | IN($context.held_kinds[])) | not) and ((.key | IN($context.running_keys[])) | not)))
 		| map(. as $task
 			| ($context.cells[$task.puzzle + "/" + $task.lang] // {}) as $cell
+			| leader_rank($leaders; $task) as $leader_rank
 			| {id: $task.id, key: [
 				($task | kind_rank),
 				(if $task.urgent then 0 else 1 end),
-				($cell | plateau_rank($context; $task.lang)),
+				$leader_rank,
+				($cell | plateau_rank($context; $task.lang; $leader_rank == 0)),
 				($context.lang_priority[$task.lang] // 99),
 				(if $task.lang == $context.last_lang then 0 else 1 end),
 				(if $cell.ours != null and $cell.top != null then $cell.top - $cell.ours else -1000000 end),
