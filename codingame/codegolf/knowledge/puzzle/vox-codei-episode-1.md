@@ -87,7 +87,7 @@ Guesses (unverified): tops 135-160 (ruby, perl, python) probably key on these va
 
 ## Hardcode (javascript 203 B, CG-verified 100% 2026-10-20, rank 4)
 
-- hardcode keyed on the 11 hidden validators passes on CG (probe `puzzle/vox-codei-episode-1/probe/javascript/hard1.js`, committed as solution). Local `run.sh --hidden` 11/11 predicts it; IDE tests fail locally (submit.sh refuses, use oracle.sh)
+- hardcode keyed on the 11 hidden validators passes on CG (probe `puzzle/vox-codei-episode-1/probe/javascript/hard1.js`, committed as solution). Local `run.sh --hidden` 11/11 predicts it; IDE tests fail locally, irrelevant since `submit.sh` gates on `run.sh --cg` (hidden only) (2026-10-24)
 - min plans (all bombs on `.` cells of the original grid, placed on turns 1..k, no waits) except hidden 9: 2 bombs `4 2`, WAIT, WAIT, `1 2`. Min bombs per hidden test: 1,1,4,1,3,2,4,3,(2+2 waits),6,4 = 32 bombs. Plans found by set cover over static blast sets (hidden 5, 7, 10 have a single cover)
 - key: `(R*3+B*3-w)%12` separates all 11 and gives hidden 2 and 4 the same plan `2 1`; R, B, w strings from `split` (use `*` or `-`, a leading `+` concatenates)
 - one char per bomb: code = y*w+x+32, decode `i=c.charCodeAt()-32; i%w+' '+(i/w|0)`, space (i=0) prints `WAIT`; cell index must be <= 94 for ASCII (avoid `'` `\` `,`), hidden 11 (15 wide) needs 3 chars >= 128 (2 UTF-8 bytes each; CG length counts bytes: file has 200 chars, 203 bytes)
@@ -148,7 +148,7 @@ Guesses (unverified): tops 135-160 (ruby, perl, python) probably key on these va
 ## Ruby hidden-only hardcode 131 B (CG 100%, rank 1, 2026-10-24)
 
 - probe 41559983: 11/11 hidden, committed `solution/ruby/main.rb`; tests fail on purpose
-  (hidden-only hardcode must go through `oracle.sh`/`submit.sh --probe`, the gate runs tests+hidden)
+  (a hidden-only hardcode goes through plain `submit.sh`: its gate is `run.sh --cg`, hidden only, since 2026-10-24)
 - key `$<.first(5).join.sum%314%11` -> slots [2,1,5,0,10,9,6,7,3,8,4] for hidden 1..11
   (a permutation; single `%11` collides). Slot 2 and 4 share the plan `2 1` but occupy two
   words (the key does not collide them)

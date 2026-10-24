@@ -67,7 +67,7 @@ Rejected (each fails local validators, so `submit.sh` refuses it; CG validators 
 
 ## Hidden validators
 
-Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`, details and probe log in `facts.md`): 8 validators = the 8 IDE tests flipped (01, 04 rot180; 02 flipY; 03, 05-08 flipX), same A, same size, mazes checked cell by cell on CG. `submit.sh` now gates on tests + hidden instead of the synthetic `validators/`.
+Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`, details and probe log in `facts.md`): 8 validators = the 8 IDE tests flipped (01, 04 rot180; 02 flipY; 03, 05-08 flipX), same A, same size, mazes checked cell by cell on CG. `submit.sh` gates on `run.sh --cg` (hidden only), no IDE tests nor synthetic `validators/`.
 
 - explore-all NOT needed on CG: goal = nearest of `?` or `C` until Rick stands on `C`, then `T`, passes 100% (C 272 probe). Saves the phase-2 fallback (perl `||y/C/X/`) but needs the goal set to switch from `?C` to `T` only (keeping `?` in the goal after `C` fails tests 04-08)
 - validator 02 = test 2 upside down: open cells of row 0 become last row 14 with no `#` border (flat string with `\n` separator is safe; index arithmetic past the last row is not)

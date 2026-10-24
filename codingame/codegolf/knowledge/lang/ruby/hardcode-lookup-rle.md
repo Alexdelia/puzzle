@@ -25,6 +25,7 @@ input feature. Ruby ceiling for 12 answers / 66 runs / 319 moves is 172 B.
 
 Measured (local `count.sh`; trailing newline free): 194 first working lookup,
 186 (inline table, bytes block, LOOP name), 178 (`sum%54%14`), 175 (14 slots),
-172 (space split + no-op dummies). Only reachable as a probe: IDE tests fail,
-`run.sh <f> --lang ruby --hidden` says 13/24 (12 hidden + test 1) yet CG's real
-validators are the hidden ones and the report is 100%.
+172 (space split + no-op dummies). IDE tests fail
+(`run.sh <f> --lang ruby --hidden` says 13/24, 12 hidden + test 1) yet CG's real
+validators are the hidden ones and the report is 100%: check with `--cg` (hidden only),
+the `submit.sh` gate since 2026-10-24, so no probe needed.

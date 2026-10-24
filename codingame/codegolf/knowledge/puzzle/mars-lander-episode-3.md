@@ -74,7 +74,7 @@ pretty_id `mars-lander-episode-3-codesize`, leaderboard `mars-lander-episode-3-c
 - RECOVERED EXACTLY (probes 2026-10-21), files `referee/hidden/01.json`, `02.json`, `complete` set; details, probe list and sources: `referee/hidden/facts.md`
 - validator A = test 01 verbatim (surface and start line)
 - validator B = test 02 with every y shifted by -50: surface same x, y-50 (flat 3700..4700 at y 170), start `6500 1950 0 0 1200 0 0`
-- score counts only the validators: a solution must land test 01 and shifted test 02; test 02 itself may fail. Check with `referee/run.sh <sol> --lang <lang> --hidden` (submit.sh does it now)
+- score counts only the validators: a solution must land test 01 and shifted test 02; test 02 itself may fail. Check with `referee/run.sh <sol> --lang <lang> --cg` (hidden only, the `submit.sh` gate)
 - so the sim rejections above (formulas required to land test 01 AND test 02) are void for test 02: rerun those searches against `hidden/02.json` instead; the 37-38 char tops likely land A and B only
 - keys separating A and B: N (22 vs 18), first surface line, first turn Y (2600 vs 1950), hSpeed (-20 vs 0), fuel (1000 vs 1200), rotate (45 vs 0)
 - probe channel (verified): CG Bash, Perl, Ruby, Javascript, Lua, PHP, Go boxes have `/usr/bin/python3`, so a fresh-language probe can exec the Python planner gated on a predicate

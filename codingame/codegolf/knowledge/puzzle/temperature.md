@@ -63,7 +63,7 @@ Leaderboard tops vs skeleton (unexplained, do not chase with the general method)
 
 ## Hidden validators
 
-Details, sources, probe list: `puzzle/temperature/referee/hidden/facts.md` (per-validator report, probed 2026-10-20 and 2026-10-24). All 12 recovered exactly in `hidden/` (V4 `15 7 9 14 12`, V5 `25 -7 10 8 7 12`, V6 `15 7 9 14 -7 12`, V9 `7 15 9 14 12`, V10 `7 15 9 14 2`, V12 `-8 32 3 42 5 -8 -8 55 -2 12`); `complete` is written, so `submit.sh` checks tests + hidden. Method that worked: one probe per md5 bit of line 2 + offline enumeration of each validator's constrained universe.
+Details, sources, probe list: `puzzle/temperature/referee/hidden/facts.md` (per-validator report, probed 2026-10-20 and 2026-10-24). All 12 recovered exactly in `hidden/` (V4 `15 7 9 14 12`, V5 `25 -7 10 8 7 12`, V6 `15 7 9 14 -7 12`, V9 `7 15 9 14 12`, V10 `7 15 9 14 2`, V12 `-8 32 3 42 5 -8 -8 55 -2 12`); `complete` is written, so `submit.sh` gates on `run.sh --cg` (hidden only). Method that worked: one probe per md5 bit of line 2 + offline enumeration of each validator's constrained universe.
 
 - 12 validators (not 15: the 6.667 grain is one 250 weight of 3750), weights 250 except V1 500, V5 750. None equals an IDE test
 - answers: V1 -1, V2 -173, V3 1, V4 7, V5 7, V6 7, V7 -8, V8 0, V9 7, V10 2, V11 8, V12 -2

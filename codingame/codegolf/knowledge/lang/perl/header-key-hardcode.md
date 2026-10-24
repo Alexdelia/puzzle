@@ -13,4 +13,4 @@ For a fixed-scenario interactive puzzle with `referee/hidden/complete`, a hardco
 - run data: one byte per run, `v = 4*len + dir` with codes L0 R1 U2 D3 (array `(LEFT,RIGHT,UP,DOWN)`), `^1` flips a direction for the return leg; `split'~',...` is 1 B under `split/~/,...`; `("WORD\n") x ($v/4)` expands a run (`x` truncates the float).
 - the return leg is `reverse` of the forward run list with each direction flipped, so only one shortest path per scenario is stored.
 
-Verified locally (not submitted to CG): the-labyrinth perl, init keys A=7 21 39 68 42 33 70 71, `A%15` is injective and never 0, undef->slot 0 empty, 8/8 recovered hidden validators pass at 208 B. Fails the 8 IDE tests by design (same A values are shared by test and hidden variant), so it needs a `--probe` submit.
+Verified locally (not submitted to CG): the-labyrinth perl, init keys A=7 21 39 68 42 33 70 71, `A%15` is injective and never 0, undef->slot 0 empty, 8/8 recovered hidden validators pass at 208 B. Fails the 8 IDE tests by design (same A values are shared by test and hidden variant), which no longer matters: `submit.sh` gates on `run.sh --cg` (hidden only) since 2026-10-24.

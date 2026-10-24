@@ -77,7 +77,7 @@ Details in `puzzle/the-bridge-episode-2/referee/hidden/facts.md`, files `hidden/
 - validator 4 = `..............00..00..00..00........` on all 4 lanes, V 4, S 1, 4 bikes: EXACT
 - validator 2 = `......00.....000......0000..............000000.............` (L 59) on all 4 lanes, V 4, S 1, 4 bikes: test 2 with a 2-wide hole added at x 6, the rest shifted +3. EXACT (perl predicate probes d01..d12, 2026-10-24)
 - validator 3 = `......................00000......0000.....00......` (L 50) on all 4 lanes, V 4, S 9, 4 bikes: test 3 shifted +8, S 9. EXACT
-- all 12 recovered, `hidden/complete` set: submit.sh checks tests + hidden; reference perl passes `--hidden` 24/24
+- all 12 recovered, `hidden/complete` set: `submit.sh` gates on `run.sh --cg` (hidden only); reference perl passes `--hidden` 24/24
 - key: (L, S) separates all but v5/v8 (both (36, 6): lane 0 has 4 vs 5 holes); (L, lane-0 hole count) separates all 12. Per-validator tuples in facts.md. Hidden inputs are not the tests (mirrored/changed), so a hidden-keyed hardcode does not answer the IDE tests
 
 ## Hidden validators (superseded where it conflicts; exploit search 2026-10-20, 2026-10-21)

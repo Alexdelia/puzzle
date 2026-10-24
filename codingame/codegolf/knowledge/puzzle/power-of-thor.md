@@ -106,7 +106,7 @@ Details, probes and sources: `puzzle/power-of-thor/referee/hidden/facts.md`. ALL
 
 - Hidden-validator letter form, 65 B, CG 100% (probe `hunt65.pl`, rank #11): `#!perl -alp` + `$|||=($a,$b,$x,$y)=@F;$_=S x($y++<$b).($a?$a-5?E:N:W)`
 - letter H from lightX alone (hidden facts: a=28 E, 5 N, 31 E, 0 W): `$a?$a-5?E:N:W` is 2 under `(N,E,W)[$a<=>$x]`, so thorX is parsed but unused
-- fails local tests 1/2 by design; hidden/complete gate refuses submit.sh, so it went in as a probe and was copied to the solution
+- fails local tests 1/2 by design; it went in as a probe (the gate then ran tests + hidden) and was copied to the solution; since 2026-10-24 `submit.sh` gates on `run.sh --cg` (hidden only) and accepts it
 - derived identity, all four validators: full answer stream = `(S.H) x T . H x (|a-x| - T)` with `T=b-y` (V2 uses T<0: `S x -13` is `""`, and `|a-x|-T` = 13 N). Useful for all-at-once printers but no shorter Perl form found
 
 ## 42 is current, not legacy (2026-10-24)

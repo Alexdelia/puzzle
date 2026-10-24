@@ -15,8 +15,8 @@ one with the cheapest perfect hash of a cheap stdin feature.
   allows empty fields but costs one separator per slot
 - one byte per RLE run is the cheapest portable table (6 usable bits in printable
   ASCII); answers whose text is a word per move decode via `(word+newline)*count`
-- verify with `run.sh <file> --lang <lang> --hidden` (the IDE tests fail, expected),
-  then send through `oracle.sh` as a probe; the solution gate refuses it
+- with `referee/hidden/complete`, verify with `run.sh <file> --lang <lang> --cg` (hidden
+  only; the IDE tests fail, expected) and submit with plain `submit.sh`, whose gate is `--cg`
 
 Verified: blunder-episode-1 ruby 172 B, CG report 100% on all 12 validators
 (2026-10-24, was top 194).

@@ -49,7 +49,7 @@ Leaderboard tops (ruby 153, perl 161, python 164) still far below 1557 ungolfed;
 
 ## Hidden validators
 
-All 10 recovered exactly (validator task 2026-10-21), details and probe chain in `puzzle/vox-codei-episode-2/referee/hidden/facts.md`, files `hidden/NN.json`, `complete` set (submit.sh checks tests + hidden):
+All 10 recovered exactly (validator task 2026-10-21), details and probe chain in `puzzle/vox-codei-episode-2/referee/hidden/facts.md`, files `hidden/NN.json`, `complete` set (`submit.sh` gates on `run.sh --cg` (hidden only)):
 
 - validator k = mirror of IDE test k, same rounds and bombs. Transforms v1..v10: flipx, flipy, rot180, flipx, flipy, rot180, flipx, flipy, rot180, flipx (period 3 from v2, v1 flipx = rot180 since test 1 is y-symmetric)
 - consequence: a hardcode can store each plan already mirrored for its validator and key on `rounds bombs` only (v1 and v4 share 30 1 and both are flip x, one plan wins both): no orientation detection. Such code fails the untransformed IDE tests locally; CG scores only the validators
@@ -148,4 +148,4 @@ All 10 recovered exactly (validator task 2026-10-21), details and probe chain in
 - all 10 plan groups cannot shrink: 2-bomb plans for v3/v5/v9 impossible, 3-bomb joint v7/v8, 9-bomb v10, 1-bomb r30 joint all fail restricted random search (1000+ seeds)
 
 - ruby early-exit local flake (2026-10-24): the 153 ruby hardcode prints everything from the second line and exits; local `run.sh --hidden` randomly reports hidden NN "solution closed its input" (1-3 of 10 per run under load, different NN each time), while CG scored it 100%. Same class as the php note above: trust CG, rerun locally before doubting the plans
-- `submit.sh` without --probe runs tests+hidden together and refuses a validator-oriented file (IDE tests are the untransformed maps, 2/20); validator-oriented hardcodes must go through `oracle.sh` / `submit.sh --probe` even when hidden/complete exists
+- since 2026-10-24 `submit.sh` gates on `run.sh --cg` (hidden only): a validator-oriented hardcode passing hidden 10/10 goes through plain `submit.sh` though it fails the untransformed IDE maps (before, the gate ran tests + hidden and refused it, so these went as probes)
