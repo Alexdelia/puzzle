@@ -75,8 +75,10 @@ Details in `puzzle/the-bridge-episode-2/referee/hidden/facts.md`, files `hidden/
 - 12 validators, titles = the 12 test titles, weights 83 x8 (1..8), 84 x4 (9..12) per 1000
 - validators 1, 5, 6, 7, 8, 9, 10, 11, 12 = their IDE test mirrored across lanes (lane y <- test lane 3-y, bike lanes y -> 3-y), same L, V, S, no other change: EXACT (probes c08..c22 all pass). So UP and DOWN swap roles vs the tests: a DFS lacking DOWN that solves the tests locally fails the hidden ones (perl no-UP DFS failed v9, v10, v12); check `run.sh <sol> --hidden`
 - validator 4 = `..............00..00..00..00........` on all 4 lanes, V 4, S 1, 4 bikes: EXACT
-- validators 2, 3: block holes (4 identical lanes, 4 bikes). v3: first hole at x 22 width 5, gap 6, 3 holes, L and S not test 3's (likely test 3 shifted +8). v2: first hole at x 6 width 2, gap 5, 4 holes of unequal widths/gaps, L not 56. Not exact
-- key: (L, V, S) separates all but v5/v8 (both (36,3,6); v5 = flipped test 5, v8 = flipped test 8: lane 0 at x 27 `000` vs `0000`); v2/v3 have triples of no test
+- validator 2 = `......00.....000......0000..............000000.............` (L 59) on all 4 lanes, V 4, S 1, 4 bikes: test 2 with a 2-wide hole added at x 6, the rest shifted +3. EXACT (perl predicate probes d01..d12, 2026-10-24)
+- validator 3 = `......................00000......0000.....00......` (L 50) on all 4 lanes, V 4, S 9, 4 bikes: test 3 shifted +8, S 9. EXACT
+- all 12 recovered, `hidden/complete` set: submit.sh checks tests + hidden; reference perl passes `--hidden` 24/24
+- key: (L, S) separates all but v5/v8 (both (36, 6): lane 0 has 4 vs 5 holes); (L, lane-0 hole count) separates all 12. Per-validator tuples in facts.md. Hidden inputs are not the tests (mirrored/changed), so a hidden-keyed hardcode does not answer the IDE tests
 
 ## Hidden validators (superseded where it conflicts; exploit search 2026-10-20, 2026-10-21)
 
