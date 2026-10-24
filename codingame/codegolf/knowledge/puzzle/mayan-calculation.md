@@ -67,9 +67,10 @@ Verified pieces (local 21/21, CG accepted bash 193 = rank 1):
 
 Recovered 2026-10-24 by per-validator-report bisection (details, candidates and method in `puzzle/mayan-calculation/referee/hidden/facts.md`):
 
-- 11 of 12 exact, md5-verified on CG (`referee/hidden/NN.in`): 2+2, 17+5, 6*6, 15-7, 113-18, 9/3, 2000/10, (8 open), 234561*0, 8001*36, 8016*24 (1x1 font), 2012*21202 (11x11 font); validator 8 = 13452*b, b in 788521..789426, guess 789012 (test 8's b) unverified
+- all 12 exact, md5-verified on CG (`referee/hidden/NN.in`, `complete` set, so `submit.sh` checks tests + hidden): 2+2, 17+5, 6*6, 15-7, 113-18, 9/3, 2000/10, 13452*789120, 234561*0, 8001*36, 8016*24 (1x1 font), 2012*21202 (11x11 font)
+- answers 1-12: 4, 22, 36, 8, 95, 3, 200, 10615242240, 0, 288036, 192384, 42658424
 - every validator keeps its test's font and `L == H`; operators per validator match their tests; no negative result, divisions exact
-- only validator 8 exceeds 2^31 (~1.06e10, < 2^53): 32-bit ints fail 1 validator, doubles pass all
+- only validator 8 exceeds 2^31 (10615242240, < 2^53): 32-bit ints fail 1 validator, doubles pass all
 - 2026-10-22: perl 170 relying on `L == H` (only `H` read) and float `/20` printer scored 100% on CG (rank 1)
 - perl is installed in the php, ruby, lua and typescript CG containers (probe wrappers called it)
 
