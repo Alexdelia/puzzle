@@ -369,6 +369,7 @@ model_label() {
 	local model=$2 padded sgr=$magenta
 	printf -v padded '%-*s' "$3" "$model"
 	[[ $model != *-free\ * ]] || sgr=$yellow
+	sgr="$dim;$sgr"
 	paint "$1" "$sgr" "$padded"
 }
 
