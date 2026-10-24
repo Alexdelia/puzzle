@@ -51,9 +51,22 @@ Leaderboard gap: tops ruby 57, perl 65, php 67, python 70, bash 72, c 91 are bel
 
 ## Hidden validators
 
-Full table: `puzzle/the-resistance/referee/hidden/facts.md` (answers, probe logs, chain method, next probes). No input recovered, no key known, no `complete`. 10 validators vs 6 IDE tests (forum: "There are 10 validators, but only 4 test cases", https://forum.codingame.com/t/the-resistance-puzzle-discussion/25?page=6), so IDE tests are not their templates. Forum and web hold no validator input (checked 2026-10-20, also the Jan 2013 "Challenge Codingame n°3" origin thread on linuxfr: no data).
+Full table: `puzzle/the-resistance/referee/hidden/facts.md`. 10 validators, weight 100 each (CG per-validator report, 2026-10-24). No input recovered exactly, no `complete`; every answer is exact:
 
-Answers (H), probed 2026-10-20/22, sorted: `0, 1, 1, 1, 2, 8, 64, 150569, 1073741824 (= 2^30), 11 digits`; all exact except the 11-digit one. No 125, no Fibonacci, neither big IDE answer. 34 decimal digits for a full table (2^30 is cheap: `1<<30`, `2**30`). The 6- and 11-digit ones are not all-dot k-nacci counts, not perfect powers, 6d not 13-smooth: random-like, only bisection pins them: 6d = 150569 exact (objc chain, `[150563,150566)`/`[150566,150568)`/`[150568,150569)` no, `H==150569` yes at row 10%@672, 2026-10-22, journal `cell.the-resistance.perl.1792701011180189000`). 150569 = 17^2 * 521. 11d in [36718750000,38125000000) (cpp chain, 6 probes, row 10%@689, 2026-10-22, same journal; ~30.4 bits left): next `bisect.sh cpp cpp 11d 36718750000 38125000000 687 <steps>` from that journal's scratch (yes iff row 10% at probe len; a `no` at len n leaves the row at its length, so the next probe may reuse len n). Then a key: none known
+| # | title | H | L (Morse length) | N |
+|---|---|---|---|---|
+| 1 | Simple Test | 2 | 57 | 6 |
+| 2 | No possible message | 0 | 65 | 1000 |
+| 3 | Correct detection of a letter | 1 | 4 | 11 |
+| 4 | Correct detection of a word | 1 | 12 | 6 |
+| 5 | One single message possible | 1 | 47 | 1004 |
+| 6 | Dictionnary contains differents words for a same code | 8 | 6 | 6 |
+| 7 | Many possibilities, with small sequence and small dictionnary | 64 | 60 | 512 |
+| 8 | Small sequence, large dictionary | 150569 | 100 | 1699 mod 8192 |
+| 9 | Long sequence, small dictionary | 2^30 | 144 | 0 mod 8192 |
+| 10 | Long sequence, large dictionary | 37265080320 = 2^18*3^7*65 | unknown | unknown |
+
+V10 comes from bisection (30 one-bit steps, no separate equality check yet; its smoothness makes an error unlikely). L separates V1-V9; V10's L is not read yet, so a key that sends "everything else" to V10 is unverified (any L > 144, or a mod residue, needs V10's L: next validator task). Probe tooling and method in facts.md.
 
 - 64-bit ints needed (one H > 2^32); doubles exact (all < 2^53)
 - exactly 1 validator shares a Morse length with an IDE test, with that test's answer (1 or 2)
