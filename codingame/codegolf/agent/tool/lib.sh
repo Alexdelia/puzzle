@@ -209,6 +209,14 @@ opencode_result() {
 	' "$1"
 }
 
+opencode_session() {
+	jq -r 'select(.sessionID != null) | .sessionID' "$1" 2>/dev/null | tail -n 1
+}
+
+opencode_cut_by_length() {
+	[[ $(jq -r 'select(.type == "step_finish") | .part.reason' "$1" 2>/dev/null | tail -n 1) == length ]]
+}
+
 opencode_error_with_status() {
 	jq -r --argjson codes "[$2]" 'select(.type == "error" and .error.data.isRetryable == false and (.error.data.statusCode | IN($codes[])))
 		| "\(.error.data.statusCode) \(.error.data.message)"' "$1" 2>/dev/null | tail -n 1 | grep .
