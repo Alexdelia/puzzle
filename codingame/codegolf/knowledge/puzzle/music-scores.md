@@ -11,7 +11,7 @@ pretty_id `music-scores-codesize`, leaderboard `music-scores-codesize`, io.
 
 ## Input facts (verified on the 12 tests)
 
-- sizes: 120x176 (tests 1-4), 390-520 x 176 (5-9), 420x78 (10), 4432x241 (11), 4020x241 (12)
+- sizes: 120x176 (tests 1-4), 390-520 x 176 (5-9), 420x78 (10), 4320x241 (11), 4020x241 (12)
 - test 11 is 69871 chars, test 12 81022: `capture-io.sh` truncates them (CG stderr cut near 4000 chars); `referee/capture/capture.sh` captures zlib+base85 in 3800-char chunks
 - staff lines span from a left margin; first black column of the image holds only staff line pixels, so rows black there = the 5 lines
 - line thickness 1 (test 10) to 4; spacing 24 in tests 1-9
@@ -34,12 +34,13 @@ pretty_id `music-scores-codesize`, leaderboard `music-scores-codesize`, io.
 
 ## Hidden validators
 
+- 12 validators, titles = IDE test titles 1:1, weights 83 (1-11) and 87 (12) (CG report of submission 41554322, 2026-10-24)
 - PROVEN (probe 1, 2026-10-20, python 248, CG 100%): every hidden validator has the tests' geometry: staff left column x = 10, ledger top cut `7h/8` rows works, letter from `(15y-45)//h` works, H/Q pixel at `x+5` works. So all hardcodes of section "Hardcode facts" and "Shortest known" are safe on CG
 - consequence: the local padded/shuffled validators 01,02,04,05,07,10 are stricter than CG; failing them proves nothing
-- probes spent: 1 (python, passed, row created at 248 #6)
-- 12 validators; CG partial score = 8.3 x passed (leaderboard tails show only 16.6, 58.1, 74.7, 83.0)
-- PROVEN (ruby probes 2026-10-20): 9 validators have H = 176, the other 3 have the sizes of tests 10/11/12 (420x78, 4320x241, 4020x241), every W is a test width: validators look like same-size twins of the 12 tests
-- not recovered exactly (multi-kB images); answers unknown; a full hardcode cannot beat a general solution (twins of 11/12 carry ~90 notes). Details: `puzzle/music-scores/referee/hidden/facts.md`
+- PROVEN (ruby probes 2026-10-20): 9 validators have H = 176, the other 3 have the sizes of tests 10/11/12 (420x78, 4320x241, 4020x241), every W is a test width
+- EXACT (perl md5 probes 2026-10-24): validators 1-4 are `FQ`, `GQ`, `FH`, `DH`, the test 1-4 images with the note moved to that pitch; files in `referee/hidden/01..04` (checked by `run.sh ... --hidden`)
+- validator 5's answer equals test 5's answer, image differs; 6 (7 notes, starts D), 8 (11, starts C), 9 (10, starts B), 12 (90 notes) have answers unlike any test; 7, 10, 11 only n mod 8 known
+- no full hardcode can beat the general solution (answers of 5-12 ~700 chars, mostly unknown). Details: `puzzle/music-scores/referee/hidden/facts.md`
 
 ## Shortest known
 
