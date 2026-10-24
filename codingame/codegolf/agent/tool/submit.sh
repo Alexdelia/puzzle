@@ -226,6 +226,6 @@ fi
 resolve_probe "yes: 100% at length $length, committed"
 commit_scope "$message" "puzzle/$puzzle/solution/$lang"
 mark commit
-event "gain $puzzle $lang length=$length rank=$rank best_tie_rank=${best_tie_rank:--}"
+event "gain $puzzle $lang length=$length previous=${ours%.*} rank=$rank best_tie_rank=${best_tie_rank:--}${CG_WRAP_SOURCE:+ source=${CG_WRAP_SOURCE%%:*}}"
 ! wrap_cores | grep -q -x -F "$lang" || wrap_enqueue "$puzzle" "core $lang $length"
 echo "submit.sh: $message"

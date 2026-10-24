@@ -2,6 +2,7 @@ workers=8
 backend=opencode
 claude_kinds="validator"
 opencode_model=deepseek/deepseek-flash
+opencode_model_name=deepseek-v4.1-flash-1017
 opencode_free_model=opencode/deepseek-v4.1-flash-free
 opencode_effort=max
 opencode_output_token_max=128000
