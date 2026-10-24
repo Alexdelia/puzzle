@@ -1,0 +1,1 @@
+<>;<>;$_=<>;$|=@c=(SLOW,DOWN,SPEED,UP,JUMP);$,=$/;print@c[map{$_%5,$_/5%5,$_/25}unpack"C*",(split/~/,'>?>~pH@^~5|W~~vI~yHqE/c~pg?~Hzc~zp|D~~~qc')[y/0//%14]],$/;sleep
