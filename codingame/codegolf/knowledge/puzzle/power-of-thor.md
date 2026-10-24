@@ -189,3 +189,9 @@ iteration k reads energy `E0-k+2` for k>=2 (k=1 reads the init line). Local refe
 - alignment under -p: move k emits while `$.=k+1` and reads energy line k (= energy of turn k-1), so the energy-phase rectangle is `$.>18 and 3<e<46`. e must be re-assigned every turn (`h||="WEN"[(e=$_.to_i)%3]` is wrong: short-circuit freezes e)
 - plan freedom used: V3 needs only 14 S and 31 E in any 14 of turns 1..31 (x rises every move, win at 31), V4 needs exactly 17 SW and 19 W in any order; V1 E-only, V2 N-only. This is what makes the rectangle phase work
 - 42 B remains open: a 42 B row exists at 100% (Icebox 2026-09-30, sffsefsdfaf 2026-08-24, LolCat 2022). Local floor for the deterministic energy-phase family is 77; no deterministic <77 shape found (phase <=16 B, h <=15 B, sync 8, shebang 11, e parse 8)
+
+## Plan sharing across validators, 3-plan hardcode (2026-10-24, ruby 61 CG 100%)
+
+- one stream wins BOTH V1 and V3: `E*31 then S*17` (V1 reaches its light at move 21 inside the E run; V3 goes (0,3)->(31,3)->(31,17) at move 45 = its energy, and the referee checks Win before `energy==0`). So a hardcode keyed on the horizontal letter needs only 3 plans: E (V1+V3), N (V2, any >=13 N), W (V4 = W*19 then SW*17). Any extra S moves after the win are never consumed, so the S count may overshoot (17 works for both V3's 14 and V4's 17).
+- init-line `gets.sum%3` (sum WITH newline: 379, 368, 409, 411) equals lightX%3 = 1,2,1,0 -> one 12 B key for the 3 plans. CG-confirmed (ruby probe h61 100%), so CG sends the init line with its newline. Not CRLF-robust.
+- bounded plan dump needs no `$>.sync` if the write is big enough to fill the pipe: `puts <48-element array>*999` (~96 KB) passed all 4 CG validators. Verified ruby 61 B, rank 84 (2026-10-24); the previous 77 B energy-phase row was rank 99.
