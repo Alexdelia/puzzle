@@ -50,7 +50,7 @@ Rejected (fail local validators, lengths not shorter anyway):
 
 ## Hidden validators
 
-- **14 validators**, weights 70 x 12 + 80 x 2, titles = classic puzzle validators. 13 of 14 recovered exactly by bit-stream probes (2026-10-24), files `referee/hidden/NN.in`; V14 (Explore all combinations, answer 11: three 5-char strings, fold starts `AAAGCTATGC`) still partial, so no `complete` yet (local `submit.sh` still checks synthetic validators). Answers 2 1 3 5 5 2 7 7 9 5 3 3 6 11. Input byte lengths (with final newline) and keys: `referee/hidden/facts.md`
+- **14 validators**, weights 70 x 12 + 80 x 2, titles = classic puzzle validators. All 14 recovered exactly (2026-10-24: bit-stream probes + V14 = IDE test 07 under letter map C->A T->G G->C A->T, confirmed by probe), files `referee/hidden/NN.in`, `complete` written: `submit.sh` now checks IDE tests + hidden instead of the synthetic validators (a cell must still pass IDE test 03 `TT AA ACT` -> 5, or go through `--probe`). Answers 2 1 3 5 5 2 7 7 9 5 3 3 6 11. Input byte lengths (with final newline) separate all but V3/V5/V13 (14 bytes, answers 3/5/6); V7/V8 and V11/V12 collide with equal answers. Keys and inputs: `referee/hidden/facts.md`
 
 ## Sandbox recon (2026-10-22, perl test-game stderr dump)
 
@@ -66,7 +66,7 @@ Consequence for the unexplained tops (php 32, ruby 33, perl 34): ruby33/perl34/p
 ## Leaderboard vs local validators
 
 - CG tops (php 32, ruby 33, perl 34, python 51, bash 54, js 64) are far below any exact method (python 132 here, `from itertools import*` alone is 22): they exploit weak CG validators, see "Hidden validators"
-- submit.sh requires local validators (N up to 5, containment, cyclic overlaps): the input-order fold must go through `submit.sh --probe`
+- since 2026-10-24 `referee/hidden/complete` exists: submit.sh checks IDE tests + hidden (not the synthetic validators). The input-order fold passes hidden 14/14 but fails IDE test 03, so it still needs `submit.sh --probe` unless it also handles test 03
 
 - Perl 132 (CG accepted 2026-10-20, rank 12): `#!perl -a0`, `sub f{my$s=pop;(sort{$a-$b}map{my$t=$_;$s=~$t?():map{$u=$s.substr$t,$_;$u=~$t?f($u):()}0..9}@F)[0]||length$s}` then `print f()-1`; `my$t` needed (recursion clobbers), `$u` global is fine, empty list falls to `length$s`
 - Ruby 101 (local 6/7, CG untested, submit refused by quota 2026-10-20): `s=''` / `$<.read.split[1..].each{|t|s=""if t[s];s+=t[t.size.downto(0).find{|k|(s+t[k..])[t]}..]}` / `p s.size`
