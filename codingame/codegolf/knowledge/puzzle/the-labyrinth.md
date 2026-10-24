@@ -129,3 +129,19 @@ Recovered exactly 2026-10-20 (`puzzle/the-labyrinth/referee/hidden/`, `complete`
 - Earlier run-count table (62 runs) was wrong: the shortest-path DP minimised `min(lev[dC])` over all cells at maximal distance instead of the state at C. Correct minimal runs over shortest start->C paths, hidden 01..08: 1,7,2,17,10,12,11,10 = **70 runs** (tests: 1,7,2,17,10,12,11,10 for 01..06 plus 11,10 for 07,08; total 70 too). Fixtures: `hidden/NN.json` start/A/maze, C position via scan.
 - Hidden-only hardcode keyed on the init alarm A: `A%15` = 7,6,9,8,12,3,10,11 (injective, no 0), so it can select 15 split fields with slot 0 empty; `#!perl -a` + `$F[2]%15` prints the plan only on line 1 without a guard, and `-n` drains input. Structure + correct paths = 208 B, passes recovered hidden 8/8 locally; fails the IDE tests (test A values collide with hidden slots); 208 > our 190, not submitted. See `lang/perl/header-key-hardcode.md`.
 - goal = `?` only (C left passable, not a goal) fails all 16: after every reachable `?` is explored the flood has no goal before Rick ever steps on C. `C` must be in the phase-1 goal set.
+
+## Perl 190 micro-golf sweep (cell worker 2026-10-24, task ...1792873429711797814)
+
+Baseline `solution/perl/main.pl` 190 B, `--hidden` 16/16, breakdown 11+12+4+17+48+46+24+28.
+
+Variants measured equal at 190 (all pass `--hidden` 16/16, none shorter):
+- mark via `s/.{31*$`+$'}\K./R/s` + `$s|=$&eq C` = 30 B, exactly the fused `substr...,1,R` (21 + `C eq` 9)
+- phase-1 `y/?C\n/X/` with a **literal newline** + `.` instead of `\H` in `$f`: -2 B pattern, +2 B per y (literal newline is 1 B, `\n` is 2 B), net 0; also makes the row separators X sources (harmless: separators are flat-adjacent only to `#` border cells and each other)
+- `BEGIN{$|=<>}` (+ no `;` after the block) instead of `$|++or$_=<>;`: 12 = 12, `$|` = header's numeric R (truthy), loop's first line is the coords line
+- capture-the-X (`\H{30}(X)`) instead of `X()` in `$f`: 3 = 3 B, no gain; all four capture spellings are 3 B
+- `y/C//` identity count after the mark to detect the C visit: 32 B vs 30 (substr return is the cheapest C test)
+- `-a` (+1 shebang) to replace `/ /;`+`31*$`+$'` (12 B) with `31*$F[0]+$F[1]` (16 B): +5
+- `BEGIN{$|=<>}` fed through the referee passes; the header can also be consumed in BEGIN without changing length
+- `s///g until` needs the space (`s///guntil` is a compile error)
+
+Conclusion: the 190 general core is a local optimum for this shape; 177 needs a ~4 B phase mechanism (the latch+C test is ~13 B and the goal-select ternary 15 B vs a single y 7 B) or an unseen input/encoding trick, not micro-golf. T==start and A==dist verified again indirectly by all variants passing.
