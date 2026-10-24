@@ -69,7 +69,7 @@ Full table: `puzzle/the-resistance/referee/hidden/facts.md`. 10 validators, weig
 V10 comes from bisection (30 one-bit steps, no separate equality check yet; its smoothness makes an error unlikely). L separates V1-V9; V10's L is not read yet, so a key that sends "everything else" to V10 is unverified (any L > 144, or a mod residue, needs V10's L: next validator task). Probe tooling and method in facts.md.
 
 - 64-bit ints needed (one H > 2^32); doubles exact (all < 2^53)
-- exactly 1 validator shares a Morse length with an IDE test, with that test's answer (1 or 2)
+- exactly 1 validator shares a Morse length with an IDE test: V4 (L 12 = IDE 02, H 1)
 - trap: printing `0` as the wrong value passes the H=0 validator. Use `-1`
 - probe method that works: monotone chain. CG keeps the best (score, then length) row per language, so probes whose passing set only grows and whose length drops by 1 each step show every exact count; low-score rows act as fresh languages. Details in facts.md
 
