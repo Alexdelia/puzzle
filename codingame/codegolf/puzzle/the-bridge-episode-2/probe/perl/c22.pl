@@ -1,4 +1,4 @@
-$J=32;
+$J=22;
 $M=<STDIN>+0;$V=<STDIN>+0;@r=map{my$x=<STDIN>;chomp$x;$x}1..4;$S=<STDIN>+0;
 $m=0;$std=1;for(1..$M){my($x,$y,$a)=split' ',<STDIN>;$m|=1<<$y;$std=0if$x!=0||$a!=1}
 $L=length$r[0];
@@ -15,11 +15,15 @@ if($t>=0&&$t!=3){
   if(@e<$bh){$bh=@e;$bd=$d;$bf=$f;@be=@e;$bb=$bs==7?1:0}}}}
  $B.=$bb if$t==4;
  $B.=bits($bd+16,5).$bf.bits($bh,3);$B.=bits($_,9)for@be;
+ my$tm=$T[$t][4];my$fm=0;for$y(0..3){$fm|=1<<(3-$y)if$tm>>$y&1}my$ex=0;for$bs($t==4?(4,7):($t)){my$q=1;for$y(0..3){$q=0if$r[$y]ne$T[$bs][3][3-$y]}$ex=1if$q}$B=($ex&&$m==$fm&&$std)?'1'x99:'0'x99;
 }else{
  my$id=($r[0]eq$r[1]&&$r[0]eq$r[2]&&$r[0]eq$r[3])?1:0;$B.=$id.(($m==15&&$std)?1:0);
  my@g=();my$s=$r[0];my$px=0;while($s=~/(0+)/g){my$w=length$1;my$st=pos($s)-$w;push@g,[$st-$px,$w];$px=$st+$w}
- $B.=bits(scalar@g,3);my$k=0;for(@g){$B.=bits($_->[0],$k?5:6).bits($_->[1],4);$k++}
- $B.=bits($p+1,4).bits($V,3).bits($S,4).bits($L,7)if$t<0;
+ my$n=@g;my$ew=1;my$eg=1;for$k(1..$n-1){$ew=0if$g[$k][1]!=$g[0][1];$eg=0if$k>1&&$g[$k][0]!=$g[1][0]}
+ $B=('x'x8).bits($g[0][0]&7,3).$ew.$eg.bits($g[0][1],3).bits($n>1?$g[1][0]:0,4);
+ unless($ew){$B.=bits($g[$_][1],3)for 1..$n-1}
+ unless($eg){$B.=bits($g[$_][0],4)for 2..$n-1}
+ $B.=bits($L-$px,4);$B.=bits($p+1,4).bits($V,3).bits($S,4)if$t<0;
 }
 if($ENV{DUMP}){print STDERR "B=$B\n";exit}
 if(substr($B,$J,1)ne'1'){print"X\n";exit}
