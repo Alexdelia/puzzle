@@ -73,11 +73,11 @@ Rejected: per-bit `.replace(/./g,(b,i,s)=>...)` with previous-bit test, about +1
 
 ## Hidden validators
 
-9 validators, none recovered exactly; details and probe evidence in `puzzle/chuck-norris/referee/hidden/facts.md`.
-- lengths (without newline): 1, 1, 2 (a doubled char), two in 6..26, one in 27..39, three in 40..99; none in 3..5
-- 4/9 end with `\n` (the three short ones and one with length >= 40), 5/9 do not: handle both, as for the IDE tests
-- 3/9 start with a char < 64 (first bit 0): the first header is not always `0 `
-- no validator is a copy of an IDE test, so a test-keyed hardcode scores 0; output size makes hardcoding pointless anyway
+9 validators mirroring the 9 IDE tests 1:1 (titles from CG's report, weight 250 each); 7 recovered exactly in `puzzle/chuck-norris/referee/hidden/01-07`, details, sources and the V8/V9 partial facts in `puzzle/chuck-norris/referee/hidden/facts.md` (2026-10-24).
+- 1 `G`, 2 `GG`, 3 `#`, 4 `Chuck Norris' keyboard has 2 keys: white space and 0.` (1-4 end with `\n`); 5 `ABCDEFGHIJKLMNOPQRSTUVWXYZ`, 6 every non-letter char 33..126 in ASCII order (42 chars), 7 `Chuck Norris can kill two stones with one bird.` (5-9 have no final newline)
+- 8 "qwerty": 19 chars, lowercase-ish first char, contains `q`, not all letters; 9 "Infinity": 33 chars, starts with a digit, contains "infinit"
+- no single-space validator on CG (the "validator 02 = single space" in Rules is our synthetic one); a solution must handle both final-newline cases
+- length separates all validators, but hardcoding is pointless: outputs (30-700 chars) are longer than any general solution
 
 ## CG rejections not caused by the rules (2026-10-21)
 
