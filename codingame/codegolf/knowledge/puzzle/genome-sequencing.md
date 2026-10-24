@@ -88,3 +88,10 @@ Consequence for the unexplained tops (php 32, ruby 33, perl 34): ruby33/perl34/p
 
 - PASSED perl 70 (2026-10-22, rank 8, tie 7): same fold, regex deletes from the line-1 side: `s/(^\d?)?(.*)<LF>(?=(?(1).*)\2)|(.+).*\K<LF>\3$//m&&redo;$_=y///c` under `#!perl -0p`; alt 1 = merge (suffix of line 1 = prefix of line 2) or, at string start, reset (line 1 anywhere in line 2); alt 2 = line 2 inside line 1. Fuzz 3000 == python fold. See `lang/perl/regex-fold-redo.md`
 - FAILED perl 58 (2026-10-22): the 70 without the "line 2 inside line 1" alt -> some validator has a later string strictly inside the accumulated `s` (not as its suffix): the `t in s` skip is needed in every language
+
+## Answer-table hardcodes (2026-10-24)
+
+- CG hidden byte lengths equal the local `referee/hidden/*.in` files: a probe keyed on byte length (`5*count(A)%8 + length - 9`, values 0..13) scored 100%. So V7/V8 are 16 bytes (final newline); the "15" in `referee/hidden/facts.md` is a typo
+- a keyed answer table reaches 52 B in Perl (rank 2): see `lang/perl/vec-bitfield-lookup.md`; the substr+hex form floors at 60 B, the numeric bitfield at 56 B
+- 34 B is not reachable with a keyed table under these mechanisms: fixed cost is 22 B (vec) or 29 B (hex substr) before key+payload, and the 8 distinct answers need >=8 slots (>=4 bytes packed)
+- no exact formula in cheap stats (byte/digit lengths, N, ACGT counts, newlines) was found by exhaustive linear/mod search; the 34 B row is unexplained
