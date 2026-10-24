@@ -1,8 +1,29 @@
 # The Fall - Episode 3 (golf): hidden validators
 
-No validator recovered exactly. The 6x6 one is known up to lock signs, exit, Indy start and rocks (2026-10-21). Sources: count probes logged in `agent/state/oracle/the-fall-episode-3.tsv` (2026-10-20), journals `puzzle.the-fall-episode-3.-.1792516443116262949`, `validator.the-fall-episode-3.-.1792523691483465467`. Web: nothing (forum threads 203183 and 1675 quote no validator data, https://forum.codingame.com/t/the-fall-episode-3-code-golf-puzzle-discussion/203183, https://forum.codingame.com/t/the-fall-episode-3-puzzle-discussion/1675; no GitHub hit).
+Validators 01, 02, 03 recovered exactly (`hidden/01.json` `02.json` `03.json`, reference `probe/python/probe.py` passes `--hidden`); validator 04 not exact (12 cells unknown), but the test 4 plan is proven to win it on CG. No `complete`. Per-validator report probes 2026-10-24 (python lines of `puzzle/the-fall-episode-3/probe/probes.tsv`, journal `validator.the-fall-episode-3.-.1792834544511127800`). Older count probes: `agent/state/oracle/the-fall-episode-3.tsv`. Web: nothing (forum threads 203183 and 1675, https://forum.codingame.com/t/the-fall-episode-3-code-golf-puzzle-discussion/203183, https://forum.codingame.com/t/the-fall-episode-3-puzzle-discussion/1675; GitHub searches 2026-10-20/21/24: no hit).
 
-Probe method: general solver (python, passes 100% on CG) that crashes or prints garbage unless a predicate on the init input holds; in a language whose row is shown, the score = number of validators satisfying it (25% each).
+Probe method (2026-10-24): python general solver `probe/python/probe.py` (passes all 4 on CG), predicate keyed on (W,H) inserted after the grid read (generator in the journal scratch `gen.py`); CG's report gives pass/fail per validator, so one bit per validator per probe; 6x6 kept as an always-pass control.
+
+## Summary, confidence high
+
+| validator | title | dims | content | source |
+|-|-|-|-|-|
+| 01 | Avoiding rocks | 10x10 | test 1 with column 0 deleted: exit 0, Indy (0,0) TOP, every rock x-1 | bit0..4 (W=10), `shift1.py` (grid equal), `transcript.py` (all turn inputs of the solver run equal) |
+| 02 | Rock interception | 6x6 | test 2 with cell (2,3) = +12 (test 2: 10) | 2026-10-21/22 probes below, `minrow0.py` (sign +) |
+| 03 | Multiple choice and rocks | 14x8 | test 3 shifted right by one column (col 0 = 0, test col 13 was empty): exit 7, Indy (7,0), rocks x+1 | bit0..4 (>=31 diffs vs test 3), `shift1.py`, `transcript.py` |
+| 04 | Only one way | 14x14 | test 4 with 12 cells changed, see below | bit/minrow/maxrow/absdiff/v4off/v4nz probes |
+
+Key: H alone separates all 4 (10, 6, 8, 14); W does not (two W=14). Plans: v2 = recovered 6x6 plan, v4 = test 4 plan (CG: perl `plans.pl` 2026-10-24 passed v2 and v4), v1 = test 1 plan with x-1, v3 = test 3 plan with x+1 (both win `hidden/01`/`03` locally; the unshifted plans fail on CG and locally with "cannot be rotated").
+
+## Validator 04 (partial)
+
+- exit, start, rocks: not probed directly; the test 4 plan (rotations turn 13 (6,3) RIGHT, 17 (3,4) RIGHT, 25 (8,7) LEFT) wins it on CG
+- grid = test 4 except exactly 12 cells (signed diff count 12, bits probes); all 12 change the absolute room type (abs-diff count 12); all in rows 5..12 (min row 5, max row 12)
+- at least one diff is on Indy's test-4 path (with the plan applied) and at least one is at a cell empty in test 4 (probes `v4off.py`, `v4nz.py`: both no)
+- rejected (local, journal scratch `cand.py`): every sub-block shift (|dx|,|dy| <= 3) or x/y mirror of a rectangle of test 4 that matches these counts makes the test 4 plan lose: the change is no simple block transform
+- next: column bounds of the diffs (min/max col, 4 bits each), then per-cell bits; exact recovery needs ~100 bits (12 positions + types), several tasks of probes
+
+## Older probes (count/row oracle era)
 
 ## Count and titles
 
@@ -20,7 +41,7 @@ Probe method: general solver (python, passes 100% on CG) that crashes or prints 
 | W,H == 14,8 | 1 |
 | W,H == 11,10 | 0 (php probe 1268 scored below the 25% row: row stayed 1283) |
 
-So: one validator 14x14, one 14x8, one 6x6 (no 11x10: test 1 "Avoiding rocks" dims have no validator), and one validator with dimensions of no test and W != 14.
+So: one validator 14x14, one 14x8, one 6x6 (no 11x10: test 1 "Avoiding rocks" dims have no validator), and one validator with dimensions of no test and W != 14 (2026-10-24: 10x10).
 
 ## Grids
 
@@ -53,7 +74,7 @@ So: one validator 14x14, one 14x8, one 6x6 (no 11x10: test 1 "Avoiding rocks" di
 ## Keys
 
 - W alone does not separate (two W=14). (W,H) separates all 4 (14x14, 14x8, 6x6, other with W != 14). H separates iff the 4th validator's H is not 6, 8 or 14 (unknown)
-- per validator answers: unknown, so no hardcode yet
+- per validator answers (2026-10-24): see Summary above (plans keyed on H)
 
 ## Open
 
