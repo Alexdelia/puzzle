@@ -81,3 +81,4 @@
 - [parity-threshold-bisection](parity-threshold-bisection.md): `q=($l+$h|1)-o` forces an odd threshold sum, so SAME and `q==o` become impossible: drop the equality branch and the fixed-point fix, update one bound to `($s+$x)>>1` via `${$x?l:h}`, verified on CG (shadows-2 perl 223 -> 200, rank 1)
 - [bare-pop-shift-argv](bare-pop-shift-argv.md): bare `pop`/`shift` at file scope use @ARGV even when @_ is set; `pop-shift`/`pop-$_[0]` are compile errors, verified locally
 - [sparse-array-min-key](sparse-array-min-key.md): `map$a[k($_)]=$_,LIST` + `"@a"*1` = argmin by key, no sort; key `$_**2-$_` = min abs with positive-wins tie; empty input numifies to 0; 2 B under the sort form, verified on CG (temperature 40 B)
+- [unpack-checksum-key](unpack-checksum-key.md): `unpack"%C*"` = byte sum of `$_` (9 B), `%32C*` = Adler-32, `(unpack...)`+parens before `%m` (list-operator precedence trap), nibble table key for many validators, verified locally
