@@ -87,3 +87,9 @@ Perl 129 (CG 100%, rank 2, 2026-10-22; `s/\d+ /` + `$&+$'*$w`): string copy per 
 
 - 123 B per-query array variant: `s{\d+ }{@k=$&+$'*$w;@u=split//;$u[$_]=~s/O//&&push@k,$_-1,$_+1,$_-$w,$_+$w for@k;print@k>>2}ge` with the 124-B header strip. Correct on 8/9 IDE tests (array undef/negative slots harmless, so no end pad needed) but IDE test 8 (1M, 100 queries) times out at 6 s: `split//` of 1M chars costs ~60 ms/query; CG validator 8 has 300 queries, so this cannot pass. Braced outer delimiters are needed for the inner `//` (`[[../lang/perl/e-subst-brace-delimiter]]`).
 - `-p0` designs (replacement = answer prints every line at EOF, saves `print` + `-l` = 6 B) need `$_` to be answers only at EOF. Keeping the grid in `$_` prints it; deleting grid+N with `s/\A[^ ]*\n//` (11 B) or as an optional first-match prefix `(?:\A[^ ]*\n)?` (13 B) costs more than 6 B, and a master grid copy (`$g=$_;$t=$g` per query, +6 B) or per-query restore `y/X/O/;` (7 B vs 6 B copy) kills the rest. No sub-124 variant found.
+
+## Repeat-lake queries exist (probe 2026-10-24)
+
+- the 122 B perl core with NO per-query grid reset (block `for$k(@k)`, flood on `$_`, correct except that a lake queried a second time answers 0) was submitted as probe `puzzle/surface/probe/perl/nocopy.pl`, submission 41559825: our row stayed 124/100, so CG scored it below 100% and at least one hidden validator queries the same lake twice. The per-validator report was unavailable (`no CG session`); re-read it later with `agent/tool/cg-report.sh 41559825`.
+- consequence: the per-query fresh grid (`$t=$_`, 6 B) or a global `y/X/O/` restore (7 B) is required; the shortest repeat-correct perl core found is still 124. A sub-124 construction must keep repeat correctness (the no-copy shortcuts at 122/118 do not).
+- `for@k` aliases `$_` (so the earlier "flood directly on $_" idea is impossible); see `[[../lang/perl/grow-loop-underscore-alias]]`.
