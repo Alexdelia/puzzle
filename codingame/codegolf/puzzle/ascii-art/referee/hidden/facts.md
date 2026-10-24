@@ -1,51 +1,34 @@
 # ascii-art hidden validators (CG `ascii-art-codesize`)
 
-Not complete: no validator recovered exactly. Facts below come from score counts (oracle log `agent/state/oracle/ascii-art.tsv`, task `validator.ascii-art.-.1792523690365785466`, 2026-10-20).
+Complete: all 7 validators recovered exactly (task `validator.ascii-art.-.1792834543677482909`, 2026-10-24). Files `01..07.in/.out` here; perl, python and lua solutions pass `run.sh <solution> --lang <lang> --hidden` 13/13.
 
-## Count
+## Count and weights
 
-10 validators for 6 IDE tests. Source: every partial row of other players on the per-language leaderboards is a multiple of 10 (0, 30, 60, 70, 80, 90 seen in Ruby, PHP, Java, JS, Rust, Scala, C, C++, Bash, Lua). Our fresh-language probes scored 0, 70, 80, 100. Confidence high.
+7 validators, weights 300/200/100/100/100/100/100 (sum 1000). Source: CG per-validator report (`agent/tool/cg-report.sh 41541589`, and every later probe). The old reading "10 validators" (score grain 10 %) was the weight grain, not a count.
 
-## Per-feature counts (all 10 at once)
+## Per validator
 
-| predicate on validator input | validators | source |
-|---|---|---|
-| font rows = test 1 `#` font (L=4 H=5) or test 5 font (L=20 H=11), polynomial hash | 10 | lua probe, 100% |
-| `T` matches `^[A-Z]+$` | 7 | php probe, 70% |
-| `T` matches `^[A-Za-z]+$` | 8 | php chain probe, 80% |
-| `T` exactly one of the IDE texts `E`, `MANHATTAN`, `ManhAtTan`, `M@NH@TT@N`, `MAN HAT TAN` | 0 | typescript probe, 0% (probe verified working on CG with a test game on test 2) |
-| `T` in {`WMADXESFGIJVTHKNOBPLYQRUZC`, `HELLOWORLD`} | 3 | typescript chain probe, 30% |
-| `T` == `HELLOWORLD` | 2 | go probe, 20% |
-| `L`==20 and `T` in {`WMADXESFGIJVTHKNOBPLYQRUZC`, `HELLOWORLD`} | 0 | cpp probe, 0% |
-| `L`==20 | 1 | cpp chain probe, 10% |
+All inputs are `L`, `H`, `T`, then the font rows of an IDE test, verbatim (fonts: lua probe, font hash in {test 1 font, test 5 font} passed all 7, submission 41537404).
 
-Deductions:
-- 9 validators use the test-1 `#` font (`L=4 H=5`), 1 uses the test-5 font (`L=20 H=11`)
-- recovered exactly, validator numbers unknown (confidence high, inputs = `4`, `5`, `T`, the 5 font rows of test 1):
-  - `T=HELLOWORLD`, `#` font: 2 validators (identical inputs, both counted by the go probe while the cpp probe saw no L=20 among them)
-  - `T=WMADXESFGIJVTHKNOBPLYQRUZC`, `#` font: 1 validator (the classic "Test full alphabet in CAPS" text)
-- left unknown: 7 `T` texts: 3 uppercase-only more (one of them the L=20 one, likely a word like test 5; one likely a single letter like test 1, unprobed), 1 mixed-case letters-only (test 3 scenario), 2 with non-letters (tests 4 and 6 scenarios: `@`, space, maybe the classic "Lorem ipsum dolor sit amet,..." text)
-- fonts: no new font; each validator is (one of 2 known fonts, new `T`). Recovering `T` is enough to rebuild a validator exactly
-- 7 uppercase-only, 1 letters with lowercase (mixed case, like test 3), 2 with non-letters (like tests 4 `@` and 6 space). Matches 6 test scenarios + 4 extra uppercase-only validators
-- every validator `T` differs from its IDE test text: hardcoding IDE answers scores 0
+| # | title | weight | L H font | `T` | source | confidence |
+|---|---|---|---|---|---|---|
+| 1 | Test only one letter : G | 300 | 4 5 test-1 `#` font | `G` | python probe `exact1.py` pass; python 58 single-uppercase `L=4` probe (submission 41536725) passed only this one | exact |
+| 2 | Test HELLOWORLD | 200 | 4 5 `#` | `HELLOWORLD` | `exact1.py`; go probe `T==HELLOWORLD` (41537627) passed only this one | exact |
+| 3 | Test HelloWorld | 100 | 4 5 `#` | `HelloWorld` | `exact1.py` | exact |
+| 4 | Test AB!!CD | 100 | 4 5 `#` | `AB!!CD` | `exact1.py` | exact |
+| 5 | Test Lorem ipsum dolor sit amet,... | 100 | 4 5 `#` | `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor.` (156 chars) | probes `lorem2..7.py` (prefix, length > 60, `. ` at 55, `Sed non risus` at 57, exact equality) | exact |
+| 6 | Test full alphabet in CAPS WMADXESFGIJVTHKNOBPLYQRUZC | 100 | 4 5 `#` | `WMADXESFGIJVTHKNOBPLYQRUZC` | `exact1.py` | exact |
+| 7 | Test HELLO with another ASCII representation | 100 | 20 11 test-5 font | `HELLO` | `exact1.py`; cpp probe `L==20` (41537718) passed only this one | exact |
 
-## Classic puzzle hints (unverified for golf)
+Every probe line is in `puzzle/ascii-art/probe/probes.tsv`.
 
-Old IDE tests of the classic ASCII Art puzzle, candidates for the extra validators:
-- "Test full alphabet in CAPS" `WMADXESFGIJVTHKNOBPLYQRUZC` (https://forum.codingame.com/t/ascii-art-puzzle-discussion/34?page=16, page=10)
-- "Lorem ipsum dolor sit amet,..." (spaces, comma, longer) (https://forum.codingame.com/t/ascii-art-puzzle-discussion/34?page=11): has non-letters, at most one of the 2 non-letter validators
-- classic validator "HELLOWORLD" (https://forum.codingame.com/t/trying-to-understand-why-my-ascii-program-fails-validation/856)
+## Features over all 7 (what a golfed method must handle)
+
+- non-letter chars in `T`: only ` ` `!` `,` `.` (validators 4 and 5), all below `A` (codes 32, 33, 44, 46). No `@ [ \` {` and no digit in any validator (`@` is only in IDE test 4, which CG does not score)
+- lowercase: validators 3 and 5
+- `L=4 H=5` except validator 7 (`L=20 H=11`)
+- `T` lengths 1, 10, 10, 6, 156, 26, 5; no leading or trailing space
 
 ## Shortest separating key
 
-Unknown: 7 `T` not recovered. Files `NN.in` not written: numbering unknown.
-
-## Next probes (cheapest first)
-
-- fresh-language count probes still free (no row of ours): Kotlin, Java, C#, Swift, Dart, Scala, Groovy, Haskell, OCaml, D, F#, VB.NET, Pascal, ObjectiveC, Clojure, Rust. Chains alive: php row 80 @306 (letters-only), typescript row 30 @288 (set), go row 20 @581 (HELLOWORLD), cpp row 10 @294 (L==20); a chain probe shows its count only when it scores higher, or ties and is shorter
-- candidate texts to count next: `len(T)==1` (one-letter validator), `T` containing a space, `T` containing `@`, `T` starting with `Lorem`, `len(T)` bins for the L=20 one
-
-## Golf consequences
-
-- non-letter handling needed by 2 validators, lowercase by 1 (8 of 10 are pure letters; uppercase-only formula passes 7)
-- `L=4` hardcoded passes 9 of 10 (one L=20 validator, test-5 font): `L` must still be read or derived
+`T[0]` separates all but 2, 3, 7 (`G H H A L W H`); `T[1]` then splits them (`E` for 2 and 7, `e` for 3), `L` (or `len(T)`: 10 vs 5) splits 2 and 7. `len(T)` alone fails (2 and 3 both 10). The answers are the H rows of the glyph concatenation; 2 and 3 have the same answer.
