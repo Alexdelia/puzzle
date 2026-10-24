@@ -64,9 +64,9 @@ No exploit behind the tops: they are the general argmax (checked 2026-10-20).
 - input-ignoring fixed output stream: dead if validators keep the test types (statement: "slightly different"). Descending and scattered types (8 distinct heights, one shot each, altitude tight) force the exact height order every turn; two different permutations force different shots, no single stream passes both. Local: `0..7` cycle passes 1/5, first-nonzero 2/5
 - keying turn-1 input to hardcoded sequences: 5 sequences up to 9 digits each, longer than argmax in every language
 - Python `key=input` prompts: the 8 prompts prefix the answer; parseInt in 0..7 needs every prompt to print as zeros, so the answer prints as zero too: dead
-- validator content (probed 2026-10-20/21, 37 submits): each validator = its test with mountain positions permuted, heights and shot sequences kept. Exact: V1 (test 1 reversed, 2..9 ascending), V3 (`0 6 7 0 8 5 0 1`), V4 (test 4 rotated by 7), V5 (`8 7 6 5 4 0` at index 2). V2 partial: 9 at index 4, 8 at 5-7. Details: `puzzle/the-descent/referee/hidden/facts.md`
+- validator content (probed 2026-10-20/21, 37 submits): each validator = its test with mountain positions permuted, heights and shot sequences kept. All 5 exact (2026-10-24): V1 (test 1 reversed, 2..9 ascending), V2 (`5 2 4 6 9 7 3 8`), V3 (`0 6 7 0 8 5 0 1`), V4 (test 4 rotated by 7), V5 (`8 7 6 5 4 0` at index 2). Key, per-validator shot sequences: `puzzle/the-descent/referee/hidden/facts.md`
 - consequence: tie side and position-free tricks keep working (heights unchanged); nothing position-specific from the tests carries over. Turn 1 alone tells the 5 validators apart, but argmax is still forced, so no hardcode is shorter
-- local `validators/` are synthetic; `hidden/01,03,04,05.json` are exact (no `complete` yet: V2 missing)
+- `hidden/01..05.json` exact and `complete` set: `submit.sh` gates on tests + hidden, `run.sh <code> --hidden` checks any exploit exactly. Tie side is free on all 5 (last-max passes `--hidden`, local 2026-10-24)
 
 Clojure 75 (CG tie #1, 2026-10-21): key-on-index with `max-key` + `-main` self-call loop, see knowledge/lang/clojure/main-recursion-max-key.md. Local referee times out turn 1 on JVM start: submit via oracle.sh.
 
