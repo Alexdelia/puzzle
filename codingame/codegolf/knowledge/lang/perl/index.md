@@ -95,3 +95,5 @@
 - [parenthesized-print-repeat](parenthesized-print-repeat.md): `print(EXPR)xN` prints once (x hits print's return); `print(("A"xL1 ."B"xL2)x1e5)` is the cheapest cyclic one-print schedule, 31+d+c bytes for 3 segments, verified locally
 - [two-read-list-index](two-read-list-index.md): `(LIST)[K(N,J1)]` with constants incl. big answers, negative indices and truncation-toward-zero step functions (`K-K/<>`, `K/<>`), 37 B super-computer, verified on CG
 - [prematch-store](prematch-store.md): `$`` of a 4 B `/ /;` as a free per-turn store under `-n` (reset under `-p`); `$|=print"X"x(...)` flush+print, bareword `S` after print is a filehandle, verified on CG (power-of-thor perl 59 -> 56)
+- [y-count-identity](y-count-identity.md): `y/C//` with empty replacement list = identity translation returning the count (8 B count test, no side effect); `//d` deletes unpaired chars, verified on CG perl 5.34
+- [double-quote-escapes](double-quote-escapes.md): regex in `"..."` drops the backslash of `\H`/`\d`/`\w`/`\s`; keep them single-quoted or double the backslash; `\n` in `"..."` is a 1 B literal newline usable in patterns/y, verified on CG perl 5.34
