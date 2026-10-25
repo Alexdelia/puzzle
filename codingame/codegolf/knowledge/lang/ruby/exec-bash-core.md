@@ -7,3 +7,17 @@ Verified on CG 2026-10-25 (shadows-of-the-knight-episode-1 ruby 97 = 16 B wrappe
 - `exec"CORE"` (6+core) is 10 B shorter but runs `/bin/sh` = dash; only for a dash-compatible core.
 - Ruby has no Perl `$|`: `$|` is a NameError (`$|' is not allowed as a global variable name`); flush is `$>.sync=1` (9 B). Do not try `$|=1` from Perl habits.
 - wrapper lengths for the same core in other hosts (measured from `agent/wrap/<host>/bash.sh`): php 25+core (`<?system('bash -c \'CORE\'');`), python 33+core (`import os;os.system("bash -c 'CORE'")`, 35 with single-quoted shell quotes), luajit/lua 22+core, groovy 54+core, ocaml 23+core.
+
+## Measured route lengths for this puzzle's cores (2026-10-25, local referee 16/16)
+
+Ruby cell lengths actually built and run (all pass 16/16, same algorithm):
+
+- `exec"bash -c 'CORE'"` = **16 + core**: 97 with our 81 B core (our CG row).
+- `exec"perl -aE'BODY'"` = **16 + body source + escapes**: 98 with the 79 B `-alp` body
+  (16 + 79 + `\\D` + `\"@m\"` x2). `say"@m"` and `$_="@m"` are **both 7 B**, so the `-aE`
+  body is the same length as the `-alp` body and `-aE` wins 1 on the flag.
+- `exec"perl -alp'BODY'"` = **17 + body source + escapes**: 99.
+- So 95 (this cell's top) needs a 79 B bash core, or a 76 B perl body (3 escapes),
+  or 77 with 2 / 78 with 1: the current 81 B core and 79 B perl body are both 2-4 short.
+- The bash-core route is the floor here; a `-F\D\K` perl split saves 3 in the body but the
+  shell-quoted flag costs +4 in the Ruby source (measured 105-106).
