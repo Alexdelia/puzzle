@@ -521,9 +521,12 @@ Row 54 -> 51 B, CG 100%, rank 5 (commit 55d3ad7f, submission 41563145):
   (vars `$_`=energy, `$.`=turn, `$``=lightX, `$'`=lightY, `$|`, digits 0..99; `+ - * / % & | ^`,
   unary `-`, real Perl precedence + parens, dedupe by (value vector,prec)), then for every
   arithmetic X: bare truthiness, `!X`, `X op C`, `A op X op B` chained with 1-2 digit bounds,
-  `V op X` for each leaf V. **No phase <= 8 B exists in this grammar** (len 7 DP = 641k entries,
-  all forms checked); the two-composite comparison family adds nothing (a 3-char composite is
-  only a negation). 9 B is the floor of the family searched.
+  `V op X` for each leaf V, plus named-unary leaves (`abs$_ abs$' abs$. int$_ int$. ord$' ord$`
+  `length$' length$``). **No phase <= 8 B exists in this grammar** (len 7 DP = 641k entries, all
+  forms checked with and without the builtins); the two-composite comparison family adds
+  nothing (a 3-char composite is only a negation) and `A&B`/`A|B` need >= 9 B. So 9 B is the
+  floor of the family searched and 51 = 42 fixed + 9: the fixed 42 is `/ /,` (4) + `$|=print`
+  (8) + `"S"x(` (5) + `)` (1) + `.` (1) + letter 13 + `,$/` (3) + `while<>` (7).
 - invalidated earlier searches: the 2026-10-25 "3-leaf single-digit" phase search (no `$'`,
   no 2-digit constants) and the old 3-var DP; also a point-layout bug in the first version of
   this searcher produced garbage hits - always map class ranges to the point array explicitly.
