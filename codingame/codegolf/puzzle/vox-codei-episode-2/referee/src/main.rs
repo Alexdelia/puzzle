@@ -1,7 +1,10 @@
+mod runner;
+
 use std::process::ExitCode;
 use std::time::Duration;
 
-use referee_core::{Game, Interactive, Step};
+use referee_core::{Game, Step};
+use runner::ClosedStdin;
 use serde::Deserialize;
 
 const FUSE: u32 = 3;
@@ -229,5 +232,5 @@ impl Game for Vox {
 }
 
 fn main() -> ExitCode {
-	referee_core::main(Interactive::<Vox>::default())
+	referee_core::main(ClosedStdin::<Vox>::default())
 }
