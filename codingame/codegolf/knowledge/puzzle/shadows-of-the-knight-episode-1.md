@@ -56,6 +56,7 @@ Lengths reached (local referee only, not CG-verified):
 
 - bash 92, 2 lines: skip lines 2-4 with `head -3>&2` (only lines 2-4 sit in the pipe when it runs) or `read -d_ -t.1 L U _` (timeout keeps partial input, rest goes to `_`); char loop `read -n1 c`, newline char gives empty `c`, then `(($c=${c,},1))` is an arithmetic syntax error -> status 1 -> `||echo` prints the next jump. Error text on stderr is harmless. Tested with local bash 5.3, no 5.2+ feature used (`${d//?/&}` needs 5.2 `patsub_replacement`, CG has 5.1.16: do not use). `head -3` and `read -t` on CG unverified
 - python 132 native: `exec(c+'='+'xy'[c in'UD'])` per char after `print(x:=(R+L)//2,y:=(D+U)//2)`; `I=input` alias; `I();I();I()` beats `exec('I();'*3)`
+- python wrapper floor, CG-verified 2026-10-25: `import os;os.system("bash -c '<core>'")` = core+33 (21 prefix `import os;os.system("` + 9 `bash -c '` + 3 `'")`), 114 B with the 81 B bash core, CG 100%, tied #1. Core must have no `"` or `\` (it doesn't); a single-quoted Python literal costs the same and is needed only when the core has `'`. `os.execlp("bash","b","-c",core)` = core+39 (no shell quoting, but 6 more). Perl body alternative: `import os;os.system('perl -aE\'BODY\'')` = BODY+35; a 73 B body would be 108 (no such body yet)
 - python: `exec` inside a list comprehension assigns in the comprehension scope: needs a real `for` loop
 
 Rejected:
@@ -122,6 +123,19 @@ so the "box must be a single cell" rationale for evasion is wrong; the honest hi
 the first hit of the bomb. V7 A=(9741,2473) path and B=(9741,2474) path share jumps 1-11, so a
 blind sequence cannot pin both by jump 14. A W-keyed hardcode needs 6 bomb entries +
 14/7-jump paths (>= ~45 packed bytes + decoder), cannot reach 81.
+
+## V7 blind-path note (derived 2026-10-25, unverified on CG)
+
+With the standard method (bounds [0,W]x[0,H], mid=(lo+hi)>>1, reply letter sets that
+bound to mid, ignores start/H/N) the two candidate V7 bombs give:
+A=(9741,2473) wins at jump 14 on (9741,2473); B=(9741,2474) wins at jump 13 on B.
+Jumps 1-11 are shared: (4999,4999)(7498,2499)(8748,1249)(9373,1874)(9685,2186)
+(9841,2342)(9763,2420)(9724,2459)(9743,2479)(9733,2469)(9738,2474); A tail
+(9740,2471)(9741,2472)(9741,2473), B tail (9740,2474)(9741,2474). Jump 11 gets "UR"
+under A and "R" under B, so 11 shared moves + one read distinguishes them. This is why
+a blind 14-jump hardcode cannot cover both. A no-read known-bomb exploit still needs a
+W-keyed bomb table (~55-70 B packed in perl), header and bisection loop: ~120+ B, so it
+cannot beat the 81 B general perl floor and is not the source of the 81 row.
 
 ## Leaderboard rows are real byte counts (correction, 2026-10-25)
 
