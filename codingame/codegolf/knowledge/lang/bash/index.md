@@ -20,3 +20,4 @@
 - [perl-regex-bfs](perl-regex-bfs.md): regex flood BFS with plain marks, direction from `$#-`, tr-list phase state, 5.34 variable lookbehind bug, verified
 - [sed-Q-skip](sed-Q-skip.md): `sed Q` drops all lines pending in the pipe (buffered read, quit without print), -4 vs `sed 3q>&2`, verified
 - [spawn-interpreters](spawn-interpreters.md): CG bash box has perl, python3, lua, php on PATH, ruby only /usr/local/bin/ruby, no node; `exec python3 -x $0`, `exec perl -x $0` + `#!perl`, heredoc `/dev/fd/3` forms skip quote escaping, verified
+- [base64-arith-literal-table](base64-arith-literal-table.md): `$[64#${t[i]}]` decodes space-separated base-64 table words (base 2..64 digits 0-9a-zA-Z@_); `read -d. n a b` slurps stdin and splits first/second word; negative array index = len-n, verified CG 5.1.16
