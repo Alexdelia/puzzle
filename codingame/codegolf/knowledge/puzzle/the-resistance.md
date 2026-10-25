@@ -228,8 +228,20 @@ is 256-periodic), its S_i is the actual one.
 
 Next step for a worker with a report session (or after a later login reads these reports): fetch
 bits 10..15 with 6 more probes of the same shape (`$_.sum[B]`, B=10..15) to get S exactly (16 bits;
-`gets.sum < 2**16`), then search a perfect-hash key: program shape `p [table][gets.sum SUFFIX]`,
-total = 5 + values_sum + slots + keylen <= 57, so keylen <= 17 with the 8 merged answers
-(values_sum 27, 8 slots) or <= 13 with 10 slots (values_sum 29). The top 57 is plausibly
-`gets.sum%M`-shaped with a modulus that perfect-hashes the 10 sums; candidates worth testing per
-task (5 probes each: 4 bits of h(S_i) + the solution): `S%M`, `S%M/d`, `S*a%M/d`.
+`gets.sum < 2**16`). **S mod 1024 alone is NOT enough**: a search over keys `gets.sum%M...` whose
+first step is a function of S mod 1024 (M | 1024, masks <=1023, `*a%b` with b | 1024a, chains,
+suffix <=9) found only 59-67 bytes on 10 random 10-tuples (`scratch/sumkey.c`, 0/10 <= 57), and even
+exact random S gave ~58-60 with suffix <=9 and 3-digit constants (`scratch/sumkey2.c`). Small
+moduli (S%13, S%97, ...) are NOT computable from S mod 1024, so the top's `%M` is out of reach
+without the high bits.
+
+Program shape once S is exact: `p [table][gets.sum SUFFIX]`, total = 5 + values_sum + slots + keylen
+<= 57, i.e. keylen <= 17 with the 8 merged answers (values_sum 27, 8 slots) or <= 13 with 10 slots
+(values_sum 29). Search `gets.sum%M`, `%M/d`, `*a%M/d`, masks, with M up to 65535 (4-digit constants
+and 5-char `%M` tokens must be allowed; suffix <=9). The top 57 is plausibly such a perfect hash.
+Alternative stat if line-1 sum fails: `$<.read.sum` (whole input, 11 B) has more entropy
+(keeps 10 slots at keylen <= 14), but there is no staged data for it yet.
+
+Probe budget: this task used all 10; `sumkey.c`/`sumkey2.c` (scratch dir of this task) are the
+ready search tools (they take the 10 sums as argv, print the shortest `gets.sum` program; add the
+4-digit-constant coverage before trusting "no <=57").
