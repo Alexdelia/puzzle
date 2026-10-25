@@ -27,3 +27,8 @@ Verified on CG 2026-10-25, power-of-thor perl 56 -> 55 (then 54 with a cheaper p
   print each iteration.
 - Multi-line output: this trick gives one newline per print, so it does not help plan-dump code
   that embeds its own newlines; it is for per-line interactive output.
+- Trap: `for<>` is NOT a shorter (5 B) substitute for `while<>`. A statement modifier `for LIST`
+  evaluates the list in list context, so `<>` slurps the whole input before the first iteration.
+  On interactive stdin this blocks forever (power-of-thor, 52 B candidate, local hidden 0/4 with
+  "no answer within 1000 ms" on every case, 2026-10-25). Only scalar-context `while<>` reads one
+  line per iteration; there is no 5 B loop form.
