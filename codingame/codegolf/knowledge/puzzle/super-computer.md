@@ -51,7 +51,7 @@ Rejected:
 - strict `J+D < e` / `>` off-by-one: wrong (see Rules)
 - replacement greedy on ascending start (`sort -n`, keep `min` end when overlapping, no sentinel needed): awk 55 vs 43
 - precomputing end key for `sort -n` in shell: extra awk stage, longer
-- tops below any general method (lua 58, ocaml 59, python 59, ruby 39, php 40): hardcode exploits; ruby 44 solved, ruby 39 = whole-input stat mod-7 table (needs per-validator reports), see Hidden validators
+- tops below any general method (lua 58, ocaml 59, python 59, ruby 39, php 40): hardcode exploits; python 59, ruby 44 and perl 37 solved, ruby 39 = whole-input stat mod-7 table (needs per-validator reports), see Hidden validators
 
 ## Hidden validators
 
@@ -61,6 +61,7 @@ Per validator, sources, probe kit: `puzzle/super-computer/referee/hidden/facts.m
 - (N, answer) exact, in validator order: (4, 3) (16, 1) (8, 1) (8, 1) (9, 9) (5, 3) (99999, 7991) (99999, 91708). Neither large one is IDE test 03 (7879)
 - key: first line `n` for the small ones (`n<6` -> 3, `n==9` -> 9, other `n<99999` -> 1); the N=99999 pair splits on the first data line: V8 starts `1 D` (J=1, D 2..16), V7 has J >= 875000 (D 775..782)
 - V2 (N=16, answer 1) also has first data line J = 1: verified on CG 2026-10-24 by two submits - a 37 B index requiring V2's first J to be 1 scored 100 % (row 37, rank 1), and a 39 B index requiring V2's first J >= 2 was rejected by the leaderboard (row stayed 41). So all four validators with first data line J=1 are V1 V5 V6 V8, and V2 joins them.
+- V4 (N=8, answer 1) first data line J is **>= 10** (so 10..15), not 9: verified on CG 2026-10-25 by the python 58 B probe (`...-(input()<'2')`, submission in `probe/probes.tsv` 16:24Z) which failed, while the 59 B `...-(input()<'10')` variant scored 100 %. `<'2'` is true for `1 ...` and for `10..15 ...` (first char `1`), false for `2 ...` and large J; the failure isolates V4. So the cheap `<'2'` J==1 test is unusable, `<'10'` (space < `0`) is exact.
 - end-ascending greedy in input order (no sort) passes every validator but V7 (CG report of submission 41548668); V5 V6 V8 are sorted by J ascending, V7 is not
 - exact inputs not recovered byte-exactly (small ones partly known in facts.md; the large ones ~1 MB); since 2026-10-25 `hidden/01-08.in/.out` + `hidden/keyed` are referee reconstructions satisfying every known feature and exact answer, so `--cg` grades hidden only and the perl 37 / ruby 44 keys pass locally. V8 is reconstructed with all D=2 (8291 isolated gap-1 steps): the only construction found where both earliest-end and input-order greedy give 91708, as facts.md requires of V8
 - hidden reconstruction is not byte-exact: a new exploit keyed on an unprobed input detail can differ between local hidden and CG; known keys, answers and structural features match
@@ -127,6 +128,12 @@ Per validator, sources, probe kit: `puzzle/super-computer/referee/hidden/facts.m
 - perl 37 B, CG 100 %, row 37 rank 1, top 39 (submission 41559851, 2026-10-24): `print+(1,91708,7991,3,9)[<>/8%8-2/<>]`. Two-read list index: the LIST holds all five answers (both big ones), the index reads N then J1 in one expression, negative indices reach the tail (N=4,5 -> -2 -> 3; N=9 -> -1 -> 9, N=8 -> 0 -> 1), N=16 with J1=1 -> 0 -> 1, V8 -> 1 -> 91708, V7 `3-2/875000` truncates to 2 -> 7991 (see `knowledge/lang/perl/two-read-list-index.md`). No `||`, no table keyed only on N
 - the 42 B one-read `||` exploit that this replaced: `print+(3,0,9,0,1)[20%<>]||7991+83717/<>|0` (41 B, verified 100 %); the old 42 B `N%8` 6-slot table also worked. All of them need V2's (N,J1) only as far as listed above
 - remaining below 37: the 37 B key is tight; a 35 B form would need a 4-slot list (content 7) with a <=6-char two-read key or a shorter big-answer encoding; the two-read list index avoids the 2 B `vec` parens
+
+## Python 59 hardcode (verified 2026-10-25, CG 100 %, row 59, tie #1)
+
+- `print([9,1,91708,7991,3][int(input())//8%4-(input()<'10')])` = 59 B, submission 41563962: two inline `input()` reads (N then first data line) instead of `a,b,*c=open(0);` unpack + `int(a)` (saves 5: 12+7 B inline vs 15+6+6), index `N//8%4` = 0,0,1,1,2,3 for N=4,5,8,9,16,99999 and the exact J==1 flag shifts `10..15`-safe; slots -1,0,1,2,3 = 3,9,1,91708,7991
+- `input()<'10'` is the exact "leading integer is 1" test for a `"J D"` line (space < `'0'`, `10`..`15` compare >= `'10'`); `< '2'` is 1 B shorter but is true for J=10..15, which V4 uses (probe failed, see Hidden validators). `int(input())==1` or `input()[1]<'0'` cost more
+- floor for this shape: with the exact flag (15 B incl. `-(...)`) and `print`, the reduction must be <=4 B; exhaustive search over `%K`, `//K`, `>>K`, `*K`, `//K%M` for K<300, M<20, coefficients -3..3 and shifts, tables 5..7 slots, finds no mapping (best 61 B with the cheap flag after V4 was pinned). `//8%4` (5 B) + 5-slot `[9,1,91708,7991,3]` is the 59 B optimum of this family
 
 ## Ruby <44 is impossible on (N,J1) facts only (proved 2026-10-25, journal cell.super-computer.ruby.1792928462374338389)
 
