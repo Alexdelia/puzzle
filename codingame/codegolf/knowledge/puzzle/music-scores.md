@@ -36,7 +36,8 @@ pretty_id `music-scores-codesize`, leaderboard `music-scores-codesize`, io.
 
 - 12 validators, titles = IDE test titles 1:1, weights 83 (1-11) and 87 (12) (CG report of submission 41554322, 2026-10-24)
 - PROVEN (probe 1, 2026-10-20, python 248, CG 100%): every hidden validator has the tests' geometry: staff left column x = 10, ledger top cut `7h/8` rows works, letter from `(15y-45)//h` works, H/Q pixel at `x+5` works. So all hardcodes of section "Hardcode facts" and "Shortest known" are safe on CG
-- consequence: the local padded/shuffled validators 01,02,04,05,07,10 are stricter than CG; failing them proves nothing
+- local synthetic validators rebuilt 2026-10-25 (`referee/gen-validators.sh`, `referee/src/bin/validators.rs`): 01, 02 translate one note horizontally; 03-10 permute same-size note slots (validator 08 is a test-10 shuffle with 20 notes, not two equal halves). No padding: every validator keeps its source test's W/H and staff geometry, so all local validators satisfy the same geometry facts as the hidden ones. Verified: 12 tests + validators 01-10 + hidden 01-04 pass all 27 CG rows at their CG length
+- older padded/shuffled validators (pad left/top moved x0/H) were stricter than CG and rejected CG-accepted golf rows; they were replaced rather than kept
 - PROVEN (ruby probes 2026-10-20): 9 validators have H = 176, the other 3 have the sizes of tests 10/11/12 (420x78, 4320x241, 4020x241), every W is a test width
 - EXACT (perl md5 probes 2026-10-24): validators 1-4 are `FQ`, `GQ`, `FH`, `DH`, the test 1-4 images with the note moved to that pitch; files in `referee/hidden/01..04` (checked by `run.sh ... --hidden`)
 - validator 5's answer equals test 5's answer, image differs; 6 (7 notes, starts D), 8 (11, starts C), 9 (10, starts B), 12 (90 notes) have answers unlike any test; 7, 10, 11 only n mod 8 known
@@ -67,7 +68,7 @@ Rejected (older, longer): end-column diff-extent compare + mid of run (502 B pyt
 - letter index without lookup: `chr(71-(half_steps+1.4)%7)` with `half_steps=(2*center-2*top_of_line1)/spacing`, float `%` truncates, any offset in 1.2..1.7 passes 22/22 (1.0 fails 6), it absorbs line thickness and the cut C head
 - tail column near end sits within 0.12 spacing of the head center, but the tail direction is not derivable from the stem convention (test 9 has short tails)
 
-## Hardcode facts for golf (verified on the 12 tests; validators 01,02,04,05,07,10 break them: they pad left/top and shuffle)
+## Hardcode facts for golf (verified on the 12 tests; validators 01-10 keep W/H and staff geometry but change note order/position, so geometry hardcodes hold and note-content hardcodes do not)
 
 - the 12 real tests have staff left column x0 = 10 and only 3 heights: 176 (P=24, line1 top A=34), 78 (P=9, A=19), 241 (P=34, A=44): A = P+10, P = (2*h-35)/13 (int division) exact on all 12
 - with those, no staff scan is needed: staff column is `a[y*w+10]`, cut rows `y < 6*P+10`
