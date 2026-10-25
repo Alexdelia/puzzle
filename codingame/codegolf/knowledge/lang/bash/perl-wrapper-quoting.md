@@ -8,9 +8,17 @@ Prices for a bash cell `perl FLAGS'BODY'` (verified 2026-10-25 on power-of-thor,
   (+1 per quote), everything else (including backticks and `$`) is literal.
 - double quotes: `perl -nE"` + closing `"` = 10 B; verified literal inside the bash string:
   `$|`, `$.`, `$'`, `$;`, `$/` (bash only expands known specials/parameters). The backtick
-  must be escaped `\`` (+1) and every Perl `"` must be `\"` (+2); a Perl `"S"x` therefore
-  costs +2, which cancels the `$'` saving. Avoid inner `"` by `q(S)x(` (+1 over `"S"x(`) if
-  the body has many quotes, otherwise ANSI-C is equal/better for the power-of-thor body.
+  must be escaped `\`` (+1) and every Perl `"` must be `\"` (+2). Avoid inner `"` by a Perl
+  **single-quoted** string `'S'` (bash does not touch `'` inside double quotes; `'S'x(` is
+  the same 5 B as `"S"x(`), NOT by `q(S)x(`.
+- **double quotes beat ANSI-C by 1 B when the body uses `$'` and a backtick and no `$name`:**
+  ANSI-C (`$'...'`, 11 B incl close) needs `\'` for each `'`; double quotes (10 B incl close)
+  let `$'` through as-is but need `\``. Power-of-thor went 51 -> 50 B with
+  `perl -nE"/ /;$|=say'S'x($'>-$.%34).(W,E,N)[$\`%3]"` (hidden 4/4, CG 100%).
+- **hazard**: inside double quotes bash expands `$` + a *name* (`$_`, `$h`, `$F`, `$ARGV`,
+  `${...}`, `$(...)`), so only bodies written exclusively with non-alphanumeric specials
+  (`$|`, `$.`, `$'`, `$;`, `$/`, `` $` ``) can use this form. `$` followed by a quote like
+  `$'` is literal; `$`` must be escaped; `"`/`\`/backtick are the only other escapes.
 - `perl -ne'...'` vs `perl -nE'...'`: `say` costs `-E` (+1) but saves the newline/`$/`
   argument, net -1 in the power-of-thor shape; `-l` is never cheaper (it needs `$_=` instead
   of `say`, same 3 B, and +1 flag).
