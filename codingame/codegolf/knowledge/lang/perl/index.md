@@ -101,3 +101,4 @@
 - [print-to-say](print-to-say.md): `perl -E` + bare `say` prints `$_` in 3 B vs `print` 5: -2 B for any wrapper embedding a perl `-e` core whose last statement prints `$_`; not for `main.pl` (no -E); verified on CG (roller-coaster ruby 120->118)
 - [statement-modifier-while-no-shebang](statement-modifier-while-no-shebang.md): `EXPR while<>` replaces `#!perl -nl` + explicit print when the body is one statement, `,$/` adds the newline, 1 B cheaper, `$`` survives failed matches in plain code, verified on CG (power-of-thor perl 56 -> 55)
 - [string-literal-no-index](string-literal-no-index.md): `"WEN"[$i]` is a syntax error in Perl 5.34/5.42; use a bareword list `(W,E,N)[$i]` or a stored string, verified
+- [char-split-F](char-split-F.md): `perl -F` empty + `-a` puts a line's characters in @F (-a implies -n, -l drops the trailing empty), map `ord()%32*/\w/-1,@F`; core -2 B, flags +3 B, verified 7/7 ascii-art hidden
