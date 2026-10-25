@@ -325,3 +325,15 @@ Report probes (validator cap 30/task, needs `cg-report.sh`):
 
 All report probes are *meant* to fail some validators: only the report matters, and submit.sh
 stores it in `state/report/<submission>.json`.
+## Web research 2026-10-25 (negative): no published hidden-validator data
+
+- `https://github.com/ponicode/roller-coaster` publishes `samples/1..8` with expected answers: 1-6
+  are the CG IDE tests (7, 3935, 15, 15000, 4999975000, 89744892565569) and 7/8 are IDE test06's
+  groups with `C=900000000` / `9000000000` (answers 8974489271113753 / 89744892714152289), i.e. the
+  classic training puzzle's extra hard tests. They are NOT the code-golf validators (V9 is
+  N=1000, 5e6<=C<1e7 and its answer's low 26 bits are 27198419, which none of these match).
+- The code-golf validator titles are not searchable on forum.codingame.com/github; no public dump of
+  V1,V3,V5..V9 inputs or answers exists. The per-validator report broker stays the only source.
+- Forum context (`https://forum.codingame.com/t/temperature-code-golf-puzzle-discussion/1239`):
+  code-golf validators were deliberately hidden in 2016 to stop hardcoding; probing them by
+  submit/pass-fail is a known accepted route (the same technique used here).
