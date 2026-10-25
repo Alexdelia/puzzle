@@ -159,3 +159,12 @@ Guesses (unverified): tops 135-160 (ruby, perl, python) probably key on these va
 - decode `[...].bytes.map{|c|c>1?[c%16,c/16]*' ':"WAIT"}` + `?\1*3` tail; inline key in the
   table index saves 4 B over a `k=` line. Trick file: `knowledge/lang/ruby/prefix-key-double-mod.md`
 - floor of this scheme ~127 (data 44 + decode ~57 + inline key 29); the old top 135 is beaten
+
+## Local referee accepts early exit (2026-10-25)
+
+- bash 159 (print the whole plan after 5 input lines, exit) was flaky locally: ~1 in 12 full hidden runs failed `hidden/NN fail turn N: solution closed its input` (core `Interactive::play` fails the first turn write that hits EPIPE after ruby/bash/bwrap exit). CG accepts it (row 100%): CG ignores writes to the dead player and keeps reading buffered stdout (`knowledge/lang/_shared/interactive-early-exit.md`)
+- fix in puzzle scope: `referee/src/runner.rs` `ClosedStdin<G>` copies the core loop and ignores `solution.write`; `ReadError::Closed` still fails when output runs dry. `src/main.rs` uses it, `Cargo.toml` + anyhow/serde_json. Core untouched (proposal: core should ignore the write result)
+- JVM first turn: local limit 1500 ms instead of 1000 ms for clojure/groovy/java/kotlin/scala launchers (CG frame-1 deadline ~1.49-1.52 s JVM uptime, verified for groovy, `knowledge/lang/groovy/interactive-first-turn.md`; extrapolated to the other JVMs). Without it clojure/groovy/scala rows flaked `turn 1: no answer within 1000 ms` at host load >7.5; with it all 27 rows pass `--cg` 11/11 at load 13-19. With 6 extra CPU hogs even 1500 ms is not enough for cold JVM start
+- checks: bash 159 hidden 11/11 x100 (4 hogs) 0 fails; ruby 131/perl 148/python 183/bash 159 x25 each 0 fails; all 27 `solution/*/main.*` (= every cell `.ours`) `--cg` 11/11 twice; too-little-output player (one WAIT then exit) still fails `turn 2: solution exited`
+- negatives: WAIT forever 0/36; general DFS + 0.2 s per turn 0/36 (`turn 2 no answer within 140 ms`); fuse-2 DFS variant 30/36 (fails the same 6 cases as before)
+- reference for bench: committed general Python DFS 2471 B (`git show 0b02e962:./puzzle/vox-codei-episode-1/solution/python/main.py`), tests+validators+hidden 36/36. Bench: suite wall 601.7 ms, referee CPU 16.8 ms, gate ok pass (load 6.6); current `solution/python/main.py` is the 183 B hidden hardcode, not a bench reference
