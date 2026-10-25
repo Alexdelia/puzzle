@@ -14,11 +14,12 @@ Verified locally Ruby 3.1.2, 2026-10-25:
   `p` + 18 B table + `%7` = 39 was an arithmetic error (it is 35).
   A key shift (`$<.read.sum%7-c`, +2 B) maps five class residues forming a
   5-wide window into 5 slots: 37 B (35 if the window starts at 0).
-- super-computer ruby top 39 = one of those whole-input `%7` tables
-  (`sum` or `size`); values need per-validator reports, see
-  `knowledge/puzzle/super-computer.md` "Ruby 44 hardcode" for the six staged
-  bit-probe submission ids and the builder. 6 probes are already sent in
-  `probe/ruby/`, so the decode is free once a session exists.
+- super-computer ruby top 39 is a whole-input-derived keyed table; one candidate
+  family is `sum%7`/`size%7` (six bit probes already staged in `probe/ruby/`,
+  decode free once a session exists), but a random 7-valued key is only ~3 %
+  likely to be consistent (no two different-answer validators share a value), so
+  the session may need more key families (3 probes each); see
+  `knowledge/puzzle/super-computer.md` "Ruby 44 hardcode" + "no 39/40-43".
 - the table entries are the residues `byte_sum mod m` of each hidden input.
   Length floor for the line-1-only family is 44 (exhaustive 2026-10-25 over
   `gets.{hex,oct,to_i,sum,ord,size}` + up to 2 ops, 233k expressions:
