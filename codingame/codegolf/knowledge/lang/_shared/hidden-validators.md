@@ -63,3 +63,14 @@ exact score (sum of validator weights passed), not just a bit.
 - the language must still execute the probe on the heavy validators: roller-coaster used
   `spawnShell.wait` in a precompiled language (D) with a fast perl method A core (~0.03 s). A slow
   method C core timed out; the timeout score was 850, distinguishable.
+
+## progress criteria_score = fast row oracle (verified 2026-10-25, the-resistance ruby)
+
+`GET /puzzles/<pretty_id>/progress` returns `criteria_score` = the code size of our *best*
+submission; it drops to a probe's length within ~20-40 s of a 100 % probe, while our leaderboard
+row can lag ~4 min (and `submit.sh --probe`'s miss path polls it for 210 s). Fast loop: POST with
+`submit.sh --no-wait --probe` (set `CG_PROBE_QUESTION`), poll progress every 6 s, stop when
+`criteria_score` changes; resolve the `pending, submission <id>` row of `probes.tsv` by hand with
+the same awk `submit.sh` uses. A miss leaves `criteria_score` unchanged. Do not run several probes
+in parallel: a hit from one makes the others' row check pass against the wrong probe (they can
+then be copied into the solution file).
