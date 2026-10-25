@@ -82,14 +82,24 @@ next_task_puzzle() {
 
 idle_jobs() {
 	local job puzzle next_puzzle
-	local -A task_running=() saturated=()
+	local -A task_running=()
 	while IFS= read -r puzzle; do task_running[$puzzle]=1; done < <(puzzles_with_running_tasks)
-	while IFS= read -r puzzle; do saturated[$puzzle]=1; done < <(saturated_puzzles)
 	next_puzzle=$(next_task_puzzle)
 	while IFS= read -r job; do
 		puzzle=$(jq -r .puzzle "$job")
-		[[ -z ${running_pid[$puzzle]:-} && -z ${task_running[$puzzle]:-} && -z ${saturated[$puzzle]:-} && $puzzle != "$next_puzzle" ]] && printf '%s\n' "$job"
+		[[ -z ${running_pid[$puzzle]:-} && -z ${task_running[$puzzle]:-} && $puzzle != "$next_puzzle" ]] && printf '%s\n' "$job"
 	done < <(ready_jobs)
+}
+
+drop_saturated_jobs() {
+	local puzzle job
+	while IFS= read -r puzzle; do
+		job=$state/wrapq/$puzzle.json
+		[[ -f $job ]] || continue
+		remove_unless_requeued "$job" "$(jq -r .queued_at "$job")"
+		event "wrap saturated $puzzle"
+		log "drop $puzzle: $rewarded_firsts_per_puzzle firsts already, no points left"
+	done < <(saturated_puzzles)
 }
 
 claim_puzzle() {
@@ -123,6 +133,7 @@ rm -rf "$wrap_running_dir"
 mkdir -p "$wrap_running_dir"
 estimated_signature= estimated_at=0
 while [[ ! -e $state/STOP && ! -e $state/STOP_WRAP ]]; do
+	drop_saturated_jobs
 	free=$((wrap_puzzles - ${#running_pid[@]}))
 	signature=$(queue_signature)
 	if ((free > 0)) && [[ $signature != "$estimated_signature" ]] || ((free > 0 && EPOCHSECONDS - estimated_at >= wrap_retry_seconds)); then

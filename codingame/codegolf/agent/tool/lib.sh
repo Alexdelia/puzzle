@@ -353,6 +353,10 @@ saturated_puzzles() {
 		sort | uniq -c | awk -v firsts="$rewarded_firsts_per_puzzle" '$1 >= firsts { print $2 }'
 }
 
+is_saturated() {
+	grep -qxF -- "$1" <<<"$(saturated_puzzles)"
+}
+
 wrapped_puzzles() {
 	[[ -n $(loop_pids wrapd) ]] || return 0
 	ls "$wrap_running_dir" 2>/dev/null || true
@@ -406,6 +410,10 @@ wrap_cores() {
 
 wrap_enqueue() {
 	local puzzle=$1 reason=$2
+	if is_saturated "$puzzle"; then
+		event "wrap saturated $puzzle reason=$reason"
+		return 0
+	fi
 	mkdir -p "$state/wrapq"
 	with_lock wrapq bash -c '
 		file=$1/wrapq/$2.json

@@ -38,6 +38,10 @@ if [[ $kind == lang ]]; then
 	exit 0
 fi
 if [[ $kind == wrapq ]]; then
+	if is_saturated "$puzzle"; then
+		echo "enqueue.sh: refused wrapq $puzzle: $rewarded_firsts_per_puzzle firsts already, no points left"
+		exit 0
+	fi
 	wrap_enqueue "$puzzle" "${CG_TASK_ID:+$CG_TASK_ID: }$reason"
 	echo "enqueue.sh: queued wrap generator job $puzzle"
 	exit 0
