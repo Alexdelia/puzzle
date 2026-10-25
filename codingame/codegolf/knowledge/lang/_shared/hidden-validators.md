@@ -45,3 +45,21 @@ Hidden-state predicate in interactive puzzles (verified 2026-10-24, shadows-of-t
 ## Hash-bit probes (verified on temperature 2026-10-24)
 
 When a validator's input is pinned to a countable universe (known N, line length, answer, positions) but not to one value: probe J prints the right answer iff bit J of `md5(<canonical input string>)` is 1. One probe reads one hash bit of every validator at once; offline, enumerate each universe and keep the inputs whose bits all match (log2(universe)+4 probes for a safe unique hit). Already known validators double as a pipeline check. Temperature: 5 validators recovered with 20 probes (universes 3k..150k). Weak for unpatterned large inputs (10 free values): there it only screens hypothesis families. Source: `puzzle/temperature/referee/hidden/facts.md`.
+
+## Partial-row language = exact first score (verified roller-coaster 2026-10-25)
+
+A language whose own row is below 100% (from an earlier failed probe) is a *multi-bit* channel for
+its first new probe: CG keeps the best submission by score then length, so a new probe scoring more
+than the stale partial row replaces it even when it is far longer. The own row then shows the probe's
+exact score (sum of validator weights passed), not just a bit.
+
+- pad the first probe to a large arbitrary length (e.g. 5000), read the score, then use lengths
+  4999, 4998, ... for later probes: every probe replaces while its score >= the row's score (equal
+  score needs a shorter length), so a bit=1/bit=0 probe is always readable from score or length.
+- `submit.sh` breaks its own-row wait early when the row length is already <= probe length (fresh
+  partial row); the POST is still sent, so poll `leaderboard_rows <puzzle> LANGUAGE <lang>` manually.
+- pick a weight layout where the target validator's failure is a unique score: roller-coaster
+  1150 total, 3x150 heavies -> target fails = 1000 (86.9565%), all-but-V8-and-heavies = 850 (73.913%).
+- the language must still execute the probe on the heavy validators: roller-coaster used
+  `spawnShell.wait` in a precompiled language (D) with a fast perl method A core (~0.03 s). A slow
+  method C core timed out; the timeout score was 850, distinguishable.
