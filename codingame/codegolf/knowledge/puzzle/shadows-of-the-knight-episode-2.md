@@ -130,3 +130,12 @@ Native parity core (no wrapper): the perl 200 method with the out-of-range rule 
 - response xor direction: `q<t!=$_>?W` (`!=` on booleans; `^` binds below `<`, so `$_>?W^q<t` is wrong). Put `$_>?W` last: a char literal needs no space before `?` ternary
 - update with c=t+q inline (no c variable): `l=t+q+1>>1:h=t+q>>1`
 - `(0..3).map` is 1 B under `4.times.map`
+
+## python 219 (2026-10-25, rank 1, CG 100% submission 41563465)
+
+Wrapper `import os;os.system('perl -E\'<core>\'')`: single-quoted Python literal, shell quotes escaped, so a core with `"` but no `'` costs core+34 (double-quoted Python with escaped perl quotes and triple-quoted forms are both core+36; plain double-quoted with no `"` inside is core+32). Core = perl 200 parity core + `say` prints (no literal newlines; `-E` instead of `-e`, same 2 B) + jump sum inlined into the update + reply read folded into the test (`$x=<>gt V^$t<$o`, see `lang/perl/read-fold-response-test.md`): 185 B, local 46/46, CG 100%.
+
+- native `main.pl` version (no `-E`, keep `print"@p<newline>"`): 200 -> 191, local `--cg` 46/46 (scratch `native192.pl` of the python task). Not written to the perl cell (out of that task's scope); the perl cell's owner can take it.
+- the same 185 core + `perl -E` shortens every host that embeds the perl core by ~15 (lua 225, php 224, ocaml 224, c 234, ...); those cells are already first, so no queue. JS/TS (not first) carry the trigger but ~246/242 still miss top 219/227.
+- refuted by exact sim (`sim.py`/`cfgyx.py` in the python task scratch, parity core): half-open init `h=S` (save the two `-1`) V8 edge bombs fail 38/160 vs 19/160 (coarse start set), V5 1/6 vs 0/6; y-first (pop@S, -1 B) V8 27/160 vs 19/160, V4 mean jumps 11.75 vs 10.50. Do not take either.
+- refuted by parser test: folding `$x=` into the symbolic-ref lvalue (`${($x=...)?l:h}=...`) is wrong: compound RHS sees the previous `$x` (Perl 5.34) -> 33/46 local, no byte gain.
