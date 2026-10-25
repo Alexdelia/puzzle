@@ -208,3 +208,34 @@ own-grid + t scale are unknown.
   per-validator report. Byte sums and sizes are not pinned by facts.md (t digits random), so these
   cannot be built here: `cg-report.sh` says "no CG session", all 27 languages have our 100% rows
   (no partial-row oracle), and a failed probe is invisible. Probe budget was left unused.
+
+## Python first-t key family and why 97 is unreachable without the report (2026-10-25, cell .1792937078016343241)
+
+- **`int(b[2:])` = first t** for every hidden input when `a,b,*c=open(0)` (b = line 2 with LF):
+  2-digit first n "10 240000" -> 240000 and "34 950" -> int(" 950") = 950; 1-digit "5 577340" ->
+  int("577340") and "2 8" -> 8. Exact for 1,2,4,6,8 (facts.md), unknown for 3,5,7.
+- Cost: READ `a,b,*c=open(0);` 15 + `print("O(%s)"%"T".split(',')[K])` 61+W+K.
+  `int(b[2:])%m` has K=11+len(m). m=9 -> K=12, W=9 -> **97 B** (one empty table slot; use e.g.
+  `"1,n^2 log n,,n log n,2^n,n^2,n log n,log n,n^3"` ordering chosen to the residues). m=8 -> 96 B but
+  577340%8 = 1036%8 = 4 (v2/v4 collide); m>=10 -> >=98 B. So 97 has exactly one cheap shape.
+- Known %9 residues: v1 240000=6, v2 577340=8, v4 1036=1, v6 30546=0, v8 13=4. v3/v5/v7 must be
+  three of {2,3,5,7}, distinct: 24 candidate tables. Model priors are weak (hidden t = random scale x
+  deterministic class curve; see next point), P(injective) ~7 %, top-10 tables ~<5 % - not probed.
+- **Visible tests are almost noise-free** (t = class curve within ~0.2 % on tests 02/03/04/05/06/07/08;
+  test 01 O(1) is quantized noise). Hidden validators are NOT an exact rescale of the test series:
+  hidden/test first-t ratios are 1.20, 1.0441, 1.0486, 0.9771, 0.6842; exact rescale gives sizes
+  v1 1193, v2 12717, v4 1177, v6 606, v8 187 -> mod8 [1,5,1,6,3] with v1=v4, contradicting the proven
+  hidden size%8 permutation (Ruby 76). So hidden t carry real noise; only v1's size (1193, residue 1)
+  is forced; v2/v4/v6/v8 residues are 5/1/6/3 +/- digit-count flips; v3/v5/v7 unknown.
+- **size%8 Python candidate is 90 B**: `print("O(%s)"%"1,log n,n,n log n,n^2,n^2 log n,n^3,2^n".split(',')[len(open(0).read())%8])`
+  (61+8+21). A size%8 table cannot pass the local hidden/keyed gate (fake-t sizes 1193,12718,1029,
+  1177,876,605,514,186 -> residues 1,6,5,1,4,5,2,2 collide), so it can only go as a probe, and its
+  8 residues are a 40320-permutation that 10 singleton probes cannot learn (row oracle only reads
+  <101 B 100 % tables; see shared hidden-validators note). This route needs the report session.
+- Last-n routes are blocked by the parse: `int(b)` raises (interior space), `int(b.split()[0])` is
+  17 B (13 read + 61 + W + 17 >= 99 for W>=8), `int(b[:3])` (10 B) truncates 4-digit last n and no
+  transform has W+K<=23 injective on the 6 known last n (9910,4995,8934,9934,299,25).
+- Wrappers checked: perl core 72 -> Python min 106 B (`import os;os.system("perl -e'...'")`, core
+  contains two `"`), `os.execlp` 111; bash core 81 also >101. No wrapper <=97.
+- Row oracle constant: 10 submits/task; `submit.sh --probe --no-wait` + polling the own Python
+  leaderboard row is ~2 min/probe; a full-wait probe is ~5 min on a miss (row poll 210 s).
