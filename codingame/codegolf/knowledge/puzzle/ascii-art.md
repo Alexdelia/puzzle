@@ -183,3 +183,5 @@ injective (`%32` periodicity is forced by case-insensitivity).
 Negative results this task: 2-deletions of the `-lF` 70 (2347 variants) -> 0 pass validator 4 (the
 no-shebang 70 was already exhausted 2-deletions earlier); structured search over 7792 combos of
 shebang x L-read x dispatch x map x print -> only 70 B programs pass 7/7.
+
+- 2026-10-25: perl `\w` instead of `\pL` in `(\w)|.` passes all 7 hidden validators (`\\w` is 1 B shorter in a Clojure string); clojure 137 CG 100% #1. `map-1+ord()%32` and `map ord()%32-1` are both 14 B; `ord%32-1` parses differently and fails every test.
