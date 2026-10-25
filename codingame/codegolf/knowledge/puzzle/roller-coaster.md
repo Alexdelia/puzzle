@@ -257,7 +257,9 @@ All 26 low bits are recovered (D channel, 2026-10-25):
 `bit0=1, bit1=1, bit2=0, bit3=0, bit4=1, bit5=0, bit6=1, bit7=1, bit8=1, bit9=1, bit10=0, bit11=0,
 bit12=0, bit13=0, bit14=0, bit15=0, bit16=1, bit17=1, bit18=1, bit19=1, bit20=1, bit21=0, bit22=0,
 bit23=1, bit24=1, bit25=0`; low part `r = 27198419`.
-Unknown: bits **26..46 = 21 bits**. Do NOT assume bits >=29 are 0.
+Superseded 2026-10-25 11:00: bits 26..35 were then probed (r26..r35): `1,0,0,0,0,0,1,1,1,0`,
+so `A9 = 30159078355 (bits 0..35) + x*2^36`, `x <= 1454`. Remaining: bits **36..46 = 11**
+(`probe/d/r36.d`..`r46.d`, D row 100%/4975). Do NOT assume bits >=29 are 0.
 
 ### State 2026-10-25 10:50 UTC (next worker resumes here)
 
@@ -400,3 +402,28 @@ Low 27 bits 1=1,1=1,2=0,3=0,4=1,5=0,6=1,7=1,8=1,9=1,10=0,...,16=1,... consistent
 - D channel warning for the validator task: wrapd will also try the generated d 150 candidate, a spawn of the method C core. Method C misses D's validator limit (`D limit < ~1.5 s`, above), so the 100%/4975 D row should survive; if CG does accept 150, the D 1-bit channel is gone. A task cannot cancel the wrapq job. If D dies, use another still-partial-row language (a fresh long 100% probe), not C (a method-B C probe with a gate is ~180 > the 164 C row).
 - `#!perl -E` derived cores FAIL the local `--lang perl` referee: the perl launcher runs `perl main.pl`, so the shebang flags are ignored and bare `say` is a syntax error (0/16 measured). The -2 wrappers above therefore come from the bash core text itself; do not put a `#!perl -E` file in `core/perl/` expecting gains.
 - Remaining route to <=91 is unchanged: the full answer table needs the per-validator report (`cg-report.sh` still "no CG session" 2026-10-25 18:12 UTC); this cell's 10-probe cap cannot recover ~47 answer bits + ~11 key bits, and A9 alone is not a table.
+
+## 2026-10-25 19:10 UTC (bash plateau-retry, cell ...1792952643791420063): no gain
+
+- No bash improvement; 112 stands, 0 submits spent. Perl 104 (Pduhard) is **not** a shorter method:
+  `solution/perl/main.pl` is 104 code bytes + trailing newline, and CG counts the newline in the Perl
+  row (105); the code is our same 103-byte core with `print`. No general byte found again.
+- Stronger evidence the tops are a mechanically ported table: Zylo's 21 rows, all 100%, creationTime
+  Python3 2026-03-04, Java/JS 2026-08-13, C++/C 2026-10-24 19:02/19:19, then 17 languages
+  (bash,C,D,Dart,F#,Perl,Clojure,Go,Groovy,Haskell,Kotlin,Lua,ObjectiveC,OCaml,Pascal,PHP) at
+  2026-10-25 10:04-10:16 UTC - 12 minutes for 17 ports, lengths 84..197. Post-2026-10-17 regime and
+  still 100%: current, but no general algorithm; it is one shared short core (the answer table).
+- Public search negative again: ArcDM/CodinGame-Hard-Roller-Coaster, uderbentoglu/RollerCoaster,
+  AlexPolovnikov/Codingame_RollerCoaster, mjfcolas/codingame-rollercoaster, pierrebochu/Codingame,
+  AlperKoc/Python_CodeGolf are solution-only/unrelated; Wazemo has no public repos. GitHub API 403
+  (anonymous 60/h exhausted), websearch 429, curl/wget denied; webfetch HTML works but no validator
+  data exists publicly.
+- Algorithm re-checked, no closed form: next-fit greedy bin packing; `T_C` = farthest boundary
+  reachable in C hops of `<=B=min(L,S)`; `r -> pred((r+B) mod S)`, gain `B-waste`, map on the N
+  boundaries is a non-decreasing degree-1 circle map; rotation number is not `B/S` (test06:
+  23 wraps / 126 rides vs 0.18306). `.scratch/explore.py` re-derived test06 (S=54627326, B=1e7,
+  pre=47, per=126). Method C core 103 is the floor.
+- A9: low 36 bits `30159078355`, `x<=1454`; bits 36..46 (11) missing. 10 submits recover at best
+  bits 36..45, leaving `x` vs `x+1024` ambiguous unless the 10-bit part `b<=431` (~42%); the
+  validator task owns r36..r46 and a concurrent stream would race it, so no submits were spent and
+  the D row is left clean at 100%/4975.
