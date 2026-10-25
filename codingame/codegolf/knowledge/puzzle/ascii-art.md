@@ -99,3 +99,24 @@ Scala 156 (CG rank 5, 2026-10-21): `object Solution extends App{val a=Console.in
 Clojure 184 (CG rank 3, 2026-10-21): `(ns Solution(:gen-class))(defn -main[](let[[w _ t & R](.split(slurp *in*)"\n")](doseq[r R](println(apply str(mapcat #(nth(partition(Long. w)r)(min 26(bit-and 223(- (int %)65))))t))))))`, see lang/clojure/stdin-lines.md. Top 164 not reached; ns+defn -main overhead is 39 bytes.
 
 OCaml 84 (CG rank 1, 2026-10-22): bash-cell perl core in `Sys.command"perl -lnE'...'"`, see lang/ocaml/system-wrapper.md. Any lang with a short shell call: wrapper + 59-byte perl core.
+
+## Leaderboard rows carry a score: current-regime floors (2026-10-25)
+
+`getFilteredPuzzleLeaderboard` returns `score` per row; `leaderboard_summary` (agent/tool/lib.sh) builds `top` from `score == 100` rows only. Full dump 2026-10-25 (length, creationTime, player):
+
+- Python3 100%: 58 @2026-10-01 Validator_sucks.More.Edge.Random; 91 @2023-04-06 Lydxn; 93 @2026-08-25 sffsefsdfaf; 93 @2026-10-25 ours; 95 @2026-10-07 YALOKGAR; 99 @2026-10-21 NukePwr; oldest rows 95..100 (2023)
+- Perl 100%: 61 @2026-09-13 YALOKGAR; 65 @2026-09-14 sffsefsdfaf; 68 @2023-04-07 Lydxn, @2023-04-16 saito_ta, @2026-10-01 Icebox, @2026-10-22 Waffle3z, @2026-10-24 Eric_[EGU]; 71 ours @2026-10-22
+- Ruby 100%: 73 @2026-10-01 Icebox, @2026-10-17 PetyFloyd; 74 @2026-10-24 Eric
+- Bash 100%: 64 @2026-10-08 YALOKGAR; 67 @2023-04-17 saito_ta; 70 @2026-08-25 sffsefsdfaf; 71 ours @2026-10-20; 77 @2026-10-24 Eric; 78 @2026-10-05 Icebox
+
+Reading (2026-10-25): Perl 68 is genuine and current, two independent submissions after the validator recovery (2026-10-22/24) score 100 at 68, and Lydxn/saito_ta had 68 in 2023. The 58 Python / 61,65 Perl / 64 Bash rows are 2026-09-13..10-08, i.e. the older validator regime: the obvious 58 B single-uppercase-letter program (`L=4` hardcoded) is exactly 58 B and today passes validator 1 only (30%, submission 41536725). Icebox's 2026-10-01 suite (Perl 68, Ruby 73, JS 95, Python 101, C 98, ...) is a general suite and matches the 2023 floors. So the top 58 is a pre-change artifact, the 91 Python (2023) is a real byte-golf row but its current-validator validity is unverified (could be an uppercase/L=4 partial), and the best *proven current* Python row is ours at 93.
+
+## Wrapper/core arithmetic rechecked (2026-10-25, Python cell)
+
+- `-F` implies `-a`: `perl -F -lE'CORE'` needs no `-a`. Command = 12 B; the 57 B `@F` core (`map ord()%32*/\w/-1,@F`, `map{...}@F`, or `map-1+ord()%32*/\w/,@F`) gives the same Python source length as `-lnE` (command 10) + 59 B core: 93 B. No gain over the committed 93.
+- `say+(/.{$l}/g)[@t]` needs the `+`: `say(/.../g)[@t]` is a Perl syntax error. `print` under `-l` costs +2, so `-lF`+`print` bodies are 59 B (70 B with `#!perl -lF`, which does parse at CG/perl 5.34 when perl runs the file).
+- `ord&31` does not golf: `map(ord&31)...` parses as a sub call / dies; `ord()&31` is the same 8 B as `ord()%32`.
+- 1- and 2-byte deletion brute force (2415 variants) over the 70 B no-shebang script and over the 59 B `-lnE` core, plus 1-byte deletions of the 57 B `-F` core: no shorter 7/7 variant (local CG perl 5.34).
+- Native Python improved 107 -> 105 (6/6 IDE + 7/7 hidden): `l,_,t,*R=open(0)` / `l=int(l)` / `for r in R:print(''.join(r[l*min(ord(c)&95^64or 27,27)-l:][:l]for c in t[:-1]))`. The one-ended slice `r[a:][:l]` beats the walrus form `r[(x:=a)-l:x]` by 2 B (the value is used once). Still 12 B above the 93 wrapper.
+
+Perl current floors: 68 no-shebang general method (two 2026-10 rows) not found in this task; if found, its `-lnE` translation would need 57 B to move Python to 91, and every 57 B core found so far needs the +2 B `-F` command.
