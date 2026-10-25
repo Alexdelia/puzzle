@@ -121,3 +121,26 @@ so the "box must be a single cell" rationale for evasion is wrong; the honest hi
 the first hit of the bomb. V7 A=(9741,2473) path and B=(9741,2474) path share jumps 1-11, so a
 blind sequence cannot pin both by jump 14. A W-keyed hardcode needs 6 bomb entries +
 14/7-jump paths (>= ~45 packed bytes + decoder), cannot reach 81.
+
+## Leaderboard rows are real byte counts (correction, 2026-10-25)
+
+CG has counted UTF-8 **bytes** since 2023-03-29 and recomputed all older rows
+(`knowledge/lang/_shared/length.md`, CG forum thread 200149). The sub-100 rows of this
+puzzle are therefore NOT char-era artifacts, whatever their creationTime:
+
+- Perl 100%: Icebox **81** (2026-10-07), sffsefsdfaf **86** (2026-10-09), YALOKGAR **90**
+  (2026-10-08), saito_ta **90** (2023-04-17, three weeks after the byte switch), Eric 91,
+  ours 91. With a 12 B `#!perl -alp` shebang those are general bodies of 69, 74 and 78 B.
+- Ruby 95: Icebox (2026-10-06) and cedricdd (2026-10-23), both 100%, real bytes.
+- So 95 is reachable by a general solution: Ruby 95 = 16 B bash wrapper + 79 B core, or
+  17 B perl wrapper + a 77 B body (`exec"perl -alp'BODY'"` counts 17 + body source), or the
+  16 B `-aE` wrapper + a 75-77 B body. The earlier "pre-byte/stale top" reasoning in the
+  journals is wrong; do not discount these rows.
+- Our floors (2026-10-25): bash core 81, perl `-alp` body 79 (perl cell 91, Ruby 97).
+  Measured this run: `-a` alone implies `-n`, so `exec"perl -aE'BODY'"` = 16+body source, but
+  the `-aE` body is still 79 B and Ruby's `\D`/quote escapes make it 98. The `-F\D\K` split
+  gives a verified 76 B body (`for@F`), but the Ruby flags need quoting/backslash doubling
+  (shell strips an unquoted `-F\D\K`), so the Ruby total is 103-105. Deletion searches of the
+  81 B bash core (all 2-char deletions) and the 79 B perl body (all 2-char deletions) found no
+  passing shorter subsequence. Full details: `knowledge/lang/perl/F-nondigit-K-split.md`,
+  `knowledge/lang/ruby/exec-perl-aE.md`.
