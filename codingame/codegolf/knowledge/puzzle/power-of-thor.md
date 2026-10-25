@@ -244,3 +244,49 @@ puts [h]*(19+12*i)+[?S+h*0**i]*17
 - random 3-plan versions: `h="WEN"[i=rand 3]` + the same puts line = 51 B; `i=$$%3` = 49 B; pass probability (1/3)^4 = 1/81 (V1 and V3 are separate runs; E plan must be drawn twice). A 4-plan version is 51 B at 1/256.
 - forum evidence that the 40s are not deterministic: #163 (2020-01, maxim_mazurok) Ruby hardcode 64, random version 55 at 1/256, scored 100% after ~220 submits; #165 (d-s-x) deterministic 50 was before the 2020-07 validator change (#167/#168); #205/#206 (2022-10, TKirishima) "You think 42 in Perl/Ruby legit?" and "best solutions are random and/or hardcoded"; #219 random direction printing; #194 deterministic solutions are ~80 chars in Python, leaderboard rows are lower only because they are validators-specific.
 - 42 rows are current (creationTime: sffsefsdfaf 2026-08-24, Icebox 2026-09-30): a farmed random row keeps 100% forever. The Ruby 54 cluster (60 players, first ones 2021-11-28, right after the Nov 2021 hardcode-golf forum posts) is not explained by the a-hashable 1-char key: no key <=10 B over gets/getc sum/hex/ord/to_i with linear/bit count formulas gives <=54 (exhaustive local search), so it is likely a farmed random program or a plan/print trick not found. Do not treat 54 as the deterministic floor.
+
+## 2026-10-25: the displayed top 42 is a stale char-counted row; 54 B is the byte floor
+
+New evidence (task 1792919724657739941), all in the journal of that task:
+
+- **CG re-ran submissions when the validators changed in 2020-07** (forum 687 posts 167/168,
+  2020-07-17; post 175 "new re-run resulted in 25%"), so the 42/46/47 rows do pass the
+  *current* validators. Their recorded *length* is the stale part, not their score.
+- **The top lengths were recorded under character counting, not bytes.** Forum 194246
+  (2022-01/06) documents the UTF-16 packing trick that made CG count characters; our
+  2026-10-19 Ruby probe shows CG counts bytes now (`knowledge/lang/_shared/length.md`).
+  Packing needs a payload of >~55-60 bytes just to break even (1 char carries 2 payload
+  bytes, wrapper ~25-30 chars), so a 42-*char* row is a ~85-110-**byte** general solution
+  (pardouin, forum 687 #186: 81 chars for a fully deterministic Python solution).
+- Perl rows below 54 were all created before 2026-10-19 (42 in 2022-03 and 2026-07-30,
+  46 in 2021-12, 47 in 2026-10-16, 53 in 2022-10 and 2026-10-01). The first rows created
+  after the byte proof are in the 51-74-byte range (Skyf0l bash 51 on 2026-10-20, Python 60
+  on 2026-10-19, Pduhard- PHP 74 on 2026-10-21, our Perl 54 on 2026-10-25). So 54 B is
+  (very likely) the best real-byte Perl row; the displayed rank 7 counts stale rows.
+
+## 54 B floor proofs (2026-10-25)
+
+- String-literal indexing is a **syntax error** in Perl: `"WEN"[$`%3]` does not parse
+  (5.34.0 and 5.42.3). The letter list `(W,E,N)[$`%3]` (13 B) cannot be shortened that way;
+  `chr 69+9*($`%3||2)` is 18 B.
+- The 3-plan **turn-based** threshold `$.>($`|19)` is 10 B and encodes exactly the three
+  plans (lightX|19 = 19,23,31,31: W*19 SW*17, N, E*31 S*14), but it is **impossible** for
+  this output shape: `"S"x(P).H` makes phase turns diagonals (SE/SW), V1 needs 0 SE in
+  turns 1..21 and V3 needs 14 SE in 1..31 with x=31 at turn 31, so no single turn threshold
+  can serve both (tested: hidden 3/4, V3 leaves the map). The 12 B energy window is the
+  only known V1/V3 split.
+- **Phase search extended to truthiness**: 544,260 expressions of <= 11 B over
+  `$_` (energy), `$.` (turn), `$`` (lightX), single digits and `+ - * / % & | ^ . < > == !=`,
+  rendered with real Perl precedence and evaluated as actual Perl (3 leaves max): no
+  truth vector (0,0,14,17). Also no threshold f(lightX) <= 8 B and no window on
+  `e^L,e&L,e|L,L-e,k^L,k&L,k|L,e&k,e|k,e^k,e/L,L/e,e%L,L%e` at <= 11 B. Conclusion: 42
+  fixed + 12 phase = 54 is the floor of every deterministic per-turn shape searched.
+
+## Remaining open (for a later worker)
+
+- Only untested route to the displayed 42: prove CG still counts characters *for this
+  puzzle* (the 2026-10-19 byte probe was on temperature-code-golf); even then, packing our
+  54 B source needs a >55 B payload to pay off, so it cannot reach 42 chars.
+- `phases2.txt` (8.69M three-leaf truthiness expressions with two-digit constants) was
+  generated but not fully evaluated; run `perl evalphase.pl < phases2.txt` if a cheaper
+  phase is ever needed (very unlikely to beat 12 B, see above).
