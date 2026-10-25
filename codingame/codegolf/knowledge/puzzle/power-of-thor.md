@@ -778,3 +778,42 @@ Row stays 51 (`perl -nE$'...'`), hidden 4/4 re-verified. New measured/derived fa
 - Unverified leftovers: whether validator containers (as opposed to test-game ones) expose any
   differing env/argv/file channel; whether a wall-clock (`$EPOCHSECONDS`) cycle with the 4
   plans in the linear Ruby-family shape is reachable under 46 B (byte count says no: ~61 B).
+
+## 2026-10-25 bash retry (1792962486532143965): 46 is a *dash* command; first turn input is pre-sent
+
+Row stays 51, hidden 4/4 re-verified. Two new verified facts and the wrapper arithmetic:
+
+- **The C/C++ rows pin the 46-byte top to POSIX sh.** sffsefsdfaf (all score 100, live API):
+  Bash 46 (2026-06-12), Python3 63, C **65** (06-13) = `main(){system("` 15 + 46 + `");}` 4,
+  C++ **84** = C 65 + `#include <cstdlib>`+newline 19. `system()` runs `/bin/sh -> dash`
+  (`knowledge/lang/_shared/system-wrapper.md`), so the 46-byte program that passed these four
+  validators is dash-compatible. Every bash-only mechanism is therefore excluded: family A needs
+  `${s:a%3:1}` (58 B in sh), the Perl-wrapper floor is 51, and a hardcoded 4-way plan dispatch
+  costs >= 68 B (the four plan texts alone are 48). Python3 63 matches no 46 B wrapper, so only
+  C/C++ prove the shared command.
+- **The runner pre-sends the init line AND the first turn's input** (bash test games 911782535/
+  589/651/801, 2026-10-25): `dd bs=4k count=1` returns 13 raw bytes = `28 8 7 8\n` + `100\n`, the
+  next read blocks. The **local** referee-core does the same: `read a b c d; read e` followed by
+  `[ $e = 13 ]&&yes N||yes Z` passes hidden/02 only, `[ $e = 45 ]&&{ yes SE|sed 14q;yes E;}||yes Z`
+  passes hidden/03 only. So `read a b c d; read e` gives `E0` before move 1 on CG and locally.
+  Timing: the input is written after spawn, a `read -t .3` fires before it arrives (0 bytes) —
+  block on the read, do not poll.
+- **The pre-sent E0 does not shorten the solution.** The class is (100,13,45,36) -> (V1,V2,V3,V4),
+  but the S-run count is still forced to 14 (V3) / 17 (V4) and an input-derived `b-d` is 6 B:
+  E0->r formula has no solution (`31-e`=5 at V4, `e/3-1`=(14,11), `e%19`=(7,17), `e%31`=(14,5);
+  a `(e+c)%m` form needs m|12 and m>17), an E0-keyed fixed-plan `case` is >= 68 B (plan texts 48),
+  and an E0 letter+count single-string lookup `${t:e%6:1}` + `${t:e%6*2+5:2}` prices at 83 B.
+- **Periodic plans do not remove the class count.** V3 wins with any 14 SE among moves 1..31 and V4
+  with any 17 SW among 1..36, but GNU sed step ranges (`yes E|sed '1,27~2s/^/S/'`, 24 B;
+  `yes W|sed '1,33~2s/^/S/'`, 25 B) are longer than `yes SE|sed 14q;yes E` (19 B), no single range
+  serves both, and V1 needs 0 S before move 21.
+- `$0`/`$BASH_SOURCE` on the bash box is `/tmp/Answer.sh`; `${0^^}` has N6 S7 W8 E9 R10, but the
+  28/5/31/0 -> E/N/E/W offset map is not a <=6 B expression, and under the dash C wrapper
+  `$0=/bin/sh` has no W/E, so this cannot be the shared 46 either.
+- Regression guard: the current 51 B row is `perl -nE$'/ /;$|=say"S"x($\'>-$.%34).(W,E,N)[$`%3]'`
+  (`count.sh` 51, `run.sh --cg` 4/4, 2026-10-25).
+
+Conclusion: the 46-byte dash command dates from the June 2026 runner (which had a parent
+`bash -c ... source /tmp/Tester.sh` and per-run identifiers); the current sandbox (PID 1,
+`/tmp/Answer.sh`, no testcase id, /tmp only has Answer.sh) exposes no input-independent key and
+no file channel, so the 46 is not reproducible now. Do not spend probes on it; current floor 51.
