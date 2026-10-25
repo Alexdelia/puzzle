@@ -158,3 +158,27 @@ Channel checks done again (2026-10-25): `/puzzles/<id>/submissions/<id>` returns
 `/progress` score/criteria are the best submission; all 27 puzzle languages have 100% rows of
 ours, so there is no partial-row score oracle; the puzzle's language list equals our 27, so no
 fresh language row to open.
+
+## Ruby 76 = size%8 lottery, deterministic floor 83 (re-verified 2026-10-25, cell .1792928931571754734)
+
+Cost model for the `%w` hardcode re-derived: `puts"O(#{%w{C}[K]})"` = 18+C+K, 8-cell C=44 => 62+K;
+each extra table slot +2. A key is usable when its raw values sit in [-W, W-1] and are 8 distinct
+residues mod W (`Array#[]`), so a final mod costs its own bytes.
+
+Broad 2-read key search (scratch `gen3.rb`/`gen4.rb` of that cell, Ruby 3.1.2): line1 side
+{oct,hex,sum,to_i,ord,size,sum(4..6),to_i(2|8|16),bytes[i],[i].ord,count(?d)} and line2 side
+{oct,hex,to_i,ord,sum(4..6),to_i(2|8|16),bytes[i],[i].ord,count(?d)}, each with up to 2 chained
+postfixes {%m,/m,&m,^m,|m,*m,-m,+m,>>k}, combined with ^ + - * / % | &, plus whole-expression
+mods with paren cost: **no key shorter than 21 B with W=8; nothing under 83 at all** (the only
+83s are `gets.oct%7^gets.ord%8`, `gets.oct%7^gets.ord%6`, `gets.oct%6-gets.oct/8`,
+`gets.oct/9-gets.ord%4`, and `gets.ord-gets.ord^6` at W=9). `gets.oct%7^gets.ord` (19 B, values
+48..55) needs a -48 shift that costs more than it saves; `$_`/shebang slurp do not help
+(`gets;$_.hex` costs 5+6 vs `gets.hex` 8).
+
+Whole-input 14 B keys can only be `$<.read.size%8` (76) or `$<.read.sum%8` (75); the global
+board has 1000 rows all at 100 %, 76 twice but **no 75** (next 79/81/83), so sum%8 is not a
+permutation and the top 76 is the size%8 table. Hence the hidden size%8 residues ARE a
+permutation of 0..7; the local `hidden/keyed` residues [1,6,5,1,4,5,2,2] are redrawn t and say
+nothing about CG. Useful prior for the decode: r1 is almost surely 1 (v1 all 6-digit t; size
+1193 = 1 mod 8), v4's residue = (1 + its total t digit count) mod 8, so v4 is variable; v5/v7
+own-grid + t scale are unknown.
