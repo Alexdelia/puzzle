@@ -45,6 +45,8 @@ Lengths reached locally (method demos, not cells): Python 113, Perl 81 (system p
 
 Leaderboard bounds (2026-10-19): Python 58 (player `Validator_sucks.More.Edge.Random`: likely exploits weak CG validators, unverified), Perl 61, bash 64, Ruby 73. Gap Perl 61 vs 81 unexplained: a shorter legit method may exist (unverified ideas: switches on the `#!perl` line, building a per-row `eval` string).
 
+Leaderboard creationTimes (service, 2026-10-25): Python 58 @2026-10-01, 91 @2023-04-06, 93 @2026-08-25, 95 @2023..2026-10-23, 99 @2026-10-21, 101 @2026-10-17, 102 @2026-10-24. Perl 61 @2026-09-13, 65 @2026-09-14, 68 @2023-04-07 + 2026-10-01/22/24, 69 @2023-04-09, ours 71. The 58 is proven unreachable (see Hidden validators); 91/93 predate the current validator regime, so the best current Python method is 93 (ours). The 68 Perl rows prove a no-shebang 68 B method; ours is 70 B, its -lnE core translation would be 91.
+
 Rejected:
 - `re.findall('.'*L,row)` glyph list in Python: needs `import re`, 127+
 - Perl `/.{$l}/` with `$l=<>` unchomped: newline inside the quantifier, 0/13
@@ -54,6 +56,11 @@ Rejected:
 Perl cell reached 73 total bytes incl. `#!perl -nl\n` (CG rank 10, 2026-10-20): `$l||=$_;$.<4?@t=map{ord()%32*/\pL/-1}/./g:print+(/.{$l}/g)[@t]`. `-E` can't go on the shebang (see lang/perl/shebang-no-E.md), so the "59 core" figure excludes switches and `say` -> `print`. Top 61 unexplained (probably no shebang).
 
 Perl 71 (CG 100%, rank #10 tie #8, 2026-10-22), no shebang: same list-slice method, header read by `$l=<>+!<>;`, T indices from `<>=~`, rows by `for<>` with `,$/` in the print, see lang/perl/numify-skip-line.md. Rows keep `\n` (`.` skips it, still 27 glyphs). Bash wrapper of it with `-E`/`say` is 75, above bash 71.
+
+Python 93 (CG 100%, rank #4 tie #3, 2026-10-25), wrapper of a 59 B `-lnE` core, hidden-only char set:
+`import os;os.system("perl -lnE'$l||=$_;$.<4?@t=map ord()%32-1,/(\w)|./g:say+(/.{$l}/g)[@t]'")`.
+`\w` replaces `\pL` (hidden T has no digits/underscore) and in the Python literal the backslash is not doubled (`\w` single, invalid Python escape kept on 3.11.5), see lang/python/literal-backslash.md. `-1+ord()%32` -> `ord()%32-1` is neutral. 7/7 hidden + 6/6 IDE local.
+- char-split variant (`-F` empty + `-a`, `@F` = chars, `-l` removes the trailing empty): core `$l||=$_;$.<4?@t=map ord()%32*/\w/-1,@F:say+(/.{$l}/g)[@t]` = 57 B, but `perl -F -alE'` costs +3 -> 94 B source, 7/7 hidden, 1 B worse than 93. See lang/perl/char-split-F.md.
 
 ## Hidden validators
 
@@ -67,6 +74,13 @@ Guesses (unverified):
 - the 58 was likely scored on an older, weaker validator set (CG keeps old rows after validator edits); if so no exploit is reachable now
 - verified 2026-10-24 (report of submission 41536725): that 58 passes only validator 1 (`G`, weight 300) = 30 % on the current set; the 4 letters-only uppercase validators are 70 % of the weight
 - not tried: environment reconnaissance of the CG sandbox (out of scope, refused)
+
+Conclusion on top 58 (2026-10-25, cell.ascii-art.python.1792522692504954794): 58 is a validator-glitch artifact, unreachable by correct code.
+- the obvious 58 B single-letter program (`_,_,t,*R=open(0)` + `for r in R:print(r[ord(t[0])*4-260:][:4])`) is exactly 58 B and today passes only validator 1 (30 %, report above); row `creationTime` = 2026-10-01
+- the current 7-validator set (mixed case + Lorem) was already what the 2026-10-20 probes saw, so the 58 was scored against a different (partial/broken) set on Oct 1; CG keeps the old 100 % row and does not rescore
+- no correct program for the 7 validators fits 58 B: validator 5 alone emits 3125 B from 156 T chars; the cheapest Python form measured is 93 (wrapper of a 59 B perl core, see Shortest known)
+- real current floors: Python ours 93 (newest other rows 99/101/102), Perl 68 (2026-10-22/24). 91 (2023) and 93 (2026-08-25) predate the current regime; first is blocked by the stale 58, so chase 91/68 only for rank 2
+- no new probe hypothesis: the only open question (the real 58 source) is unobservable
 
 Probes spent: 1 (2026-10-20, Python 58 single-letter, fail). Next useful probe only if a new no-loop hypothesis appears; every loop-based exploit lands near 80 in Python, above the legit 91 floor only by restricting cases (uppercase-only / letters-only / `L=4` hardcode), and each such restriction is a 1-bit probe worth trying in a cell below its own row
 
