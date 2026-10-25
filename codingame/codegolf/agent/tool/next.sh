@@ -68,7 +68,7 @@ pick() {
 		| map(. as $task
 			| ($context.cells[$task.puzzle + "/" + $task.lang] // {}) as $cell
 			| ladder_rank($ladders; $task; $cell) as $ladder_rank
-			| select($ladder_rank != "held")
+			| select($ladder_rank != "held" and ($task.kind != "cell" or $cell.best_tie_rank != 1))
 			| {id: $task.id, key: [
 				($task | kind_rank),
 				(if $task.urgent then 0 else 1 end),

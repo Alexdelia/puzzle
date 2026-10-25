@@ -60,7 +60,7 @@ enqueue() {
 	local status_path status
 	status_path=$(ensure_status "$kind" "$puzzle" "$lang")
 	status=$(jq -r .status "$status_path")
-	if [[ $kind == cell && $status == first ]]; then
+	if [[ $kind == cell ]] && { [[ $status == first ]] || is_first "$puzzle" "$lang"; }; then
 		echo "enqueue.sh: refused $key: already first"
 		return
 	fi

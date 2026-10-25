@@ -125,7 +125,7 @@ estimate_key() {
 		done
 		referee_fingerprint "$puzzle" ""
 		if ((${#statuses[@]})); then
-			jq -r '"\(input_filename | sub(".*/"; "")) \(.ours // "-")"' "${statuses[@]}"
+			jq -r '"\(input_filename | sub(".*/"; "")) \(.ours // "-") \(.best_tie_rank // "-")"' "${statuses[@]}"
 		fi
 		puzzle_rows "$wrap_rejected" 2
 		puzzle_rows "$wrap_local_fail" 3
@@ -235,6 +235,10 @@ submit_pipeline() {
 	for host_dir in "$wrap_root"/*/; do
 		host=$(basename "$host_dir")
 		[[ -f $host_dir/available.tsv && ( -z $host_filter || $host == "$host_filter" ) ]] || continue
+		if is_first "$puzzle" "$host"; then
+			printf '%s\tskipped: already first\n' "$host"
+			continue
+		fi
 		main=$(main_of "$host")
 		if busy "$host" "$main"; then
 			printf '%s\tdeferred: cell busy\n' "$host"
@@ -364,6 +368,10 @@ fi
 for host_dir in "$wrap_root"/*/; do
 	host=$(basename "$host_dir")
 	[[ -f $host_dir/available.tsv && ( -z $host_filter || $host == "$host_filter" ) ]] || continue
+	if is_first "$puzzle" "$host"; then
+		[[ $mode == estimate ]] || printf '%s\tskipped: already first\n' "$host"
+		continue
+	fi
 	main=$(main_of "$host")
 	if [[ $mode != estimate ]] && busy "$host" "$main"; then
 		printf '%s\tdeferred: cell busy\n' "$host"

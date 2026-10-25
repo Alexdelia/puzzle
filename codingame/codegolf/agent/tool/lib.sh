@@ -344,6 +344,10 @@ puzzles_with_running_tasks() {
 	jq -r .puzzle "$state"/running/*.json </dev/null 2>/dev/null | sort -u || true
 }
 
+is_first() {
+	[[ $(jq -r '.best_tie_rank // empty' "$(status_file cell "$1" "$2")" 2>/dev/null) == 1 ]]
+}
+
 saturated_puzzles() {
 	jq -r 'select(.best_tie_rank == 1) | input_filename | split("/")[-2]' "$state"/cell/*/*.json </dev/null 2>/dev/null |
 		sort | uniq -c | awk -v firsts="$rewarded_firsts_per_puzzle" '$1 >= firsts { print $2 }'
