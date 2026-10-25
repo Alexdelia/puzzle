@@ -19,7 +19,26 @@ pretty_id `the-fall-episode-3`, leaderboard `the-fall-episode-3-codesize`, inter
 - all 4 tests have rocks (statement: "last two tests only", wrong)
 - 01: 11x10, 5 rocks, rock-rock collision. 02: 6x6, 4 rocks. 03: 14x8, 2 rocks. 04: 14x14, 5 rocks, 38 turns
 - pure WAIT dies on every test; tests 1/2 need a rotation on turn 1 (a solver that WAITs while the path is still fixable later loses to rocks)
-- validators: mirrored tests (x -> W-1-x, 4<->5 7<->9 10<->11 12<->13, LEFT<->RIGHT) + spawn turns shifted
+- validators (rewritten 2026-10-25): 8 hidden-class variants, 2 per hidden validator, same grid/H and the CG-proven
+  hidden plan wins each, spawn turns shifted (01/02 H10, 03/04 H6, 05/06 H8, 07/08 H14). The old mirrored tests are
+  gone: they rejected the CG-100% H-keyed plan by construction (a local case that rejects a CG row is a referee bug)
+- `hidden/keyed` exists (2026-10-25): `--cg` = hidden only, like CG's grading (spec marker for reconstructions:
+  class key and answer exact, other input detail generated). hidden/04 is a reconstruction consistent with
+  every probed feature, not exact (see facts.md "Referee reconstruction")
+
+## Referee fidelity (2026-10-25)
+
+- puzzle-local `ClosedStdin` runner (`referee/src/runner.rs`, copied from the-bridge-episode-2): ignores a failed
+  turn-input write, like CG. Print-plan-then-exit players (bash 148, cpp 198, csharp 206, dart 234, fsharp 203)
+  pass `--cg` 4/4 instead of failing "solution closed its input" at turn 2 when the player exits early
+- plan wrappers and the perl 135 plan are graded by hidden only now; tests 01-03 still fail them locally by design
+  (CG grades validators, not IDE tests)
+- bench reference: a scratch plan-once perl (grid-keyed plans for the 4 tests + the 4 hidden plans; wins
+  tests + validators 12/12 and hidden 12/12) so the referee CPU measure is not polluted by a slow launcher:
+  `suite wall_ms 176.2 solution_cpu_ms 86.3 referee_cpu_ms 8.6 gate ok pass`, max 0.8 ms/case vs 2.2-2.8 ms
+  budget. General solver (same core as the CG rows) gives suite ~1.4-1.9 s and 2.2-2.7 ms on 39-turn cases
+  (thin margin under load; the fixed cost is referee-core's 5 ms orphan polling while the solution starts)
+- negative: WAIT forever fails tests/01 turn 2 (wall); sleep 6.5 s times out turn 1 (1000 ms limit)
 
 ## Timing (probed on CG 2026-10-19)
 
@@ -29,7 +48,7 @@ pretty_id `the-fall-episode-3`, leaderboard `the-fall-episode-3-codesize`, inter
 ## CG rule checks (test games, test 1, 2026-10-20)
 
 - rotating Indy's cell: loss "Invalid instruction: you cannot rotate cell (1 0) as Indy is currently in it"
-- rotating an unlocked type-0 cell: allowed ("You rotated cell (0,0) to the RIGHT"), a no-op turn like WAIT. Our referee skips such cells in the solver; whether the local referee also allows it was not rechecked
+- rotating an unlocked type-0 cell: allowed ("You rotated cell (0,0) to the RIGHT"), a no-op turn like WAIT; local referee fixed 2026-10-25 (`room < 0`, was `room <= 0`). Locked (negative), Indy's cell, a rock's cell and the exit cell are rejected (local messages "cell (x,y) cannot be rotated"; CG words it "Invalid instruction: you cannot rotate cell ...")
 - out-of-grid cell `50 50 RIGHT`: loss "expected: 0<=x<11"; malformed line `X`: loss "expected: x y LEFT|RIGHT". No garbage-as-WAIT leniency
 - `python3` is on PATH in the CG Bash box: `python3 -c "$(base64 -d<<<B64)"` (Bash) or `main(){system("python3 -c \"$(echo B64|base64 -d)\"");}` (C, dash) run a Python solver interactively
 
@@ -73,9 +92,9 @@ Facts and probe answers: `puzzle/the-fall-episode-3/referee/hidden/facts.md`. Su
 - 01 Avoiding rocks = test 1 with column 0 deleted (10x10, exit/Indy/rocks x-1), exact: `hidden/01.json`
 - 02 Rock interception = test 2 with cell (2,3) = 12, exact: `hidden/02.json`
 - 03 Multiple choice and rocks = test 3 shifted right one column (14x8, exit/Indy/rocks x+1), exact: `hidden/03.json`
-- 04 Only one way = test 4 (14x14) with 12 room types changed in rows 5..12, not exact; the test 4 command plan wins it on CG
+- 04 Only one way = test 4 (14x14) with 12 room types changed in rows 5..12; not exact. `hidden/04.json` (2026-10-25) is a reconstruction honoring every probed feature: 11 diffs are 0 -> 1 at cells no mover ever enters under the plan, 1 is (4,5) 3 -> 1 on Indy's path; won by both the early v4 plan and the timed 13/17/25 plan
 - H alone separates the validators (10, 6, 8, 14). A hardcoded plan per validator keyed on H wins all 4: v1/v3 plans = test 1/3 plans with x shifted by -1/+1 (verified locally on the exact files), v2/v4 verified on CG (perl `probe/perl/plans.pl` 2026-10-24)
-- no `complete` marker yet (v4 inexact): `submit.sh` still gates on the synthetic `validators/`, which a hardcode fails; check a hardcode with `run.sh <file> --lang <l> --hidden` (01-03) + test 04, and probe it with `oracle.sh` instead
+- `hidden/keyed` written 2026-10-25 (reconstruction, see above): `--cg` and `submit.sh` gate on hidden only, so H-keyed plan cores and print-plan-then-exit wrappers pass locally. Passing `--cg` is not proof against the real v4: a new exploit still goes through `oracle.sh`/`submit.sh --probe`
 - probe tooling: python solver + (W,H)-keyed predicate (journal `validator.the-fall-episode-3.-.1792834544511127800` scratch `gen.py`); CG boxes of Ruby, Perl, PHP, C, Bash run `python3 -u` interactively
 
 ## JavaScript general solver (2026-10-20)
