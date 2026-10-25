@@ -140,9 +140,9 @@ What makes it fit in 187 B:
 
 ## Referee: closed stdin / print-all-then-exit (2026-10-25)
 
-- CG keeps playing a player that printed its whole trace and exited: writes to the dead player's stdin are ignored, buffered stdout lines are still read turn by turn (`knowledge/lang/_shared/interactive-early-exit.md`). The 7 row hardcodes rely on it: perl 187, ruby 174, python 232, bash 204 print rotations + `WAIT`x99 from the init input, never read a turn line. Verified CG 100% (perl 187 submission 41559199; ruby 174 rank 1).
+- CG keeps playing a player that printed its whole trace and exited: writes to the dead player's stdin are ignored, buffered stdout lines are still read turn by turn (`knowledge/lang/_shared/interactive-early-exit.md`). The 7 row hardcodes rely on it: perl 187, ruby 174, python 193, bash 204 print rotations + `WAIT`x99 from the init input, never read a turn line. Verified CG 100% (perl 187 submission 41559199; ruby 174 rank 1; python 193 submission 41563002 rank 1).
 - Local `referee-core::Interactive` fails on the first failed `Solution::write` ("turn N: solution closed its input") -> the row hardcodes flaked under load (perl 187 failed hidden/02 at load ~25). FIXED 2026-10-25 in the puzzle scope: `puzzle/the-fall-episode-2/referee/src/runner.rs` `ClosedStdin` (copy of the bridge-2 runner) ignores the write result; read errors/timeouts unchanged. `run.sh <row hardcode> --cg` now 7/7: perl 200/200 runs under 8 CPU hogs, ruby/python/bash 15/15 each. No keepalive bytes needed in any the-fall-episode-2 hardcode.
-- Row lengths at 2026-10-25: perl 187, ruby 174, python 232, bash 204 (all hardcodes keyed on the init line: perl `(W+7H)%8`, ruby `gets.sum%13/2`).
+- Row lengths at 2026-10-25: perl 187, ruby 174, python 193, bash 204 (all hardcodes keyed on the init line: perl `(W+7H)%8`, ruby `gets.sum%13/2`, python `sum(input().encode(),10)%13//2`, native decode of the same 63 cells, submission 41563002, rank 1).
 
 ## Bench reference / validator timing (2026-10-25)
 
