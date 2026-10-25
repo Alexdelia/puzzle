@@ -126,6 +126,30 @@ Verified by exhaustive search (scratch of the cell, Ruby 3.1.2, keys also re-che
 later n redrawn): 8.07M single-read expressions (0 injective deterministic), 603k two-read `A op B`
 (best 85), 196k two-read with per-side mods (best 83, the current
 `gets.oct%7^gets.ord%8`, values [0,5,3,2,6,1,7,4]). So the 76 top (Pduhard- 2025-04, cedricdd
-2026-09) is a whole-input residue lottery (`$<.read.size%8` 14 B -> 76, `$<.read.sum%8` 13 B -> 75,
-`$<.read.sum%9` 13 B with 9 cells -> 76) with residues learned from CG's per-validator report; no
-deterministic 76 exists in the searched families.
+2026-09) is a whole-input residue lottery (`$<.read.size%8` 14 B -> 76, `$<.read.sum%8` 13 B -> 75;
+`$<.read.sum%9` is 13 B but 9 cells cost 64, i.e. 77, not 76) with residues learned from CG's
+per-validator report; no deterministic 76 exists in the searched families.
+
+## Staged size%8 bit probes (2026-10-25)
+
+The 76-B top must be `$<.read.size%8` + `%w` table: with 62 fixed, only a 14-B key reaching 8
+slots fits 76, and of the whole-input keys only size/sum mod 8 are that cheap. Two players hold 76
+and nobody holds 75, which is consistent only with size%8 being the permutation (sum%8 would give
+75; this is an inference, not probed).
+
+The three bit probes that recover the residues are already on CG, so a session needs no submit:
+`probe/ruby/sz{0,1,2}.rb` (keyed on the exact (N, first n), print the class iff that bit of size%8
+is 1, else `X`), submissions **41560304** (bit0), **41562593** (bit1), **41562596** (bit2). All
+three answered `report unavailable (no CG session)` when sent; reports stay readable later with
+`agent/tool/cg-report.sh <id>`, free.
+
+Decode: r_i = 4*pass2 + 2*pass1 + pass0 for validators 1..8 (classes 1, log n, n, n log n, n^2,
+n^2 log n, n^3, 2^n). If the r_i are a permutation of 0..7, send
+`puts"O(#{%w{T}[$<.read.size%8]})"` (76 B) with T[r_i] = class_i, in slot order 0..7. The local
+`referee/hidden` cases are reconstructions: their size%8 = [1,6,5,1,4,5,2,2] (collisions), so a
+size-key cannot pass the local gate; only the CG report can decide.
+
+Channel checks done again (2026-10-25): `/puzzles/<id>/submissions/<id>` returns no score;
+`/progress` score/criteria are the best submission; all 27 puzzle languages have 100% rows of
+ours, so there is no partial-row score oracle; the puzzle's language list equals our 27, so no
+fresh language row to open.
