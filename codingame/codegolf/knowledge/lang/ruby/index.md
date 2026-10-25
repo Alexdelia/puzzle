@@ -31,7 +31,8 @@
 - [gets-separator-read](gets-separator-read.md): `gets" "`/`gets("X")` reads through a String separator across lines (6 B cross-line prefix); `gets" ".sum` parses as `gets(32)`, wrap in parens
 - [backtick-shell-core](backtick-shell-core.md): `$><<` + backticks = 6 B over a dash shell command, awk `$1` needs no escape, missing final newline free; super-computer 48 CG 100%
 - [fallback-line-stat](fallback-line-stat.md): `p TABLE[line1-stat]||A+B/gets.hex`, nil/out-of-range fallback, 1-vs-huge integer-division selector, `p X||ternary` parse trap; super-computer 44 CG 100%
-- [sum-whole-stdin-mod](sum-whole-stdin-mod.md): `$<.read.sum` is bytes mod 2**16, 39 B 5-answer table shape, residue recovery needs per-validator reports
+- [sum-whole-stdin-mod](sum-whole-stdin-mod.md): `$<.read.sum` is bytes mod 2**16, `%7` table costs 35/37/39 B by slots, residue recovery needs per-validator reports
+- [whole-input-residue-probes](whole-input-residue-probes.md): stage 3 bit probes of a `stat%7` residue now, decode free from `cg-report.sh` when a session exists; longer partial probes never replace a 100 % row
 - [leading-number-hex](leading-number-hex.md): `$_.hex` 6 B leading-number accessor, base-16 (`10`->16), temperature ruby 46 CG 100%
 - [length-key-hardcode](length-key-hardcode.md): `p [values][gets.size KEY]` exploit table, 256-periodic key when L is only known mod 256, shift-form big values (`568620<<16`), byte accounting values+slots+14+KEY; the-resistance 62 CG 100%
 - [gated-second-line-key](gated-second-line-key.md): `n%m+(k/n)*gets.ord%j` uses line 2 only for n<k, `p[...]` table 2 B under `%w`, verified locally
