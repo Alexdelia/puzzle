@@ -347,7 +347,7 @@ stuck_cells() {
 
 gain_rows() {
 	[[ -s $state/events.log ]] || return 0
-	awk -F'\t' -v shown="$latest_gains_shown" '
+	awk -F'\t' -v shown="$latest_gains_shown" -v want_wrapped="$1" '
 		FILENAME ~ /wrapd\.log$/ {
 			if (match($0, /^[^ ]+ wrapd: ([^ ]+) ([^\t]+)\t[^\t]*\t([0-9]+) ([^:]+):[^ ]+ submitted$/, host))
 				wrapped[host[1] "\t" host[2] "\t" host[3]] = host[4]
@@ -368,6 +368,7 @@ gain_rows() {
 			}
 			if (source == "") source = wrapped[cell "\t" new_length]
 			last_length[cell] = new_length
+			if ((source != "") != want_wrapped) next
 			gain[++gains] = mktime(gensub(/[-T:Z]/, " ", "g", $1), 1) "\t" cell "\t" (previous == "" ? "-" : previous) "\t" new_length "\t" rank "\t" tie "\t" (source == "" ? "-" : source)
 		}
 		END { for (index_ = gains; index_ >= 1 && index_ > gains - shown; index_--) print gain[index_] }
@@ -384,7 +385,7 @@ rank_text() {
 
 latest_gains() {
 	local rows=() row at puzzle lang previous new_length rank tie top source puzzle_width=0 cell age label painted_puzzle painted_previous painted_top painted_rank wrap_text source_label
-	mapfile -t rows < <(gain_rows)
+	mapfile -t rows < <(gain_rows "$1")
 	((${#rows[@]})) || return 0
 	for row in "${rows[@]}"; do
 		IFS=$'\t' read -r at puzzle lang _ <<<"$row"
@@ -934,8 +935,12 @@ if [[ -n $cells ]]; then
 fi
 
 echo
-section "latest gains (previous -> new, first length, current rank)"
-latest_gains
+section "latest gains without wrap (previous -> new, first length, current rank)"
+latest_gains 0
+
+echo
+section "latest gains with wrap (previous -> new, first length, current rank, wrap source)"
+latest_gains 1
 
 echo
 section work
