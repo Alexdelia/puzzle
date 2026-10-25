@@ -150,3 +150,33 @@ Per validator, sources, probe kit: `puzzle/super-computer/referee/hidden/facts.m
   `$<.read(13).index" "` (19 B, invariant: V7 12, V8 7) still has V1=V3=V5=3.
 - so ruby 44 is the floor without CG per-validator data; a shorter row requires the broker
   session + the finish recipe above (5/6/7 slots = 35/37/39 B).
+
+## Ruby: no 39/40-43 without whole-input residues (re-proved 2026-10-25, journal cell.super-computer.ruby.1792931162719701815)
+
+- report broker re-checked 13:00Z: still `no CG session` (user must run `agent/tool/report-login.sh`); the six
+  staged bit probes (41561822, 41562676, 41562677 sum%7; 41562684-6 size%7) remain undecoded. Their
+  answer logic was re-verified locally on `hidden/01-08` (correct class answer iff the bit is set).
+- 39 with a two-read 5-slot table is now excluded exactly: 5-slot table is 18 B, so `p [T][K]` = 22+K,
+  hence K=17: exactly `A op B` with two 8-char reads (hex/sum/ord/oct) and one 1-char op. Exhaustive
+  128-combo search with V4 robust over J1=9..15 and V7 over all hex(J1)=0x875000..0x999999 finds no
+  key whose 8 class values are 5 distinct slots (scratch `keysearch.py`). `>>`/`<<` are 2-char ops
+  (K>=18), so they cannot make 39 either.
+- 40-43 (K<=21) die by precedence/span: the only cheap reducer of the 6-digit V7 hex field is a
+  shift (division/modulo needs a >=7-digit constant, K>=25). `>>` binds *lower* than + - * / %, so
+  `A+B>>23` = `(A+B)>>23`: it maps all smalls and V8 to 0 and V7 to 1 (2 classes). `>>` binds
+  *higher* than & | ^, so `A&B>>23` = `A&(B>>23)` with A a single 8-char line-1 read; none of
+  hex/sum/ord/oct maps V1=V6 and V2=V3=V4 while keeping V5 distinct, and `A|B>>23`/`A^B>>23` fail
+  the same equality (measured, scratch `twokey.py` search was cut by wall but these are all K<=21
+  shapes with a lone shift). So 44 stays the known-facts floor.
+- array-literal evaluation order trap (measured): `p [gets&&1,9,3,7991+83717/gets.hex][$_.hex%7/2]`
+  (47 B, scratch `c47a.rb`) is wrong on all 8: `T[K]` evaluates T first, and the BIG element's
+  `gets.hex` on line 2 overwrites `$_` before the index reads it, so `$_.hex` is J1, not N. Doing
+  the big read with `$<.read.hex` (does not set `$_`) shifts the cost to 50+ B, still worse than 44.
+- finish recipe (unchanged, now scripted): when the broker has a session, fetch the six reports
+  into a scratch dir
+  (`for id in 41561822 41562676 41562677 41562684 41562685 41562686; do agent/tool/cg-report.sh $id > $dir/$id.json; done`),
+  then run the builder `agent/state/journal/cell.super-computer.ruby.1792931162719701815.scratch/finish39.py <dir>`
+  (or the earlier `build_from_reports.py`); it checks each family is a function residue->answer,
+  searches 5/6/7 slots and shifts -9..9, writes `<dir>/final.rb` (35/37/39 B). Submit that file with
+  `agent/tool/oracle.sh $(cat <dir>/final.rb path) "<question>"`; local `--cg` rejects it (the
+  reconstruction residues differ), so it must go as a probe.
