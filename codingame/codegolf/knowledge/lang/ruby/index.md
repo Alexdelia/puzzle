@@ -41,3 +41,4 @@
 - [shebang-interpreter-fixed](shebang-interpreter-fixed.md): a Ruby cell always runs ruby, `#!perl`/`#!python3` are not honored (test game); `#!ruby -0p` slurp+print works; cross-language needs `exec`, verified
 - [io-getc](io-getc.md): no top-level `getc` (NameError); `$<.getc` reads one byte, `gets.sum/hex/oct` are cheaper line keys, verified Ruby 3.1.2
 - [gets-sets-persistent](gets-sets-persistent.md): plain `gets` also sets `$_` (no -n): one read feeds `$_.sum` + `$_.size`; one-read content-bit probes, +3 B vs `gets.size` keys
+- [f-regex-separator](f-regex-separator.md): `-F` sets `$;` to a Regexp (escapes, char classes, zero-width lookaround), verified forms and cost
