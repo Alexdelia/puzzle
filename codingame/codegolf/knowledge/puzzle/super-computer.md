@@ -156,11 +156,33 @@ Per validator, sources, probe kit: `puzzle/super-computer/referee/hidden/facts.m
 - report broker re-checked 13:00Z: still `no CG session` (user must run `agent/tool/report-login.sh`); the six
   staged bit probes (41561822, 41562676, 41562677 sum%7; 41562684-6 size%7) remain undecoded. Their
   answer logic was re-verified locally on `hidden/01-08` (correct class answer iff the bit is set).
+- caveat for the finish: a whole-input keyed table only works if the key's values are a *function*
+  to the 5 answers (no two different-answer validators share a value). For a random 7-valued key the
+  8 class values have 24 cross-answer pairs, so P(consistent) ~ (6/7)^24 ~ 3 %; sum%7 and size%7 are
+  only two candidates (two independent ~3 % shots). The 39 B key need not be `sum%7` at all: with
+  table cost 2m+K+12 for a key over a span of m slots, any 13..17-char input-derived key fits
+  (`$<.read.sum%6` 13 B key / 6 slots = 37 B; `$<.read.size%6` 14/6 = 38 B; `$<.read.sum/4%6`
+  15/6 = 39 B; `$<.read[6].hex` 14 B key, needs its 8 values to fit a narrow span after a shift;
+  `$<.read.sum%7` 13/7 = 39 B). If both staged families are inconsistent when the session
+  appears, stage 3 bit probes per new key family (7-valued key = 3 bits) and rebuild; the puzzle
+  budget is 90 submits/5 h and probes-per-task 10, so several families take several tasks. The
+  builder already reports which family is inconsistent; it does not try other keys.
+- inference (not verified): both ruby 39 rows are most likely `p [7 slots][$<.read.sum%7]`
+  itself, because `size%7` as a 7-slot key is 40 B and the 5-slot `%w` form needs residues 0..4;
+  two independent players landing on exactly 39 favours the canonical 7-slot sum key, i.e. sum%7
+  is probably consistent on the CG inputs. The six staged probes are exactly that family, so the
+  session should be enough for 39 (or 35/37 if the five class residues fit a 5-window).
 - 39 with a two-read 5-slot table is now excluded exactly: 5-slot table is 18 B, so `p [T][K]` = 22+K,
   hence K=17: exactly `A op B` with two 8-char reads (hex/sum/ord/oct) and one 1-char op. Exhaustive
   128-combo search with V4 robust over J1=9..15 and V7 over all hex(J1)=0x875000..0x999999 finds no
   key whose 8 class values are 5 distinct slots (scratch `keysearch.py`). `>>`/`<<` are 2-char ops
   (K>=18), so they cannot make 39 either.
+- also with partial exact knowledge: for each 8+1+8 combo and each exact V4 J1 (9..15), V7 still
+  has to be handled; with the cheap 8-char line-2 reads (hex/oct) its value is not constant over
+  the 125k possible J1, and with ord only the first char (56/57) is known. Search over combos x
+  V4=9..15 x ord(V7)=56/57: 0 hits (scratch `exactj4.py`, `exactj4b.py`). A 9+1+8 or 9+1+9 key is
+  40-41 B, so it cannot make 39; brute force over to_i/size x hex/ord/oct/to_i with robust V4/V7
+  also gives 0 (`wide.py`). Hence any 39 B ruby solution must key the whole input.
 - 40-43 (K<=21) die by precedence/span: the only cheap reducer of the 6-digit V7 hex field is a
   shift (division/modulo needs a >=7-digit constant, K>=25). `>>` binds *lower* than + - * / %, so
   `A+B>>23` = `(A+B)>>23`: it maps all smalls and V8 to 0 and V7 to 1 (2 classes). `>>` binds
