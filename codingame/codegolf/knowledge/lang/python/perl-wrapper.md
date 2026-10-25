@@ -6,3 +6,4 @@
 - Python literal choice: `"..."` escapes `\ " newline`, `'...'` escapes `\ ' newline`, `r"..."` saves every doubled backslash when the text has no `"`/newline and does not end in `\`, `"""..."""` keeps newlines raw (1 char instead of `\n`) for 4 extra quote chars
 - CG Python3 box (2026-10-22, temperature-code-golf testcase 1 from `os.system`): `lua` and `php` on PATH (`lua -e`, `php -r` succeed), `ruby` missing (`sh: 1: ruby: not found`)
 - Generators: `agent/wrap/python/` emits all forms, `wrap.sh` keeps the shortest passing one
+- Core has `"` but no `'`: the shell needs single quotes, so put the Python literal in single quotes and escape only the two shell quotes: `import os;os.system('perl -E\'<core>\'')` = core+34, 2 under a triple-quoted literal or a double-quoted one with every perl `"` escaped. `-E` costs the same as `-e` and enables `say`, which removes literal newlines from the embedded core (shadows-of-the-knight-episode-2 219, CG 100%).
