@@ -316,3 +316,16 @@ Ours, CG 100 % at **57 bytes** (probe 41563668, then committed, row 57 @100, tie
   6 s; it drops to the probe's length within ~20-40 s on a 100 % hit. The leaderboard row can lag
   ~4 min, and `submit.sh --probe`'s miss path waits 210 s. Fast loop: `submit.sh --no-wait --probe`
   (set `CG_PROBE_QUESTION`) then poll progress, then resolve the probes.tsv pending row by hand.
+
+## 2026-10-25 (perl cell 1792924135362979938): perl 65 B, second independent CG confirmation of the corrected H map
+
+Perl's `**` is NV (inexact above 2**53), so the ruby 57 B `gets.size**8/62%9` key **cannot** be ported:
+`(length<>)**8/62%9` at 62 B fails hidden 09/10 (prints 1 / 8). An exact-integer 256-periodic chain
+(`length<>` = L+1) plus a 7-slot table with the three H=1 answers falling out of range (a `//1` default)
+scored **CG 100 % at 65 B** (submission 41563998, row 65, rank #2 tie #1). This is the second language
+after ruby to confirm the corrected H map and the L-mod-256 key class. Trick details in
+`knowledge/lang/perl/pow-nv-precision.md` and `int-key-table-default.md`.
+The periodic-integer key family was searched (C BFS over 256-periodic starts `%b` b|256, `*a%b` b|256a,
+`/a%b`, `(+a)%b`, `(-a)%b`, `&2^k-1`, then chains of `* / %` with consts <= 999 and a 10-op grammar
+`* / % + - << >> & | ^` with consts <= 128, all with real char costs): no <=64 B key exists for the
+7/8/9/10-slot partitions, so 65 is the floor there; 57 would need a key on another feature.
