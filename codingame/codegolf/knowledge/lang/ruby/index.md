@@ -43,3 +43,4 @@
 - [gets-sets-persistent](gets-sets-persistent.md): plain `gets` also sets `$_` (no -n): one read feeds `$_.sum` + `$_.size`; one-read content-bit probes, +3 B vs `gets.size` keys
 - [f-regex-separator](f-regex-separator.md): `-F` sets `$;` to a Regexp (escapes, char classes, zero-width lookaround), verified forms and cost
 - [dump-plan-tail-letter](dump-plan-tail-letter.md): `puts [h="?ENW"[(i=gets.sum%98)%4]]*i+[?S+h]*i` = one variable drives both array repeats, inline `h=` in the first element, tail token `?S+h` (SE/SW; N class never reads it); key value = count (1 B under any constant per repeat), -7 B on power-of-thor ruby (45 CG 100%)
+- [exec-bash-core](exec-bash-core.md): `exec"bash -c 'CORE'"` = 16+core, space after -c mandatory, Ruby has no `$|`; php/python/lua/groovy/ocaml bash-core wrapper lengths, verified CG
