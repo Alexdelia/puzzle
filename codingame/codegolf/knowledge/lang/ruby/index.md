@@ -32,3 +32,5 @@
 - [fallback-line-stat](fallback-line-stat.md): `p TABLE[line1-stat]||A+B/gets.hex`, nil/out-of-range fallback, 1-vs-huge integer-division selector, `p X||ternary` parse trap; super-computer 44 CG 100%
 - [sum-whole-stdin-mod](sum-whole-stdin-mod.md): `$<.read.sum` is bytes mod 2**16, 39 B 5-answer table shape, residue recovery needs per-validator reports
 - [leading-number-hex](leading-number-hex.md): `$_.hex` 6 B leading-number accessor, base-16 (`10`->16), temperature ruby 46 CG 100%
+- [length-key-hardcode](length-key-hardcode.md): `p [values][gets.size KEY]` exploit table, 256-periodic key when L is only known mod 256, shift-form big values (`568620<<16`), byte accounting values+slots+14+KEY; the-resistance 62 CG 100%
+- [gated-second-line-key](gated-second-line-key.md): `n%m+(k/n)*gets.ord%j` uses line 2 only for n<k, `p[...]` table 2 B under `%w`, verified locally
