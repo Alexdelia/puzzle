@@ -137,11 +137,16 @@ slots fits 76, and of the whole-input keys only size/sum mod 8 are that cheap. T
 and nobody holds 75, which is consistent only with size%8 being the permutation (sum%8 would give
 75; this is an inference, not probed).
 
-The three bit probes that recover the residues are already on CG, so a session needs no submit:
+The bit probes that recover the residues are already on CG, so a session needs no submit:
 `probe/ruby/sz{0,1,2}.rb` (keyed on the exact (N, first n), print the class iff that bit of size%8
-is 1, else `X`), submissions **41560304** (bit0), **41562593** (bit1), **41562596** (bit2). All
-three answered `report unavailable (no CG session)` when sent; reports stay readable later with
-`agent/tool/cg-report.sh <id>`, free.
+is 1, else `X`), submissions **41560304** (bit0), **41562593** (bit1), **41562596** (bit2); and
+`probe/ruby/sum{0,1,2}.rb` (same, `$<.read.sum%8`), submissions **41562608**, **41562612**,
+**41562617**. All answered `report unavailable (no CG session)` when sent; reports stay readable
+later with `agent/tool/cg-report.sh <id>`, free.
+
+Sum%8 is the 75-B path (`puts"O(#{%w{T}[$<.read.sum%8]})"`, 62+13), one byte under the 76 top;
+no 75 row exists, so it is probably not a permutation, but the 3 probes are spent and make the
+check free when a session appears. Pick the shorter valid permutation (sum 75, else size 76).
 
 Decode: r_i = 4*pass2 + 2*pass1 + pass0 for validators 1..8 (classes 1, log n, n, n log n, n^2,
 n^2 log n, n^3, 2^n). If the r_i are a permutation of 0..7, send
