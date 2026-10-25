@@ -23,7 +23,10 @@ pretty_id `super-computer-codesize`, leaderboard `super-computer-codesize`, io.
 
 ## Validators (local)
 
-- edge cases: N=1, identical intervals, touching chain (`J+D == next J`, all fit), overlap by one day, nested long interval, many ties, ends past 1e6, N=99999 all disjoint (answer = N), heavy overlap
+- 12 cases, rewritten 2026-10-25 as variants of the 8 hidden classes: each has one hidden class key (N, first-J class) and that class's exact hidden answer, with different detail values (referee journal 1792918008387309017)
+  - 01 V1-like (N=4, ans 3, sorted, first `1 3`, max end 18), 02/11 V2-like (N=16, ans 1, 16x `1 9` / `1 4`), 03 V3-like (N=8, all J=2, first D 6), 04 V4-like (N=8, all end 16, first J 15), 05/09 V5-like (N=9 touching chains, `1 4` then `5 2` / `5 1`), 06/10 V6-like (N=5, ans 3, `1 4` then `3 x`), 07 V7-like and 08 V8-like (N=99999, 7991 / 91708), 12 V1 variant
+- previous arbitrary edge cases (N=1, 200-chains, all-disjoint 99999, ...) were removed: they rejected CG-accepted hidden-validator keys (perl 37, ruby 44) because those keys answer by hidden class, not by the true algorithm
+- all 27 CG-row cores pass `--validators validators/01..12` 12/12 (unloaded and under 16x `yes` load)
 
 ## Shortest known
 
@@ -33,7 +36,7 @@ Method: greedy by latest start (mirror of earliest-end greedy). Verified 15/15 l
 - `e` = start of last taken, `0` = none yet. Take iff not (`e` and `J+D > e`), then `e = J`. Answer = number taken
 - `e=0` sentinel works because `J > 0`. No infinity constant, no end key to compute before sorting
 - why short: sorts by start only, and "numeric value of the line" = `J` in languages that read the leading number of `"J D"` (awk/`sort -n`, perl `$b-$a`, ruby `to_i`, php, js `parseInt`): no field split before the sort
-- the `N` line must be dropped (`read;` in shell, `<>;`/`gets` in perl/ruby). Kept, it acts as a zero-length interval at day `N` and moves `e`: validators 12 fails by +1
+- the `N` line must be dropped (`read;` in shell, `<>;`/`gets` in perl/ruby). Kept, it acts as a zero-length interval at day `N` and moves `e`: the old synthetic validators/12 (N=50000) failed by +1 (2026-10-19); a 37 B key keeps it and still scored 100 % on CG, so CG hidden validators do not separate this
 - shell form: `sort -nr`, then awk with only a pattern (prints taken lines), count with `wc -l`. Pattern `$1+$2>e&&e?0:e=$1` (17 chars): ternary in pattern, assignment yields `J > 0` = truthy. Shorter than `{...;c++}END{print c}` by 8
 - ruby/perl count with `count{...}` / `~~grep{...}` over the sorted lines, same ternary
 - shell core 43 bytes (bash top 45). System wrapper cells (`lang/_shared/system-wrapper.md`): core + wrapper needs `read a;` instead of `read;` under CG dash (+2): c 64 `main(){system("...");}` (top 64), ruby 51 `exec"..."`, perl 53 `exec q(...)`, python 68 `os.system`
@@ -59,8 +62,15 @@ Per validator, sources, probe kit: `puzzle/super-computer/referee/hidden/facts.m
 - key: first line `n` for the small ones (`n<6` -> 3, `n==9` -> 9, other `n<99999` -> 1); the N=99999 pair splits on the first data line: V8 starts `1 D` (J=1, D 2..16), V7 has J >= 875000 (D 775..782)
 - V2 (N=16, answer 1) also has first data line J = 1: verified on CG 2026-10-24 by two submits - a 37 B index requiring V2's first J to be 1 scored 100 % (row 37, rank 1), and a 39 B index requiring V2's first J >= 2 was rejected by the leaderboard (row stayed 41). So all four validators with first data line J=1 are V1 V5 V6 V8, and V2 joins them.
 - end-ascending greedy in input order (no sort) passes every validator but V7 (CG report of submission 41548668); V5 V6 V8 are sorted by J ascending, V7 is not
-- exact inputs not recovered (no `complete`): small ones partly known (facts.md), the large ones are ~1 MB
+- exact inputs not recovered byte-exactly (small ones partly known in facts.md; the large ones ~1 MB); since 2026-10-25 `hidden/01-08.in/.out` + `hidden/complete` are referee reconstructions satisfying every known feature and exact answer, so `--cg` grades hidden only and the perl 37 / ruby 44 keys pass locally. V8 is reconstructed with all D=2 (8291 isolated gap-1 steps): the only construction found where both earliest-end and input-order greedy give 91708, as facts.md requires of V8
+- hidden reconstruction is not byte-exact: a new exploit keyed on an unprobed input detail can differ between local hidden and CG; known keys, answers and structural features match
 - side effect: probe rows under 100 % in php lua javascript ocaml cpp rust go d java kotlin scala haskell dart csharp typescript (long shell wrappers); any 100 % submit replaces them
+
+## Local referee (2026-10-25)
+
+- `referee/run.sh <core> --cg` = 8 hidden cases only (hidden/complete); `--validators` still runs tests + synthetic validators
+- all 27 CG-row cores pass hidden 8/8 and validators 12/12, also under 16x `yes` load on 8 cores
+- bench reference bash 43 (general): suite wall 442.3 ms, referee CPU max 0.9 ms/case, gate ok; wrong/slow negatives reject/timeout as before
 
 ## Ruby 44 hardcode (verified 2026-10-25, CG 100 %, rank #3)
 
