@@ -117,3 +117,13 @@ Parity-biased reflection: jump `q=(l+h|1)-o` so `s=o+q` is odd (half-integer thr
 - costs ~1-3 jumps per run (lost SAME terminations) vs the exact 3-way update. Exact sim on the recovered ranges: V7 1-2% and V8 7.4-8% budget fail (V6 0/13), yet CG accepted it 100% on the live hidden bombs (probe 2026-10-24, 200 B, rank 1). So the parity method is a legitimate shorter general method here, tight-budget validators included
 
 Transfer: any language whose bisection bisects a 1D interval from a movable position can drop the equality case by forcing an odd `sum` and picking the bound with a computed flag (no 3-way ternary). Verified correctness exhaustive (W,H<=9, every start/bomb, 0 wrong).
+
+## ruby 215 (2026-10-25, rank 1, CG 100% verified)
+
+Native parity core (no wrapper): the perl 200 method with the out-of-range rule *also* forced odd (`t+q`), i.e. no SAME branch and no q==p fix anywhere. Local referee `--cg` 46/46, including the synthetic edge-bomb validators (1000x1000 bomb (3,1), 8000x8000 near-corner bombs) that fail the safe (even-threshold) parity core on jump budget. CG accepted 215 (submissions 41561819 at 217 and the 215 follow-up, both 100%; 220 also 100%).
+
+- edge rule without ternary: `q=t+s-s*q[63]>>1` (`Integer#[]` sign bit picks `t` for q<0, `t+s` else), then set q's low bit to `(t+1)&1`: `q=...>>1|1^t&1` so `t+q` is always odd; folds the parity correction into the edge branch, no separate `q^=` line
+- bounds live in the size array: after each axis `z[i]=l`, final `puts z*" "`; the position array `a` keeps the last jumped x through the y phase so its first y jump stays a pure 1D comparison (the no-x-final-jump trick only works if x is NOT overwritten with lx)
+- response xor direction: `q<t!=$_>?W` (`!=` on booleans; `^` binds below `<`, so `$_>?W^q<t` is wrong). Put `$_>?W` last: a char literal needs no space before `?` ternary
+- update with c=t+q inline (no c variable): `l=t+q+1>>1:h=t+q>>1`
+- `(0..3).map` is 1 B under `4.times.map`
