@@ -749,3 +749,32 @@ Row stays 45. New verified results (scratch `searchA.py`, simulator `sim.py`):
   sandbox; a +2 PID delta makes V1=V3 and V2=V4, unsatisfiable). `rand 4` version of the
   same table = 44 B, p = 1/256; biased 3-plan farm (E31+S14 for V1+V3, N, W) p = 1/64 needs
   >=56 B; 3-plan uniform p=1/81 needs >=53 B. So no <=44 random program with useful p.
+
+## 2026-10-25 bash cell (1792958180603506560): 46 is not in the deterministic per-turn space
+
+Row stays 51 (`perl -nE$'...'`), hidden 4/4 re-verified. New measured/derived facts:
+
+- **Bash runner (2026-10-25)** runs as PID 1, no testcase id, and CG `/tmp` is a persistent
+  shared dir; test-game details in `knowledge/lang/_shared/test-game-sandbox.md`.
+- **A 10-byte no-`$'` phase would make the bash row 50** (plain `perl -nE'...'` wrapper:
+  total 40+P). Exhaustive value-vector search (`ph2.py`: `$_`,`$.`,`$``, digits 0..99,
+  `+ - * / %`, cost<=11, truthiness and one-sided comparisons) found **no** phase with the
+  required counts (V1 0, V2 0, V3 14, V4 17) including the k=1 init-line iteration. The
+  existing `ps.c` hits at 9-13 B all use `$'` (`$'>-$.%34`, `5*$_%$'>8`, `$'>8+$.%26`).
+  The existing 51 is therefore the floor of this wrapper family; 50/49 needs a 10/9-byte
+  quote-free phase that does not exist in the searched grammar.
+- **Pure-bash native floor stays 58** (`read a b c d; s=WEN; H=${s:a%3:1};
+  yes S$H|sed $[b-d]q; yes $H`) after trying `read -a`, `head -c/$[3*(b-d)]`, `seq -f...%.0s`,
+  brace-expansion/eval, H-first plans and energy-count formulas. The H-first shape needs
+  `P=|dx|-dy` (21/13/17/19); the S+H shape needs `r=lightY-thorY`, which is `$[b-d]`.
+- **The 46 row is very likely a system-wrapper farm, not a deterministic bash golf.**
+  sffsefsdfaf's rows: Bash 46, Python3 63, C 65, C++ 84 (2026-06-12/13), Perl 42, Ruby 42
+  (2026-07/08). C 65 is *exactly* 15 + 46 + 4 = `main(){system("<the 46-byte shell
+  command>");}`. Perl/Ruby 42 are the documented `$$`-keyed random plan-table size
+  (`puts [h="EWEN"[k=$$%4]]*(17+k*2)+[?S+h]*17`), and the 2026-10 Ruby PID-farm probes all
+  failed because the runner now gives every validator PID 1. A bash port of that linear farm
+  table is >=60 B (>=46 only with a counter/state channel), so even a lucky 100% farm probe
+  could not replace the 51 B row.
+- Unverified leftovers: whether validator containers (as opposed to test-game ones) expose any
+  differing env/argv/file channel; whether a wall-clock (`$EPOCHSECONDS`) cycle with the 4
+  plans in the linear Ruby-family shape is reachable under 46 B (byte count says no: ~61 B).
