@@ -2,6 +2,10 @@
 
 pretty_id `power-of-thor`, leaderboard `thor-codesize`, interactive.
 
+**READ FIRST:** the "stale char-counted top" sections (2026-10-25 tasks, below) are WRONG.
+CG switched code-golf scoring to bytes on **2023-03-29** and recomputed the leaderboards, so
+the top 42 is a real byte count. See the CORRECTION section at the end of this file.
+
 ## Rules (as referee)
 
 - map 40x18, init line `lightX lightY thorX thorY`, each turn input `remainingTurns` (= energy)
@@ -564,3 +568,37 @@ Ruby floor re-verified 2026-10-25, so the 42 is outside the known output shapes:
 - general plan (for other languages): with dx=lightX-thorX, dy=lightY-thorY, head letter
   `"NEW"[dx<=>0]` (index -1 wraps to W), head count |dx|-dy, tail count |dy| wins all four
   (V1 21/0, V2 13/13, V3 17/14, V4 19/17); parsing the 4 ints costs 26 B, so not 42.
+
+## Perl 2026-10-25 (task 1792933792452282881): 42/47 are real byte rows; 51 is the deterministic floor found
+
+Live API (`Leaderboards/getFilteredPuzzleLeaderboard`, column language, filter Perl), all score
+100: 42 LolCat 2022-03-11, 42 sffsefsdfaf **2026-07-30**, 46 d-s-x 2021-12, 47 NukePwr
+**2026-10-16**, 51 us 2026-10-25, 53 Icebox **2026-10-01**, 53 pardouin, 56 saito_ta 2023-06.
+The 2026 rows are post-byte-switch, so 42- and 47-byte Perl programs that pass these exact
+4 validators exist. Plopx 43 (2015, score 0.0) shows CG lists each player's shortest submission
+with *its own* score, so score-100 rows are genuinely 100% (the leaderboard never mixes a
+short failing length with an older 100 score).
+
+Cross-language byte-era tops (same API, score 100): Python3 52 LolCat 2023-08-13, PHP 55 LolCat
+2023-08-10, Bash 46 sffsefsdfaf 2026-06-12, C 65 sffsefsdfaf 2026-06-13, JS 57 Rohydre
+2023-07-25. All are far below any general method and come from a handful of players in
+2023-07/08 or 2026 - consistent with the documented **random-hardcode farming** (forum 687
+#163: Ruby 55-char program picking 1 of 4 plans, p=1/256, scored 100 after ~220 submissions;
+#193-194, #203-211, #219: tops are "random and/or hardcoded").
+
+Perl floor (this task, all local, `$CG_PERL` 5.34.0, hidden 4/4 where passing):
+- current 51 B `/ /,$|=print"S"x($'>-$.%34).(W,E,N)[$`%3],$/while<>` is 42 fixed
+  (`/ /,` 4 + `$|=print` 8 + `"S"x(` 5 + `)` 1 + `.` 1 + letter 13 + `,$/` 3 + `while<>` 7)
+  + 9 B phase. Phase counts needed: V1 0/21 turns, V2 0/13, V3 exactly 14/31, V4 exactly 17/36
+  (any order wins; the S+H shape pins V3 14 SE and V4 17 SW exactly, since x=31 / x=36 are
+  reached only at those counts).
+- `-p`/`-l` shebang variants cost more and `-p` does **not** autoflush (`#!perl -pl` + body
+  47 B times out turn 1 4/4 locally); `#!perl -nl` is 54 B; 5-list threshold plan 56 B;
+  all-at-once print floor >=53 B even with the free `L|19` count and `$'` tail; stderr is not
+  judged, so `warn` (would save exactly 4 -> 47) does not work.
+- random variants are not shorter: randomizing only the class letter is still 51 B (p=1/81,
+  row would not improve), a random 3-plan dump is >=55 B, randomizing the phase needs a Y gate
+  (`$'>8&rand>.5` 12 B > the 9 B deterministic phase).
+- Conclusion: no <=50 B deterministic or random Perl form found; 42/47 are most plausibly farmed
+  submissions (or an exploit outside the per-turn plan space). A future worker with submit budget
+  could only attack this by farming, not by a deterministic golf.
