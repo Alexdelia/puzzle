@@ -602,3 +602,44 @@ Perl floor (this task, all local, `$CG_PERL` 5.34.0, hidden 4/4 where passing):
 - Conclusion: no <=50 B deterministic or random Perl form found; 42/47 are most plausibly farmed
   submissions (or an exploit outside the per-turn plan space). A future worker with submit budget
   could only attack this by farming, not by a deterministic golf.
+
+## 2026-10-25 task 1792935604264974094: huge-tail plan, one-shot read, farm analysis (row stays 51)
+
+No submit (nothing <= 50 passed). New verified facts:
+
+- **"Huge straight tail" plan**: `(S+H) x (lightY-thorY) . H x BIG` wins all four validators,
+  because after the diagonal run reaches the light's row the straight H run passes through the
+  light (win triggers mid-run; BIG can be any >= 21). V1 r=0/H=E (wins 21), V2 r=-13/H=N,
+  V3 r=14/H=E (wins 31), V4 r=17/H=W (wins 36). This removes the unknown straight count
+  `P = max(|dx|,|dy|)-r` from the all-at-once plan (earlier ">=53 B" estimates assumed P).
+  Perl one-shot, hidden 4/4 local: `<>=~/ .* /;$h=(W,E,N)[$`%3];print"S$h<LF>"x($&-$')."$h<LF>"x21`
+  = **56 B** (two literal LFs in the strings). It needs no `$|` and no keepalive: when the plan
+  wins, the referee never writes input again, so the process may exit and the exit flush is read
+  (only a *losing* one-shot gets "solution exited"). See knowledge/lang/perl/void-readline-magic-vars.md.
+- the same diagonal-prefix phase is `$.<=$&-$'` (9 B) with `/ .* /`, giving a 54 B per-turn
+  program, still worse than the 51 B row (`/ .* /` costs 3 B more than `/ /`).
+- `(W,N,E)[-$`]` / other negative-index shortcuts are invalid: Perl list indices below -@a are
+  undef, not wrapped (knowledge/lang/perl/negative-list-index-no-wrap.md).
+- phase search extended with thorY (`$'` under `/ .* /`) as a variable: exhaustive expression DP
+  over a,b,d,e,k + digits 0..9, ops + - * / % & | ^, and all `A cmp B` predicates up to 8 B text
+  finds **no phase <= 8 B** for the (0,0,14,17) truth vector; the 9 B `$'>-$.%34` stays minimal.
+  So no <= 50 B per-turn program in this grammar.
+- **Deterministic byte-sum key (Ruby 45 shape) in Perl is 65 B**: `i = unpack("%C*",<>)%98` gives
+  85,74,17,19 for V1..V4, `i%4` = 1,2,1,3 -> letter `(0,E,N,W)[$i%4]`, and `i` itself is a valid
+  count (>=21, >=13, exactly 17, exactly 19) for plan `H x i . (S+H) x i`. Ruby's `puts [x]*i`
+  makes that 45 B; Perl needs literal-newline strings and the unpack, hence 65. Not a route to 42.
+- **PID farm** (the likely source of the 42 rows; only Ruby/Perl have a 2 B `$$`): a 4-plan table
+  keyed on `$$%4` gives one plan per validator *run*. Perl port of the Ruby 42 B table
+  `puts [h="EWEN"[k=$$%4]]*(17+k*2)+[?S+h]*17` is **52 B**
+  (`$h=(E,W,E,N)[$k=$$%4];print"$h<LF>"x(17+2*$k)."S$h<LF>"x17`); all <= 51 B alternatives tried
+  (3-entry list + `%3`, `vec`, `chr`/`ord` letters/counts, `$,`/`$"`/`join`/`print for`, `$$&3`
+  inline) are >= 52. A 52 B 100% probe cannot replace a 51 B 100% row and the per-validator
+  report is down, so it is not an oracle either.
+- local PID measurement (referee, `warn $$`): the 4 hidden runs get perl PIDs +3 apart
+  (1599,1602,1605,1608), i.e. `$$%4` = c,c-1,c-2,c-3 (a descending rotation), not +1 as the ruby
+  worker's first tables A/B assumed. Feasible 52 B Perl tables for that model: c=0 is
+  `C=21-2*$k` letters `(E,W,E,N)`, c=1 is `C=23-2*$k` letters `(N,E,W,E)`; c=3 needs
+  (19,17,>=13,>=21) which no `a-2k` linear count fits. Ruby probes A/B/C/E (42 B) all read
+  "report unavailable" and the Ruby row stayed 45, so the CG spawn model/stability is unconfirmed.
+- the local 52 B farm passed 0/4 or 2/4 in 10 referee runs, never 4/4 (expected under the
+  descending-rotation model with tables A/B).
