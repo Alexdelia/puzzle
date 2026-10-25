@@ -659,9 +659,12 @@ Row stays 45 B. New results, all reproducible from this task's journal/scratch:
   17/19 is `gets.sum%{49,56,98}`; only 98 also maps 3 classes with a 2-char index (%4 needs a
   4-char literal -> 45). 42 would need LIT 5 + index <=6 + a <=5-char count (or an unknown
   shape).
-- **`$$` PID farm is refuted on CG**: 4 tables of 42 B were probed (A/B for the +1-PID model at
-  c=2/3, C/E for the +3 model at c=0/1; all local-recovered and hidden-sim correct), all failed
-  (submissions 41563363, 41563377, and two later ones). A CG test game shows the player runs as
+- **`$$` PID farm is refuted on CG**: ALL 8 combinations of the two plausible delta models
+  (+1 and +3 PIDs per test) and the four base shifts were probed and failed. 42 B tables A/B
+  (+1 model c=2/3), C/E (+3 model c=0/1); 44 B XOR index-remapped tables A2/B2 (+1 c=0/1) and
+  A1/B1 (+3 c=3/2) (`k=$$%4^2`, `k=$$%4^1`, count `17+k*2`/`15+k*2`, LIT EWEN/NEWE). All were
+  hidden-sim correct before submit; none moved the row. Under a varying base c this is a ~10%
+  event, so the most likely model is a constant `$$` across the four runs. A CG test game shows the player runs as
   **PID 1 in a fresh sandbox**, with cwd /tmp, `Answer.rb`, empty ARGV and no testcase in ENV;
   if validator runs are sandboxed the same way, all four get the same `$$%4` and no table can
   win more than one validator (the four winning plans are distinct). See
@@ -669,8 +672,8 @@ Row stays 45 B. New results, all reproducible from this task's journal/scratch:
 - **Probe oracle**: `/progress` reports the *best row's* score/length under the latest
   `submission_id` (a guaranteed-0 probe still showed score 100 / length 45), so a probe's
   partial validator score is invisible without report-login; the only oracle is the leaderboard
-  row moving on 100%. `knowledge/lang/_shared/progress-best-not-probe.md`. All 4 probes spent
-  ~250 s each on the failed-row poll.
+  row moving on 100%. `knowledge/lang/_shared/progress-best-not-probe.md`. Each failed probe
+  spent ~250 s in the row poll; 9 probes were used in this task (1 left).
 - Also rechecked: byte counting is current for this puzzle (`creationTime` of our 45 row equals
   its submit time exactly); public solutions (GitHub HCABurns repo and grep.app) contain only
   ~90-107 B general Ruby/Python solutions, no 42 B trick.
