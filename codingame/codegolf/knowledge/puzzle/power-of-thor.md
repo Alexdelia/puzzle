@@ -718,3 +718,34 @@ New plan family searched this run (all local, hidden 4/4 not applicable because 
   (56 B), `exec$^X,-E` and `exec ruby` (inner core would need <=28/<=25 B) families.
   Untried: a bespoke F(a,b,k) of 9..12 B for a 5-slot list (only B op P shapes tested),
   and CG-only validator-runner differences (reports unavailable, blind probes only).
+
+## 2026-10-25 (task 1792939133989218495): template A floor 45 confirmed exhaustively; `%-4` tie; farm sizes
+
+Row stays 45. New verified results (scratch `searchA.py`, simulator `sim.py`):
+
+- **Exhaustive template-A search** `puts [h=LIT[IDX]]*C+[?S+h]*D`, cost 20+|LIT|+|IDX|+|C|+|D|,
+  with `IDX=(i=KEY)op`: all 6 base reads x 8 ops x consts 0..600 (16.9k distinct value
+  tuples), all index ops `op+k` (k 0..99) and `%c%d`, all count expressions
+  `i | const | i op k` (parens charged): **floor 45**. Only `gets.sum%98` with `%4`/`&3`.
+  46s: `gets.sum %3 + i%49/56/98/i&51`, `gets.sum%49 %5`, `gets.sum%56 /9`,
+  `gets.sum%98 %4%3`, `%9%4`, `&35`, `gets.sum&51 %5`, `gets.sum&83 %5`, `&83 %6%5`.
+- Masks giving 17/19 at V3/V4: `gets.sum&m` only for m in {51,55,83} (19/23/87 give V1=19);
+  all 2-digit -> 11-char keys, best 46 (`&83 %5` needs a 5-char literal). `gets.sum^392` =
+  243,248,17,19 works but 12-char key -> 48.
+- **44 is impossible in this shape**: it needs a <=10-char key with V3=17,V4=19 (checked:
+  no base+2-char-op key gives 17/19), or a 2-char index into a 3-char literal on an 11-char
+  key (no 2-char op on any valid key tuple gives a 3-slot index).
+- New 45 tie (hidden 4/4): `puts [h="ENW"[(i=gets.sum%98)%-4]]*i+[?S+h]*i` (Ruby `%-4` =
+  -3,-2,-3,-1 -> 3-char literal, 3-char tail, net 0). New valid 46:
+  `puts [h="NEW"[(i=gets.sum&51)/3&3]]*i+[?S+h]*i` (`/3&3` = 1,0,1,2).
+- `String#sum(n)` family: `(gets.sum(6)-8)` = 51,40,17,19 and `(gets.sum(7)-8)` =
+  115,104,17,19 are valid count vectors, but 13 B keys -> >=47. See
+  `knowledge/lang/ruby/sum-n-checksum.md`.
+- **Per-line phase identity** (new but the 45 is its optimal encoding): the plan equals
+  "print `S`+H iff turn k >= i" with i = 85,74,17,19; the golfed loop
+  `i=gets.sum%98;h="?ENW"[i%4];36.times{|k|puts(k<i ?"":?S)+h}` is 60 B, and the two-run
+  dump is exactly the cheapest encoding of that phase.
+- **Farm sizes measured**: `$$`-table (42 B) is dead (CG runs the player as PID 1 in a fresh
+  sandbox; a +2 PID delta makes V1=V3 and V2=V4, unsatisfiable). `rand 4` version of the
+  same table = 44 B, p = 1/256; biased 3-plan farm (E31+S14 for V1+V3, N, W) p = 1/64 needs
+  >=56 B; 3-plan uniform p=1/81 needs >=53 B. So no <=44 random program with useful p.
