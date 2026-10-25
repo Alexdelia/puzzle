@@ -1,0 +1,1 @@
+for c in b')*+ "<JWV -7 4BjjPi'.split()[ord(input()[-1])%5&3]+b''*99:print(c%13,c//13,c&32and'LEFT'or'RIGHT')
