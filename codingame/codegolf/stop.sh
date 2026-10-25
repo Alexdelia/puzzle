@@ -4,6 +4,17 @@ cd "$(dirname "$0")"
 source agent/tool/lib.sh
 shopt -s nullglob
 
+usage="usage: stop.sh [--wrap] [--now]; default: no new task nor wrap run starts, running ones finish; --wrap: wrap generator only, workers untouched; --now: kill instead of letting them finish"
+now=
+wrap_only=
+for argument in "$@"; do
+	case $argument in
+	--now) now=1 ;;
+	--wrap) wrap_only=1 ;;
+	*) echo "$usage" >&2 && exit 2 ;;
+	esac
+done
+
 kill_session() {
 	local session
 	[[ $1 =~ ^[0-9]+$ ]] || return 0
@@ -15,9 +26,23 @@ kill_session() {
 	true
 }
 
+if [[ -n $wrap_only ]]; then
+	touch "$state/STOP_WRAP"
+	event "stop $*"
+	if [[ -z $now ]]; then
+		echo "stop.sh: wrap generator starts no new run; running ones finish (./stop.sh --wrap --now kills them), workers untouched"
+		exit 0
+	fi
+	for session in $(loop_pids wrapd); do
+		kill_session "$session"
+	done
+	echo "stop.sh: wrap generator killed, its jobs kept in queue, workers untouched"
+	exit 0
+fi
+
 touch "$state/STOP"
-event "stop ${1:-}"
-if [[ ${1:-} != --now ]]; then
+event "stop $*"
+if [[ -z $now ]]; then
 	echo "stop.sh: no new task will start; running tasks finish (./stop.sh --now kills them)"
 	exit 0
 fi

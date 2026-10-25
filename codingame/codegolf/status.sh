@@ -577,7 +577,9 @@ eta_text() {
 
 wrap_queue_line() {
 	local jobs=("$state"/wrapq/*.json) daemon ready retry soonest newest line painted eta
-	if [[ -n $(loop_pids wrapd) ]]; then
+	if [[ -n $(loop_pids wrapd) && (-e $state/STOP || -e $state/STOP_WRAP) ]]; then
+		paint daemon "$yellow" stopping
+	elif [[ -n $(loop_pids wrapd) ]]; then
 		paint daemon "$green" running
 	else
 		paint daemon "$dim" "not running"

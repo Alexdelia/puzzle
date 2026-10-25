@@ -4,7 +4,7 @@ source "$(dirname "$0")/lib.sh"
 trap 'echo "wrap.sh: failed at line $LINENO (exit $?): $BASH_COMMAND" >&2' ERR
 shopt -s nullglob
 
-usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, plus every file of puzzle/<p>/core/<host>/ as a candidate of <host> as is (source direct: a native solution or a hand-tuned wrapper a task left there); keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, cached per puzzle, referee only on cores; cores failing the local referee --cg are never wrapped (failing one CG accepted raises an attention event and queues a referee task, once per core version); --submit: submit.sh the winners (on STOP: no new attempt, posted ones still judged); exit 3: some host deferred (busy cell, submit cap, STOP, generator error, lottery round lost)"
+usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, plus every file of puzzle/<p>/core/<host>/ as a candidate of <host> as is (source direct: a native solution or a hand-tuned wrapper a task left there); keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, cached per puzzle, referee only on cores; cores failing the local referee --cg are never wrapped (failing one CG accepted raises an attention event and queues a referee task, once per core version); --submit: submit.sh the winners (on STOP or STOP_WRAP: no new attempt, posted ones still judged); exit 3: some host deferred (busy cell, submit cap, STOP, generator error, lottery round lost)"
 puzzle=${1:?$usage}
 shift
 host_filter=
@@ -252,7 +252,7 @@ submit_pipeline() {
 		waiting+=("$host")
 	done
 	while ((${#waiting[@]} + ${#local_pid[@]} + ${#pending[@]})); do
-		if [[ -z $cap && -e $state/STOP ]]; then
+		if [[ -z $cap && (-e $state/STOP || -e $state/STOP_WRAP) ]]; then
 			cap=1 deferred=1
 			printf 'stop: no new attempt, judging %s posted\n' "${#pending[@]}"
 		fi

@@ -121,7 +121,7 @@ cd "$root"
 rm -rf "$wrap_running_dir"
 mkdir -p "$wrap_running_dir"
 estimated_signature= estimated_at=0
-while [[ ! -e $state/STOP ]]; do
+while [[ ! -e $state/STOP && ! -e $state/STOP_WRAP ]]; do
 	free=$((wrap_puzzles - ${#running_pid[@]}))
 	signature=$(queue_signature)
 	if ((free > 0)) && [[ $signature != "$estimated_signature" ]] || ((free > 0 && EPOCHSECONDS - estimated_at >= wrap_retry_seconds)); then
