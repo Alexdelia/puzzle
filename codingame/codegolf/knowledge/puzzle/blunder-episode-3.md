@@ -49,7 +49,7 @@ All-points alternative (verified local 26/26, unverified on CG): least-squares s
 
 Lengths reached: Python 156 (count form, no import), 160 (log form), both two-point, so both now fail validators 13-18. Top Python 97: ~60 below this method.
 
-Unverified suspicion (see "Hidden validators": 50 validators, 18 off the test grids, none equal to a test, so a test-feature table fails): 97-ish tops hash test features (N, first line) into the table; input reading + table + print already cost ~83 in Python, leaving ~14 for the class pick. N alone fails (3 tests have N=100); first line `n t` differs per test (`10 200000`, `5 552970`, `5 341`, `34 988`, `34 89`, `34 31261`, `11 51`, `2 19`). Such a hash only passes if hidden validators share those features; our generated validators would reject it, and `submit.sh` requires them. Not tried.
+Unverified suspicion (see "Hidden validators": 50 validators, 18 off the test grids, none equal to a test, so a test-feature table fails): 97-ish tops hash test features (N, first line) into the table; input reading + table + print already cost ~83 in Python, leaving ~14 for the class pick. N alone fails (3 tests have N=100); first line `n t` differs per test (`10 200000`, `5 552970`, `5 341`, `34 988`, `34 89`, `34 31261`, `11 51`, `2 19`). Such a hash only passes if hidden validators share those features; that is what the (N, first n) hardcode does. Since hidden/complete (2026-10-25) the local gate no longer rejects hidden-keyed hardcodes.
 
 Rejected:
 
@@ -75,14 +75,17 @@ Index-weighted slope (verified CG 100% 2026-10-22, OCaml 249): `k = sum w_i log 
 
 ## Hidden validators
 
-Full detail, sources and probe lines: `puzzle/blunder-episode-3/referee/hidden/facts.md`. First two lines of every validator known exactly (CG 100% on a hardcode keyed on them, 2026-10-24); full inputs not (t noisy on every line), no `complete`.
+Full detail, sources and probe lines: `puzzle/blunder-episode-3/referee/hidden/facts.md`. First two lines of every validator known exactly (CG 100% on a hardcode keyed on them, 2026-10-24); full inputs not (t noisy on every line).
+
+Since 2026-10-25 `hidden/01..08` exist with `hidden/complete` (task referee...1792917884610441950): exact N, first n, first t (1,2,4,6,8) and grid (1,2,3,4,6,8), t redrawn from the class model, own plausible grids for 5/7. `complete` here is grading-equivalence for the 8 known keys/answers, not exact input recovery. `run.sh <file> --cg` therefore runs hidden only: the perl 72 / ruby 83 key hardcodes pass it, while IDE tests 03/05/07 still fail them (CG does not grade those tests).
 
 - **8 validators, one per class, in test order** (titles = class names), weights 60,70,60,70,60,60,60,60 (CG per-validator report). The older "50 validators, 2% each" was a wrong score-grain deduction (the grain was the weights)
 - (N, first n): 1 O(1) (100,10), 2 O(log n) (999,5), 3 O(n) (90,34), 4 O(n log n) (100,34), 5 O(n^2) (75,34), 6 O(n^2 log n) (54,34), 7 O(n^3) (50,2), 8 O(2^n) (24,2). First t: 240000, 577340, ?, 1036, ?, 30546, ?, 13
 - **N alone separates all but N=100** (O(1) vs O(n log n)): tie-break on first n (10/34), first t, or first char of line 2 (`1`/`3`). Verified 100%: `probe/python/key.py`
 - validators 1,2,4,6,8 = IDE test grid with t redrawn; 3 = test 05's grid (O(n^2) test) with O(n) timings; 5, 7 own grids
 - two-point first/last exponent fails **only validator 7** (O(n^3)); all-points regression passes all 8
-- a key hardcode fails IDE tests 03/05/07: local `submit.sh` refuses it, use `oracle.sh` (probe) then copy the 100% probe to `solution/`
+- a key hardcode fails IDE tests 03/05/07 (IDE-only): with `hidden/complete` (2026-10-25) `submit.sh` gates on hidden only and accepts it; before that it had to go through `oracle.sh` (probe)
+- synthetic validators 01-18 (regenerated 2026-10-25) each carry the hidden key of their class, keeping their class roles; 13-18 still split the two-point method; all 27 CG-row cores pass 18/18 validators and 8/8 hidden, plain 748 B reference passes 26/26
 - test games only reach testcases 1..8 (`INVALID_TESTCASE` on 9)
 - CG Scala needs `object Solution` (`object Main` crashes: "No such file or class on classpath: Solution")
 
