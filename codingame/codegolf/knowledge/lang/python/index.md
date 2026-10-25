@@ -14,3 +14,4 @@
 - [star-unpack-read](star-unpack-read.md) - `a,b,*c=open(0)` = cheapest 2-line read (newlines kept), `a,b=open(0)` raises; verified blunder-episode-3 101 B CG 100%
 - [plan-direction-from-byte](plan-direction-from-byte.md) - derive per-rotation LEFT/RIGHT from the plan byte with a 1-4 B predicate, drop `enumerate` (-12); choose base/orientation for the predicate; the-fall-episode-3 python 119
 - [leading-int-one-test](leading-int-one-test.md) - `input()<'10'` = leading integer is exactly 1 (space<`0`), exact where the 1 B shorter `<'2'` fails on 10..15; 12 B, reads line 2 in the key expression; super-computer 59 CG 100%
+- [split-no-args-drops-empty](split-no-args-drops-empty.md) - `.split()` removes empty fields (unlike `.split(sep)`): a 5-way plan table cannot use a 4-plan + empty-slot layout; 4-chunk selectors must land in `[0..3]` or `[-4..-1]`; whitespace plan bytes split the chunk
