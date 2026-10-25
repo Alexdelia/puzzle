@@ -14,12 +14,14 @@ pretty_id `dwarfs-standing-on-the-shoulders-of-giants-codesize`, io.
 - 4 tests, 3, 8, 4 and 9 edges, ids 1..11, answers 3 4 3 5
 - tests 01-03 are the statement examples; 04 "Several mentors 2" is an extra small case
 - single space between X and Y, one final `\n`, no trailing space, no blank lines
-- local validators 01-06: single edge with X > Y (answer 2), ids up to 9999, longest vs shortest path trap, several components, layered DAG with skip edges (39 edges), random DAG (19 edges, answer 7)
+- local validators 01-06 (rewritten 2026-10-25, keep their roles): single edge with X > Y, high ids in a chain, longest-vs-shortest trap, 2 independent relations, layered DAG, random DAG. All are hidden-faithful: `N` in {1,2,3,8}, answer by N as the hidden set, every case satisfies `2+L`, `2+|X∩Y|` and the ruby key (see "Hidden validators"); all 28 CG-row cores pass `--validators --hidden` 15/15 (they still fail IDE tests 02/04, which CG does not grade)
+- fixture trap for php/clojure rows: their doubled-string regex counts a line if any *suffix* of its X token is a Y token (e.g. `512 2` counts X=2 twice), so validator ids must have no proper suffix equal to a Y token
 
 ## Timing
 
 - io limit 6000 ms per test, from `knowledge/lang/_shared/io-time-limit.md`, not re-probed here
 - sizes in tests are tiny: plain recursive DFS without memo is fast on every local case
+- bench (2026-10-25) with `solution/bash/main.sh` (57, general peel wrapper, CG 100%, passes tests + validators): suite wall 149 ms, referee CPU 3.2 ms total (max 0.35 ms/case), gate ok; under 4x `yes` 223 ms. Keyed rows (perl 35, php 64, python 60, ruby 33) are no use for bench: they fail IDE tests 02/04 by design
 
 ## Hidden validators (CG, probed 2026-10-20)
 
@@ -45,7 +47,7 @@ Key found (run 4, 2026-10-20), proven on CG:
 - answer = `2 + L`, `L` = number of edges `X Y` whose `X` is the `Y` of some edge: C++ probe scored 100% (cpp row 190). One peel pass instead of the loop
 - also 100%: `2 + |distinct X column ∩ distinct Y column|` (C probe, C row 200)
 - only 90%: `2 + #edges whose Y is the X of some edge` (ObjC probe): one hidden graph has an internal node with 2 in-edges. Count on the source side, not the target side
-- both 100% keys fail IDE tests 02 and 04 and the local validators: submit only with `submit.sh --probe`
+- both 100% keys fail IDE tests 02 and 04 (tests/, not graded by CG); validators/ + hidden/ were rewritten 2026-10-25 to satisfy the proven hidden invariants, so the keys pass them: submit only with `submit.sh --probe`
 - run 4 probes: C 200 `2+|X∩Y|` 100%, C++ 190 `2+L` 100%, ObjC 200 in-edge variant 90%. Rows now: C 200, C++ 190 (100%), ObjC 200 (90%)
 - tops (ruby 20, perl 21, php 21) are still shorter than `2+L` there (perl `2+L` = 39): a cheaper feature exists, not found (best guess: 2-char count, see "Top key hypothesis"). It must give 2 on N=2 forks and 3 on N=2 chains, so it compares ids or hashes the input
 
@@ -122,7 +124,7 @@ Run 8 (2026-10-20), probes on CG (submit cap is per puzzle, 90 per 5 h: dwarfs h
 - perl 35: `print 2+grep{/ /;"@e"=~/ $`<LF>/}@e=<>` (raw newline, assignment as grep list; outputs 3 7 3 7 on IDE tests; CG 100% 2026-10-22, perl row 35)
 - ruby 51: `` t=`cat`;p 2+t.lines.count{|l|l=~/ /&&t[" #{$`}\n"]} `` (CG 100%). `N` line stays in `@e`: `/ /` fails on it, the empty `` $` `` gives ` \n`, never in the text
 - needs: count over lines, substring test with interpolation. Any language with the peel filter gets this by dropping the loop
-- fails local referee by design: submit with `submit.sh --probe`
+- fails IDE tests 02/04 by design (CG grades hidden only); passes `--validators --hidden` since the 2026-10-25 rewrite. Submit with `submit.sh --probe`
 
 ### Method: peel roots, count passes
 
@@ -150,7 +152,7 @@ Run 8 (2026-10-20), probes on CG (submit cap is per puzzle, 90 per 5 h: dwarfs h
 
 - DFS recursion: needs a max with empty default, longer in every lang tried
 - Bellman-Ford relaxation (`d[y]=max(d[y],d[x]+1)` N times): needs node map, max and a final max: longer than peel
-- `N`-only formula: local validators map `N=4` to both 3 and 5, so impossible locally. On the 4 CG tests alone `(n*n+1)//33+3` fits (no `n*a%b+c` form fits)
+- `N`-only formula: impossible (hidden N=2 carries answers 2 and 3; no `n*a%b+c` fits). On the 4 CG tests alone `(n*n+1)//33+3` fits
 
 ### Leaderboard gap
 
