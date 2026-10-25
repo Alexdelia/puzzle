@@ -14,3 +14,7 @@ Verified locally Ruby 3.1.2, 2026-10-25:
   is the best without reports; 39 needs the report broker with a CG session
   (user runs agent/tool/report-login.sh). Length floor for the line-1-only
   variant is 44 (proved over stat+op families: 2L+26+K, L=3,K=12).
+
+- `String#sum(bits)` is **not** order-sensitive: `"12".sum(n) == "21".sum(n)` for
+  n=4,5,8,16 (and `"aXb"/"abX"/"Xab".sum(4)` all 11), so a `sum(bits)` key cannot
+  split equal-multiset inputs (verified local 3.1.2, 2026-10-25, dwarfs V2/V5).
