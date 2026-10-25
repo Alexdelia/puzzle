@@ -64,13 +64,12 @@ pick() {
 			else 1 end;
 		$context_file[0] as $context
 		| core_ladders($context; map(.key) + $context.running_keys) as $ladders
-		| map(select(ready($context) and ($context.only_kind == "" or .kind == $context.only_kind) and ((.kind | IN($context.held_kinds[])) | not) and ((.key | IN($context.running_keys[])) | not) and (.puzzle == "-" or ((.puzzle | IN($context.running_puzzles[])) | not)) and ((.puzzle | IN($context.wrapped[])) | not)))
+		| map(select(ready($context) and ($context.only_kind == "" or .kind == $context.only_kind) and ((.kind | IN($context.held_kinds[])) | not) and ((.key | IN($context.running_keys[])) | not) and (.puzzle == "-" or ((.puzzle | IN($context.running_puzzles[])) | not)) and ((.puzzle | IN($context.wrapped[])) | not) and ((.puzzle | IN($context.saturated[])) | not)))
 		| map(. as $task
 			| ($context.cells[$task.puzzle + "/" + $task.lang] // {}) as $cell
 			| ladder_rank($ladders; $task; $cell) as $ladder_rank
 			| select($ladder_rank != "held")
 			| {id: $task.id, key: [
-				(if $task.puzzle | IN($context.saturated[]) then 1 else 0 end),
 				($task | kind_rank),
 				(if $task.urgent then 0 else 1 end),
 				$ladder_rank,

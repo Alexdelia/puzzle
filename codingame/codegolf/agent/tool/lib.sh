@@ -295,14 +295,14 @@ leaderboard_table_row() {
 }
 
 store_language_summary() {
-	local puzzle=$1 lang=$2 summary=$3 cell previous
+	local puzzle=$1 lang=$2 summary=$3 cell previous_tie_rank
 	cell=$(ensure_status cell "$puzzle" "$lang")
-	previous=$(jq -r .status "$cell")
+	previous_tie_rank=$(jq -r .best_tie_rank "$cell")
 	json_update "$cell" --argjson summary "$summary" \
 		'. + ($summary | {top, top_player, ours, rank, best_tie_rank}) | del(.rank_stale)
 		 | if .best_tie_rank == 1 then .status = "first" else . end'
-	if [[ $previous == first && $(jq -r .best_tie_rank "$cell") != 1 ]]; then
-		json_update "$cell" '.status = "todo"'
+	if [[ $previous_tie_rank == 1 && $(jq -r .best_tie_rank "$cell") != 1 ]]; then
+		json_update "$cell" 'if .status == "active" then . else .status = "todo" end'
 		"$tool_dir/enqueue.sh" cell "$puzzle" "$lang" --reason dropped >/dev/null
 		event "dropped $puzzle $lang"
 	fi
@@ -345,7 +345,7 @@ puzzles_with_running_tasks() {
 }
 
 saturated_puzzles() {
-	jq -r 'select(.status == "first") | input_filename | split("/")[-2]' "$state"/cell/*/*.json </dev/null 2>/dev/null |
+	jq -r 'select(.best_tie_rank == 1) | input_filename | split("/")[-2]' "$state"/cell/*/*.json </dev/null 2>/dev/null |
 		sort | uniq -c | awk -v firsts="$rewarded_firsts_per_puzzle" '$1 >= firsts { print $2 }'
 }
 
