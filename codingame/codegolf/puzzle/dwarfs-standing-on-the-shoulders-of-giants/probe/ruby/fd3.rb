@@ -1,0 +1,1 @@
+p IO.new(3).read.hex
