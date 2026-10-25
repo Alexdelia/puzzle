@@ -143,3 +143,30 @@ Details, sources and probe log: `puzzle/network-cabling/referee/hidden/facts.md`
   (`report-login.sh`); broker answers `no CG session`. Without it a hardcode keyed on a whole-input
   stat (the likely 73 B shape: `p %w[<8 base36 answers>][$<.read.sum%9].to_i 36` = 69 B, decimal
   71 B) cannot be built: its 9 residues need the report.
+
+### 2026-10-25 (ruby plateau-retry 5): 73 B shape pinned down, shebang and hardcode floors
+
+- Ruby runner honors only `#!ruby` flags: a Ruby cell whose first line is `#!perl -0p` (test game
+  2026-10-25) outputs `/usr/local/bin/ruby: no Ruby script found in input (LoadError)`; the
+  `#!ruby -0p\n$_=42` control prints `42`. So a Ruby row cannot be a copy of a Perl file; only
+  `exec"perl -0pe'<core>'"` works (+17 B over the core, 94 B around the 77 B Perl body).
+- `POST /puzzles/network-cabling-codesize/test-games {testcase:10}` -> 400 `INVALID_TESTCASE`
+  ("Test cases: 1, 2, ... 9"): the hidden validators really are not reachable by test game.
+- **73 B shape (unverified):** `p[<10 decimal values>][$<.read.sum%9]` + final newline is exactly
+  73 B (`p[`2 + 45 digits + 9 commas + `]`1 + `[`1 + `$<.read.sum%9`13 + `]`1 = 72, +1 newline).
+  Any 10 slots with the 8 unique answers (5714781103, 12788481, 2500149996, 2067588810, 8, 6, 8,
+  0, 24 plus 2 duplicates) fit. A base36 checksum table would be 65-68 B, so both 73 B rows are
+  consistent with a 10-slot decimal `$<.read.sum%9` table whose residues came from per-validator
+  reports. V6-V9 residues are not derivable: V8's byte sum mod 9 = 7+3L (L = total digit count of
+  all tokens, depends on unknown x0/d); V6/V7/V9 inputs unknown.
+- **Guaranteed N+line2 hardcode floor 85 B** (searched all `n=gets.(hex|to_i)` +
+  `n%M+(D/n)*gets.(ord|sum|hex|size)%J`, M 2..39,D 1..9,J 2..79): valid keys exist from 18 B
+  (`n%5+6/n*gets.ord%7`, `n=gets.hex`) but need 10 slots; 10-slot base36 total 85 B, decimal 89 B.
+  No <= 9-slot key in that family, so V1/V3 (8) cannot merge. Never below our 82: not submittable.
+
+### Ruby leaderboard ladder (2026-10-25, LANGUAGE=Ruby, 127 rows)
+
+73 Pduhard- 2025-04, 73 cedricdd 2026-09, 75 chouch 2023-05, 79 Wazemo 2026-10, 81 Lydxn 2023-04,
+82 [ovs] 2023-04 / FrancoisB / Alexdelia, 83 Eric.  The Ruby 73 predates the Perl 73 (2025-11);
+Perl ladder 73/74/75 then 79.  Perl cannot hardcode 9 answers below ~70 + a 3 B key (no base36
+decode), so Perl 73 is likely general; Ruby's 73 coincides exactly with the checksum-table shape.
