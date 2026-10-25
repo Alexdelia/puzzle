@@ -5,7 +5,9 @@ edition = "2024"
 
 [dependencies]
 referee-core = { path = "../../../agent/tool/referee-core" }
+anyhow = "1"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [profile.release]
 opt-level = 3

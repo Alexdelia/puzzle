@@ -1,7 +1,10 @@
+mod runner;
+
 use std::process::ExitCode;
 use std::time::Duration;
 
-use referee_core::{Game, Interactive, Step};
+use referee_core::{Game, Step};
+use runner::ClosedStdin;
 use serde::Deserialize;
 
 #[derive(Clone, Copy, PartialEq, Deserialize)]
@@ -270,5 +273,5 @@ impl Game for Fall {
 }
 
 fn main() -> ExitCode {
-	referee_core::main(Interactive::<Fall>::default())
+	referee_core::main(ClosedStdin::<Fall>::default())
 }
