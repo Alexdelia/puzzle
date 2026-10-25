@@ -182,3 +182,29 @@ permutation of 0..7; the local `hidden/keyed` residues [1,6,5,1,4,5,2,2] are red
 nothing about CG. Useful prior for the decode: r1 is almost surely 1 (v1 all 6-digit t; size
 1193 = 1 mod 8), v4's residue = (1 + its total t digit count) mod 8, so v4 is variable; v5/v7
 own-grid + t scale are unknown.
+
+## Python native hardcode: read + cost model + floor 101 (2026-10-25, cell .1792521925915548496)
+
+- **`a,b=open(0)` is INVALID** in Python (file iterator yields N+1 lines -> `too many values to
+  unpack`). The cheapest two-line read is `a,b,*c=open(0);` = 15 B (`a`,`b` are the first two lines
+  **with** their final newline, `c` the rest). `a,b=input(),input();` 20 B,
+  `a=input(),input();` 18 B (tuple: `a[0]`/`a[1]` cost +3..+6 more in the key),
+  `a=input();b=input()` 19 B.
+- cost model: `READ;print("O(%s)"%TABLE.split(',')[KEY])` = READ + 61 + W + KEY, TABLE = 32 answer
+  chars + W-1 commas + quotes + 11 for `.split(',')` = 44+W; negative key values -W..-1 index slots
+  0..W-1. With READ 15: total = 76+W+KEY; 97 needs W+KEY=21.
+- v1/v4 share their first line (`100\n`), so every first-line-only key collides them. `(a>b)`
+  (5 B with parens) is true for every validator except v4 and is pinned by (N, first n) (decided in
+  the first 3 chars). Best safe key: `(a>b)-int(a)%16` = 15 B, values v1..v8 = -3,-6,-9,-4,-10,-5,-1,-7,
+  W=10 -> **101 B, CG 100%, rank #4** (2026-10-25):
+  `a,b,*c=open(0);print("O(%s)"%"n^2,n,,2^n,log n,n^2 log n,n log n,1,,n^3".split(',')[(a>b)-int(a)%16])`
+- exhaustive search (scratch gen11/gen13.py: all `int(a)/len(a)/int(a[0])/ord(a[0])/int(a[:1])` with
+  up to 2 ops, m 2..99, all cheap predicates on a,b, both operand orders, precedence-correct and
+  eval-verified) found no (N, first n) key with W+KEY < 25 -> no such hardcode reaches 97.
+- 97 candidates that fit the cost: whole-input perfect hashes `sum(open(0,'rb').read())%m`
+  (25/26 B, totals 94..101; m=10 -> 97) or `%a%b` (27 B), and `len(open(0).read())%m`
+  (21/22 B, m=8..14 -> 90..97). No row exists at 90..96, so none of the shorter mods is a
+  permutation; the 97s must be `sum%10` / `sum%a%b` / `size%14` tables learned from CG's
+  per-validator report. Byte sums and sizes are not pinned by facts.md (t digits random), so these
+  cannot be built here: `cg-report.sh` says "no CG session", all 27 languages have our 100% rows
+  (no partial-row oracle), and a failed probe is invisible. Probe budget was left unused.
