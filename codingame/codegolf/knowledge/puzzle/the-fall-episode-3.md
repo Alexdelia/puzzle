@@ -131,3 +131,35 @@ DFS port, perl 670, CG #7. Unmemoized, test 01 turn 2 costs ~130 ms CPU in perl 
 - single-direction hardcodes are impossible: no action keeps all four alive at turn 1 (turn-1 safe-action sets intersect empty), so a common plan for all four cannot exist; and validators 3+4 have no common 2-action prefix (both must survive every turn), so a W-only key (W=14 both) cannot work. Exhaustive over all legal actions (journal 1792855912458094747 scratch `t1.py`/`t3.py`)
 - v2 (6x6) has no single-direction plan: a path search over all RIGHT-only (or LEFT-only) rotations of Indy's route finds no win with <=10 rotations (journal scratch `pathsearch.py`), so its plan needs both directions like the current RRLL pattern. That blocks folding the direction into the format (`printf"%d %d RIGHT\n"` saves 14 B)
 - perl hardcode: 25 rotation bytes (`y*10+x`, direction = rotation index `&2`) keyed `$'%5`, slot 2 empty, plus `print"WAIT\n"x1e5` (no `$|`, knowledge/lang/perl/flush-oversized-print.md) = 135 B, CG 100% 2026-10-24
+
+## Byte-era floor and stale displayed tops (2026-10-25, python task 1792521725933181825)
+
+- Displayed python tops: 117 PetyFloyd (2026-08-28), 117 cedricdd (2026-08-29), 122 N3l
+  (2026-10-17), 136 piwai (2026-09-27). All predate the char->byte counting switch: see
+  `knowledge/lang/_shared/length.md` and the power-of-thor "stale char-counted row" section
+  (displayed sub-floor tops were recorded under char counting; the first rows created after the
+  2026-10-19 byte proof are much longer). A 97-char / 237-byte UTF-16-packed copy of our 100%
+  source (`probe/python/metric-utf16.py`, local 4/4) was submitted 2026-10-25 and the own row
+  stayed 140, i.e. CG counts bytes now; the 117 rows are stale char lengths, not a byte target.
+- First byte-era python row: ours 140 (2026-10-22), now 134; every other post-2026-10-19 python
+  row is >=859. So 134 B is the byte-era python best known, and the displayed 117 is not a
+  reachable byte count.
+- 134 B native H-keyed plan hardcode, CG 100% (row 612 -> 140 -> 136 -> 134, rank #4):
+  - plan data byte `c=10*x+y` (x,y swapped vs the perl 135 core, which avoids escaping c=13),
+    one bytes literal with 5 `~`-separated chunks (one empty), selection by
+    `ord(input()[-1])%5` (last char of `W H`: '0'/'4'/'6'/'8' -> 5/2/4/1, empty slot 0)
+  - direction by rotation index: `i&2and'LEFT'or'RIGHT'` (2 B shorter than the conditional
+    expression); data ordered so the plan directions are RRLL...
+  - no WAIT tail: `+b'('*99` appends 99 harmless rotations of cell (4,0) (c=40; type 0 in
+    hidden 01/03/04 and type 1 in 02, no mover occupies it on pad turns; the v2 rock sits there
+    only on turn 4). v4 wins on turn 39, so 36 pads are needed. This replaces the 18-B
+    `;print('WAIT\n'*99)` idiom (10 B in the perl core).
+- Rotation minima: 10 (v1), 6 (v2), 6 (v3), 3 (v4) = 25, with WAITs allowed and with wider
+  candidate sets (Indy 6-ahead, rocks 2-ahead, every rotatable cell for v2). Constant direction
+  is impossible: v2 has no winning plan using only LEFT or only RIGHT rotations (exhaustive BFS
+  over every rotatable cell x direction + WAIT reaches 90 states and no win). So any H-keyed
+  plan hardcode needs >=25 data bytes, and the `i&2` direction machinery; a 117-byte version
+  would need a different mechanism, not a shorter plan table.
+- Gotcha: `str.split(key)` with one key occurrence yields 2 pieces ([prefix, suffix]), not 3,
+  so a digit-keyed `'0P0 4P4...'` plan table needs each key twice or `[1]` is the rest of the
+  string. Keep `bytes.split(b'~')` + index.
