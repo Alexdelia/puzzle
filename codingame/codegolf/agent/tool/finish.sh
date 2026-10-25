@@ -134,6 +134,12 @@ done
 	commit_scope "doc(golf): knowledge lang $(basename "$dir")" "$dir"
 done
 
+{ changed_paths puzzle | grep -o '^puzzle/[^/]*/core/' | sort -u || true; } | while read -r dir; do
+	core_puzzle=$(basename "$(dirname "$dir")")
+	[[ -n $(tsv_field puzzle "$core_puzzle" slug) ]] || continue
+	commit_scope "feat(golf): core $core_puzzle" "$dir"
+done
+
 { changed_paths puzzle | grep -E '^puzzle/[^/]+/referee/bench\.txt$' || true; } | while read -r file; do
 	bench_puzzle=$(basename "$(dirname "$(dirname "$file")")")
 	if [[ $(jq -r .status "$(ensure_status referee "$bench_puzzle" -)") == done ]] && grep -q '^suite .* pass$' "$root/$file"; then

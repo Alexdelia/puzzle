@@ -4,7 +4,7 @@ source "$(dirname "$0")/lib.sh"
 trap 'echo "wrap.sh: failed at line $LINENO (exit $?): $BASH_COMMAND" >&2' ERR
 shopt -s nullglob
 
-usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, cached per puzzle, referee only on cores; cores failing the local referee --cg are never wrapped (failing one CG accepted raises an attention event and queues a referee task, once per core version); --submit: submit.sh the winners (on STOP: no new attempt, posted ones still judged); exit 3: some host deferred (busy cell, submit cap, STOP, generator error, lottery round lost)"
+usage="usage: wrap.sh <puzzle> [--host <lang>] [--estimate | --submit]; wraps every core solution of the puzzle (perl, python, bash...) in every host lang of agent/wrap/, plus every file of puzzle/<p>/core/<host>/ as a candidate of <host> as is (source direct: a native solution or a hand-tuned wrapper a task left there); keeps per host the shortest candidate under our row that passes the local referee; --estimate: lengths only, cached per puzzle, referee only on cores; cores failing the local referee --cg are never wrapped (failing one CG accepted raises an attention event and queues a referee task, once per core version); --submit: submit.sh the winners (on STOP: no new attempt, posted ones still judged); exit 3: some host deferred (busy cell, submit cap, STOP, generator error, lottery round lost)"
 puzzle=${1:?$usage}
 shift
 host_filter=
@@ -18,6 +18,7 @@ while (($#)); do
 	esac
 done
 [[ -n $(tsv_field puzzle "$puzzle" slug) ]] || { echo "wrap.sh: unknown puzzle $puzzle" >&2; exit 2; }
+[[ $mode != submit || -z ${CG_TASK_ID:-} ]] || { echo "wrap.sh: --submit is wrapd's, refused inside task $CG_TASK_ID: queue the job with agent/tool/enqueue.sh wrapq $puzzle - --reason \"<why>\"" >&2; exit 2; }
 kind=$(tsv_field puzzle "$puzzle" kind)
 wrap_root=$root/agent/wrap
 mkdir -p "$state/build/wrap"
@@ -119,6 +120,9 @@ estimate_key() {
 		while IFS=$'\t' read -r core file; do
 			printf 'core %s %s\n' "$core" "$(sha256sum <"$file" | cut -c1-64)"
 		done <"$work/cores"
+		for file in "$root/puzzle/$puzzle/core"/*/*; do
+			printf 'direct %s %s\n' "${file#"$root"/}" "$(sha256sum <"$file" | cut -c1-64)"
+		done
 		referee_fingerprint "$puzzle" ""
 		if ((${#statuses[@]})); then
 			jq -r '"\(input_filename | sub(".*/"; "")) \(.ours // "-")"' "${statuses[@]}"
@@ -154,6 +158,19 @@ candidates() {
 			printf '%s\t%s\t%s\n' "$("$tool_dir/count.sh" "$candidate")" "$candidate" "$core:${file#"$root"/}"
 		done
 	done <"$work/cores"
+	direct_candidates "$host" "$fingerprint"
+}
+
+direct_candidates() {
+	local host=$1 fingerprint=$2 file candidate
+	local out=$work/$host/direct
+	mkdir -p "$out"
+	for file in "$root/puzzle/$puzzle/core/$host"/*; do
+		candidate=$out/$(basename "$file")
+		cp "$file" "$candidate"
+		rejected "$candidate" "$fingerprint" && continue
+		printf '%s\t%s\t%s\n' "$("$tool_dir/count.sh" "$candidate")" "$candidate" "direct:${file#"$root"/}"
+	done
 }
 
 busy() {

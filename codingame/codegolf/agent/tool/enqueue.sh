@@ -2,7 +2,7 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-usage="usage: enqueue.sh lang|referee|validator|wrap|puzzle|cell|review <puzzle|-> <lang|-> [--reason text] [--trigger file] [--depth n] [--urgent]; --urgent: before every other task of its kind"
+usage="usage: enqueue.sh lang|referee|validator|wrap|puzzle|cell|review|wrapq <puzzle|-> <lang|-> [--reason text] [--trigger file] [--depth n] [--urgent]; --urgent: before every other task of its kind; wrapq <puzzle> -: a wrap generator job for wrapd (after a task left cores or hand-tuned wrappers in puzzle/<p>/core/<lang>/), not a task"
 kind=${1:?$usage}
 puzzle=${2:?$usage}
 lang=${3:?$usage}
@@ -28,13 +28,18 @@ done
 
 case $kind in
 lang | review | wrap) [[ $puzzle == - && -n $(tsv_field lang "$lang" slug) ]] ;;
-referee | validator | puzzle) [[ $lang == - && -n $(tsv_field puzzle "$puzzle" slug) ]] ;;
+referee | validator | puzzle | wrapq) [[ $lang == - && -n $(tsv_field puzzle "$puzzle" slug) ]] ;;
 cell) [[ -n $(tsv_field puzzle "$puzzle" slug) && -n $(tsv_field lang "$lang" slug) ]] ;;
 *) false ;;
 esac || { echo "enqueue.sh: bad target $kind $puzzle $lang" >&2; exit 2; }
 
 if [[ $kind == lang ]]; then
 	echo "enqueue.sh: refused lang $lang: toolchains live in agent/tool/lang, read-only in the worker sandbox, the user sets them up"
+	exit 0
+fi
+if [[ $kind == wrapq ]]; then
+	wrap_enqueue "$puzzle" "${CG_TASK_ID:+$CG_TASK_ID: }$reason"
+	echo "enqueue.sh: queued wrap generator job $puzzle"
 	exit 0
 fi
 if ((depth > propagation_max_depth)); then

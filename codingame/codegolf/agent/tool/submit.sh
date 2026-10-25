@@ -28,6 +28,20 @@ if [[ -n $probe && $area != probe ]] || [[ -z $probe && $area != solution ]]; th
 	echo "$usage" >&2
 	exit 2
 fi
+outside_task_cell() {
+	[[ -n ${CG_TASK_ID:-} && -z $probe && -z ${CG_WRAP_SOURCE:-} ]] || return 1
+	local task_kind task_puzzle task_lang
+	IFS=. read -r task_kind task_puzzle task_lang _ <<<"$CG_TASK_ID"
+	case $task_kind in
+	cell) [[ $task_puzzle != "$puzzle" || $task_lang != "$lang" ]] ;;
+	review) [[ $task_lang != "$lang" ]] ;;
+	*) true ;;
+	esac
+}
+if outside_task_cell; then
+	echo "submit.sh: refused, task $CG_TASK_ID submits only its own cell (and probes). For $puzzle $lang: write the core or hand-tuned wrapper to puzzle/$puzzle/core/<lang>/<name>.<ext>, check what wrapd would make of it with agent/tool/wrap.sh $puzzle, then agent/tool/enqueue.sh wrapq $puzzle - --reason \"<what, expected gain>\": wrapd submits and commits after your task" >&2
+	exit 1
+fi
 pretty_id=$(tsv_field puzzle "$puzzle" pretty_id)
 cg_name=$(tsv_field lang "$lang" cg_name)
 cell=$(ensure_status cell "$puzzle" "$lang")

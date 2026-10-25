@@ -15,7 +15,7 @@ Our rows of `{{LANG}}` in every puzzle (firsts show the idioms that win in this 
 
 Same tables any time: `agent/tool/cells.sh puzzle <puzzle>`, `agent/tool/cells.sh lang <lang>`.
 
-Wrappers are generated without agents: `agent/tool/wrap.sh {{PUZZLE}} --host {{LANG}}` prints the shortest generated wrapper of our cores that passes locally (when `agent/wrap/{{LANG}}/` exists); `agent/tool/wrapd.sh` submits it after every core gain. Your job is what the generator cannot do: a native solution, or a hand-tuned wrapper (core rewritten to quote better) below that floor.
+Wrappers are generated without agents: `agent/tool/wrap.sh {{PUZZLE}} --host {{LANG}}` prints the shortest generated wrapper of our cores that passes locally (when `agent/wrap/{{LANG}}/` exists); `agent/tool/wrapd.sh` submits it after every core gain. Your job is what the generator cannot do: a native solution, or a hand-tuned wrapper (core rewritten to quote better) below that floor. A gain you find for another cell (a shorter core for the other hosts, a hand wrapper of another lang) goes to `puzzle/{{PUZZLE}}/core/` and `enqueue.sh wrapq` (rule above), also when that cell is first (the cell queue refuses first cells, wrapd does not).
 
 1. Read `knowledge/puzzle/{{PUZZLE}}.md`, `knowledge/lang/{{LANG}}/index.md`, `knowledge/lang/_shared/index.md`, and the trick files that apply.
 2. Iterate locally: `puzzle/{{PUZZLE}}/referee/run.sh <file> --cg` (the cases CG grades: only `hidden/` when `referee/hidden/complete` (exact) or `referee/hidden/keyed` (reconstructed) exists, else tests + synthetic validators; prints `length`). Work on scratch copies; the solution file only ever holds a passing version shorter than our CG row.
