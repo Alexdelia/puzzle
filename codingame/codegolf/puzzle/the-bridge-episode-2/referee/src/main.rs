@@ -1,7 +1,10 @@
+mod runner;
+
 use std::process::ExitCode;
 use std::time::Duration;
 
-use referee_core::{Game, Interactive, Step};
+use referee_core::{Game, Step};
+use runner::ClosedStdin;
 use serde::Deserialize;
 
 const TURN_LIMIT: usize = 50;
@@ -170,5 +173,5 @@ impl Game for Bridge {
 }
 
 fn main() -> ExitCode {
-	referee_core::main(Interactive::<Bridge>::default())
+	referee_core::main(ClosedStdin::<Bridge>::default())
 }
