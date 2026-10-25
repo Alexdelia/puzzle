@@ -1,6 +1,6 @@
 # super-computer hidden validators
 
-Status 2026-10-24: 8 validators, weight 125 each (12.5 %), titles = classic puzzle. N and answer known exactly for all 8; no input recovered byte-exactly (V7, V8 are N=99999, ~1 MB: not recoverable by probes). Since 2026-10-25 `hidden/01-08` are referee reconstructions satisfying every feature below + the exact answer, and `hidden/complete` exists so `--cg` grades only them (see "Referee reconstruction").
+Status 2026-10-24: 8 validators, weight 125 each (12.5 %), titles = classic puzzle. N and answer known exactly for all 8; no input recovered byte-exactly (V7, V8 are N=99999, ~1 MB: not recoverable by probes). Since 2026-10-25 `hidden/01-08` are referee reconstructions satisfying every feature below + the exact answer, and `hidden/keyed` exists so `--cg` grades only them (see "Referee reconstruction").
 
 Sources: CG per-validator report of our submissions (`agent/tool/cg-report.sh <id>`). Old count-channel probes 2026-10-20/21 (ids in `agent/state/events.log`) re-read with reports 2026-10-24, which mapped every earlier label to a validator number. Then probes rep1..rep10 (perl, `puzzle/super-computer/probe/perl/rep*.pl`, log `agent/tool/oracle.sh --log super-computer`): honest greedy answer iff a per-validator predicate holds (validator picked by n, and by first J for the N=99999 pair), else -1. Decoding in journal `agent/state/journal/validator.super-computer.-.1792834544225243191.md`. Confidence high for every line below: each bit is read straight from CG's report, none deduced from scores.
 
@@ -32,7 +32,7 @@ Journal scratch `gen.sh <out> <V1> <V2> <V3/V4> <V5> <V6> <V7> <V8>` (each arg a
 
 ## Referee reconstruction (2026-10-25)
 
-`hidden/01-08.in/.out` + `hidden/complete` rebuilt by the referee rerun (journal
+`hidden/01-08.in/.out` + `hidden/keyed` rebuilt by the referee rerun (journal
 `agent/state/journal/referee.super-computer.-.1792918008387309017.md`, scratch `gen.py`,
 `check_facts.py`). Every row above is asserted on the reconstructed input; answers are the true
 earliest-end greedy result. Not byte-identical to CG: only the known features + exact (N, answer)
@@ -45,7 +45,7 @@ are reproduced. Consequences:
   fails that greedy). This is a reconstruction choice, not a probed CG property.
 - `validators/01-12` were rewritten as variants of the 8 hidden classes (same class key and answer,
   different detail values) because the old arbitrary synthetic edge cases rejected CG-accepted keys.
-  They are not used by `--cg` while `hidden/complete` exists; they back `--bench` and explicit
+  They are not used by `--cg` while `hidden/keyed` exists; they back `--bench` and explicit
   `--validators` runs.
 - All 27 CG-row cores (`solution/<lang>/main.*`, length == cell `.ours`) pass validators 12/12 and
   hidden 8/8, unloaded and under 16x `yes` load; bench bash 43: suite 442.3 ms, referee CPU <= 0.9 ms.
