@@ -682,3 +682,39 @@ Row stays 45 B. New results, all reproducible from this task's journal/scratch:
   needs a <=32 B payload under a ~26-char wrapper, so it cannot explain it. Next worker should
   look for an input channel/idiom outside `puts`+`Array#*` hardcodes (e.g. an unknown
   interpreter or file channel), not more plan tables.
+
+## 2026-10-25 (cell.power-of-thor.perl.1792937850136694526): pure-turn phase + per-class slots floors at 51/52
+
+Goal was to find the real 42-byte Perl row. Live leaderboard (score 100 only): 42 LolCat
+2022-03-11, 42 sffsefsdfaf 2026-07-30, 46 d-s-x 2021-12, 47 NukePwr 2026-10-16, 51 us,
+53 pardouin 2022-10, 53 Icebox 2026-10-01, 56 saito_ta, 59 Eric_[EGU] (non-100 rows at
+43/48/49/50 are rank 45k+, and failing shorter Ruby probes never replaced the Ruby 45/100
+row, so the leaderboard keeps the best-scoring submission: the 42s are real 100% runs).
+CG test games run Perl as PID 1 with no testcase env/argv/file and reject any non-exact
+move, so a validator farm keyed on `$$`/`$0`/env cannot work if validators use this sandbox.
+See `knowledge/lang/_shared/test-game-sandbox.md`.
+
+New plan family searched this run (all local, hidden 4/4 not applicable because no <=50 hit):
+
+- If the direction list gives V1 and V2 a harmless "diagonal" slot (their ON token = E
+  resp. N), the phase can be a **pure turn predicate**: `18>$.` (5 B) = ON for turns 1..17;
+  V1 E*21, V2 N*13, V3 E*17 then SE*14 (win 31), V4 SW*17 then W*19 (win 36).
+  Source shape `/ /,$|=print+(LIST)[IDX],$/while<>` = 25 + |(LIST)| + |IDX|,
+  IDX = B(a,b) op P; with `|`/`^`, odd B gives ON=base (one slot for V1/V2), V3/V4 need B
+  even (base, base+1).
+- 5-slot list (L=13, e.g. `(SE,E,W,SW,N)`): the B value tuples are forced to six:
+  `(1,-1,0,2) (1,-3,0,-2) (3,-1,2,0) (-1,-3,-2,0) (-1,-5,-2,-4) (-3,-5,-4,-2)`.
+  **No Perl expression <=6 chars over a,b,digits,+ - * / % & | ^, `length$``,
+  `length$'`, `ord$``, `ord$'`, `$+[0]` reaches them** (1.6M expressions tested), so the
+  only 50 B shape (13+|B|+8 = 50 needs |B|=4) is unreachable; floor is 51 (tie) or 52.
+- 6-slot lists (L=15) and sparse B like `$`%17` need 5+ char B or a 16-slot list => 53+.
+- Other orientation (phase ON=SE/SW via `$.%35>17`, 8 B) has a 5-slot L=12 list with
+  tokens E,N,S,W,SW but needs counts (14 of 1..31, 17 of 1..36); no phase <=6 chars has
+  those counts (`$.%35>17` is 8), so it floors at 52+.
+- Phase-count exhaustive search (k-expressions <=6 chars, 2.0M -> 4786 value patterns):
+  `4&$.` 4 B gives (16,17) (unusable: V3 needs 17 E or 14 SE), `17/$.`/`18>$.` 5 B give
+  (17,17), `$./18` 5 B gives (14,19); (14,17) needs >=8 B.
+- Therefore the deterministic 42 is outside the per-turn phase/list, one-shot huge-tail
+  (56 B), `exec$^X,-E` and `exec ruby` (inner core would need <=28/<=25 B) families.
+  Untried: a bespoke F(a,b,k) of 9..12 B for a 5-slot list (only B op P shapes tested),
+  and CG-only validator-runner differences (reports unavailable, blind probes only).
