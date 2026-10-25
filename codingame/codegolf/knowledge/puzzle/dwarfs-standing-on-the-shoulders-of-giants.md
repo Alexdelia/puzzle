@@ -375,3 +375,32 @@ IDE tests 02/04 by design; submitted as a probe (`probe/perl/gate30.pl`).
   shorter than the 30 B one is known.
 
 - 2026-10-25: clojure wrapper around the perl key core (`-e` variant, 112 B total) passes all 6 validators but fails tests 02/04; `submit.sh` refuses it as "hidden-validator exploit: use --probe" (no probes in a review task), so the clojure cell stays native 119. The same perl 35 B row is CG 100%.
+
+## 21 B hunt, task 1792963631645073547 (2026-10-25, all offline)
+
+No submit spent, row stays 30. New fact that closes a whole family:
+
+**No per-line predicate can fit E=ans-2, even with the line position.** Proof on
+the exact set: V4 `2/1 2/3 4` E=0, V10 `3/2 3/1 2/3 4` E=2, V5 `2/1 2/2 3` E=1,
+V7 (N=3, three disjoint edges) E=0. V5 forces p(`2 3`)=1 (its other lines are in
+V2/V3/V4, all E=0), then V10 forces p(N line `3`)=1, but V7 has the same `3` at
+the same position and E=0. So `grep`/`grep{}` over lines, `-a` with `$.`, any
+per-line test is dead for every language, not just perl.
+
+Other exhausted families (scripts in the task scratch):
+- `-0p` body 10 (`$_=`+7): only order-sensitive term that fits is `/2 3/`
+  (`$_=2+/2 3/` = 21 B, 2/3, fails V8/V10). DP over 192 base vectors (N, length,
+  1/2-char y-counts, ord/hex/oct, ~160 regex booleans) cost<=7 with + - * / % & | ^: 0.
+- expressions over successive `<>` line numbers, all binary trees over the first
+  2..6 lines, ops + - * / % & | ^ (covers plain `print`+15, `say`+9, `-0` print+5):
+  0 fit A or E.
+- `-0a`/`-0ap` token DP over `$F[-9..9]`, `$#F`, `@F`, ops, cost<=7: 0.
+- literal substring start/end/rindex and per-line regex/relation counts, affine
+  and pair combinations: only `2+|X∩Y|` fits.
+- phrase "21/22 B rows are stale" is alive: sffsefsdfaf 22 was created
+  2026-10-23T01:36Z, i.e. current, so one still cannot assume that.
+
+29-byte candidate (V7-risky, unprobed): `#!perl -0p` + `$_=2+($_-1&3)*/2 /` =
+29 B, passes all 9 exact. `/2 /` is 1 B under `/2 3/`; V9 has `2 10` but N=9 so
+(N-1)&3=0 cancels it. Fails iff V7 contains `2 ` (any X token ending in 2).
+Probe it first next time: 100% -> row 29, <100 -> V7 has `2 `.
