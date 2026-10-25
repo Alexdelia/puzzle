@@ -48,3 +48,4 @@
 - [power-key-hardcode](power-key-hardcode.md): `gets.size**d` exponent keys (missing from prior chain searches), byte accounting vs+m+len(K)+5, `**` precedence, verify per covered stat; the-resistance ruby 57 CG 100 % tie #1
 - [sum-n-checksum](sum-n-checksum.md): `String#sum(n)` is bytes mod 2**n (arg = bit width), `gets.sum(7)` 11 B vs `gets.sum%128` 13; power-of-thor valid count vectors `sum(6)-8`/`sum(7)-8`, verified
 - [exec-bash-core](exec-bash-core.md): `exec"bash -c 'CORE'"` = 16+core; measured ruby totals 97 (81 B core), 98 (`perl -aE` 79 B body), 99 (`-alp`); 95 needs 79 B core / 76 B perl body
+- [lines-keep-newline](lines-keep-newline.md): `String#lines` keeps `\n` (`lines.max[-1]` is `"\n"`); `split(?\n)` for char-index idioms
