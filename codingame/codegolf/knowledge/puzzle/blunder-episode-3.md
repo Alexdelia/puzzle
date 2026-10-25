@@ -109,3 +109,23 @@ the top row is exactly 76 = 62+14 and nobody has 75, so `size%8` is the likely w
 needs the 8 per-validator residues, learnable only via CG's per-validator report: 3 bit
 probes keyed on N/first n, then a table in residue order). `$<.read(7).sum%8` is 16 B (78),
 too long, and `gets(7)` never crosses into line 2.
+
+## Ruby hardcode floor 83 (analysis 2026-10-25, cell .1792879041611136670)
+
+Table shape is fixed at `46+2W+K` bytes (`puts"O("+%w{C}[K]+?)` = 18+content+K with content 28+2W;
+the interpolation form is the same 18). 8 answers => W>=8 => 62+K, so 76 needs a key of <=14 B
+whose 8 values land in 0..7 (or -8..-1). Input facts that kill every cheap key:
+
+- validators 1 and 4 have the same line 1 (`100`), so any line-1-only key collides 1/4;
+- validators 3 (`90`) and 6 (`54`) have equal line-1 byte sums (105) and identical bytes from
+  position 2 (`\n34 ...`), so **every additive hash** (`.sum`, `.sum(n)`, `%m`, `/m`) collides 3/6;
+- `.hex`/`.oct`/`.to_i` stop at the newline: with one read they cannot separate 1/4 (256/64/100);
+- two reads cost >=17 B (`gets.ord^gets.ord`) => >=79 B.
+
+Verified by exhaustive search (scratch of the cell, Ruby 3.1.2, keys also re-checked with t and
+later n redrawn): 8.07M single-read expressions (0 injective deterministic), 603k two-read `A op B`
+(best 85), 196k two-read with per-side mods (best 83, the current
+`gets.oct%7^gets.ord%8`, values [0,5,3,2,6,1,7,4]). So the 76 top (Pduhard- 2025-04, cedricdd
+2026-09) is a whole-input residue lottery (`$<.read.size%8` 14 B -> 76, `$<.read.sum%8` 13 B -> 75,
+`$<.read.sum%9` 13 B with 9 cells -> 76) with residues learned from CG's per-validator report; no
+deterministic 76 exists in the searched families.
