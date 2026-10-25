@@ -766,7 +766,15 @@ usage_bar() {
 	printf -v "$1" "▕%s▏" "$drawn"
 }
 
+workers_backend() {
+	local started=
+	[[ -z ${CG_BACKEND:-} && -s $state/events.log ]] &&
+		started=$(grep -oP '\tstart workers=\d+ backend=\K\S+' "$state/events.log" | tail -n 1)
+	echo "${started:-$backend}"
+}
+
 usage_bars() {
+	[[ $(workers_backend) == claude ]] || return 0
 	local stream modified view
 	if IFS=$'\t' read -r stream modified < <(newer_running_stream); then
 		view=$(mktemp)
