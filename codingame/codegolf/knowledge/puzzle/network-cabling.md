@@ -21,13 +21,14 @@ pretty_id `network-cabling-codesize`, leaderboard `network-cabling-codesize`, io
 
 ## Local validators
 
-- 01 N=1, 02 N=2 same `x`, 03 corners +-2^30, 04 N=100000 random +-2^30, 05 N=100000 one point repeated, 06 all `x`=0, 07 negatives only, 08 same `x` with duplicates, 09 `y` strictly descending from 2^30, 10 N=99998 random [-63,63], 11 all `y`=0, 12 two points repeated 3 times at opposite corners
+- 01 N=1, 02 N=2 same `x`, 03 corner cross +-2^30 + origin (positive corner `2^30`, negative `1-2^30`, so each column spans 2^31-1) -> 6442450941, 04 N=100000 random +-2^30, 05 N=100000 one point repeated, 06 all `x`=0, 07 negatives only, 08 same `x` with duplicates, 09 `y` strictly descending from 2^30, 10 N=99998 random [-63,63], 11 all `y`=0, 12 two corner points repeated 3 times (same asymmetric extremes as 03) -> 8589934588
+- 03/12 were regenerated 2026-10-25 with span 2^31-1 instead of exactly 2^31: the original +-2^30 corners tripped perl's 32-bit `sort{$a-$b}` comparator (`knowledge/lang/perl/sort-comparator-32bit.md`) and made the local referee reject the CG-100 % perl 88 / OCaml 101 rows. Any new large-coordinate case must keep `max-min < 2^31` in each column; hidden V6 (N=8, answer 5714781103) is 100 % on those rows, so CG's validators satisfy the same bound.
 
 ## Shortest known
 
-- ours Python 232 (plain reference, 2026-10-19), rank 499
+- ours Python 114, rank 49, top 88 Lydxn (doubled-y slice form, CG-confirmed)
 
-Method (verified 21/21 local, Python and bash+gawk, 2026-10-19): answer = `max(x)-min(x) + f(Y)`, `f(Y)` = sum of absolute deviations of `y` from its median. Only one sort, on `y`; `x` needs min and max only, never sorted, never paired with its `y`.
+Method (verified 26/26 local on tests+validators+hidden, Python, 2026-10-25): answer = `max(x)-min(x) + f(Y)`, `f(Y)` = sum of absolute deviations of `y` from its median. Only one sort, on `y`; `x` needs min and max only, never sorted, never paired with its `y`.
 
 Equivalent forms of `f` on `Y` sorted ascending (`n` items, 0-based), pick per language:
 
@@ -59,7 +60,7 @@ Details, sources and probe log: `puzzle/network-cabling/referee/hidden/facts.md`
 - recovered exactly, in `referee/hidden/01..05`: `(0 0)(2 2)(4 4)` -> 8, `(2 3)(1 1)(4 4)` -> 6, `(1 2)(0 0)(2 2)(5 3)` -> 8, `1` / `9 9` -> 0, `(-5 -3)(-9 2)(9 -4)` -> 24
 - all 9 answers known (p01-p36 bisection, confirmed together by p37 perl full hardcode CG 100 %, 2026-10-24): 6 (N = 8) -> 5714781103, 7 (N = 100000) -> 12788481, 8 (N = 99999) -> 2500149996, 9 (N = 11) -> 2067588810; inputs of 6-9 not recovered (no `complete`)
 - key: N alone separates 3 (4 -> 8), 4 (1 -> 0), 6, 7, 8, 9; the N = 3 group (1, 2, 5) splits on first char of line 2 (`0` -> 8, `2` -> 6, `-` -> 24). V6 > 2^32, V8 > 2^31: 64-bit or string literals
-- perl `sort{$a-$b}` (comparator truncated to 32 bits, wrong when two values differ by >= 2^31, fails local validators 03/12 at +-2^30 corners) passes all 9 hidden validators: CG 100 % on OCaml 102 perl wrapper, 2026-10-22 (probe log). Drop `<=>` for `-` in every perl core of this puzzle
+- perl `sort{$a-$b}` (comparator truncated to 32 bits, wrong when two values differ by >= 2^31; `knowledge/lang/perl/sort-comparator-32bit.md`) passes all 9 hidden validators: CG 100 % on OCaml 102 perl wrapper, 2026-10-22 (probe log). Drop `<=>` for `-` in every perl core of this puzzle. 2026-10-25: local validators 03/12 originally used exactly +-2^30 and were false negatives for these rows; they now span 2^31-1 and all 27 row solutions pass tests+validators+hidden 26/26
 - probe rows (sub-100 %, to be replaced by real solutions): php 380, lua 375, typescript 475, ruby 161, perl 209
 
 - ours Clojure 167 (2026-10-21, rank 4, top 158): `F=#(map -(sort > %)(sort %))` on x and y columns; first of F(x) = range, positives of F(y) = deviation sum; trick note `knowledge/lang/clojure/read-pairs-sorted-diff.md`
