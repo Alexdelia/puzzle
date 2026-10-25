@@ -75,8 +75,15 @@ start_jobs() {
 	done < <(((${#ranked[@]})) && printf '%s\n' "${ranked[@]}" | sort -t$'\t' -k1,1nr)
 }
 
+worker_slot_free() {
+	local workers running=("$state"/running/*.json)
+	workers=$(cat "$worker_count_file" 2>/dev/null) || return 0
+	((${#running[@]} < workers))
+}
+
 next_task_puzzle() {
 	local next
+	worker_slot_free || return 0
 	next=$("$tool_dir/next.sh" --peek 2>/dev/null) && jq -r .puzzle "$next" 2>/dev/null || true
 }
 

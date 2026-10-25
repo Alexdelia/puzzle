@@ -60,6 +60,7 @@ elif [[ -e $state/STOP && -n $(loop_pids wrapd) ]]; then
 	touch "$state/STOP_WRAP"
 fi
 rm -f "$state/STOP" "$opencode_fallback_file"
+echo "$count" >"$worker_count_file"
 commit_time_log
 [[ -n $(ls "$state"/lang/*.json 2>/dev/null) ]] || agent/tool/rebuild.sh
 for running in "$state"/running/*.json; do

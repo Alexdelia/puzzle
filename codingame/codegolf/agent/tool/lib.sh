@@ -364,6 +364,7 @@ wrapped_puzzles() {
 
 wrap_rejected=$state/wrap/rejected.tsv
 wrap_running_dir=$state/wrap/running
+worker_count_file=$state/worker-count
 wrap_lottery=$state/wrap/lottery.tsv
 wrap_local_fail=$state/wrap/local-fail.tsv
 referee_failure='^(test [^ ]* (fail|timeout) |build fail )'
