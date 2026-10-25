@@ -530,3 +530,37 @@ Row 54 -> 51 B, CG 100%, rank 5 (commit 55d3ad7f, submission 41563145):
 - invalidated earlier searches: the 2026-10-25 "3-leaf single-digit" phase search (no `$'`,
   no 2-digit constants) and the old 3-var DP; also a point-layout bug in the first version of
   this searcher produced garbage hits - always map class ranges to the point array explicitly.
+
+## CORRECTION 2026-10-25 (ruby task 1792931336088066369): the 42 tops are REAL byte counts
+
+`knowledge/lang/_shared/length.md` carries the authoritative CG staff announcement: byte
+counting started **2023-03-29** and the scores/leaderboards were recomputed (forum 200149,
+_CG_ClementHammel). So `criteriaScore` is bytes regardless of `creationTime`, and the sections
+above that call the 42 rows "stale char-counted" are WRONG (they assumed the byte switch was
+2026-10-19). Live API check 2026-10-25 (leaderboard `thor-codesize`, column language Ruby):
+42 B score 100 rows: LolCat 2022-03-12, TKirishima 2022-10-10, Shanethegamer 2022-10-14,
+Lydxn 2022-10-14, **sffsefsdfaf 2026-08-24, Icebox 2026-09-30**; then 45 B (Validator_sucks
+2021-12-09, us 2026-10-25), 47 pardouin, 48 Rohydre, 49 Chessjawa/Pduhard-, 50 Rauru
+2026-09-22. The two 2026 rows were submitted after the byte switch, so a **42-byte Ruby
+program passing these four hidden validators exists** (and the same for Perl 42).
+
+Ruby floor re-verified 2026-10-25, so the 42 is outside the known output shapes:
+- template `puts [h=LIT[IDX]]*C+[?S+h]*D` costs 20+|LIT|+(6+|K|)+|C|+|D| with IDX=`(i=K)%k`.
+  With the SE-tail plans C must be i(V3)=17, i(V4)=19; every `gets.*` numeric read is >=8 B and
+  none of `gets.sum|hex|oct|ord` raw gives 17/19, while `gets.to_i` (9 B) gives 28,5,31,0. So
+  the minimum is 34+|K| with a 4-char literal: 42 would need |K|=8 and the raw-value reads
+  (no), 41 would need |K|=7 (no 7-char numeric read exists). A 3-char literal needs an index
+  mapping V3 and V4 to distinct slots with the 17/19 counts; `i%3` conflicts for every m|392
+  and `~i%4` only ties 45.
+- S-tail plans (V3 E*31+S*14) allow 3 classes, but V4 needs SW: a tail suffix flag costs >=8 B
+  (`?S+h[i/20..]`), and the cheapest key with i(V3)=31,i(V4)=19 is `gets.to_i|19` (12 B,
+  letter i%5 -> 5 chars): >=54 B.
+- diagonal-first T3 (`puts [?S+(h=..)]*C+[h]*D`) needs C=0 for V1 and V2 (different letters ->
+  key values must differ but both zero), fixed cost 22: >=47.
+- alternation (`[[h,?S+h]]*i`) is 2 B cheaper but V3 needs x=31 with x parity even (2k or 2k+1
+  odd only 29/28), so it cannot win.
+- `chars`/single-character streams: V3 can win with E*17+(S,E)*14 = 45 moves, but V4 needs 36 W
+  + 17 S = 53 moves > 36 energy; the SW token must be a 2-char line, so arrays stay.
+- general plan (for other languages): with dx=lightX-thorX, dy=lightY-thorY, head letter
+  `"NEW"[dx<=>0]` (index -1 wraps to W), head count |dx|-dy, tail count |dy| wins all four
+  (V1 21/0, V2 13/13, V3 17/14, V4 19/17); parsing the 4 ints costs 26 B, so not 42.
