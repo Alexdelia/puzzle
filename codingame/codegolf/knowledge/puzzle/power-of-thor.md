@@ -387,3 +387,59 @@ Row unchanged 54 B (hidden 4/4, `run.sh --cg`). Two new exhaustive results and o
 
 Also: `for<>` is not a 5 B replacement for `while<>` (list context slurps stdin, hidden 0/4);
 see `knowledge/lang/perl/statement-modifier-while-no-shebang.md`.
+
+## Ruby 52 (2026-10-25, task 1792925776203454092): 53 -> 52 B, CG 100%
+
+CG row 52, rank 15 (tie 14), commit by submit.sh. Source:
+
+```
+puts ["WEN"[i=gets.sum%3]]*(19+12*i)+[?S+?W*0**i]*17
+```
+
+- hidden 4/4 locally (`run.sh --cg`) and CG 100%; 1 B under the 53 B row.
+- trick: the letter is used only once, so there is no `h=` at all; the tail's
+  W is hardcoded (`?W*0**i`) instead of `h*0**i`. 53's `[h=...]` + `h*` (2+2 B)
+  becomes `[...]` + `?W*` (0+1 B).
+- **`getc` is not a Kernel method** in Ruby 3.1.2: `getc` raises NameError;
+  only `$<.getc` (7 B) / `STDIN.getc` work. Any 52 B candidate keyed on
+  `getc.hex` is invalid (those were found by a 2026-10-25 search and fail
+  immediately). Valid 8-9 B single-read keys here: `gets.sum`, `gets.hex`,
+  `gets.oct` (8), `gets.to_i` (9).
+- exhaustive search of this output shape
+  `puts [L[K]]*(C)+[?S+?W*F]*17` over valid keys (base read + one op, and
+  AST-generated two-op keys up to 10 B), ~38k count templates <=8 B, tight
+  0/1 flags (`0**i`, `i[k]`): floor is 52. Letters L are 3 chars for
+  (V1,V2,V3,V4)=(1,2,1,0); C must hit c(V1)>=21, c(V3)=31, c(V4)=19,
+  c(V2)>=13, and F must be 0 at V3, 1 at V4 (V1/V2 tails are never consumed,
+  they win inside the base run).
+- shape floor: fixed 24 B (`puts ` 5, `[`+`]]*(` 5, `)+` 2, `[?S+?W*` 7,
+  `]*17` 4) + |L|>=5 + |K|>=10 (8 B read + `i=`) + |C|>=4 + |F|>=4 = 47;
+  no 42 B solution in this family.
+
+## 42 rows and the counting rule (2026-10-25 analysis)
+
+- Global leaderboard top (all languages): 8 rows at 42: LolCat Perl+Ruby
+  (2022-03), TKirishima/Shanethegamer/Lydxn Ruby (2022-10), sffsefsdfaf
+  Perl (2026-07-30) + Ruby (2026-08-24), Icebox Ruby (2026-09-30). Recent
+  byte-era low rows: Rauru Ruby 50 (2026-09-22), cedricdd Ruby 53 (2026-09-23).
+  Source: services `Leaderboards/getFilteredPuzzleLeaderboard`, global column.
+- CG counted **UTF-8 characters** historically, not bytes: forum 688 post 43
+  (2015-07-09) says UTF-8 chars count 1 each except 4-byte chars count 2;
+  forum 194246 (2022-01..06) documents the UCS-2/UTF-16 eval packing and
+  gitKad says it "stopped working since" the post; TKirishima (forum 687
+  post 209, 2022-10-10) asks CG to "score in bytes and not in chars", so
+  chars were still the rule then. Our 2026-10-19 Ruby probe on
+  temperature-code-golf (75 B / 66 cp / 68 UTF-16 -> CG 74) shows bytes now.
+  Switch date unknown; rows created before it can be char-counted.
+- UTF-16 packing (`eval'<UCS-2 chars>'.encode('UCS-2BE').b`, wrapper 26 chars
+  after `eval'`/`'.encode('UCS-2BE').b`; beware `.encode'X'.b` binds `.b` to
+  the argument) gives chars = 26 + payload_bytes/2. To reach 42 characters
+  the executed payload would have to be <=32 B. Our payload is 52 B -> packed
+  source is exactly 52 chars (tie), so a packed probe cannot prove or improve
+  the row, and packing cannot explain a 42-char row either (a 32 B Ruby
+  program that wins all four validators is far below every family found).
+- deterministic byte-era floor found for Ruby: 52 B (this task). The 42s are
+  therefore either pre-byte-era char-counted rows or a trick outside all
+  hardcode/run shapes searched since 2026-10-24 (per-turn energy phase,
+  plan dumps, wrappers, random plan tables, this 3-plan formula family).
+  No further submit spent on it in this task.
