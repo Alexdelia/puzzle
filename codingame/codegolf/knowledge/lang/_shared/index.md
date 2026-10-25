@@ -1,6 +1,6 @@
 # Shared: CG facts valid in every language
 
-- [length](length.md): length = UTF-8 bytes, trailing newlines free, unicode packing useless, verified
+- [length](length.md): length = UTF-8 bytes, trailing newlines free, unicode packing useless NOW (was chars pre-2026-10: sub-byte-era tops are stale, check creationTime), verified temperature 2026-10-25
 - [output-compare](output-compare.md): exact line match, trailing spaces and CR fail, missing final newline and ONE trailing empty line free, two or more trailing empty lines FAIL (local referee-core enforces it too), verified
 - [io-time-limit](io-time-limit.md): io puzzle run limit about 6000 ms per test in Python, startup included; per language (Groovy ~1.9 s), verified
 - [memory-limit](memory-limit.md): about 768 MiB peak RSS per test, over it = fail (Python killed silently, Haskell shown as timeout), local referee does not check it, verified

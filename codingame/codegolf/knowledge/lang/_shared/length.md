@@ -20,3 +20,11 @@ char-counted row: the recorded `criteriaScore` is bytes *at submission time*, no
 Packing only pays for payloads above ~55-60 bytes, so a stale low top is usually a much
 longer program, not a shorter exploit. Do not assume it is reachable in bytes; check
 creationTime against the probe date before spending submits.
+
+Instance confirmed 2026-10-25 (Ruby, `temperature`): with the leaderboard dump sorted by
+creationTime, **every** 100% row below the byte-era floor (30, 30, 32, 33, 33, 38, 45, 45)
+was created <= 2026-10-16, while the six rows created >= 2026-10-19 are 46/47/50/51/60/61
+(46 = ours). So a sub-46 top in a puzzle synced 2026-10-23 is pre-byte-switch and its
+length is not a byte count; check the row dates before treating it as a target. Details:
+`puzzle/temperature.md` section "Byte-metric switch". Ruby char-era packing overhead is
+~22-25 chars (`eval(...).encode'UTF-16BE'.b` shape), so pack only pays for payloads > ~55 B.
