@@ -1,0 +1,5 @@
+Module A
+Sub Main
+Process.Start("perl",{"-E","$|=@S=glob<>;<>;@p=glob<>;<>;for$t(@p){for($m=$l,$l=0,$h=($S=shift@S)-1;$l<$h;$x=<>gt V^$t<$o,${$x?l:h}=$o+$t+$x>>1){$t=$o+$S*($t>0)>>1if($t=($l+$h|1)-($o=$t))-$t%$S;say""@p""}}say""$m $l"""}).WaitForExit
+End Sub
+End Module
