@@ -97,25 +97,39 @@ status_sgr() {
 
 paint_count() {
 	local count=$3 digits=$4 sgr=$2 padded
-	((count)) || sgr=$dim
+	((count)) || sgr="0;$dim"
 	printf -v padded '%*s' "$digits" "$count"
 	paint "$1" "$sgr" "$padded"
 }
 
 progress_ratio_width() {
-	echo $((4 * $1 + 3))
+	echo $((10 * $1 + 12))
 }
 
 progress_ratio() {
-	local first=$2 ran=$3 wrapped=$4 total=$5 digits=$6
-	local painted_first painted_bar painted_ran painted_wrapped painted_total padded_total
-	paint_count painted_first "$bold;$green" "$first" "$digits"
-	paint painted_bar "$dim" "|"
-	paint_count painted_ran "" "$ran" "$digits"
-	paint_count painted_wrapped "" "$wrapped" "$digits"
-	printf -v padded_total '/%-*s' "$digits" "$total"
-	paint painted_total "$dim" "$padded_total"
-	printf -v "$1" '%s' "$painted_first$painted_bar$painted_ran$painted_bar$painted_wrapped$painted_total"
+	local target=$1 digits=$2
+	local first=$3 sole=$4 sole_native=$5 sole_wrapped=$6 tie=$7 tie_native=$8 tie_wrapped=$9 native=${10} wrapped=${11} total=${12}
+	local layout=(
+		"$bold;$green" "$first" "("
+		"0;$bold;$green" "$sole" "("
+		"$bold;$dim;$green" "$sole_native" "|"
+		"$dim;$green" "$sole_wrapped" ")|"
+		"0;$green" "$tie" "("
+		"$dim;$green" "$tie_native" "|"
+		"$dim;$green" "$tie_wrapped" "))|"
+		0 "$native" "|"
+		0 "$wrapped" "/"
+	)
+	local index painted padded_total text=
+	for ((index = 0; index < ${#layout[@]}; index += 3)); do
+		paint_count painted "${layout[index]}" "${layout[index + 1]}" "$digits"
+		text+=$painted
+		paint painted "0;$dim" "${layout[index + 2]}"
+		text+=$painted
+	done
+	printf -v padded_total '%-*s' "$digits" "$total"
+	paint painted "0;$dim" "$padded_total"
+	printf -v "$target" '%s' "$text$painted"
 }
 
 pace_sgr() {
@@ -194,40 +208,54 @@ blocked_line() {
 cell_table() {
 	local cells=("$state"/cell/*/*.json)
 	((${#cells[@]})) || return 0
-	jq -r '[input_filename, .status, (.attempts // 0), .ours, .top, .wrap_source] | @tsv' "${cells[@]}" | sed 's|^[^\t]*/cell/||; s|\.json\t|\t|'
+	jq -r '[input_filename, .status, (.attempts // 0), .ours, .top, .wrap_source, .rank] | @tsv' "${cells[@]}" | sed 's|^[^\t]*/cell/||; s|\.json\t|\t|'
 }
 
 first_total_line() {
-	local langs=("$state"/lang/*.json) puzzles=("$state"/puzzle/*.json) first painted_first painted_bar
-	first=$(awk -F'\t' '$2 == "first" { first++ } END { print first + 0 }' <<<"$cells")
-	paint painted_first "$bold;$green" "$first"
-	paint painted_bar "$dim" /
-	echo "$painted_first$painted_bar$((${#langs[@]} * ${#puzzles[@]}))"
+	local langs=("$state"/lang/*.json) puzzles=("$state"/puzzle/*.json) counts=() total ratio
+	IFS=$'\t' read -ra counts < <(cell_rows 0) || true
+	((${#counts[@]})) || counts=(0 0 0 0 0 0 0 0 0 0)
+	total=$((${#langs[@]} * ${#puzzles[@]}))
+	counts[-1]=$total
+	progress_ratio ratio "${#total}" "${counts[@]}"
+	echo "$ratio"
 }
 
 cell_rows() {
 	local key_field=$1
 	awk -F'\t' -v key_field="$key_field" '
-		{ split($1, cell, "/"); key = cell[key_field]; total[key]++ }
-		$2 == "first" { first[key]++; next }
-		$2 != "todo" || $3 > 0 { ran[key]++; next }
-		$6 != "" { wrapped[key]++ }
-		END { for (key in total) printf "%s\t%d\t%d\t%d\t%d\n", key, first[key], ran[key], wrapped[key], total[key] }
+		{ split($1, cell, "/"); key = cell[key_field]; total[key]++; via_wrap = $6 != "" }
+		$2 == "first" {
+			first[key]++
+			if ($7 == 1) { sole[key]++; sole_wrapped[key] += via_wrap }
+			else { tie[key]++; tie_wrapped[key] += via_wrap }
+			next
+		}
+		$4 != "" { best[key]++; wrapped[key] += via_wrap }
+		END {
+			for (key in total)
+				printf "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", key, first[key],
+					sole[key], sole[key] - sole_wrapped[key], sole_wrapped[key],
+					tie[key], tie[key] - tie_wrapped[key], tie_wrapped[key],
+					best[key] - wrapped[key], wrapped[key], total[key]
+		}
 	' <<<"$cells" | sort
 }
 
 count_table() {
-	local key_field=$1 key first ran wrapped total ratio label rows=() entries=() name_width=0 digits=1
-	while IFS=$'\t' read -r key first ran wrapped total; do
-		rows+=("$key"$'\t'"$first"$'\t'"$ran"$'\t'"$wrapped"$'\t'"$total")
+	local key_field=$1 key counts total ratio label rows=() entries=() name_width=0 digits=1
+	while IFS=$'\t' read -r key counts; do
+		rows+=("$key"$'\t'"$counts")
+		total=${counts##*$'\t'}
 		((${#key} <= name_width)) || name_width=${#key}
 		((${#total} <= digits)) || digits=${#total}
 	done < <(cell_rows "$key_field")
 	local row label_width=$name_width
 	[[ $key_field != 2 ]] || label_width=1
 	for row in "${rows[@]}"; do
-		IFS=$'\t' read -r key first ran wrapped total <<<"$row"
-		progress_ratio ratio "$first" "$ran" "$wrapped" "$total" "$digits"
+		IFS=$'\t' read -r key counts <<<"$row"
+		IFS=$'\t' read -ra counts <<<"$counts"
+		progress_ratio ratio "$digits" "${counts[@]}"
 		if [[ $key_field == 2 ]]; then
 			lang_label label "$key"
 		else
@@ -892,10 +920,10 @@ first_total_line
 
 if [[ -n $cells ]]; then
 	echo
-	section "cells first|ran|wrap/total per lang"
+	section "cells first(sole(native|wrap)|tie(native|wrap))|native|wrap/total per lang"
 	count_table 2
 	echo
-	section "cells first|ran|wrap/total per puzzle"
+	section "cells first(sole(native|wrap)|tie(native|wrap))|native|wrap/total per puzzle"
 	count_table 1
 	echo
 	section "smallest gaps not first (ours - top)"
