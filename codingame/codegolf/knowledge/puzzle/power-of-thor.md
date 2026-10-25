@@ -359,3 +359,31 @@ puts [h="WEN"[i=gets.sum%3]]*(19+12*i)+[?S+h*0**i]*17
   above): all 14 Ruby rows shorter than 53 were created before the 2026-10-19 byte proof
   (42s in 2022/2026-07..09, 45-52 in 2021-2026-09); 53 is the shortest byte-era Ruby row
   found, one byte behind the Perl core 54 and two behind Skyf0l's byte-era bash 51 wrapper.
+
+## 2026-10-25 task 1792926723757218929: F=9 lead closed, top 42 confirmed stale
+
+Row unchanged 54 B (hidden 4/4, `run.sh --cg`). Two new exhaustive results and one live-API check:
+
+- **The previous task's open F=9 lead is dead.** New DP search (`search9.rs` in that task's
+  scratch): all value expressions over `$_` (e), `$.` (k), `$|`, digits, ops `+ - * / % & | ^ < >`,
+  text length <=9, with **correct Perl precedence and parenthesized children** (the earlier
+  searches used a wrong precedence table and never stored parenthesized subtrees), then the exact
+  5-slot direction check (V1 T=21, V2 T=13, V3 T=31, V4 T=36). 26.5M cost-9 pairs, 0 hits. So
+  `$|=print+(LIST)[F],$/while<>` cannot be 42 B for any F<=9; F>=10 is >=43 B.
+- **Vertical-S 5-list variant is 56 B, not better.** A 5-list `(W,E,N,SW,S)` with index
+  `$`%3+3*(P)` and P a plain turn threshold uses vertical S for V3 (E*31+S*14 wins in 45 moves)
+  and SW for V4; `P=$.>($`|19)` (L|19 = 31,23,31,19) passes hidden 4/4 at 56 B. The threshold is
+  forced: `L|19` is the only 5-char T with T(31)=31, T(0)=19, T(28)>=21, T(5)>=13; the `|` needs
+  the parens (comparison binds tighter), so the index is 19 B, total 37+19=56 > 54.
+- **No short boolean phase for the 5-list.** Full text-length DP to 7 over e,k,L for the vector
+  (V1 0/21, V2 0/13, V4 17/36, V3 14 of its first 31) and for (V3 14 of 45, vertical plan):
+  0 hits. Since a boolean P enters as `$`%3+3*(P)` = 9+len(P) B (base 37), no P<=7 -> no <=53 B
+  from that family. P=8 ties 54; only P>=9 (the current 12 B window) was known.
+- **Live leaderboard creationTime check (Perl, 2026-10-25).** Every 100% row below our 54 was
+  created before the 2026-10-19 byte-count probe: 42 LolCat 2022-03-11, 42 sffsefsdfaf 2026-07-30,
+  46 d-s-x 2021-12-08, 47 NukePwr 2026-10-16, 53 pardouin 2022-10-10, 53 Icebox 2026-10-01. The
+  only 100% Perl rows created 2026-10-19 or later sit at 54+ (ours 2026-10-25). This is direct
+  evidence that the displayed 42 is the pre-switch length recording, not a current byte target.
+
+Also: `for<>` is not a 5 B replacement for `while<>` (list context slurps stdin, hidden 0/4);
+see `knowledge/lang/perl/statement-modifier-while-no-shebang.md`.
