@@ -45,3 +45,4 @@
 - [dump-plan-tail-letter](dump-plan-tail-letter.md): `puts [h="?ENW"[(i=gets.sum%98)%4]]*i+[?S+h]*i` = one variable drives both array repeats, inline `h=` in the first element, tail token `?S+h` (SE/SW; N class never reads it); key value = count (1 B under any constant per repeat), -7 B on power-of-thor ruby (45 CG 100%)
 - [exec-bash-core](exec-bash-core.md): `exec"bash -c 'CORE'"` = 16+core, space after -c mandatory, Ruby has no `$|`; php/python/lua/groovy/ocaml bash-core wrapper lengths, verified CG
 - [exec-perl-aE](exec-perl-aE.md): `-a` implies `-n`; `exec"perl -aE'BODY'"` = 16+body source, `-alp` 17, `-E` 15; Ruby double-quote escapes `\`/`"` +1 each; why the 76 B `-F\D\K` body loses in Ruby (shell strips flag backslashes), verified
+- [power-key-hardcode](power-key-hardcode.md): `gets.size**d` exponent keys (missing from prior chain searches), byte accounting vs+m+len(K)+5, `**` precedence, verify per covered stat; the-resistance ruby 57 CG 100 % tie #1
