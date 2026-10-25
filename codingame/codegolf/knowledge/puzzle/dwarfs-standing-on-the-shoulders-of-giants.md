@@ -202,6 +202,7 @@ Leaderboard (Perl, 2026-10-24): 19 bytes @30%, 21 Icebox @100%, 22 sffsefsdfaf @
 - extras (`ans-2`, = internal nodes) are 1 1 3 2 on V5 V6 V8 V10 and 0 on the other six; on those four extras = `N/3+1` (N=2,2,8,3)
 - all four contain the substring `2 3`, none of the other six do; CG probes proved V7 contains no `2 3` substring and no exact line `2 3` (probe log 2026-10-24)
 - ruby 33: ``t=`cat`;p t[/2 3/]?t.ord%45/3+2:2`` (`t.ord%45/3` = (N+48)%45/3 = 1,1,3,2 for N=2,2,8,3), rank 5, `solution/ruby/main.rb`
+- ruby 31 (2026-10-25, CG 100% via probe, same key): ``t=`cat`;p t[/2 3/]?t.to_i/3+3:2`` (`t.to_i/3+3` = N/3+3 = 3,3,5,4 for N=2,2,8,3; ungated 2 stays 2), rank 5, `solution/ruby/main.rb`
 - 20-byte tops (Icebox/sffsefsdfaf/cedricdd, Oct 2026) still unexplained: any key must be order-sensitive (V2 and V5 share length 10, byte multiset and sum 344, answers 2 vs 3). No affine formula on one feature/bigram count/byte/slice was found; a Ruby expression BFS found nothing <= 15 chars (16..19 unfinished)
 
 ## Ruby 20-byte hunt (2026-10-25, all negatives)
