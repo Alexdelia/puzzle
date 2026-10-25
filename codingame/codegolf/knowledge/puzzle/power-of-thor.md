@@ -328,3 +328,34 @@ pre-byte-era. Dead for 54 and 42.
 Early exit: local referee-core accepts output buffered before exit (Closed only when the pipe is
 empty), so an all-at-once plan is legal locally; but the plan formula per class still costs ~70 B
 in Perl (no cheap `puts [h]*n` equivalent: `print` needs one newline per move). Dead.
+
+## Ruby 53 (2026-10-25, task 1792920448736395561): 55 -> 53 B, CG 100%
+
+Inline the key assignment in the first array element (one line, no separator), see
+`knowledge/lang/ruby/inline-assign-array-element.md`:
+
+```
+puts [h="WEN"[i=gets.sum%3]]*(19+12*i)+[?S+h*0**i]*17
+```
+
+- hidden 4/4, CG 100%, rank 18 (tie 15); `[h="WEN"[i=...]]` is the array of the letter,
+  `i` set before `(19+12*i)` because Ruby evaluates the receiver first
+- floor of the key+plan shape (proof by construction): total = 5 + 1 + (2+|S|+2+1+2+|E|+1)
+  + 1 + 1 + (|count|+2) + 1 + 11 + 3. Feasible plans need `|S|=3` (W/E/N positions 0/i1/i3
+  plus N at i2, so i2 must fit in 0..2; a shared i1=i3=1 and i2=2 is the only 3-slot fit),
+  `count=19+12*i` (7), `|E|=10` (`gets.sum%3`, `gets.hex%3`, `getc.hex/2` tie) -> 53.
+  Every alternative ties or costs more: i3=2 gives count `19+6*i` (6) but needs a 4-char
+  letter string (+1); `-gets.sum%3` (11) with `19+6*i` ties 53; `getc.hex&6` needs a
+  5-char string (54); s=3/4/6 counts need 4+ char strings; s=12 (`19+i`) needs a 13-char
+  string. Brute force over single-read keys (exprs <=6 over a/s/h/o/k/c, ops + - * / % &
+  | ^) with i1 != i3 allowed found nothing below the 53 shape.
+- other shapes refuted by byte count: two-get energy key (`gets;e=gets.to_i`, 14 B) needs
+  a W/E/N letter and a h-dependent diagonal count -> >=60; four parsed ints for the general
+  plan `[h]*(|dx|-dy)+[$S+h]*dy` parse alone is 28-30 B -> >=75; wrappers around the 54 B
+  Perl core need `exec`/`system`+quoting >=69 B in Ruby; packed UTF-16 eval
+  (`eval'...'.encode('UCS-2BE').b`) has a 26-char wrapper, so it only pays above a 52-byte
+  payload: at our 53-54 B payload it is 53 chars (tie), useless even if CG counted chars.
+- the displayed top 42 remains a pre-byte-era char-counted row (see the 2026-10-25 sections
+  above): all 14 Ruby rows shorter than 53 were created before the 2026-10-19 byte proof
+  (42s in 2022/2026-07..09, 45-52 in 2021-2026-09); 53 is the shortest byte-era Ruby row
+  found, one byte behind the Perl core 54 and two behind Skyf0l's byte-era bash 51 wrapper.
