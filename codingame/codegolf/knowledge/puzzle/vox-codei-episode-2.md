@@ -54,7 +54,7 @@ All 10 recovered exactly (validator task 2026-10-21), details and probe chain in
 - validator k = mirror of IDE test k, same rounds and bombs. Transforms v1..v10: flipx, flipy, rot180, flipx, flipy, rot180, flipx, flipy, rot180, flipx (period 3 from v2, v1 flipx = rot180 since test 1 is y-symmetric)
 - consequence: a hardcode can store each plan already mirrored for its validator and key on `rounds bombs` only (v1 and v4 share 30 1 and both are flip x, one plan wins both): no orientation detection. Such code fails the untransformed IDE tests locally; CG scores only the validators
 - python 891 (exact-assignment probe, ungolfed) scored 100% on CG with this mapping
-- local referee: php hardcode exiting right after printing flakes with "solution closed its input" (1 of 20 games, local only; CG accepts early exit)
+- local referee early exit (fixed 2026-10-25): CG keeps reading the buffered stdout after the player exits and ignores failed writes to its stdin; the shared referee-core loop failed `solution closed its input` instead (php 1/20, ruby 1-3/10 per run under load). The puzzle crate now has `src/runner.rs` `ClosedStdin<G>`, see the last section
 
 ## Hardcode route (perl worker, 2026-10-20, local only, not probed: submit cap hit)
 
@@ -149,3 +149,14 @@ All 10 recovered exactly (validator task 2026-10-21), details and probe chain in
 
 - ruby early-exit local flake (2026-10-24): the 153 ruby hardcode prints everything from the second line and exits; local `run.sh --hidden` randomly reports hidden NN "solution closed its input" (1-3 of 10 per run under load, different NN each time), while CG scored it 100%. Same class as the php note above: trust CG, rerun locally before doubting the plans
 - since 2026-10-24 `submit.sh` gates on `run.sh --cg` (hidden only): a validator-oriented hardcode passing hidden 10/10 goes through plain `submit.sh` though it fails the untransformed IDE maps (before, the gate ran tests + hidden and refused it, so these went as probes)
+
+## Local referee accepts early exit (2026-10-25)
+
+- `referee/src/runner.rs` `ClosedStdin<G>`: `referee_core::suite::Runner` copied from the core `Interactive` loop, only change `solution.write(&input)` result ignored (CG behaviour: a failed write to the dead player is ignored and the remaining buffered stdout lines are still read). `ReadError::Closed` still fails "solution exited"; timeouts, first-turn CPU, orphan grace, hard cap and trace unchanged. `Cargo.toml` gained `anyhow` + `serde_json`. Formatted, clippy -D warnings clean
+- hidden only (`--cg`): all 27 `solution/*/main.*` whose length == cell `.ours` (all 27 here) tried; 24/27 pass 10/10. Core langs perl 161, python 204, ruby 153, bash 176: 3 runs each while 8 `yes` hogs ran, 12/12 runs 10/10 (race gone; no more "solution closed its input")
+- clojure 289, groovy 553, scala 231 fail `turn 1: no answer within 1000 ms` under load: JVM launcher startup, not modelled by design (spec: CG ms limits as is; CG starts its first-turn clock ~500 ms into JVM life, `knowledge/lang/groovy/interactive-first-turn.md`). Groovy/scala pass when the host is idle; clojure cold launcher ~1.1 s (`knowledge/lang/clojure/env.md`) always exceeds the local 1000 ms. Same failures on the old runner; not a case bug
+- early exit with too little buffered output still fails: a variant that prints one WAIT then exits fails `turn 2: solution exited` on every test
+- reference: committed general python 3833 (`git show 2b62a0a7:./puzzle/vox-codei-episode-2/solution/python/main.py`, scratch copy `agent/state/journal/referee.vox-codei-episode-2.-.1792918113635977473.scratch/reference3833.py`) passes tests+validators+hidden 30/30
+- negatives: WAIT-forever python 0/10 `maximum amount of rounds reached`; the same reference with `sleep(.2)` before every answer 0/10 `timeout turn 2: no answer within 150 ms`
+- bench (reference 3833, `--validators`): suite wall 1234.3 ms, solution cpu 134.5 ms, referee cpu 27.4 ms, per-case referee 0.8-1.5 ms (budget 2.1-2.9 ms), `gate ok pass`
+- the synthetic `validators/` still fail the plan hardcodes by design (their rounds keys select other plans): they remain the general-solver guard, the reference passes them 20/20
