@@ -21,7 +21,7 @@
 - [flush-after-say](flush-after-say.md): `$|=COND&&say+X` flushes the say right away (1 under `say+X if$|=COND`, no space), verified
 - [anon-hash-lookup](anon-hash-lookup.md): `-0p` + `$_={k,v,...}->{$_+0}` hardcode table keyed on first number, verified locally
 - [for-growing-array](for-growing-array.md): growing-list flood, ref marks, `>>2`, `=~O`, `/(.+) (.+)/g`, verified
-- [prefix-set-subst](prefix-set-subst.md): `s/./\$h{$`}/sge for<>` all prefixes (`/s` takes the `\n`, empty key once), `\$h{K}` vivifies a key 1 under `$h{K}++`, `print%h-2` key count, verified on CG
+- [prefix-set-subst](prefix-set-subst.md): `s/./\$h{$`}/sge for<>` all prefixes (`/s` takes the `\n`, empty key once), empty pattern `s//\$h{$`}/ge` with `-l` 1 under it, `\$h{K}` vivifies a key 1 under `$h{K}++`, `print%h-2` key count, verified on CG
 - [nl-ternary-endblock](nl-ternary-endblock.md): `-nl` + `$.<2?` header + `}{` final block, `s///ger` as hash key, verified
 - [foreach-alias-position](foreach-alias-position.md): `for$t(@p)` aliases the coordinate, `/S/?:/W/==..` response test, `$q-$q%$S` out-of-range test, verified
 - [jump-into-alias](jump-into-alias.md): assign new value into the `for` alias, old via inline `($o=$t)`, `$t>$o` test; `$t+($t=..)` reads the new value (SV push), verified on CG
