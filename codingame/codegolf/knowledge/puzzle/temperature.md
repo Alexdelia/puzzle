@@ -273,3 +273,31 @@ Source: task cell.temperature.ruby.1792927698716721693, 2026-10-25 (scratch `ese
   8/12; numeric min (`sort -n|head -1`) is 6/12, |min| 7/12, lex min 5/12.
 Conclusion: the 31 B bash row is still unexplained; sort -V is the strongest lead (25 B,
   9/12 with exactly V1/V8/V12 missing).
+
+## Bash 31 B: task cell.temperature.bash.1792960107098140263 (2026-10-25, no submit)
+
+No gain over the 40 B awk row; below is what was verified so a later worker does not repeat it.
+
+- Budgets re-measured: `read;awk '` = 10 B, closing quote = 1 B, so total = 11 + len(program).
+  `$0=EXPR` with `""` costs 3+len(EXPR)+2, i.e. total = 16+len(EXPR): 31 B needs EXPR<=15.
+  The 11/12 program EXPR=`$NF-5*($NF%8>3)` is exactly 15 (total 31 with `""`) and fails only V12.
+- The V12 term `-9*(NF>7)` is 9 B, so that shape is 40 B (`""` included). V8 is NOT a formula
+  problem: `awk '$0=X'` is a *pattern*, numeric 0 is false and suppresses the default print
+  (`awk-default-action-truthy.md`); `$0=0""` prints 0. So any zero answer costs the 2 B `""`.
+- Exhaustive-ish DP/MITM over awk atoms NF,$NF,$1..$5,constants with `+ - * / % ^` comparisons,
+  both for the answer vector and for the correction D=$NF-answer (target
+  [5,0,0,5,5,5,0,0,5,0,0,14]): no EXPR<=15/16 hit before state explosion (>1.5M vectors at
+  len 11; scratch dpawk.py, awkD.py, mitm_val.py). `5*($NF%8>3)` is 11 B and D needs 14 at V12;
+  every distinguishing predicate costs at least `NF>7` (4) + 9*() -> 9 B more.
+- `read -d. n a` = 13 B shape `echo $[E]` has E<=10; index/D CRTs on L2=$#a do not fit:
+  answer = last token when L2<6 and a function of L2 alone for L2 in {10,11,12,15,27}, but the
+  absolute-value comparisons make a <=10-char expression impossible (searched).
+- `sort -V` P1/N1 characterization and why no stable-order tie fix exists:
+  see `lang/bash/sort-version-signed.md`. A pipeline search of 758 prefix+split+sort+transform+
+  selector programs <=31 B found nothing >=10/12 (scratch pipe.py).
+- Perl wrapper: `perl -0ap'BODY'` = 11+len(BODY), so BODY<=20 for 31 B. `perl file` does parse
+  shebang switches locally; a Perl top of 29 B via `#!perl -0ap` would imply a 17 B body and a
+  28 B bash wrapper. Index DP `$_=$F[E]` (E<=13) over `$#F,@F,$F[0..6],$F[-1..-3],length,consts`
+  found no hit (scratch idx.py/mitm_idx.py); value DPs over the same atoms explode without a hit.
+  Direct body search is still the most promising open lead.
+- Hidden V8 remains the only 0 answer; no other validator prints 0.
