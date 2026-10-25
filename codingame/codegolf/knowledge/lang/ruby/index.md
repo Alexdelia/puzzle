@@ -40,3 +40,4 @@
 - [inline-assign-array-element](inline-assign-array-element.md): `puts [h="WEN"[i=gets.sum%3]]*(19+12*i)+...` = assign inside the first array element, -2 B vs two statements; if the letter is used only once, drop `h=` and hardcode the tail letter instead (power-of-thor ruby 52 CG 100%)
 - [shebang-interpreter-fixed](shebang-interpreter-fixed.md): a Ruby cell always runs ruby, `#!perl`/`#!python3` are not honored (test game); `#!ruby -0p` slurp+print works; cross-language needs `exec`, verified
 - [io-getc](io-getc.md): no top-level `getc` (NameError); `$<.getc` reads one byte, `gets.sum/hex/oct` are cheaper line keys, verified Ruby 3.1.2
+- [gets-sets-persistent](gets-sets-persistent.md): plain `gets` also sets `$_` (no -n): one read feeds `$_.sum` + `$_.size`; one-read content-bit probes, +3 B vs `gets.size` keys
