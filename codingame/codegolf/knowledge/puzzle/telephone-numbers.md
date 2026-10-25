@@ -42,10 +42,11 @@ Lengths reached (local referee, 15/15 tests + validators):
 - Python 74: `open(0).read().split()[1:]` + `range(21)` + `-1`
 - shell core 37 (method 2 + `wc -w`); 39 with `s/\B.$//` + `wc -l`, 41 with `s/.$//` + `grep -c .`, 42 with `-n`
 - Python 60 via wrapper: `import os;os.system("<core 37>")` (23 + 37), beats native 64. Any lang with a short shell call: wrapper + 37 (`_shared/system-wrapper.md`)
+- shell core 33 (2026-10-25, CG 100%, bash top tie, submission 41564559): `perl -lnE` wrapper (11 B incl. quotes) + 22 B core = empty-pattern `/g` prefix set with `-l` (`lang/perl/prefix-set-subst.md`) + `}{say%h-2` end block, P9 identity (keys = all prefixes + `''` + line 1). 4 under the 37 sed core, so it is the core to wrap in every host
 
-Wrapper arithmetic (unverified, from leaderboard only): PHP 39 = `` <?=`...`; `` (6) + 33 matches bash top 33, so a 33-byte shell core exists (4 under ours). Perl/Ruby 31 and Python 47 sit under any wrapper + 33 (`exec"..."` 6 + 33 = 39, `import os;os.system("")` 23 + 33 = 56), so they are native.
+Wrapper arithmetic (2026-10-25): the 33-byte shell core is now verified on CG; PHP 39 = 6 + 33 fits it (leaderboard inference, top source unverified) and OCaml 46 = 13 + 33 is generated from it and passes the local referee. Local generated wrappers of the 33-byte core (referee 15/15, not CG-confirmed): C 53, Objective-C 53, C++ 66, OCaml 46, Pascal 67, D 72, Haskell 65, Lua 46, Python 57, Ruby 40, Rust 96, Swift 57, TypeScript 85, Go 117. Leaderboard fit: C top 54, C++ top 67, Objective-C top 54 are 1 above the local wrapper; OCaml top 46 equals it.
 
-Gaps not explained: Python top 47 (13 under our 60), bash top 33 (4 under), Perl/Ruby 31. A shorter prefix generation or a different count must exist; the 47 cannot be a pair comprehension (`print(len({...}))` + `open(0)` + the shortest `s[:i]for s in a for i in range(..)` already exceed it).
+Gaps not explained: Python top 47 (13 under our 60), Perl/Ruby 31 (wrapper + 33 is 39+, so native). A shorter prefix generation or a different count must exist; the 47 cannot be a pair comprehension (`print(len({...}))` + `open(0)` + the shortest `s[:i]for s in a for i in range(..)` already exceed it).
 
 Rejected:
 
@@ -60,6 +61,7 @@ Rejected:
 
 - native 37 (old): `<>;s/./$h{$`.$&}++/ge for<>;print~~%h`
 - 31 = top tie, CG 100% (2026-10-22): P9 identity (no line-1 skip) + `/s` prefix form + `\$h{..}` key vivify, `print%h-2` (empty key + line 1). See `lang/perl/prefix-set-subst.md`. Passes all 15 local cases since 07/09/10 were regenerated P9-consistent (2026-10-24)
+- 33 in bash = the same identity with the empty-pattern form under `-l` (`perl -lnE` wrapper, 22 B core), 1 B under the `/s` form's 34-byte `-nE` wrapper; native perl keeps `/s` because it has no `-l` chomp
 - hardcoding 5 test answers keyed on N cannot fit 31 (tests 2 and 3 both have N=2 with answers 20 and 10) and local validators differ anyway; not probed
 
 ## Hidden validators
