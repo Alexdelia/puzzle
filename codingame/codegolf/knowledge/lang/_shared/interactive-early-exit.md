@@ -10,3 +10,4 @@ CG's interactive referee keeps reading the player's buffered stdout after the pl
 
 - vox-codei-episode-2 check: 4 core langs 3 runs each under 8 CPU hogs -> all 10/10 hidden; a player exiting with one line only still fails `solution exited`
 - the-fall-episode-3 check: plan wrappers that print and exit (bash 148, cpp 198, csharp 206, dart 234, fsharp 203) pass `--cg` 4/4 locally with the ClosedStdin runner; the same files were flaky/failing on the shared core loop
+- vox-codei-episode-1 check: bash 159 `--cg` (hidden only) 11/11 in 100 runs (4 CPU hogs, ruby/perl/python/bash x25); all 27 row files 11/11 at load 13-19. Its runner also gives JVM launchers a 1500 ms first turn (CG frame-1 ~1.5 s JVM uptime), see `knowledge/puzzle/vox-codei-episode-1.md`
