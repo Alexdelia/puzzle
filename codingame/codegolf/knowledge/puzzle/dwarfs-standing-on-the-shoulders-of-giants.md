@@ -257,8 +257,9 @@ Next: expr 17-19 B exhaustively with a lean C searcher, or shebang shapes
   dd/cat/$<.read and suffix grammar (all String/Array/Integer methods, slices,
   count/index/rindex/getbyte, ~40 regexes, arithmetic suffix ops, prefix unary,
   binary ops between primitive chains): no expression of length <= 16 (dd) /
-  <= 13 (read) yields the answer vector or answer-2; levels 15/16 were still
-  running at journal time.
+  <= 13 (read) yields the answer vector or answer-2; levels 15 (2.64 M streamed
+  candidates) and 16 (0.98 M, start-t only, with binary operands) are complete
+  too, 0 hits.
 - 43,167 capture/lookaround regex forms `t[/re/]`, `t[/re/,1]`, `t=~/re/` with
   `.hex/.to_i/.sum/.size/.ord/.oct` and `%m`/`/m` suffixes: no fit (<=16).
 - blocks (`sum{}`, `map{}`, `count{}`), multi-statement `gets;...` and
