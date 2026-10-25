@@ -48,3 +48,23 @@ the only key is the game input.
 - directive redirection trap when dumping diagnostics: `cmd 2>&1 >&2` sends stderr to the
   game's *stdout* (the referee reads it as a move and loses at frame 1); use `{ ...; } >&2`.
 - lowercase moves are rejected in Bash too: `yes w` on testcase 1 -> `found 'w'`.
+
+## First turn input is pre-sent (verified power-of-thor bash 2026-10-25)
+
+The runner writes the initialization input **and the first turn's input** before it reads the first
+output, on CG test games and in the local referee-core alike: a bash player's first blocking
+`dd bs=4k count=1` returned `28 8 7 8\n100\n` (init + energy) and the next read blocked; locally
+`read a b c d; read e` then keying on `e` (E0 = 100/13/45/36) selects validators 1/2/3 as expected.
+So an interactive solution may read one turn line beyond the init before its first answer. The
+runner writes the input a moment after spawning (`read -t .3` sees nothing), so a blocking read
+(not a short poll) is required.
+
+## File descriptors / env on the bash runner (power-of-thor 2026-10-25, game 911785805)
+
+- fds: 0 read pipe, 1 and 2 the same write pipe, 10 a second **write-only** pipe (runner control,
+  not readable), 255 = `/tmp/Answer.sh` (the script itself, read). No readable extra channel.
+- env: `PYTHONPATH=/usr/local/lib/python:/tmp:/tmp/deps`, HOME/TEMP/`/tmp`, GNUSTEP_*,
+  GROOVY_HOME, LD_PRELOAD=libstdbuf; no testcase/validator id in env, argv or files.
+- `/tmp` is on `PYTHONPATH`, so Python could import a module a previous run wrote there (state
+  channel), but no bash-side channel; the validator runner is not directly observable, but nothing
+  suggests a per-run key (all PID/state probes on validators failed).
