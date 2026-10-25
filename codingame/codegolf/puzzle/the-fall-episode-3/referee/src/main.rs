@@ -1,7 +1,12 @@
+use std::fmt::Write as _;
+
+mod runner;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use referee_core::{Game, Interactive, Step};
+use referee_core::{Game, Step};
+
+use crate::runner::ClosedStdin;
 use serde::Deserialize;
 
 #[derive(Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -134,9 +139,11 @@ impl Fall {
 		Move::To(Mover { x, y, side })
 	}
 
-	fn rotate(&mut self, action: &str) -> Result<String, String> {
-		let words: Vec<&str> = action.split(' ').collect();
-		let [x, y, direction] = words[..] else {
+	fn rotate(&mut self, action: &str) -> Result<(), String> {
+		let mut words = action.split(' ');
+		let (Some(x), Some(y), Some(direction), None) =
+			(words.next(), words.next(), words.next(), words.next())
+		else {
 			return Err(format!("invalid command {action:?}"));
 		};
 		let (Ok(x), Ok(y)) = (x.parse::<i32>(), y.parse::<i32>()) else {
@@ -152,7 +159,7 @@ impl Fall {
 				.iter()
 				.flatten()
 				.any(|rock| (rock.x, rock.y) == (x, y));
-		if room <= 0 || occupied || (x, y) == (self.exit, self.height() - 1) {
+		if room < 0 || occupied || (x, y) == (self.exit, self.height() - 1) {
 			return Err(format!("cell ({x},{y}) cannot be rotated"));
 		}
 		let rotated = match direction {
@@ -161,33 +168,32 @@ impl Fall {
 			_ => return Err(format!("invalid command {action:?}")),
 		};
 		self.grid[y as usize][x as usize] = rotated;
-		Ok(format!("rotated ({x},{y}) {direction}"))
+		Ok(())
 	}
 
 	fn move_rocks(&mut self) {
-		let cells: Vec<Option<(i32, i32)>> = self
-			.rocks
-			.iter()
-			.map(|rock| rock.map(|rock| (rock.x, rock.y)))
-			.collect();
-		self.rocks = self
-			.rocks
-			.iter()
-			.map(|rock| {
-				let rock = (*rock)?;
-				let sharing = cells
-					.iter()
-					.flatten()
-					.filter(|&&cell| cell == (rock.x, rock.y));
-				if sharing.count() > 1 {
-					return None;
-				}
-				match self.advance(rock) {
-					Move::To(next) => Some(next),
-					Move::Stuck | Move::Wall | Move::Outside => None,
-				}
-			})
-			.collect();
+		let current = &self.rocks;
+		let mut next = Vec::with_capacity(current.len());
+		for rock in current.iter().copied() {
+			let Some(rock) = rock else {
+				next.push(None);
+				continue;
+			};
+			let shared = current
+				.iter()
+				.flatten()
+				.filter(|other| other.x == rock.x && other.y == rock.y)
+				.count();
+			if shared > 1 {
+				next.push(None);
+				continue;
+			}
+			next.push(match self.advance(rock) {
+				Move::To(next) => Some(next),
+				Move::Stuck | Move::Wall | Move::Outside => None,
+			});
+		}
+		self.rocks = next;
 	}
 
 	fn spawn_rocks(&mut self) {
@@ -235,30 +241,35 @@ impl Game for Fall {
 
 	fn initial_input(&self) -> String {
 		let (width, height, exit) = (self.width(), self.height(), self.exit);
-		let rows: String = self
-			.grid
-			.iter()
-			.map(|row| {
-				let cells: Vec<String> = row.iter().map(i32::to_string).collect();
-				cells.join(" ") + "\n"
-			})
-			.collect();
-		format!("{width} {height}\n{rows}{exit}\n")
+		let mut out = String::with_capacity(16 + (self.height() * self.width()) as usize * 4);
+		let _ = writeln!(out, "{width} {height}");
+		for row in &self.grid {
+			let mut first = true;
+			for cell in row {
+				if !first {
+					out.push(' ');
+				}
+				first = false;
+				let _ = write!(out, "{cell}");
+			}
+			out.push('\n');
+		}
+		let _ = writeln!(out, "{exit}");
+		out
 	}
 
 	fn turn_input(&self) -> String {
 		let Mover { x, y, side } = self.indy;
 		let side = side.name();
-		let rocks: Vec<&Mover> = self.rocks.iter().flatten().collect();
-		let count = rocks.len();
-		let lines: String = rocks
-			.iter()
-			.map(|rock| {
-				let (rock_x, rock_y, rock_side) = (rock.x, rock.y, rock.side.name());
-				format!("{rock_x} {rock_y} {rock_side}\n")
-			})
-			.collect();
-		format!("{x} {y} {side}\n{count}\n{lines}")
+		let count = self.rocks.iter().flatten().count();
+		let mut out = String::with_capacity(24 + count * 16);
+		let _ = writeln!(out, "{x} {y} {side}");
+		let _ = writeln!(out, "{count}");
+		for rock in self.rocks.iter().flatten() {
+			let (rock_x, rock_y, rock_side) = (rock.x, rock.y, rock.side.name());
+			let _ = writeln!(out, "{rock_x} {rock_y} {rock_side}");
+		}
+		out
 	}
 
 	fn play(&mut self, action: &[String]) -> Step {
@@ -291,5 +302,5 @@ impl Game for Fall {
 }
 
 fn main() -> ExitCode {
-	referee_core::main(Interactive::<Fall>::default())
+	referee_core::main(ClosedStdin::<Fall>::default())
 }
