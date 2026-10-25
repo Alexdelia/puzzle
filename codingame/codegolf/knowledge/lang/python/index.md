@@ -10,3 +10,4 @@
 - [literal-backslash](literal-backslash.md): CG Python 3.11 keeps unknown escapes, so a Perl `\w`/`\pL` needs no doubled backslash (-1 B per escape), verified ascii-art CG 100%
 - [print-multiarg-sep](print-multiarg-sep.md) - `print(s+f'{x}',y)` = "s x y" via sep, saves 1-2 vs two f-string fields; literal LF impossible in one-line str; bytes.find(str) TypeError
 - [runtime-namespace](runtime-namespace.md) - CG Python3 runs the file as a plain `__main__` with only dunders in `dir()`: no preloaded `os`/`sys`/`re`, so `import os` is required; ask env questions with a code-golf test game, not a submit
+- [star-unpack-read](star-unpack-read.md) - `a,b,*c=open(0)` = cheapest 2-line read (newlines kept), `a,b=open(0)` raises; verified blunder-episode-3 101 B CG 100%
