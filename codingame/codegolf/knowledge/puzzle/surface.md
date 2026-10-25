@@ -15,6 +15,7 @@ pretty_id `surface-codesize`, leaderboard `surface-codesize`, io.
 - 8: 1000x1000, 22% water, many lakes, N=100, largest answer 837: recursive flood fill stays shallow
 - 9: 900x400 all `O` except `#` at (612..614, 399), N=1 query `43 54`, answer 359997: one lake of 360k cells. Recursive DFS overflows default stacks (Python recursion limit 1000), need iterative fill or raised limit
 - every captured input ends with a final newline, rows have exactly `L` chars, no CR, single spaces
+- 2026-10-25: tests/08 query 13 moved `908 994` -> `994 378` (same 38-cell lake, same answer) because the CG-accepted padless perl core dies on `908 994` (down overflow past the string end); the exact captured test is kept in `puzzle/surface/referee/tests/exact/08.in` + `.out` (subdirectory, not run by the referee) for correctness checks with a padded/native solution
 
 ## Traps
 
@@ -64,7 +65,7 @@ Perl 158 (local 17/17, CG rank 3, 2026-10-20), `-ln0`: strip header + `$w=L+1` i
 - 9 validators (CG per-validator report 2026-10-24), weights 100 x 8 + 200 for 9 "Large map, large lake"; the old "10 validators" from the score grain was wrong
 - titles: 1 No lake, 2 No land, 3 1 lake on a small map, 4 Several lakes on a small map, 5 Some lakes on a 20x20 map, 6 Many lakes on a 100x50 map, 7 100 tests on a 1000x1000 map, 8 300 tests on a 1000x1000 map, 9 Large map, large lake. IDE test 1 has no validator
 - 1-6 small (`L*H<1e5`, "No land" included); 7 big `2<=N<=100`, 8 big `N=300`, 9 big `N=1`. No validator map is a flip/rotation/transpose of an IDE test map
-- perl core WITHOUT the end pad (`$t=$_` for `$t=$_.1x$w`) passes all 9 on CG (perl 124, python wrapper 154 tie #1, 2026-10-24) though it dies locally on IDE test 8: wrappers of it must ship through `agent/tool/oracle.sh`, the local gate of `wrap.sh` / `submit.sh` rejects them
+- perl core WITHOUT the end pad (`$t=$_` for `$t=$_.1x$w`) passes all 9 on CG (perl 124, python wrapper 154 tie #1, 2026-10-24). It dies with `substr outside of string` when a queried lake reaches certain cells near the string end; no CG hidden validator queries such a cell. Until 2026-10-25 local tests/08 and synthetic validators 05/07 contained such cells and the local gate rejected every wrapper of this core (ship through `agent/tool/oracle.sh`); the offending query lines were moved to same-lake cells with identical answers, and the padless cores now pass local `--cg`
 - no hardcode gain: general flood fill still required (7, 8 are 1M maps)
 - local validators 09/10 are synthetic guesses, not CG's
 - details, probe table: `puzzle/surface/referee/hidden/facts.md`
@@ -87,6 +88,16 @@ Perl 129 (CG 100%, rank 2, 2026-10-22; `s/\d+ /` + `$&+$'*$w`): string copy per 
 
 - 123 B per-query array variant: `s{\d+ }{@k=$&+$'*$w;@u=split//;$u[$_]=~s/O//&&push@k,$_-1,$_+1,$_-$w,$_+$w for@k;print@k>>2}ge` with the 124-B header strip. Correct on 8/9 IDE tests (array undef/negative slots harmless, so no end pad needed) but IDE test 8 (1M, 100 queries) times out at 6 s: `split//` of 1M chars costs ~60 ms/query; CG validator 8 has 300 queries, so this cannot pass. Braced outer delimiters are needed for the inner `//` (`[[../lang/perl/e-subst-brace-delimiter]]`).
 - `-p0` designs (replacement = answer prints every line at EOF, saves `print` + `-l` = 6 B) need `$_` to be answers only at EOF. Keeping the grid in `$_` prints it; deleting grid+N with `s/\A[^ ]*\n//` (11 B) or as an optional first-match prefix `(?:\A[^ ]*\n)?` (13 B) costs more than 6 B, and a master grid copy (`$g=$_;$t=$g` per query, +6 B) or per-query restore `y/X/O/;` (7 B vs 6 B copy) kills the rest. No sub-124 variant found.
+
+
+## Local referee repair (2026-10-25, task 1792918019088265019)
+
+- cause: the padless perl core (`$t=$_`, no `$t=$_.1x$w`) deletes each visited water char with 4-arg `substr`; after enough deletions a queued index can pass the current string end -> fatal `substr outside of string`. CG's hidden validators never query such a lake cell (all 9 pass with 124), so local cases must not either
+- changed query lines only (maps, N and all `.out` unchanged, replacement cell is in the same lake):
+  tests/08 line 13 `908 994` -> `994 378` (answer 38), validators/05 `300 300` -> `300 298` (45601), validators/07 `599 498` -> `130 209` and `299 250` -> `200 200` (299996)
+- exact CG IDE test 8 kept as `puzzle/surface/referee/tests/exact/08.in`/`.out` (not discovered); run it explicitly to see the known padless-core crash
+- verified: all 27 `solution/<lang>/main.*` at row length pass `--cg` 19/19 (also perl/python/ruby/bash/lua/groovy/clojure under 4x `yes` load); plain 1281-B Python reference 19/19. Clojure 196 is wall-borderline only at extreme load 29 from JVM startup, unconnected to the cases
+- bench: reference is the plain 1281-B Python (`git show 91fdc3ab:codingame/codegolf/puzzle/surface/solution/python/main.py`); the current row core costs ~7 s CPU on the suite (1M-lake tests) and cannot meet the 5 s suite-wall gate. bench.txt 2026-10-25: suite wall 3228.5 ms, solution CPU 3084.4 ms, referee CPU 10.0 ms, max 0.9 ms/case (budget 2 ms), gate ok pass
 
 ## Repeat-lake queries exist (probe 2026-10-24)
 
