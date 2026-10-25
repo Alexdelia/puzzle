@@ -12,7 +12,7 @@
 - [map-growing-list](map-growing-list.md): `k.map{}` + `<<` chain flood work list, verified surface
 - the-fall-episode-3 native port of the python solver is 791 B; interactive Ruby needs `$>.sync=1` (piped stdout buffers, timeouts), `x ?a:b` with a constant `W:` parses as label
 - [rle-gsub-rows](rle-gsub-rows.md): gsub RLE decode, `w=gets.to_i`+`h=s.size/w`, `$q` nil-default flag (music-scores ruby 191)
-- [interactive-bisect-idioms](interactive-bisect-idioms.md): init read, bare-regex response test, chained compare, sync required
+- [interactive-bisect-idioms](interactive-bisect-idioms.md): init read, bare-regex response test, chained compare, sync required; boolean xor via `!=`, `?X` char literal before `?` needs no space, dead array slot for a frozen bound
 - [min-by-string-key](min-by-string-key.md): min_by{x=_1.to_i;..} beats map(&:to_i), nil.to_i=0 for empty
 - [random-restart-search](random-restart-search.md): flat-string blast search, loop-break-value output, vox-codei-episode-1 322
 - [loop-print-no-sync](loop-print-no-sync.md): `k=PLAN;loop{$><<k}` open-loop interactive output, no sync needed, keeps process alive, verified CG
@@ -26,5 +26,5 @@
 - [grep-beginless-range](grep-beginless-range.md): `a.grep(..v)` = elements <= v (beginless Range), `[-1]` = largest on a sorted array, 5-6 B under `select{_1<=v}[-1]`; cap two bounds with `[l,t].min`; verified Ruby 3.1.2 (roller-coaster native method C)
 - [bytesum-perfect-hash](bytesum-perfect-hash.md): `String#sum` is bytes mod 2**16, brute-force perfect hash of stdin (`s.sum/4%15`), `%w` dummy slots, `strip` for trailing newline, digit table `chr(40+d)` decoded by `bytes`+`c%20`; mayan-calculation 145 CG 100%
 - [index-assign-int-indicator](index-assign-int-indicator.md): `h="WEN"[i=gets.sum%3]` assignment in index, `0**i` integer indicator for String#*, `puts arr*999` flush without $>.sync, verified CG
-- [int-bit-index](int-bit-index.md): `n[i]` is 0/1, feeds corrections as integers (no bool/int error), `eval$F[-1]` 1 B under `.to_i`; temperature ruby 47 CG 100%
+- [int-bit-index](int-bit-index.md): `n[i]` is 0/1, feeds corrections as integers (no bool/int error), `eval$F[-1]` 1 B under `.to_i`, sign bit `q[63]` as 0/1 selector, `x|1^t&1` sets a low bit; temperature ruby 47 CG 100%
 - [gets-limit-vs-read](gets-limit-vs-read.md): `gets(n)` reads one line capped at n chars (never crosses `\n`), `$<.read(n)` reads n bytes across lines; prefix-read keys need `$<.read`

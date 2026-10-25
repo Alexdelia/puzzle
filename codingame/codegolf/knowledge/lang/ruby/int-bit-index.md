@@ -6,3 +6,6 @@
 - works on negative integers too (`-8[2]` = 0, `-173[2]` = 0), unlike `%` reasoning in some languages.
 - `eval$F[-1]` (12 with `l=`) is 1 B shorter than `$F[-1].to_i`; `eval` accepts decimal strings incl sign.
 - `#!ruby -0an`: one slurped record (`$/`=NUL), `$F` all whitespace tokens, `-n` no autoprint; no trailing-newline dependence.
+
+- sign bit as a 0/1 selector: `q[63]` is 1 for negative q, 0 for any small nonnegative q (bignum two's complement, infinite sign extension), so `t+s-s*q[63]` picks `t` when q<0 and `t+s` else with no ternary (shadows-of-the-knight-2 ruby 215, CG 100%)
+- set a low bit in one expression: `x|1^t&1` = x with low bit `(t+1)&1` (`&` binds above `|`/`^`, which are same-precedence left-assoc), no-op if already set; used to force an odd sum in the edge branch
