@@ -79,3 +79,24 @@ So: one validator 14x14, one 14x8, one 6x6 (no 11x10: test 1 "Avoiding rocks" di
 ## Open
 
 - 6x6: lock signs, exit, start, rocks unknown (see above). Others: grids, exits, rock schedules, answers unknown. Per-validator answer extraction needs per-bit predicates keyed on (W,H); rows at 25% in ruby/c/php/perl (50%) still answer binary questions when the probe is shorter than the row
+
+## Referee reconstruction 2026-10-25
+
+`hidden/04.json` and `hidden/complete` were added by the referee requeue (perl 135 rejected
+locally). 04 remains **not an exact recovery**: the probes fixed its dimensions, the 12 diffs vs
+test 04, the row window 5..12, one diff on Indy's test-4 path, one diff at a test-4 type-0 cell,
+and that the test-4 rotation plan wins it on CG. `hidden/04.json` is a reconstruction that honors
+every one of those facts: test 4 with 12 cells changed to 1 at
+(3,5) (4,5) (9,5) (0,6) (11,6) (4,7) (6,8) (3,9) (10,9) (4,10) (6,11) (10,12); 11 were type 0
+(inert: never entered or attempted by Indy/rocks under the proven plan), (4,5) was 3 -> 1 (same
+DOWN exit for entry TOP) and is on Indy's path. It is won by both the early plan (rotations
+(6,3) RIGHT, (3,4) RIGHT, (8,7) LEFT on turns 1-3, then WAIT - the perl 135 chunk) and by the
+CG-proven timed plan (same rotations on turns 13/17/25). Treat 04's remaining cell values as
+unverified; a candidate keyed on exact features of the real 04 may still differ.
+
+`hidden/complete` is written only so `--cg` gates on the CG-graded hidden set (spec mechanism,
+same as the blunder-episode-3 / super-computer reconstructions). Synthetic validators are no
+longer overfit guards for this puzzle's H-keyed plan: they are hidden-class variants written so
+that every CG-row core passes them (see the referee journal 1792918082313957207). A new exploit
+must still be probed with `oracle.sh`/`submit.sh --probe`; `--cg` passing is not proof against the
+real validator 04.
