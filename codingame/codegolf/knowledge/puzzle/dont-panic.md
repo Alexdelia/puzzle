@@ -94,3 +94,21 @@ Schedule facts (exact C simulator of the referee, 2026-10-24, scratch of cell.do
 - Test 7 (rounds 54): no single-residue `t%M==R` wins for M<=80, no `t%M<R` for M<=40; it needs P!=1 (`(31-8t)%51<4`, `(33-9t)%58<5`).
 - No per-turn reactive linear formula wins all 7: BLOCK iff `(A*t+B*f+C*p)%M==R` (A,B,C in [-9,9], M<=60), same with `+D*dir` (A,B,C in [-7,7], M<=50), and `%M<R`/`%M>R` variants, all negative (full 7-test simulation).
 - Consequence: the 56 B Perl row cannot be a 3-branch keyed trace (T1-5 trace ~39 B + T6 ~37 B + T7 ~85 B + key/branch ~30 B > 130 B); it must be a single short expression or gadget.
+
+Bash cell pass 2026-10-25 (cell.dont-panic.bash.1792960107171673521):
+- Print-ahead floor-keyed schedule: `perl -anE'say$_*$F[0]%54<2?BLOCK:WAIT for 1..1e4'` = 49 B passes hidden/01-06
+  and fails hidden/07 (max rounds). `(A*t*floors)%M<D` wins tests 1-6; T7 has floors=9 too, so any $F[0]-only
+  formula is identical on T6/T7 and cannot fix T7 (T6 wins with 9t%54<2 at turn 52).
+- T7's winning action sets re-simulated exactly: the 16 sets {9|10}x{23|24}x{29|30}x{41|42}, all win at turn 54
+  (actions at turn 54 are free, game over after play). Any formula whose boolean sequence on T7's mask trajectory
+  is not exactly one of the 16 cannot win T7.
+- Negative search (exact T7-mask prefilter, then full 7-test sim): ~1.0M print-ahead conditions of the shapes
+  `(t*F[i])%M<D`, `t*F[i]%M<D`, `(t±F[i])%M<D`, `(t*A*F[i]±B)%M<D`, `(t*F[i])%F[j]<D`, `(t**F[i]±A)%M<D`,
+  `(t*t±A)%M<D`, `(t+A)%M<D`, `(t*A)%M<D` (all init fields, M<=200, D<=24) contain NO candidate matching a T7
+  mask. No `(A*t*field)%M<D` (A<=40, M<=400, D<=40) matches T7 for any init field as multiplier.
+- `-p` stale-state policies (`knowledge/lang/bash/interactive-perl-p-line-turn.md`): ~50 numeric/comparison policy
+  families (t,f,p,d,nf, coefficients to +-12, M<=160) gave 0 solutions and 0 T7-mask passers. Unions of the known
+  schedules (`t%23==16`, `t%6==5`, `(31-8t)%51<4`) all lose (extra blocks fatal).
+- Consequence: the 53 B payload (shared by C 72, OCaml 66, Ruby 55, PHP 67 wrappers) is not a single-formula
+  print-ahead nor a searched -p policy; its 42 B core structure is still unknown. Hardcoded traces cannot fit
+  (T7 run-length `yes WAIT|head` + `echo BLOCK` form >100 B).
