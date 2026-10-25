@@ -35,3 +35,16 @@ response; only ONE stderr line per frame is shown, put all diagnostics on one li
   No trimming, no case folding, no invalid-move no-op.
 => keying on `$$`/`$0`/env/argv cannot distinguish validators if they share this sandbox;
 the only key is the game input.
+
+## Bash runner + persistent /tmp (2026-10-25, power-of-thor bash test games 911770328/389/619)
+
+- Bash submission also runs as **PID 1** (`/proc/1/cmdline` = `/bin/bash /tmp/Answer.sh`, PPID 0),
+  cwd `/tmp`, `HOME=/tmp`, no testcase/validator id in env or argv; on CG `/tmp/Tester.sh` is
+  **absent** now (older 2026-10-19 chuck-norris capture saw a parent `bash -c ... source
+  /tmp/Tester.sh`: the runner was changed since).
+- `/tmp` is a **persistent shared volume, not a fresh per-test dir**: it held other users'
+  stale `.class` files from Jul-Oct 2026 next to `Answer.sh`. So a state file survives between
+  sandbox runs on the same host; whether the four validator containers share it is unverified.
+- directive redirection trap when dumping diagnostics: `cmd 2>&1 >&2` sends stderr to the
+  game's *stdout* (the referee reads it as a move and loses at frame 1); use `{ ...; } >&2`.
+- lowercase moves are rejected in Bash too: `yes w` on testcase 1 -> `found 'w'`.
