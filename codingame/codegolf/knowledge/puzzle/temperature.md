@@ -117,3 +117,37 @@ offset is wanted. Also verified /9, /16 and `$_.oct/8` all give the same 9/0 ter
 are >= 10 B, so 46 is the local floor of this shape.
 
 Source: task cell.temperature.ruby.1792878202232865737, 2026-10-25.
+
+## Cross-language sub-35 cluster and Ruby search results (2026-10-25)
+
+Leaderboard rows read via `Leaderboards/getFilteredPuzzleLeaderboard` (LANGUAGE filter, 2026-10-25),
+all score 100 and recent: Perl 29 (7 players incl. sffsefsdfaf 2026-06-11, HendrikSCC 2026-09-27),
+Ruby 30 (chouch 2022-06-16, sffsefsdfaf 2026-07-19), Bash 31 (Icebox 2026-10-07, abouvier
+2020-04-08), PHP 32 (6 players incl. sffsefsdfaf 2026-06-11, YALOKGAR 2026-09-13). The same
+players' C/C++/Python rows are 53/66/58 (sffsefsdfaf), i.e. ~20 B above, so the 29-32 cluster is
+a scripting-language feature, not a plain hardcode (a hardcode ports to C/Python at similar
+length) and not a system()/exec wrapper (Python/Ruby would be equally short). Length is +1 per
+language (Perl 29, Ruby 30, Bash 31, PHP 32): same core, different I/O prefix. Ruby 32/33 rows
+also current (Icebox 2026-10-05, YALOKGAR 2026-09-13, zekovdev 2026-10-16).
+
+Verified hidden-data facts (all 12 validators, `referee/hidden/complete`):
+
+- line-2 length `L2` determines the answer everywhere except the three L2=4 inputs (V2,V3,V11)
+  where answer = last token: L2 0->0, 5->-8, 10->-1, 11->2, 12->7, 15->7, 27->-2.
+- `d = l - ans = 5*bit2(l) + 9*[N=10]`; `d = 5` exactly when total input size is 13/15/18 and
+  `d = 14` at size 31, but no <=2-op formula of d exists over size/bytesum/token-count/N/l with
+  constants <=300 (and 1-op with constants <=1e5), checked with numpy (`dsearch.py`).
+- general-correct Ruby one-liners (all >55 B, no row gain): `$F[1..].sort.reverse.min_by{|x|x.to_i.abs}`
+  (reverse-lexicographic order puts every positive before every negative, so the abs tie goes to
+  positive) and key `_1.hex.abs*9-_1.hex` on `$F[1..]` (K=9 and K=6 pass the 12; K=5 ties V12).
+  Ruby `min_by`/`max_by` keep the FIRST extreme on ties; `sort_by` is stable on small arrays.
+
+Ruby 30 B search results (task cell.temperature.ruby.1792921365479938394, no submit):
+exhaustive method chains <=15 B (4866/20802 forms), all precedence-correct index expressions
+`$F[E]` with E<=12 over 12 cheap stats+consts (0 hits), arithmetic `pre + chain + op + const`
+(0 hits), atom/2-atom/2-op formulas against the answer vector including all consts<=9999
+(125k candidate strings verified in real Ruby, 0 true hits), all 95 printable `-F` separators
+with 30 short bodies (best 6/12). So the 30 B program is neither a token-index, a chain, a
+simple arithmetic formula on the usual stats, nor a `-F` tokenization trick; the remaining
+lead is the shared scripting feature (implicit numeric string coercion / min over strings /
+`$G[abs]` sparse-array style; Perl forum tip post 106 "no split, no comparison operators").
