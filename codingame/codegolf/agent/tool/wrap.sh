@@ -51,7 +51,7 @@ flag_accepted_core() {
 	ours=$(jq -r '.ours // empty' "$(status_file cell "$puzzle" "$core")" 2>/dev/null) || return 0
 	length=$("$tool_dir/count.sh" "$file")
 	[[ -n $ours && ${ours%.*} == "$length" ]] || return 0
-	if [[ -e $root/puzzle/$puzzle/referee/hidden/complete ]]; then
+	if [[ -e $root/puzzle/$puzzle/referee/hidden/complete || -e $root/puzzle/$puzzle/referee/hidden/keyed ]]; then
 		mismatch=$(grep -m 1 -E "$referee_failure" <<<"$output") || return 0
 	else
 		mismatch=$(grep -m 1 -E '^test (validators|hidden)/[^ ]* (fail|timeout) ' <<<"$output") || return 0

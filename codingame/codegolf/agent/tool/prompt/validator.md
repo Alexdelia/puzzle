@@ -21,6 +21,7 @@ Artifacts in `puzzle/{{PUZZLE}}/referee/hidden/`:
 - `NN.<ext>` (same format and numbering as `tests/`: `NN.in` + `NN.out` for io, `NN.json` for interactive) for every validator recovered exactly; check each with the reference solution: `puzzle/{{PUZZLE}}/referee/run.sh <reference> --lang <lang> --hidden`
 - `facts.md`: per validator (number and title): what is known (exact input, transform of test k, features, answer), source (URL, probe line, deduction), confidence; then the shortest key known to separate validators and the answers it maps to
 - `complete` (empty file) only when every validator is recovered exactly and the reference passes `--hidden`: `run.sh --cg`, `submit.sh` and `wrap.sh` then check only `hidden/` (what CG grades), not the IDE tests nor the synthetic validators
+- `keyed` (empty file, written by referee tasks): `hidden/NN.*` are reconstructions, exact only in what `facts.md` pins (class key, answer), the rest generated; same `--cg` behavior as `complete`. Overwrite them with exact inputs as you recover them; once every validator is exact, delete `keyed`, write `complete` and remove the "Referee reconstruction" section of `facts.md`
 
 Then update `knowledge/puzzle/{{PUZZLE}}.md` section "Hidden validators" (summary + pointer to `facts.md`) and queue the cells that can now use a hardcode: `agent/tool/enqueue.sh cell {{PUZZLE}} <lang> --trigger puzzle/{{PUZZLE}}/referee/hidden/facts.md --depth {{NEXT_DEPTH}} --reason "<what is now known>"`.
 

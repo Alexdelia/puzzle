@@ -101,6 +101,7 @@ submit_and_wait() {
 		exit 1
 	fi
 	exploit_hint="hidden-validator exploit: use --probe"
+	[[ -e $root/puzzle/$puzzle/referee/hidden/keyed ]] && exploit_hint="only reconstructed hidden validators ran (hidden/keyed: class key and answer exact, other input detail generated): CG fails it too unless it keys on detail facts.md does not pin, then use --probe"
 	[[ -e $root/puzzle/$puzzle/referee/hidden/complete ]] && exploit_hint="only CG's hidden validators ran: CG would fail it too"
 	probe_cap=$probe_submits_per_task
 	[[ ${CG_TASK_ID:-} == validator.* ]] && probe_cap=$validator_submits_per_task

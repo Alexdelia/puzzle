@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-usage="usage: run.sh <solution-file> [--lang <lang>] [--bench] [--cg] [referee options] [test...]; --cg: the cases CG grades, hidden/ only when hidden/complete exists, else tests + synthetic validators"
+usage="usage: run.sh <solution-file> [--lang <lang>] [--bench] [--cg] [referee options] [test...]; --cg: the cases CG grades, hidden/ only when hidden/complete (exact) or hidden/keyed (reconstructed) exists, else tests + synthetic validators"
 referee_dir=$(cd "${1:?$usage}" && pwd)
 shift
 solution=${1:?$usage}
@@ -12,7 +12,7 @@ slug=$(basename "$(dirname "$referee_dir")")
 
 cg_graded_args() {
 	local case found=
-	if [[ -e $referee_dir/hidden/complete ]]; then
+	if [[ -e $referee_dir/hidden/complete || -e $referee_dir/hidden/keyed ]]; then
 		for case in "$referee_dir"/hidden/*.in "$referee_dir"/hidden/*.json; do
 			[[ -e $case ]] || continue
 			printf 'hidden/%s\n' "$(basename "${case%.*}")"
