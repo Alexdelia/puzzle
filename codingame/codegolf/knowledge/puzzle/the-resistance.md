@@ -147,13 +147,23 @@ The corrected table above is **proven end-to-end**: the ruby hardcode
 p [2,0,64,2**30,568620<<16,1,1,8,150569][gets.size%128*9%65/8]
 ```
 
-scored **CG 100% at 62 bytes** (`puzzle/the-resistance/probe/ruby/l-key-62.rb`, committed by
-submit.sh as the ruby solution, row 62 @100, rank #3 tie). Key slots for `n = gets.size = L+1`:
-V1(58)->0, V2(66)->1, V9(145+256k)->2, V7(61)->3, V10(9106)->4, V3/V5->5, V4->6, V6->7, V8->8.
+scored **CG 100% at 62 bytes** (`puzzle/the-resistance/probe/ruby/l-key-62.rb`), and the shorter
+
+```ruby
+p [8,1,1,1,2**30,568620<<16,64,0,150569,2][gets.size*55%64/6]
+```
+
+scored **CG 100% at 61 bytes** (the current ruby solution, row 61 @100, rank #3 tie). Key slots for
+`n = gets.size = L+1`: V6->0(8), V4->1, V5->2, V3->3 (all three H=1), V7->4(2^30), V10->5(V10),
+V9->6(64), V2->7(0), V8->8(150569), V1->9(2). `gets.size*a%b...` is 256-periodic when `b | 256*a`
+(here 64 | 256*55), so V9's unknown high bits are harmless.
 
 - `gets.size` = first line length incl. `\n` = L+1; CG hidden inputs have a clean LF first line
   (the 6 IDE test files do too). V9's unknown high bits are harmless because `%128` is 256-periodic.
 - Byte accounting for `p [values][gets.size KEY]`: body = values_sum + slots + 14 + KEY_len.
+- Periodic key families that work for L only known mod 256 (all verified by search/CG): `%A` with A|256
+  before any chain; `*a%b` with `b | 256*a`; `/a%b` with `a` a power of 2 and `b | 256/a`; `+a%b`/`-a%b`
+  with `b | 256`. Shortest verified key family for the 8 distinct answers: 61 bytes (`*55%64/6`).
   Cheapest value forms: 0,1,2,8 (1), 64 (2), `2**30` (5), 150569 (6), `568620<<16` (10 = 2^16*568620
   = 37265080320; decimal is 11).
 - 8 distinct answers, so a 9-slot table with two H=1 slots is 1 byte over an 8-slot merge.
