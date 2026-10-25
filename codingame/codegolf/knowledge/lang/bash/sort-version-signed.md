@@ -22,3 +22,16 @@ sign at byte 1); `%+d` needs a formatter, so this costs ~50 B in bash on tempera
 `sort -Vr` is the exact reverse (largest positive first, then negatives by decreasing
 magnitude); `sort -k1.2n` on raw tokens treats single-digit positives as key 0 (empty),
 which is why `sort -k1.2n|head -1` is wrong for "closest to zero".
+
+## P1/N1 form (verified 2026-10-25, same task)
+
+Write P1 = smallest positive token and N1 = negative token of smallest magnitude.
+`fmt -1|sort -V` outputs the positive block ascending then the negative block ascending
+magnitude, so its first line is `P1` if any positive exists else `N1`. The true answer is
+`min(|P1|,|N1|)` with the positive winning a tie (and `N1` alone when there is no positive,
+`0` for an empty line). That is exactly why `sort -V|first` passes 9/12 hidden temperature
+validators: it is wrong only when a negative has strictly smaller magnitude than every
+positive (V1 gives 4 vs -1, V12 gives 3 vs -2) and for the empty line (V8).
+Positive-tie cannot be recovered by input order: V5 has -7 before 7 (needs 7) while V6 has
+7 before -7 (also needs 7), so no stable/reverse sort by magnitude fixes both.
+Source: task cell.temperature.bash.1792960107098140263.

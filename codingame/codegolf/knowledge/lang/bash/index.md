@@ -25,3 +25,4 @@
 - [perl-wrapper-quoting](perl-wrapper-quoting.md): plain/ANSI-C/double-quote prices for `perl -e` in a bash cell, which chars stay literal in double quotes, verified
 - [interactive-perl-p-line-turn](interactive-perl-p-line-turn.md): `perl -apE` on interactive puzzles: line t -> turn t, `$.` exact turn, `@F` stale by nbE+1, `$|=1;` mandatory, budgets 31+COND / 43+COND, verified dont-panic
 - [sum-octal-checksum](sum-octal-checksum.md): GNU `sum` zero-pads its checksum; `$[c%9]` then parses a leading-zero checksum as octal (errors on 8/9); `read c _<<<`sum`` + base64 table = 77 B checksum hardcode, verified CG
+- [awk-default-action-truthy](awk-default-action-truthy.md): `awk '$0=EXPR'` prints only when EXPR is true (numeric 0 = nothing), append `""` to print `0`, verified
