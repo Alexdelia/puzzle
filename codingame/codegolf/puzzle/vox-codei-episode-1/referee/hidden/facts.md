@@ -28,3 +28,9 @@ Probe chain (2026-10-20): perl fresh `header == IDE test` 0% -> perl `R,B equal 
 - `(rounds, bombs)` alone collides 2/5 (15,3) and 7/11 (15,4); bombs alone: 1,3,9,1,3,2,4,3,2,6,4
 - index of first `@` in the rows concatenated (no separator): 6 4 14 2 0 0 50 17 9 26 37 (5/6 collide)
 - IDE tests are NOT scored on submit: a hardcode only has to pass these 11 (but local `submit.sh` gate then checks tests + hidden, see `.doc/validators.md`)
+
+## Local referee (2026-10-25)
+
+- `src/runner.rs` `ClosedStdin<G>` ignores failed turn-input writes like CG and keeps reading buffered stdout; a player that exits without enough lines still fails `solution exited`
+- JVM launchers get a 1500 ms first turn (CG frame-1 is ~1.5 s JVM uptime); all other langs 1000 ms
+- all 27 `solution/*/main.*` (all at their cell `.ours` length) pass `--cg` 11/11; bash 159 x100 under load 0 fails
