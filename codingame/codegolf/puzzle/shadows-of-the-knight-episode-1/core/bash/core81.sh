@@ -1,0 +1,1 @@
+read L U;sed Q;f()(let $c=${c,}||echo $[l=r=R+L>>1] $[u=d=D+U>>1];read -n1 c;f);f
