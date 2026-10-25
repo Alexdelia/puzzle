@@ -241,3 +241,26 @@ match is a coincidence).
 Next: expr 17-19 B exhaustively with a lean C searcher, or shebang shapes
 (`#!ruby -0n/-0p` header 11 B, body <=9 B: `p$_.sum/size/hex/ord/to_i` only;
 `-p` + `END{}` needs >=24 B), or blocks using `$1/$&` after a match.
+
+## Ruby 30-byte key (CG 100%, 2026-10-25)
+
+- `` t=`dd`;p t[/2 3/]?t.to_i/3+3:2 `` = 30 B (same key as 31, `` `dd` `` is 1 B
+  under `` `cat` ``), rank 5, `solution/ruby/main.rb`; probe `probe/ruby/dd30.rb`.
+  See `knowledge/lang/_shared/dd-stdin-passthrough.md`.
+
+## 20-byte hunt negatives (task 1792936740790845580, 2026-10-25)
+
+- any multiset key is impossible (V2 `2/1 2/3 2` and V5 `2/1 2/2 3` are exact
+  and share bytes/size/sum), so the key must be order-sensitive.
+- exhaustive value-dedup BFS over single-`t` expressions of the form
+  `p`+reader+chain, `p 2+`reader+chain and `t=`reader`;p`+expr, with readers
+  dd/cat/$<.read and suffix grammar (all String/Array/Integer methods, slices,
+  count/index/rindex/getbyte, ~40 regexes, arithmetic suffix ops, prefix unary,
+  binary ops between primitive chains): no expression of length <= 16 (dd) /
+  <= 13 (read) yields the answer vector or answer-2; levels 15/16 were still
+  running at journal time.
+- 43,167 capture/lookaround regex forms `t[/re/]`, `t[/re/,1]`, `t=~/re/` with
+  `.hex/.to_i/.sum/.size/.ord/.oct` and `%m`/`/m` suffixes: no fit (<=16).
+- blocks (`sum{}`, `map{}`, `count{}`), multi-statement `gets;...` and
+  `-0/-a/-p` shebang bodies are not covered by that BFS and stay open; so does
+  the possibility that the 20 B rows predate a validator change.
