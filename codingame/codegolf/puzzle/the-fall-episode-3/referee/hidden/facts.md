@@ -1,6 +1,6 @@
 # The Fall - Episode 3 (golf): hidden validators
 
-Validators 01, 02, 03 recovered exactly (`hidden/01.json` `02.json` `03.json`, reference `probe/python/probe.py` passes `--hidden`); validator 04 not exact (12 cells unknown), but the test 4 plan is proven to win it on CG. No `complete`. Per-validator report probes 2026-10-24 (python lines of `puzzle/the-fall-episode-3/probe/probes.tsv`, journal `validator.the-fall-episode-3.-.1792834544511127800`). Older count probes: `agent/state/oracle/the-fall-episode-3.tsv`. Web: nothing (forum threads 203183 and 1675, https://forum.codingame.com/t/the-fall-episode-3-code-golf-puzzle-discussion/203183, https://forum.codingame.com/t/the-fall-episode-3-puzzle-discussion/1675; GitHub searches 2026-10-20/21/24: no hit).
+Validators 01, 02, 03 recovered exactly (`hidden/01.json` `02.json` `03.json`, reference `probe/python/probe.py` passes `--hidden`); validator 04 not exact (12 cells unknown), but the test 4 plan is proven to win it on CG. No `complete`; `keyed` since 2026-10-25 (see "Referee reconstruction"). Per-validator report probes 2026-10-24 (python lines of `puzzle/the-fall-episode-3/probe/probes.tsv`, journal `validator.the-fall-episode-3.-.1792834544511127800`). Older count probes: `agent/state/oracle/the-fall-episode-3.tsv`. Web: nothing (forum threads 203183 and 1675, https://forum.codingame.com/t/the-fall-episode-3-code-golf-puzzle-discussion/203183, https://forum.codingame.com/t/the-fall-episode-3-puzzle-discussion/1675; GitHub searches 2026-10-20/21/24: no hit).
 
 Probe method (2026-10-24): python general solver `probe/python/probe.py` (passes all 4 on CG), predicate keyed on (W,H) inserted after the grid read (generator in the journal scratch `gen.py`); CG's report gives pass/fail per validator, so one bit per validator per probe; 6x6 kept as an always-pass control.
 
@@ -82,7 +82,7 @@ So: one validator 14x14, one 14x8, one 6x6 (no 11x10: test 1 "Avoiding rocks" di
 
 ## Referee reconstruction 2026-10-25
 
-`hidden/04.json` and `hidden/complete` were added by the referee requeue (perl 135 rejected
+`hidden/04.json` and `hidden/keyed` were added by the referee requeue (perl 135 rejected
 locally). 04 remains **not an exact recovery**: the probes fixed its dimensions, the 12 diffs vs
 test 04, the row window 5..12, one diff on Indy's test-4 path, one diff at a test-4 type-0 cell,
 and that the test-4 rotation plan wins it on CG. `hidden/04.json` is a reconstruction that honors
@@ -94,7 +94,7 @@ DOWN exit for entry TOP) and is on Indy's path. It is won by both the early plan
 CG-proven timed plan (same rotations on turns 13/17/25). Treat 04's remaining cell values as
 unverified; a candidate keyed on exact features of the real 04 may still differ.
 
-`hidden/complete` is written only so `--cg` gates on the CG-graded hidden set (spec mechanism,
+`hidden/keyed` (not `complete`: 04 is not exact) is written so `--cg` gates on the CG-graded hidden set (spec mechanism,
 same as the blunder-episode-3 / super-computer reconstructions). Synthetic validators are no
 longer overfit guards for this puzzle's H-keyed plan: they are hidden-class variants written so
 that every CG-row core passes them (see the referee journal 1792918082313957207). A new exploit
