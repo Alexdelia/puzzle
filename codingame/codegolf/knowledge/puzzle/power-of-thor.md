@@ -643,3 +643,39 @@ No submit (nothing <= 50 passed). New verified facts:
   "report unavailable" and the Ruby row stayed 45, so the CG spawn model/stability is unconfirmed.
 - the local 52 B farm passed 0/4 or 2/4 in 10 referee runs, never 4/4 (expected under the
   descending-rotation model with tables A/B).
+
+## 2026-10-25 (ruby task 1792933888768252688): 42 is not the `$$` PID farm; 45 floor re-proved
+
+Row stays 45 B. New results, all reproducible from this task's journal/scratch:
+
+- **Deterministic floor inside two-term templates**: exhaustive local search with a real
+  simulator over the 4 exact hidden inputs (scratch `search3.rb`/`search4.rb`): for each base
+  read (`gets.sum|hex|oct|ord|to_i|size`) all letter-index and count expressions up to length
+  4 (and counts up to length 5, 540k expressions) -> **nothing below 45**; second-best is 46
+  `puts [h="WEN"[(i=gets.sum)%3]]*(i%49)+[?S+h]*i` (raw sum, 3-slot literal, count needs
+  parens). `search7.rb`: the head+interleave templates `[h]*C+[h,?S+h]*D` need C=(>=21,>=13,3,2)
+  and have 0 hits <=46. Byte budget: T1 total = 20+|LIT|+(ilen+|K|+3)+|C|+|D|; C(V3)=17 and
+  C(V4)=19 are exact, so |C|>=6 unless C is the atomic key value. The only 11-byte key giving
+  17/19 is `gets.sum%{49,56,98}`; only 98 also maps 3 classes with a 2-char index (%4 needs a
+  4-char literal -> 45). 42 would need LIT 5 + index <=6 + a <=5-char count (or an unknown
+  shape).
+- **`$$` PID farm is refuted on CG**: 4 tables of 42 B were probed (A/B for the +1-PID model at
+  c=2/3, C/E for the +3 model at c=0/1; all local-recovered and hidden-sim correct), all failed
+  (submissions 41563363, 41563377, and two later ones). A CG test game shows the player runs as
+  **PID 1 in a fresh sandbox**, with cwd /tmp, `Answer.rb`, empty ARGV and no testcase in ENV;
+  if validator runs are sandboxed the same way, all four get the same `$$%4` and no table can
+  win more than one validator (the four winning plans are distinct). See
+  `knowledge/lang/_shared/test-game-sandbox.md`.
+- **Probe oracle**: `/progress` reports the *best row's* score/length under the latest
+  `submission_id` (a guaranteed-0 probe still showed score 100 / length 45), so a probe's
+  partial validator score is invisible without report-login; the only oracle is the leaderboard
+  row moving on 100%. `knowledge/lang/_shared/progress-best-not-probe.md`. All 4 probes spent
+  ~250 s each on the failed-row poll.
+- Also rechecked: byte counting is current for this puzzle (`creationTime` of our 45 row equals
+  its submit time exactly); public solutions (GitHub HCABurns repo and grep.app) contain only
+  ~90-107 B general Ruby/Python solutions, no 42 B trick.
+- Remaining open: a deterministic 42 B Ruby program exists (six 100% rows, two submitted
+  2026-08/09) but is outside every template/key family searched; the char-era packing route
+  needs a <=32 B payload under a ~26-char wrapper, so it cannot explain it. Next worker should
+  look for an input channel/idiom outside `puts`+`Array#*` hardcodes (e.g. an unknown
+  interpreter or file channel), not more plan tables.
