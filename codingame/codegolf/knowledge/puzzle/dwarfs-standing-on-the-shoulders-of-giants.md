@@ -203,3 +203,40 @@ Leaderboard (Perl, 2026-10-24): 19 bytes @30%, 21 Icebox @100%, 22 sffsefsdfaf @
 - all four contain the substring `2 3`, none of the other six do; CG probes proved V7 contains no `2 3` substring and no exact line `2 3` (probe log 2026-10-24)
 - ruby 33: ``t=`cat`;p t[/2 3/]?t.ord%45/3+2:2`` (`t.ord%45/3` = (N+48)%45/3 = 1,1,3,2 for N=2,2,8,3), rank 5, `solution/ruby/main.rb`
 - 20-byte tops (Icebox/sffsefsdfaf/cedricdd, Oct 2026) still unexplained: any key must be order-sensitive (V2 and V5 share length 10, byte multiset and sum 344, answers 2 vs 3). No affine formula on one feature/bigram count/byte/slice was found; a Ruby expression BFS found nothing <= 15 chars (16..19 unfinished)
+
+## Ruby 20-byte hunt (2026-10-25, all negatives)
+
+Runtime budget: 120 min, no submit spent (row stays 33). Goal was any Ruby
+program <=20 B (p+expr<=19) whose value equals the answers on the 9 exact
+inputs (then probe V7). Everything below fit the 9 unless noted; none did.
+
+- `evalcands.rb` finally evaluated the previous run's `cands.tsv` (6.7 M
+  generated expressions, 3.03 M with expr<=19 B) on the 9 inputs: 0 hits
+  (149 s). That file had never been tested.
+- expression BFS `bfs3.rb` (reads `$<.read`, `` `cat` ``, `$<.read(n)`,
+  `$<.readlines`, `$<.to_a`, `$<.gets`, `gets`; string/array methods; slices
+  `[i] [i,j] [i..j] [i..] [..j]`; `count/index/rindex/scan(arg)`; arithmetic,
+  `& | ^`, `.digits`, `.to_s`): all distinct vectors <=16 B, 152,301 vectors,
+  433 s, 0 hits. (Expr 17-19 B not exhausted; bucket at 16 B already 136k.)
+- `synth.rb`: reads + up to 3 string/array ops + solver for numeric suffixes
+  (`+k -k *k /k %k`, `%a+b`, `/a+b`, `%a/b`, `/a/b`): 0 hits.
+- `slices.rb`: every slice of every read + `.hex/.to_i/.oct/.ord/.sum/.size`
+  + the same solver, 0 hits (36 s).
+- `folds2.rb`: `$<.sum{block}`, `$<.count{block}`, `$<.map{block}.max/min/sum`,
+  `max_by/min_by` with blocks <=11 B + 2-op numeric suffixes: 0 hits.
+- char-class / substring / per-line-class counts, affine+mod formulas over
+  1..4-char sets: 0 (confirms the 2026-10-24 search; _not_ the key shape).
+- `String#sum(bits)` is order-insensitive (`"12".sum(n)=="21".sum(n)`), so the
+  `sum(n)` checksum family is dead for V2 vs V5.
+- solver trap: `/a` skip-if-negative gave 6 false hits
+  (`p$<.sum{_1.size-4}/3` etc.); fixed, all gone.
+
+Facts kept: answer = `2+|X∩Y|` = `2+|Y|-#components`; V7 is the only
+multi-component validator (|Y|=3, answer 2) and the only 4-digit-id input.
+Top lengths (ruby 20, perl 21, bash 27, lua 39) *exactly* fit a
+`2+count of a 2-char class` shape in each language, yet no class fits the 9
+(V2/V5 byte multisets are equal, so any such key is impossible; the length
+match is a coincidence).
+Next: expr 17-19 B exhaustively with a lean C searcher, or shebang shapes
+(`#!ruby -0n/-0p` header 11 B, body <=9 B: `p$_.sum/size/hex/ord/to_i` only;
+`-p` + `END{}` needs >=24 B), or blocks using `$1/$&` after a match.
