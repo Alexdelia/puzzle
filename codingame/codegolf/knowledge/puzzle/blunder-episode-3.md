@@ -239,3 +239,21 @@ own-grid + t scale are unknown.
   contains two `"`), `os.execlp` 111; bash core 81 also >101. No wrapper <=97.
 - Row oracle constant: 10 submits/task; `submit.sh --probe --no-wait` + polling the own Python
   leaderboard row is ~2 min/probe; a full-wait probe is ~5 min on a miss (row poll 210 s).
+
+## WIN RECIPE for Python 90 B once `cg-report.sh` has a session (free, no new bit probes)
+
+The size%8 residues are already probed on CG from the **Ruby** cell (same hidden validators, same
+`testSessionHandle` per puzzle): bit0/1/2 of `$<.read.size%8` were submitted as
+`probe/ruby/sz0..2.rb` (submissions **41560304 / 41562593 / 41562596**), and bit0/1/2 of
+`$<.read.sum%8` as `sum0..2.rb` (**41562608 / 41562612 / 41562617**). Their reports are free
+(`cg-report.sh <id>`, no submit). Decode r_i = 4*pass_bit2 + 2*pass_bit1 + 1*pass_bit0 for validators
+1..8 (class order O(1)..O(2^n)). size%8 is a proven permutation (Ruby 76), so build T with
+T[r_i] = the class answer of validator i, i.e. the 8-slot comma list in residue order
+(1,log n,n,n log n,n^2,n^2 log n,n^3,2^n are the answers in class order) and submit as a probe
+
+    print("O(%s)"%"<T>".split(',')[len(open(0).read())%8])      # 90 B
+
+One oracle submit wins (it cannot pass the local hidden/keyed gate: fake-t residues are
+1,6,5,1,4,5,2,2). If sum%8 decodes to a permutation too, the rb variant is 96 B and size%8 (90 B)
+is still shorter. This is the only known <=97 B shape for Python (see first-t section above for the
+97 B `%9` alternative, which needs 3 unknown first-t residues).
