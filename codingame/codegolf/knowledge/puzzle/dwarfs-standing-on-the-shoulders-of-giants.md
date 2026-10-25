@@ -265,3 +265,32 @@ Next: expr 17-19 B exhaustively with a lean C searcher, or shebang shapes
 - blocks (`sum{}`, `map{}`, `count{}`), multi-statement `gets;...` and
   `-0/-a/-p` shebang bodies are not covered by that BFS and stay open; so does
   the possibility that the 20 B rows predate a validator change.
+
+## Ruby 20 B hunt, run 7 (2026-10-25): new negatives and a hard V7 constraint
+
+No submit; row stays 25 (`p`dd`=~/2 3/?$`.hex/3+3:2`).
+
+- **Any key that counts the line `3` is dead.** The per-line key
+  `#lines matching /^2 |^3$/` fits all 9 exact answers (V10's 2nd match is its N
+  line `3`; V2/V4/V9's `3 x` lines are excluded by `^3$`), but V7 has N=3, so its
+  first line `3` matches and it answers 3 instead of 2. So V10's +2 versus
+  V5/V6's +1 must come from a feature other than the N line. The `2 3` gate is
+  still the only known safe separator.
+- The 9-fitting feature-pair search (408 features: substring counts len<=3,
+  index/rindex, digit-at-position, slice.to_i, line has/start/end predicates,
+  N/len/sum; all `+-*/%^&|` pairs +c) produced only
+  `2 + count("1 3") ^ count("3\n")` and equivalents: fits the 9, needs two
+  counts (>=22 B in Ruby), and is V7-risky.
+- No line regex <=7 chars (632,759 patterns incl. classes, anchors, alternation)
+  x affine a*x+b fits the answers; no occurrence-count regex <=7 does either.
+- No `$`/`$&`/`$'`-after-`=~/R/` ternary with R<=5 and F<=8-len(R) fits.
+- No whole-input delete/tr transform (210 texts, incl. 2->2 digit maps) plus
+  size/sum/to_i/hex/oct/ord/bit_length/index/count, bare or +-c, or %/ / * / & / ^ /
+  >> k<=999 fits. `String#sum` stays order-insensitive; `String#hash` is random
+  per process (verified 3 runs: 4,8,7), so no hash/object_id key.
+- C cross-check (open): two current C rows sit at 46 B at 100 %. The 46-B
+  `main(a){for(;~scanf("%d",&a););printf("%d",a);}` (47 B as text, 46 + newline
+  free) prints the last token, which is NOT the answer vector (V3 3, V4 4, V6 2,
+  V8 4, V9 10 against answers 2,2,3,5,2), so the C 46 rows are not read-all-tokens;
+  no LE/BE byte window (width 2..8, offset 0..7) with mod/div k<=5000 (+c) fits
+  either. The C exploit is still unexplained.
