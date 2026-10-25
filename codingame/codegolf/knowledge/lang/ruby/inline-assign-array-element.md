@@ -27,3 +27,17 @@ count 7 + `+` 1 + second run 11 + `*17` 3 = 53 (trailing newline free).
 Caveats: the multiplier must come after the array literal (`[h=...]*(...)`, not
 `*`-before), and the first element must be the assignment itself (`[h=...]`), not
 `[h=...; x]`; `puts[` is not a method call (space required after `puts`).
+
+## Counter-case: no variable at all when the letter is used once (2026-10-25)
+
+If the selected letter is needed only once (the first array), do not assign it:
+write the tail's constant letter directly. Power-of-thor 53 -> 52 B, CG 100%:
+
+```
+puts [h="WEN"[i=gets.sum%3]]*(19+12*i)+[?S+h*0**i]*17   # 53
+puts ["WEN"[i=gets.sum%3]]*(19+12*i)+[?S+?W*0**i]*17    # 52
+```
+
+`[h=...]` + `h*` (2+2 B) becomes `[...]` + `?W*` (0+1 B). The inline assignment
+still wins when the letter is used twice or more (`[h=...]*(...)` plus `h` in the
+tail), e.g. when the tail letter is key-dependent rather than a constant.
