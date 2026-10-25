@@ -19,6 +19,7 @@ usage_bar_width=20
 needs_you_per_group=5
 wrap_eta_history=10
 latest_gains_shown=8
+wrap_runs_shown=6
 
 use_color=0
 [[ -t 1 && -z ${NO_COLOR:-} ]] && use_color=1
@@ -613,7 +614,7 @@ wrap_queue_line() {
 
 wrap_runs() {
 	[[ -s $state/worker/wrapd.log ]] || return 0
-	awk '
+	awk -v shown="$wrap_runs_shown" '
 		function iso_epoch(iso) { return mktime(gensub(/[-T:Z]/, " ", "g", iso), 1) }
 		FNR == NR {
 			tab = index($0, "\t")
@@ -641,19 +642,29 @@ wrap_runs() {
 			current = last_run[puzzle]
 			rest = substr(line[2], length(puzzle) + 2)
 			fields = split(rest, field, "\t")
-			if (fields >= 2 && field[2] ~ /^deferred: /)
-				host_line[current, ++hosts[current]] = field[1] "\t-\t-\t-\tdeferred\t" substr(field[2], 11)
-			else if (fields >= 3 && match(field[3], /^([0-9]+) ([^:]+):[^ ]+ (submitted|refused: (.*))$/, winner))
-				host_line[current, ++hosts[current]] = field[1] "\t" field[2] "\t" winner[1] "\t" winner[2] "\t" (winner[3] == "submitted" ? "submitted" : "refused") "\t" winner[4]
+			host = field[1]
+			if (fields >= 2 && field[2] ~ /^posted /) {
+				if (!((current, host) in posted)) { posted[current, host] = 1; in_flight[current]++ }
+				next
+			}
+			if (fields >= 2 && field[2] ~ /^deferred: /) outcome = "deferred"
+			else if (fields >= 4 && field[4] ~ /^[0-9]+s$/) {
+				if (field[3] == "-") outcome = "unchanged"
+				else if (field[3] ~ / submitted$/) outcome = "submitted"
+				else if (field[3] ~ / unconfirmed: /) outcome = "deferred"
+				else outcome = "refused"
+			} else next
+			if ((current, host) in posted) { delete posted[current, host]; in_flight[current]-- }
+			outcomes[current, outcome]++
+			processed[current]++
 		}
 		END {
-			for (current = runs > 3 ? runs - 2 : 1; current <= runs; current++) {
+			for (current = runs > shown ? runs - shown + 1 : 1; current <= runs; current++) {
 				puzzle = run_puzzle[current]
-				exit_code = ""
+				exit_code = "-"
 				for (ended = 1; ended <= end_count[puzzle]; ended++)
 					if (end_at[puzzle, ended] >= run_start[current]) { exit_code = end_exit[puzzle, ended]; break }
-				print "run\t" puzzle "\t" iso_epoch(run_start[current]) "\t" run_gain[current] "\t" exit_code
-				for (host = 1; host <= hosts[current]; host++) print "host\t" host_line[current, host]
+				print puzzle "\t" iso_epoch(run_start[current]) "\t" run_gain[current] "\t" exit_code "\t" processed[current] + 0 "\t" outcomes[current, "submitted"] + 0 "\t" in_flight[current] + 0 "\t" outcomes[current, "refused"] + 0 "\t" outcomes[current, "deferred"] + 0
 			}
 		}
 	' "$state/events.log" "$state/worker/wrapd.log"
@@ -662,36 +673,49 @@ wrap_runs() {
 wrap_generator() {
 	load_wrap_eta
 	wrap_queue_line
-	local kind first second third fourth fifth sixth label source_label painted_puzzle painted_outcome painted_detail painted_start outcome_sgr age run_state eta
-	while IFS=$'\t' read -r kind first second third fourth fifth sixth; do
-		if [[ $kind == run ]]; then
-			case $fourth in
-			'')
-				paint run_state "$cyan" running
-				[[ -z ${wrap_eta[$first]:-} ]] || {
-					eta_text eta "${wrap_eta[$first]}"
-					paint eta "$magenta" "$eta"
-					run_state+=" $eta"
-				}
-				;;
-			0) paint run_state "$green" "done" ;;
-			*) paint run_state "$yellow" "deferred (exit $fourth)" ;;
-			esac
-			age_text age "$second"
-			printf -v painted_start '%(%H:%M)T, %s' "$second" "$age"
-			paint painted_start "$dim" "$painted_start"
-			puzzle_label painted_puzzle "$first"
-			printf '  %s  est gain %s  %s  %s\n' "$painted_puzzle" "$third" "$run_state" "$painted_start"
-			continue
-		fi
-		lang_label label "$first"
-		source_label=" "
-		[[ $fourth == - ]] || lang_label source_label "$fourth"
-		status_sgr outcome_sgr "$fifth"
-		paint painted_outcome "$outcome_sgr" "$fifth"
-		paint painted_detail "$dim" "${sixth:0:80}"
-		printf '    %s %5s -> %-5s from %s  %s%s\n' "$label" "$second" "$third" "$source_label" "$painted_outcome" "${sixth:+ $painted_detail}"
-	done < <(wrap_runs)
+	local hosts=("$root"/agent/wrap/*/available.tsv)
+	local puzzle started gain exit_code processed submitted in_flight refused deferred puzzle_width=0 rows=() row
+	local painted_puzzle painted_start painted_progress painted_counts painted age run_state eta
+	mapfile -t rows < <(wrap_runs)
+	for row in "${rows[@]}"; do
+		puzzle=${row%%$'\t'*}
+		((${#puzzle} <= puzzle_width)) || puzzle_width=${#puzzle}
+	done
+	for row in "${rows[@]}"; do
+		IFS=$'\t' read -r puzzle started gain exit_code processed submitted in_flight refused deferred <<<"$row"
+		case $exit_code in
+		-)
+			paint run_state "$cyan" running
+			[[ -z ${wrap_eta[$puzzle]:-} ]] || {
+				eta_text eta "${wrap_eta[$puzzle]}"
+				paint eta "$magenta" "$eta"
+				run_state+=" $eta"
+			}
+			;;
+		0) paint run_state "$green" "done" ;;
+		*) paint run_state "$yellow" "deferred (exit $exit_code)" ;;
+		esac
+		age_text age "$started"
+		printf -v painted_start '%(%H:%M)T, %s' "$started" "$age"
+		paint painted_start "$dim" "$painted_start"
+		puzzle_label painted_puzzle "$puzzle" "$puzzle_width"
+		printf -v painted_progress '%2s/%s' "$processed" "${#hosts[@]}"
+		((processed < ${#hosts[@]})) || paint painted_progress "$green" "$painted_progress"
+		paint painted_counts "$green" "$(printf '%2s submitted' "$submitted")"
+		((in_flight == 0)) || {
+			paint painted "$cyan" "$in_flight in flight"
+			painted_counts+="  $painted"
+		}
+		((refused == 0)) || {
+			paint painted "$red" "$refused refused"
+			painted_counts+="  $painted"
+		}
+		((deferred == 0)) || {
+			paint painted "$yellow" "$deferred deferred"
+			painted_counts+="  $painted"
+		}
+		printf '  %s  est gain %5s  %s  %s  %s  %s\n' "$painted_puzzle" "$gain" "$painted_progress" "$painted_counts" "$run_state" "$painted_start"
+	done
 }
 
 time_and_cost() {
