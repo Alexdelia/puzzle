@@ -9,3 +9,5 @@
 - crash at end is free on io puzzles, but nil compare mid-run is not: bound loops explicitly
 
 - `io.lines(nil,"n")` iterates numbers of stdin (5.4); `_,c=io.read("n","n")` skips N and seeds c with the first value (nil when none, `print(c or 0)`); no bool-to-int in Lua, so use key compare `t*t*2-t<c*c*2-c` (temperature 95 bytes, verified)
+- `#io.read"a"` = total stdin bytes (final newline included), 11 B, the cheapest whole-input length key; `%` of two integers is integer, but a float literal or float operand makes the result print `9.0` (add `|0`), and `%` floors for negative operands (`-13%14` = 1, verified 2026-10-25)
+- unary chains give offsets for free: `~-T` = T-1, `-~T` = T+1 (2 B, no parens needed after `%`), `~x` literal = `-x-1`; used to shorten CRT hardcode representatives (verified telephone-numbers 36 B CG 100%)
