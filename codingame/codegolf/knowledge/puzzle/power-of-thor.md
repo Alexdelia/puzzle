@@ -496,3 +496,34 @@ to score bytes not chars, #219 random direction printing (astronomical odds),
 (https://forum.codingame.com/t/power-of-thor-codesize-puzzle-discussion/687/203
 etc). So a <=42 row is a pre-byte-era length and/or a farmed random draw, not a
 shorter deterministic program.
+
+## Perl 51 (2026-10-25, this task): turn-counter phase `Y > -k % 2Y` (9 B) beats the energy window
+
+Row 54 -> 51 B, CG 100%, rank 5 (commit 55d3ad7f, submission 41563145):
+
+```
+/ /,$|=print"S"x($'>-$.%34).(W,E,N)[$`%3],$/while<>
+```
+
+- token part unchanged (42 B fixed): `/ /,` 4 + `$|=print` 8 + `"S"x(` 5 + `)` 1 + `.` 1 +
+  letter `(W,E,N)[$`%3]` 13 + `,$/` 3 + `while<>` 7.
+- **phase `$'>-$.%34` is 9 B** and needs no energy: it is `lightY > ((-k) % 34)`, k = `$.`.
+  Perl's `%` gives the sign of the right operand, so `(-k)%34 = 34-k` for k=1..33, 0 at 34,
+  33 at 35, 32 at 36. V1 (Y=8, k<=21): values 33..13 > 8 -> 0. V2 (Y=4, k<=13): > 4 -> 0.
+  V3 (Y=17): 34-k < 17 -> k=18..31 = 14 (exact). V4 (Y=17): k=18..34 = 17 (exact; k=35,36
+  wrap to 33,32 > 17). So the wrap at 2*lightY gives V4 two extra truths past the end of V3's
+  game, which a linear threshold (`$'>34-$.`, 8 B) cannot: that one gives V4 19 and V4 would
+  leave the map.
+- same program shape, only the phase changed; plan = head letter h for the first turns, then
+  S+h (diagonal), i.e. V3 = E*17 + SE*14, V4 = W*19 + SW*17 (diagonal order free, only counts
+  matter: 14 of V3's 31 turns, 17 of V4's 36, 0 for V1/V2).
+- search: `scratch/ps.c` of task 1792931248720965990, arithmetic DP over text length
+  (vars `$_`=energy, `$.`=turn, `$``=lightX, `$'`=lightY, `$|`, digits 0..99; `+ - * / % & | ^`,
+  unary `-`, real Perl precedence + parens, dedupe by (value vector,prec)), then for every
+  arithmetic X: bare truthiness, `!X`, `X op C`, `A op X op B` chained with 1-2 digit bounds,
+  `V op X` for each leaf V. **No phase <= 8 B exists in this grammar** (len 7 DP = 641k entries,
+  all forms checked); the two-composite comparison family adds nothing (a 3-char composite is
+  only a negation). 9 B is the floor of the family searched.
+- invalidated earlier searches: the 2026-10-25 "3-leaf single-digit" phase search (no `$'`,
+  no 2-digit constants) and the old 3-var DP; also a point-layout bug in the first version of
+  this searcher produced garbage hits - always map class ranges to the point array explicitly.
