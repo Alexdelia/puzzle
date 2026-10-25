@@ -36,3 +36,4 @@
 - [length-key-hardcode](length-key-hardcode.md): `p [values][gets.size KEY]` exploit table, 256-periodic key when L is only known mod 256, shift-form big values (`568620<<16`), byte accounting values+slots+14+KEY; the-resistance 62 CG 100%
 - [gated-second-line-key](gated-second-line-key.md): `n%m+(k/n)*gets.ord%j` uses line 2 only for n<k, `p[...]` table 2 B under `%w`, verified locally
 - [base36-table](base36-table.md): base36 integer table `p %w[...][i].to_i 36`, 4 B under decimal when answers are long; measured network-cabling hardcode 93->89
+- [inline-assign-array-element](inline-assign-array-element.md): `puts [h="WEN"[i=gets.sum%3]]*(19+12*i)+...` = assign inside the first array element, -2 B vs two statements; power-of-thor ruby 53 CG 100%
