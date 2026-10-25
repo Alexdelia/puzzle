@@ -14,3 +14,19 @@ CG verified: yes (chuck-norris test-games, 2026-10-19).
 - stderr shown in test-game `output`, not judged
 - local: `agent/tool/lang/bash/build.sh` = same bash 5.1.16, same locale, same shopt set; launcher clears env and PATH to the package `bin/` only. Drift: local tools are newer (coreutils 9.0, sed 4.8, grep 3.7, mawk 1.3.4, bc 1.07.1, xxd 2022, perl 5.34.1): a solution leaning on awk/sed/grep/bc details must be confirmed on CG
 - launcher startup about 8 ms locally
+
+## 2026-10-25 power-of-thor test games: new runner (PID 1, input pre-sent)
+
+Bash test games 911782535/589/651/801 on `power-of-thor` (interactive), 2026-10-25:
+
+- `/bin/bash /tmp/Answer.sh` runs as **PID 1** (PPID 0), cwd `/tmp`, no testcase id in env/argv/files;
+  the 2026-10-19 chuck-norris parent `bash -c ... source /tmp/Tester.sh` is **gone**
+- `PATH=/bin:/usr/bin:/usr/GNUstep/Local/Tools:/usr/GNUstep/System/Tools:/opt/coderunner/groovy/bin`
+  (no `/usr/local/bin`), `/bin/sh -> /bin/dash`, `/usr/bin/timeout`, `/bin/dd`,
+  `sed (GNU sed) 4.2.2`
+- **the init line and the first turn's input are pre-sent before the first output**:
+  `dd bs=4k count=1` returns the raw init+first-turn bytes in one read (`28 8 7 8\n100\n`), the next
+  read blocks; the runner writes them a moment after the process starts (`read -t .3` fired before
+  the write, 0 bytes), so block on `read`/`dd`, never poll with a short `-t`
+- stderr: one diagnostic line per frame in the test-game log; use `{ ...; } >&2` (the
+  `cmd 2>&1 >&2` directive form sends stderr to the game's stdout)
