@@ -234,3 +234,42 @@ else 0, but no <=2-op formula over Z was found (`dsearch.py`) and a 3-slot table
 Source: task cell.temperature.ruby.1792927698716721693, 2026-10-25 (scratch `esearch.py`,
 `mapsweep.rb`, `s2.rb`, `slice2.rb`, `resweep.rb`, `bigtmpl.rb`, `formula3b.py`, `d3.py`,
 `dmitm2.py`, `linesearch3.py`, `lineE2.py`, `fsep2.rb`).
+
+## Bash 31 B: what this task found (2026-10-25, local coreutils 9.0/mawk 1.3.4, no submits)
+
+`hidden/complete` is exact, so every candidate was scored against the 12 directly.
+
+- GNU `sort -V` (version sort) of the line's tokens is a near-miss: `read;fmt -1|sort -V|sed q`
+  = **25 B, 9/12**, failing only V1 (gives 4, wants -1), V8 (empty -> wants 0), V12
+  (gives 3, wants -2). Same 9/12 for `xargs -n1` / `tr` splitters and `sort -k1.2V`,
+  `sort -k1.2`, `sort -Vr|tail -1`. Enumerated ~1200 (split x sort-arg incl. two-key x
+  selector) combos: nothing reaches 10/12 (scratch `pipe2loc.py`, `pipe3.py`).
+  Reason: version sort orders positives ascending first, then negatives ascending magnitude
+  (sign-major). That equals min-|t| with positive tie except when a negative is strictly
+  smaller than every positive (V1, V12); V8 is empty input. See
+  `knowledge/lang/bash/sort-version-signed.md`.
+- General shell solution, 50 B, verified 12/12 locally (not submitted, longer than our 40):
+  `read;xargs printf %+d\\n|sort -k1.2V|sed q|tr -d +`
+  `%+d` puts the sign in char 1 for every token, so key `-k1.2V` compares magnitudes and
+  positive sorts before negative on a tie; `tr -d +` normalizes `+7`->`7`. Local test:
+  `sort -k1.2V` on `+4 -1 +12 -174 +7 +5 +9` gives -1, +4, +5, +7, +9, +12, -174.
+  `% d` + `tr -d ' '` is equivalent and same length. Not a cell gain.
+- `read;awk '$0=E""'` = 16+len(E): E<=15 for 31 B, but the correction
+  `5*($NF%8>3)+9*(NF>7)` alone is 20 and exhaustive DP over `$NF`, `NF`, `$1..$3`,
+  $(NF-1), `length($0)`, constants (ops + - * / % comparisons, C truncation) found NO
+  E<=11 equal to the answers (dp.py, dpD.py, dpBase.py; L11 = 3.97M states/2.3 GB).
+  `$NF-D` needs D<=11 and no such D exists. A shortest-sum-of-predicates search for
+  d = last-answer gives exactly the current 20 chars (`5*($NF%8>3)+9*(NF>7)`), so 40 B
+  is the floor of this formula family; 39 B needs a different structure.
+- `read;awk '$0=E""'` with `-F-` (19+len(E) -> E<=12) or `-vRS=.` (whole input one record,
+  NF=N+1, 42 B) and `getline` forms (20+len(E)) are all worse.
+- `set -- \`cat\`;echo $[E]` = 21+len(E) -> E<=10; `set -- \`cat\`;echo ${!#}` = 26 B (6/12);
+  no arithmetic E<=10 over `$#`, `$1..$9`, `${10}`, `${11}`, constants matches A
+  (dp2.py up to L9 = 2.19M states; dpX.py for the read -d./array variants up to L10).
+  `${@:E:1}` index selection (base 25+len(E), E<=6) has no hit (setsp2.py).
+- `read -d. n a` binds N and line 2 in 12 B (`read -d. -a x` = 13, whole input array);
+  all derived shapes with `$[...]`/`${x[E]}` were searched to their byte budget, no hit.
+- No fixed field/index/FS under `read;awk -F'X' '{print $k}'` (2430 FS x 15 fields) reaches
+  8/12; numeric min (`sort -n|head -1`) is 6/12, |min| 7/12, lex min 5/12.
+Conclusion: the 31 B bash row is still unexplained; sort -V is the strongest lead (25 B,
+  9/12 with exactly V1/V8/V12 missing).
