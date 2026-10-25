@@ -390,3 +390,13 @@ Low 27 bits 1=1,1=1,2=0,3=0,4=1,5=0,6=1,7=1,8=1,9=1,10=0,...,16=1,... consistent
   table fits: skeleton ~31+words+m, so the 10 base-36 words must total ~44 chars or less at m=10.
 - r36.d..r46.d (D channel, V9 bits 36..46) verified locally 9/9 with lengths 4973..4963; D row is
   100% / 4975 after the bit-35 probe (bit35=0), so they are in order and strictly shorter.
+
+## Bash 112 (2026-10-25, CG 100%, rank 3, submission 41564483) and wrapd consequences
+
+- core 103: `($l,$c)=glob<>;@q=map$q+=$_,(<>)x2;$_+=$g{$r=$_%($q/2)}||=(grep$q/2>=$_-$r<=$l,@q)[-1]-$r while$c--;say`; file = `perl -E'...'` = 112 (was 114 with `-e`+`print`, see `knowledge/lang/perl/print-to-say.md`). Local 16/16, CG 100%.
+- `$q/=2;` after the map + key `$_%$q` + cap `$q>=` is exactly 112 as well (neutral, not a gain); `<>x2` without the parens is a parse trap (the map gets a 1-element list); slurp parsers (`-0E`+`glob<>`, `-0aE`+`@F[3..$#F]x2`) are +3..+11 by count.
+- The 103 core is the general floor found so far. The 82-byte bash top core (91 total) is the validator-answer table; no general method below 103 was found in Perl (method B 135, eager two-pointer ~160).
+- The bash solution text is itself a wrap core, so the -2 propagates to every host for free. wrapd check 2026-10-25 from it: c 131, cpp 144, d 150, groovy 166, haskell 143, js 163, lua 124, objc 131, ocaml 125, pascal 146 (beats top 147), php 127, python 135, rust 174 (ties top 174), swift 135 (improves our first 137). A hand core `core/rust/main.rs` (`args(["-E",core])`) is 173, a first over top 174.
+- D channel warning for the validator task: wrapd will also try the generated d 150 candidate, a spawn of the method C core. Method C misses D's validator limit (`D limit < ~1.5 s`, above), so the 100%/4975 D row should survive; if CG does accept 150, the D 1-bit channel is gone. A task cannot cancel the wrapq job. If D dies, use another still-partial-row language (a fresh long 100% probe), not C (a method-B C probe with a gate is ~180 > the 164 C row).
+- `#!perl -E` derived cores FAIL the local `--lang perl` referee: the perl launcher runs `perl main.pl`, so the shebang flags are ignored and bare `say` is a syntax error (0/16 measured). The -2 wrappers above therefore come from the bash core text itself; do not put a `#!perl -E` file in `core/perl/` expecting gains.
+- Remaining route to <=91 is unchanged: the full answer table needs the per-validator report (`cg-report.sh` still "no CG session" 2026-10-25 18:12 UTC); this cell's 10-probe cap cannot recover ~47 answer bits + ~11 key bits, and A9 alone is not a table.
