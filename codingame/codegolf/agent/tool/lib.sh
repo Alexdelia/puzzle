@@ -340,7 +340,17 @@ loop_pids() {
 	pgrep -f "^([^ ]*/)?bash ([^ ]*/)?agent/tool/($names)\.sh( |$)" || true
 }
 
+puzzles_with_running_tasks() {
+	jq -r .puzzle "$state"/running/*.json </dev/null 2>/dev/null | sort -u || true
+}
+
+wrapped_puzzles() {
+	[[ -n $(loop_pids wrapd) ]] || return 0
+	ls "$wrap_running_dir" 2>/dev/null || true
+}
+
 wrap_rejected=$state/wrap/rejected.tsv
+wrap_running_dir=$state/wrap/running
 wrap_lottery=$state/wrap/lottery.tsv
 wrap_local_fail=$state/wrap/local-fail.tsv
 referee_failure='^(test [^ ]* (fail|timeout) |build fail )'

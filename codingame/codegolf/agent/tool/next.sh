@@ -59,7 +59,7 @@ pick() {
 			else 1 end;
 		$context_file[0] as $context
 		| core_ladders($context; map(.key) + $context.running_keys) as $ladders
-		| map(select(ready($context) and ($context.only_kind == "" or .kind == $context.only_kind) and ((.kind | IN($context.held_kinds[])) | not) and ((.key | IN($context.running_keys[])) | not)))
+		| map(select(ready($context) and ($context.only_kind == "" or .kind == $context.only_kind) and ((.kind | IN($context.held_kinds[])) | not) and ((.key | IN($context.running_keys[])) | not) and ((.puzzle | IN($context.wrapped[])) | not)))
 		| map(. as $task
 			| ($context.cells[$task.puzzle + "/" + $task.lang] // {}) as $cell
 			| ladder_rank($ladders; $task; $cell) as $ladder_rank
@@ -120,11 +120,12 @@ claim() {
 		--arg last_lang "$(cat "$state/last_cell_lang" 2>/dev/null || true)" \
 		--argjson lang_count "$(langs | wc -l)" \
 		--argjson running_keys "$(jq -s '[.[].key]' "$state"/running/*.json </dev/null)" \
+		--argjson wrapped "$(wrapped_puzzles | jq -R -n '[inputs]')" \
 		--arg only_kind "${CG_ONLY_KIND:-}" --arg held_kinds "$held_kinds" --arg core_langs "$core_langs" --argjson far_ratio "$far_from_top_ratio" --argjson max_streak "$max_plateau_streak" \
 		'{langs: $langs[0], referees: $referees[0], cells: $cells[0], last_lang: $last_lang, lang_count: $lang_count, lang_priority: $lang_priority[0],
 		  only_kind: $only_kind, held_kinds: ($held_kinds | split(" ") | map(select(. != ""))), core_langs: ($core_langs | split(" ")), far_ratio: $far_ratio, max_streak: $max_streak,
 		  ready_langs: ([$langs[0][] | select(. == "ready")] | length),
-		  running_keys: $running_keys}' >"$work/context.json"
+		  running_keys: $running_keys, wrapped: $wrapped}' >"$work/context.json"
 	if [[ -n $forced_task ]]; then
 		id=$([[ -f $state/queue/$forced_task.json ]] && echo "$forced_task" || true)
 	else

@@ -63,6 +63,10 @@ start_jobs() {
 	while IFS=$'\t' read -r gain job queued_at; do
 		((started < free)) || break
 		puzzle=$(jq -r .puzzle "$job")
+		if ! with_lock queue claim_puzzle "$puzzle"; then
+			log "skip $puzzle: task of it claimed meanwhile"
+			continue
+		fi
 		log "run $puzzle estimated gain $gain"
 		run_job "$puzzle" </dev/null &
 		running_pid[$puzzle]=$! running_job[$puzzle]=$job running_queued[$puzzle]=$queued_at
@@ -72,10 +76,20 @@ start_jobs() {
 }
 
 idle_jobs() {
-	local job
+	local job puzzle
+	local -A task_running=()
+	while IFS= read -r puzzle; do task_running[$puzzle]=1; done < <(puzzles_with_running_tasks)
 	while IFS= read -r job; do
-		[[ -z ${running_pid[$(jq -r .puzzle "$job")]:-} ]] && printf '%s\n' "$job"
+		puzzle=$(jq -r .puzzle "$job")
+		[[ -z ${running_pid[$puzzle]:-} && -z ${task_running[$puzzle]:-} ]] && printf '%s\n' "$job"
 	done < <(ready_jobs)
+}
+
+claim_puzzle() {
+	local puzzles
+	puzzles=$(puzzles_with_running_tasks)
+	grep -qxF "$1" <<<"$puzzles" && return 1
+	touch "$wrap_running_dir/$1"
 }
 
 queue_signature() {
@@ -92,10 +106,13 @@ finish_job() {
 		log "$puzzle deferred (exit $code), retry in ${wrap_retry_seconds}s"
 	fi
 	event "wrap run $puzzle estimated_gain=${running_gain[$puzzle]} exit=$code"
+	rm -f "$wrap_running_dir/$puzzle"
 	unset "running_pid[$puzzle]" "running_job[$puzzle]" "running_queued[$puzzle]" "running_gain[$puzzle]" "running_started[$puzzle]"
 }
 
 cd "$root"
+rm -rf "$wrap_running_dir"
+mkdir -p "$wrap_running_dir"
 estimated_signature= estimated_at=0
 while [[ ! -e $state/STOP ]]; do
 	free=$((wrap_puzzles - ${#running_pid[@]}))
