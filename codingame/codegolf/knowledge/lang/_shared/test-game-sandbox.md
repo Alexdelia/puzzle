@@ -42,9 +42,12 @@ the only key is the game input.
   cwd `/tmp`, `HOME=/tmp`, no testcase/validator id in env or argv; on CG `/tmp/Tester.sh` is
   **absent** now (older 2026-10-19 chuck-norris capture saw a parent `bash -c ... source
   /tmp/Tester.sh`: the runner was changed since).
-- `/tmp` is a **persistent shared volume, not a fresh per-test dir**: it held other users'
-  stale `.class` files from Jul-Oct 2026 next to `Answer.sh`. So a state file survives between
-  sandbox runs on the same host; whether the four validator containers share it is unverified.
+- `/tmp` shows other users' stale `.class` files from Jul-Oct 2026 next to `Answer.sh`, but it
+  is **a fresh per-run overlay, not a persistent shared volume** (corrected 2026-10-26 on
+  power-of-thor): a test game wrote `/tmp/thorx_marker` on `codemachine-ovh-cg-7` and listed it;
+  the next run on the **same** host still showed the image's old `.class` files but not the marker.
+  The stale files are baked into the container image. A probe planting `/tmp/thx1` followed by a
+  later `. /tmp/thx1` probe also failed. No cross-run file/state channel exists.
 - directive redirection trap when dumping diagnostics: `cmd 2>&1 >&2` sends stderr to the
   game's *stdout* (the referee reads it as a move and loses at frame 1); use `{ ...; } >&2`.
 - lowercase moves are rejected in Bash too: `yes w` on testcase 1 -> `found 'w'`.
