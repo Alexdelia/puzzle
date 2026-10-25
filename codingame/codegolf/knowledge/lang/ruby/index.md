@@ -37,3 +37,4 @@
 - [gated-second-line-key](gated-second-line-key.md): `n%m+(k/n)*gets.ord%j` uses line 2 only for n<k, `p[...]` table 2 B under `%w`, verified locally
 - [base36-table](base36-table.md): base36 integer table `p %w[...][i].to_i 36`, 4 B under decimal when answers are long; measured network-cabling hardcode 93->89
 - [inline-assign-array-element](inline-assign-array-element.md): `puts [h="WEN"[i=gets.sum%3]]*(19+12*i)+...` = assign inside the first array element, -2 B vs two statements; power-of-thor ruby 53 CG 100%
+- [shebang-interpreter-fixed](shebang-interpreter-fixed.md): a Ruby cell always runs ruby, `#!perl`/`#!python3` are not honored (test game); `#!ruby -0p` slurp+print works; cross-language needs `exec`, verified
