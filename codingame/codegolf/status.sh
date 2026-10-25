@@ -209,7 +209,7 @@ blocked_line() {
 cell_table() {
 	local cells=("$state"/cell/*/*.json)
 	((${#cells[@]})) || return 0
-	jq -r '[input_filename, .status, (.attempts // 0), .ours, .top, .wrap_source, .rank] | @tsv' "${cells[@]}" | sed 's|^[^\t]*/cell/||; s|\.json\t|\t|'
+	jq -r '[input_filename, .status, (.attempts // 0), .ours, .top, .wrap_source, .rank, .best_tie_rank] | @tsv' "${cells[@]}" | sed 's|^[^\t]*/cell/||; s|\.json\t|\t|'
 }
 
 first_total_line() {
@@ -220,6 +220,18 @@ first_total_line() {
 	counts[-1]=$total
 	progress_ratio ratio "${#total}" "${counts[@]}"
 	echo "$ratio"
+}
+
+rewarded_firsts_line() {
+	local puzzles=("$state"/puzzle/*.json) rewarded max painted_rewarded painted_max
+	rewarded=$(awk -F'\t' -v cap="$rewarded_firsts_per_puzzle" '
+		$8 == 1 { split($1, cell, "/"); firsts[cell[1]]++ }
+		END { for (puzzle in firsts) rewarded += firsts[puzzle] < cap ? firsts[puzzle] : cap; print rewarded + 0 }
+	' <<<"$cells")
+	max=$((rewarded_firsts_per_puzzle * ${#puzzles[@]}))
+	paint painted_rewarded "$bold;$green" "$rewarded"
+	paint painted_max "$dim" "/$max"
+	echo "$painted_rewarded$painted_max rewarded firsts ($rewarded_firsts_per_puzzle per puzzle)"
 }
 
 cell_rows() {
@@ -944,6 +956,7 @@ status_counts wraps: "$state/wrap"
 blocked_line
 cells=$(cell_table)
 first_total_line
+rewarded_firsts_line
 
 if [[ -n $cells ]]; then
 	echo
