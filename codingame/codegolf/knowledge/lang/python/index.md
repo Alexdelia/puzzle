@@ -11,3 +11,4 @@
 - [print-multiarg-sep](print-multiarg-sep.md) - `print(s+f'{x}',y)` = "s x y" via sep, saves 1-2 vs two f-string fields; literal LF impossible in one-line str; bytes.find(str) TypeError
 - [runtime-namespace](runtime-namespace.md) - CG Python3 runs the file as a plain `__main__` with only dunders in `dir()`: no preloaded `os`/`sys`/`re`, so `import os` is required; ask env questions with a code-golf test game, not a submit
 - [star-unpack-read](star-unpack-read.md) - `a,b,*c=open(0)` = cheapest 2-line read (newlines kept), `a,b=open(0)` raises; verified blunder-episode-3 101 B CG 100%
+- [plan-direction-from-byte](plan-direction-from-byte.md) - derive per-rotation LEFT/RIGHT from the plan byte with a 1-4 B predicate, drop `enumerate` (-12); choose base/orientation for the predicate; the-fall-episode-3 python 119
