@@ -62,13 +62,13 @@ Per validator, sources, probe kit: `puzzle/super-computer/referee/hidden/facts.m
 - key: first line `n` for the small ones (`n<6` -> 3, `n==9` -> 9, other `n<99999` -> 1); the N=99999 pair splits on the first data line: V8 starts `1 D` (J=1, D 2..16), V7 has J >= 875000 (D 775..782)
 - V2 (N=16, answer 1) also has first data line J = 1: verified on CG 2026-10-24 by two submits - a 37 B index requiring V2's first J to be 1 scored 100 % (row 37, rank 1), and a 39 B index requiring V2's first J >= 2 was rejected by the leaderboard (row stayed 41). So all four validators with first data line J=1 are V1 V5 V6 V8, and V2 joins them.
 - end-ascending greedy in input order (no sort) passes every validator but V7 (CG report of submission 41548668); V5 V6 V8 are sorted by J ascending, V7 is not
-- exact inputs not recovered byte-exactly (small ones partly known in facts.md; the large ones ~1 MB); since 2026-10-25 `hidden/01-08.in/.out` + `hidden/complete` are referee reconstructions satisfying every known feature and exact answer, so `--cg` grades hidden only and the perl 37 / ruby 44 keys pass locally. V8 is reconstructed with all D=2 (8291 isolated gap-1 steps): the only construction found where both earliest-end and input-order greedy give 91708, as facts.md requires of V8
+- exact inputs not recovered byte-exactly (small ones partly known in facts.md; the large ones ~1 MB); since 2026-10-25 `hidden/01-08.in/.out` + `hidden/keyed` are referee reconstructions satisfying every known feature and exact answer, so `--cg` grades hidden only and the perl 37 / ruby 44 keys pass locally. V8 is reconstructed with all D=2 (8291 isolated gap-1 steps): the only construction found where both earliest-end and input-order greedy give 91708, as facts.md requires of V8
 - hidden reconstruction is not byte-exact: a new exploit keyed on an unprobed input detail can differ between local hidden and CG; known keys, answers and structural features match
 - side effect: probe rows under 100 % in php lua javascript ocaml cpp rust go d java kotlin scala haskell dart csharp typescript (long shell wrappers); any 100 % submit replaces them
 
 ## Local referee (2026-10-25)
 
-- `referee/run.sh <core> --cg` = 8 hidden cases only (hidden/complete); `--validators` still runs tests + synthetic validators
+- `referee/run.sh <core> --cg` = 8 hidden cases only (hidden/keyed); `--validators` still runs tests + synthetic validators
 - all 27 CG-row cores pass hidden 8/8 and validators 12/12, also under 16x `yes` load on 8 cores
 - bench reference bash 43 (general): suite wall 442.3 ms, referee CPU max 0.9 ms/case, gate ok; wrong/slow negatives reject/timeout as before
 
