@@ -229,3 +229,18 @@ Current row: `#!perl`-free statement-modifier loop, 54 B, hidden 4/4, CG 100% (c
 Rejected this run, all >=55 B: `$;=<>` (lightX in `$;`, letter `(W,E,N)[$;%3]`) 55; `$|=1;$_=`
 under `-alp` 56; pure-energy phase 18 B; plan dumps 65+; S-early plans (need `dy`); residue
 phases `$.>A&$_%m==r` (none).
+
+## Ruby 55 and why 42 is farmed (2026-10-25, task 1792876523167283499)
+
+CG 100% at 55 B, rank 77 (tie 76), commit 7c861784. Exit-flush works for this puzzle: the earlier 61 B row's `*999` keepalive is not needed, plain `puts`+exit is accepted (same finding as knowledge/lang/ruby/packed-plan-table.md). Source:
+
+```
+h="WEN"[i=gets.sum%3]
+puts [h]*(19+12*i)+[?S+h*0**i]*17
+```
+
+- this is the floor of the "3-plan, straight run + S/SW run" family: V1+V3 need count 31 at their shared index (V1 wins at 21 inside E*31), V4 needs 19 and 17 SW, V2 needs >=13. `gets.sum%3` is the only cheap key giving V1/V3 the same index and V4 index 0 (needed for `0**i`); the count `19+12*i` is the unique linear fit and cannot be 6 chars (a 6-char form cannot map 0->19,1->31). `12*i|19` is the same length as `19+12*i`.
+- `getc.hex` (8 B, values 2,5,3,0) ties at 55 with `[h]*(19+4*i)` and a 6-char letter string `"W?EE?N"`; `getc.hex%4`/`getc.ord%4` with `"WNEE"` also 55. m=5 and m=6 sum hashes are 56+. Energy-based one-shot dump (init+first energy) costs >=65 in Ruby (second gets + phase expression), so it cannot approach 54.
+- random 3-plan versions: `h="WEN"[i=rand 3]` + the same puts line = 51 B; `i=$$%3` = 49 B; pass probability (1/3)^4 = 1/81 (V1 and V3 are separate runs; E plan must be drawn twice). A 4-plan version is 51 B at 1/256.
+- forum evidence that the 40s are not deterministic: #163 (2020-01, maxim_mazurok) Ruby hardcode 64, random version 55 at 1/256, scored 100% after ~220 submits; #165 (d-s-x) deterministic 50 was before the 2020-07 validator change (#167/#168); #205/#206 (2022-10, TKirishima) "You think 42 in Perl/Ruby legit?" and "best solutions are random and/or hardcoded"; #219 random direction printing; #194 deterministic solutions are ~80 chars in Python, leaderboard rows are lower only because they are validators-specific.
+- 42 rows are current (creationTime: sffsefsdfaf 2026-08-24, Icebox 2026-09-30): a farmed random row keeps 100% forever. The Ruby 54 cluster (60 players, first ones 2021-11-28, right after the Nov 2021 hardcode-golf forum posts) is not explained by the a-hashable 1-char key: no key <=10 B over gets/getc sum/hex/ord/to_i with linear/bit count formulas gives <=54 (exhaustive local search), so it is likely a farmed random program or a plan/print trick not found. Do not treat 54 as the deterministic floor.
