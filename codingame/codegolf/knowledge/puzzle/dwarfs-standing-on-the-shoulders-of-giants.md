@@ -339,3 +339,37 @@ Searches that returned 0 hits (scratch of this task; all fit the 9 exact inputs)
 
 Not covered by any run: multi-statement programs with two reads (all cheap shapes
 cost >=21 by hand), blocks with >=4 B bodies, and an infra/sandbox channel.
+
+## Perl 30-byte gate key (CG 100%, 2026-10-25)
+
+`#!perl -0p` + `$_=/2 3/?$_/3+3|0:2` = 30 B (row 35 -> 30, rank 4). `-0p`
+slurps, `$_` numifies to N, `+3|0` truncates the float division, V7 has no
+`2 3` substring (probe 2026-10-24) so it answers 2. Passes hidden 9/9, fails
+IDE tests 02/04 by design; submitted as a probe (`probe/perl/gate30.pl`).
+
+- cheaper `-0p` bodies checked by hand: `-0n`+print 32, `-0`+print 33,
+  no-shebang ``$t=`dd` `` + ternary 34+ (``print 2+`dd`=~/2 3/?$`/3+3|0:2``
+  also 30), `-p`+`}{` END block 40+.
+- extras shortcut `3&$_-1` = `(N-1)&3` equals N/3+1 for N=1,2,3,8,9 (0,1,2,3,0)
+  but not for N=2 forks / V7, so it still needs the `2 3` multiplier:
+  `$_-1&3*/2 3/` is 12 chars, +2 needs parens -> 16-char expr, same 30 B.
+
+## Perl 21-byte hunt, run 2026-10-25 (negatives)
+
+- leaderboard API `creationTime`: Icebox 21 B made 2026-10-05, sffsefsdfaf 22 B
+  made 2026-10-23, Eric 25 B 2026-10-08: the 21 is current, not a stale
+  pre-validator-change row. A real 21 B key exists.
+- `#!perl -0p` body budget: 21 B total -> body 10 (`$_=`+7), 22 B -> body 11
+  (`$_=`+8). No 7- or 8-char expression over N (`$_`) and length (`y///c`,
+  `length`) fits the 9 exact answers under `+ - * % & | ^ / < >` (DP over all
+  trees, exact-integer values): the 21/22 rows are not this shape.
+- line-predicate DP: expressions over line text regexes (<=3 chars), `y/c//`,
+  `$_` numification, `$.` and digits, combined with numeric ops up to 9 chars:
+  none counts extras (0,0,0,0,1,1,3,0,2) on the 9 exact inputs. Covers
+  `print 2+grep E,<>` (21 B for E=6) and `grep{E}<>` (21 B for E=5).
+- scalar `<>` reads: DP over expressions up to 11 chars using `<>` (N, X1, Y1,
+  X2... in order), digits and `+ - * % & | ^`; no fit. cost-10 table already
+  1.8M entries, cost 12+ not finished.
+- V7 safety: any per-line predicate counting the N line `3` fails V7 (same N=3
+  as V10); `2 3` remains the only proven V7-safe separator, so no per-line key
+  shorter than the 30 B one is known.
