@@ -137,3 +137,15 @@ What makes it fit in 187 B:
 - **Ruby 174** uses the same 63 cells and the same data bytes (`hiddenhard.rb`): key `gets.sum%13/2` (byte sums -> slots 1,4,5,3,2,6,0) so the 7 chunks sit in one `%w{...}` literal with 6 space separators (v=32 escaped `\ `), chunk order V7,V1,V5,V4,V2,V3,V6; select+iterate inline (`i=0;%w{...}[gets.sum%13/2].each_byte{|v|puts"#{v%14} #{v/14} #{i%6<1?'LEFT':'RIGHT'}";i+=1}`), then `$><<"WAIT\n"*99`. See `knowledge/lang/ruby/percent-w-packed-chunks.md`. Same 63 rotations is a minimum subsequence: exhaustive deletion per hidden finds no removable rotation.
 - The rotations are all "rotate RIGHT once" of the reference trace except the 5 L ones above; the reference was captured with `run.sh <general solver> --trace --stderr --hidden hidden/0N` (local hidden = exact CG).
 - `solution/perl/main.pl` is the row (187 at 100%), no resubmit needed. Any further gain (fewer/other rotations, a tighter decoder, a smarter key) passes `run.sh --cg` and goes through plain `submit.sh` (hidden-only gate since 2026-10-24).
+
+## Referee: closed stdin / print-all-then-exit (2026-10-25)
+
+- CG keeps playing a player that printed its whole trace and exited: writes to the dead player's stdin are ignored, buffered stdout lines are still read turn by turn (`knowledge/lang/_shared/interactive-early-exit.md`). The 7 row hardcodes rely on it: perl 187, ruby 174, python 232, bash 204 print rotations + `WAIT`x99 from the init input, never read a turn line. Verified CG 100% (perl 187 submission 41559199; ruby 174 rank 1).
+- Local `referee-core::Interactive` fails on the first failed `Solution::write` ("turn N: solution closed its input") -> the row hardcodes flaked under load (perl 187 failed hidden/02 at load ~25). FIXED 2026-10-25 in the puzzle scope: `puzzle/the-fall-episode-2/referee/src/runner.rs` `ClosedStdin` (copy of the bridge-2 runner) ignores the write result; read errors/timeouts unchanged. `run.sh <row hardcode> --cg` now 7/7: perl 200/200 runs under 8 CPU hogs, ruby/python/bash 15/15 each. No keepalive bytes needed in any the-fall-episode-2 hardcode.
+- Row lengths at 2026-10-25: perl 187, ruby 174, python 232, bash 204 (all hardcodes keyed on the init line: perl `(W+7H)%8`, ruby `gets.sum%13/2`).
+
+## Bench reference / validator timing (2026-10-25)
+
+- General reference for tests+validators: committed python 1022 (`git show 9392ad5a:./puzzle/the-fall-episode-2/solution/python/main.py`), 33/33 local. The 5431 original is 10x slower (736 ms on validators/17 turn 2) and would timeout.
+- Validators 17-19 (big random maps, no rocks) are at the 150 ms turn limit for plain Python DFS: 1022 uses ~146-158 ms on validators/18 turn 2 at host load 14, ~60 ms idle (matches the 57 ms in the timing section). They flake under host load >14, by design close to the limit; they exist to catch the PHP notice-flood/slow-port class, keep them.
+- Host load also inflates bench `referee_cpu` (7.5 ms/case observed on one loaded run vs 1-2 ms idle): bench this puzzle only at low host load.
