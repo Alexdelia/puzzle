@@ -151,3 +151,35 @@ So the submitted Python runs as a plain `__main__` script with no preloaded modu
 - Shebang routes measured: `#!perl -lF` (11) + 59 B body = 70 (tie, exact body `$l||=$_;$.>3?@t=map-1+ord()%32*/\w/-1,@F:print+(/.{$l}/g)[@t]`); `#!perl -ln` + `$.>3` body = 72-75; `-p`+`}{` cancels auto-print but the read-ahead init costs more; slurp (`-0`) bodies >= 85.
 - Edit search: all 2-deletions of the 70 (2415) give pass counts 0/1/5, no 7; 1-deletions and 2-deletions of the 57 B `@F` core were already done. 68 is not within 2 deletions of 70; it is a different structure (still unreconstructed).
 - New reusable Perl fact (verified 5.34 local): `-p` + `}{` in the body cancels the per-line auto-print (`lang/perl/p-loop-endblock-kills-print.md`).
+
+## 70 is a two-structure local optimum (2026-10-25, perl cell); 68 still not reconstructed
+
+Both a no-shebang and a `-lF`-shebang general method reach exactly 70 B and pass the 7 exact hidden
+cases; no 69 or 68 was found. Component costs (verified locally, CG perl 5.34, `run.sh --hidden`):
+
+- no shebang 70 = `$l=<>+!<>;` (10) + `@t=map-1+ord()%32,<>=~/(\w)|./g;` (32) + `print+(/.{$l}/g)[@t],$/for<>` (28).
+  Equal-length alternatives: `\w|.\K` for `(\w)|.` (both regexes 9 B), `map ord()%32*/\w/-1,` for
+  `map-1+ord()%32,` (both 21 B in the map, +1 for the `map ` space, so also 70 total).
+- `#!perl -lF` shebang (11 B, empty pattern = chars in `@F`): `$l||=$_;` (8) + `$.<4?` or `@F%9?` (5)
+  + `@t=map-1+ord()%32*/\w/,@F` (25) + `:` (1) + `print+(/.{$l}/g)[@t]` (20) = 70. The map is in the
+  *middle* ternary branch (an assignment in the *third* branch is a precedence error and needs +2 parens).
+- L-free variant (`@{[@F/27]}` in the glyph regex, no `$l`): needs a non-`/` delimiter (`m!.{@{[@F/27]}}!g`
+  or `\/`), 71 B. `y///c\/27` is longer.
+- `-F\w\K|.` (shebang 17 B) + `$F[0]?` dispatch (6) + `@t=map-1+ord()%32,@F` (20) + `@F/27`-free `$l` = 72 B;
+  the `@F?` dispatch (3) gives 69 B but fails validator 7: font-5 rows start with non-word chars yet
+  contain `_`, a word char, so `@F` is non-empty (hundreds of empty fields) on 5 of the 11 rows.
+- `-ln` + `$.` dispatch: 72+. `-0p` slurp + per-row substitution: 100+. `-p` + `}{`: no gain (`$\` and
+  chomp are the same as `-l`).
+
+Font charsets (all hidden): # font `{space,#}`; font 5 `{space,'(',')','-','.','/','<','>','\\',']','_','`','|'}`.
+No letters in either; `_` is the only word char (font 5 only).
+
+Punctuation is unavoidable: any index built only from `ord%32` collides `!`<->A (33 = 65-32), `,`<->L,
+`.`<->N, so a letter/non-letter test is required (capture parens = 2 B, or `*/\w/` = 4 B). No glyph pairs
+are equal in either font (checked all 27x27), so no collision can be hidden by a duplicate glyph, and no
+arithmetic formula over `ord()` maps ` ` `!` `,` `.` all to the same `?` slot while keeping letters
+injective (`%32` periodicity is forced by case-insensitivity).
+
+Negative results this task: 2-deletions of the `-lF` 70 (2347 variants) -> 0 pass validator 4 (the
+no-shebang 70 was already exhausted 2-deletions earlier); structured search over 7792 combos of
+shebang x L-read x dispatch x map x print -> only 70 B programs pass 7/7.
