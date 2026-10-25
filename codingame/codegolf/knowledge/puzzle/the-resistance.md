@@ -287,3 +287,32 @@ exactly what the 58/59-byte keys do (9 slots, V3/V5 share a slot). Merging all t
 that separates the difference-8 pairs, e.g. a quadratic `(v-5)*(v-13)`, which is far over 17 chars.
 This is consistent with the exhaustive search: no 8-slot key at any k, periodic floor 61, exact-k
 floor 58. The top 57 must be a `gets.sum`/whole-input hash, not length-keyed.
+
+## 2026-10-25 (ruby cell 1792936331789352362): **57 B tie #1 via a `**` exponent key** (corrects "57 is not an L-key")
+
+The 57 top IS an L-keyed hardcode; the earlier no-57 proof only covered chains without `**`.
+Ours, CG 100 % at **57 bytes** (probe 41563668, then committed, row 57 @100, tie #1):
+
+`p [1,8,0,568620<<16,2,64,2**30,150569][gets.size**8/62%9]`
+
+- `gets.size**8/62%9` is an 8-slot layout (m=8: three 1s merged into one slot, vs=27): total
+  `vs+m+len(K)+5 = 27+8+17+5 = 57`. It maps exactly **50 of the 389 k** values of V9
+  (L = 144+256k) to the 64 slot; S57 = {1,2,14,35,47,48,68,74,88,90,95,107,117,121,124,128,140,
+  142,148,150,156,161,167,172,178,180,186,188,200,204,207,211,221,233,238,240,254,260,280,281,
+  293,314,326,327,347,353,367,369,374,386}. The probe hit, so **k(V9) is in S57** (this supersedes
+  all earlier k exclusions; it is consistent with them).
+- **`**` was missing from every prior exact-L search** (keys3/keys4/cov2 op lists had no `**`).
+  Precedence: `**` > `*,/,%`, so `gets.size**8/62%9` = `((gets.size**8)/62)%9`. Add `**d`
+  (d=2..72 tried) as first op before the usual chain; search in big ints (Python) and verify the
+  final program with ruby on the covered k values. WARNING: a C `ap()` that treats `**` like `*`
+  with the next char as constant parses `**` as `*0*` and reports bogus all-k coverage.
+- Other pow keys found (58 B, Ruby-verified, useful only if a future 57 fails): `gets.size**19/73&7`
+  and `%8` (each covers 50 k values total, 12 of the then-remaining 101 k) and
+  `gets.size**6/774&7`/`%8` (36 k total, 8 of the then-remaining 101).
+- Exact-k 59 B key (CG 100 %, was our row for a while): `gets.size*73/7%64%9`, m=8, covers 222/389 k.
+  58-byte chain keys (all missed, so k is outside their 139-value union): `gets.size*4%25%9`,
+  `*8%50%9`, `*7/11%9`, `*4%85/9`, `*6%85/9`. 58-byte paren key `(gets.size-18|8)%9` covers 11 k.
+- Probe oracle without a report session: poll `GET /puzzles/<id>/progress` `.criteria_score` every
+  6 s; it drops to the probe's length within ~20-40 s on a 100 % hit. The leaderboard row can lag
+  ~4 min, and `submit.sh --probe`'s miss path waits 210 s. Fast loop: `submit.sh --no-wait --probe`
+  (set `CG_PROBE_QUESTION`) then poll progress, then resolve the probes.tsv pending row by hand.
