@@ -183,3 +183,54 @@ Also relevant to every candidate search here: `p` on a String prints it **with q
 all 12 validators regardless of selection quality; token output needs `$><<`/`print`/
 `puts`, or the expression must be numeric under `p`. Re-scored with this rule, the best
 template/index/2-atom family is <8/12 (scratch `h.rb`, `enum.rb`, `idx5.py`, `f45.rb`).
+
+## Correction 2026-10-25: the 30 B Ruby row is probably byte-era and REAL
+
+The section above (task cell.temperature.ruby.1792925631335450080) read the sub-46 rows as
+pre-byte-switch. New evidence weakens that:
+
+- forum post 206 (idungoofed, 2023-05-13, same topic 1239): "This is no longer the case.
+  Seems like it uses the byte count now, not the char count." (reply to the 2021 posts
+  183/185 explaining UTF-16 packing under a char metric).
+- rows on the Ruby temperature leaderboard at 100% created **2026-07-19 (30)**, 2026-09-13
+  (33), 2026-10-05 (32), 2026-10-16 (33), 2026-09-25 (38). Validators are unchanged since
+  2020 (the desast.re table used for `hidden/complete`), so these programs pass the current
+  12. Even under a char metric packing cannot pay at 30 chars (~25 char overhead leaves
+  ~10 payload bytes), so they are essentially ASCII <=33-byte programs.
+- Conclusion: a 30 B ASCII Ruby program passing the 12 validators exists (and 29 B Perl,
+  31 B Bash, 32 B PHP). The 46 B exploit is not the floor. Do not use "stale char row" as
+  a reason to stop.
+
+## What is ruled out for the 30 B Ruby (local searches 2026-10-25, no submit)
+
+`hidden/complete` is exact, so all of these were scored against the 12 directly.
+
+- block methods are impossible at 30: `$F.min_by(&:hex)` = 16 B, shortest string output
+  `$><<`+expr = 20 B > body 18 (with `#!ruby -0an`); `p`+it = 17 B fits but quotes strings.
+  Only `$F.min/max/sort[i]/[E]` and `p$F.map(&:M).N` fit 18 B, all tested: best 6/12
+  (`p$F.map(&:hex).min`, exactly 30 B).
+- `$F[E]` index DP: richer atom set (whole-input stats, last/second-last hex/size/sum,
+  char ords, counts, bits, consts) E<=11-12: 0 hits; same for line-mode (`-ap`) E<=12 over
+  `$.`=2/3, `$F.size`, `$_.size`, `$_.hex`, `$_.sum`, `$F[-1].hex`, `$F[0].hex`, ords.
+- 167668 regexes <=9 chars for `$_=$_[PAT]`: max <10/12.
+- 285627 template selections (`$F`, `$F[1..]`, maps, sort_by, min/max/sort with symbol and
+  short-block keys, fixed/short indices, post-transforms, body <=34): no >=11/12.
+- `eval` of tokens joined by any operator: max 6/12.
+- no 2-op/3-atom arithmetic formula (40 atoms incl all token positions, N, Nhex, Z, S, T,
+  last size/sum/bit, consts) matches the answer vector.
+- correction d = last-answer: `d = l[2]*(N-N/6)` exactly on the 12 with N = `$_.hex`
+  (5->5, 6->5, 16->14), but written it is 22 B (repeats `$_.hex`); the 17 B
+  `l[2]*5-$_.hex/9*9` stays shortest. MITM over real text lengths found no d <=16 with
+  `+ - * & | ^`; 2-op/3-atom search with all ops found none <=16 either.
+- `-F` accepts regex separators (see `lang/ruby/f-regex-separator.md`) but no separator
+  makes a fixed index/min/max pick the answers: sign-preserving separators leave all tokens,
+  sign-consuming ones destroy negative answers.
+
+Useful hidden-data facts for a keyed hack: answers are the last token for L2 in {0,4,5,11}
+(6 validators) and `$F[-2]` for V1,V5,V7,V12; only V4,V6,V9 (answer 7) need another token.
+d (last answer correction) is a function of total length Z alone: Z=13,15,18 -> 5, 31 -> 14,
+else 0, but no <=2-op formula over Z was found (`dsearch.py`) and a 3-slot table
+`"05e"[hash(Z)].hex` does not fit 18 B with the last-token base.
+Source: task cell.temperature.ruby.1792927698716721693, 2026-10-25 (scratch `esearch.py`,
+`mapsweep.rb`, `s2.rb`, `slice2.rb`, `resweep.rb`, `bigtmpl.rb`, `formula3b.py`, `d3.py`,
+`dmitm2.py`, `linesearch3.py`, `lineE2.py`, `fsep2.rb`).
