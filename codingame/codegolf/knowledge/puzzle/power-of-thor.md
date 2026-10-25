@@ -290,3 +290,41 @@ New evidence (task 1792919724657739941), all in the journal of that task:
 - `phases2.txt` (8.69M three-leaf truthiness expressions with two-digit constants) was
   generated but not fully evaluated; run `perl evalphase.pl < phases2.txt` if a cheaper
   phase is ever needed (very unlikely to beat 12 B, see above).
+
+## 2026-10-25: combined 5-direction table re-searched correctly (no sub-54)
+
+The earlier "combined direction table" searches (`isearch2.rs`, `isearch3.rs`, journals of
+1792872913607393747 / 1792875553042241088) were **vacuous**: their simulator used the turn-1
+input value (numified init line = lightX) as the energy and then rejected `e<=1`, so validator 4
+(lightX 0) could never survive turn 1; `isearch2` also required 4 distinct direction slots at
+turn 1, but V1 and V3 legitimately share the first move E. Do not cite those "no hit" results.
+
+Re-ran with a correct simulator (budget = E0 moves; lose iff not on light after move E0; V2 first
+move must be N, V4 first move W/SW), slot = `F%5` into a 5-direction list, full DFS over
+slot->direction:
+
+- program shape `/ /,$|=print+(LIST)[F],$/while<>` costs 37+len(F) (list with three 1-char,
+  one 2-char, one 1-char entry); `print+(LIST)[F],$/` is 1 B under `print((LIST)[F]).$/`
+- F over `$_`,`$.`,`$``, digits, ops `+ - * / % & | ^ < >`, every expression len<=8 (closure
+  cost<=6, tested cost 7-8): **no hit** for F(e,k), F(e,L) and F(e,k,L)
+- impossibility above len 8: V4 needs exactly 17 phase turns out of its 36 consecutive energy
+  readings (V1/V2 need 0), so the phase must be non-periodic in e, i.e. a two-sided window.
+  The row's window is 12 B and a one-digit-bound window (width <10) cannot give V4 17 turns.
+  Base letter needs `$`%3` (4 B) and the add needs `+3*` (3 B), so F >= 19-21 B and the
+  combined-list program >= 56-58. Dead at 54, not only at 42.
+- minimum direction alphabet is 5, not 4: V2 needs N; V4 needs W and SW; V1 needs a +x move;
+  V3 needs +x and +y. If V3 uses SE as its +y move, V1 can share SE but then must pair it with
+  N (only -y in the set), while V3 with {SE,N,W,SW} needs 31 SE + 17 N = 48 moves > 45 energy.
+
+Phase shift source: `$'` (postmatch = 8/4/17/17, `%7` = 1/4/3/3) works exactly like `$`%7`:
+`27>$_-$'%7>9` passes all 4 (same 12 B), so the split only needs two shift classes (0 and 3),
+not lightX itself. No shorter window found.
+
+`exec` route: `exec'core'` (+6, /bin/sh = dash on CG) needs a <=47 B dash core; a dash hardcode
+needs >=8 B (`read a b`) plus per-class plans (`yes E` floods are 5 B but `case`/`head` push it
+past 90). `exec bash,-c=>` (+16) can only use a <=37 B core; the bash top 46 (2026-06-12) is
+pre-byte-era. Dead for 54 and 42.
+
+Early exit: local referee-core accepts output buffered before exit (Closed only when the pipe is
+empty), so an all-at-once plan is legal locally; but the plan formula per class still costs ~70 B
+in Perl (no cheap `puts [h]*n` equivalent: `print` needs one newline per move). Dead.
