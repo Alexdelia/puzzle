@@ -47,32 +47,34 @@ run_job() {
 declare -A running_pid=() running_job=() running_queued=() running_gain=() running_started=()
 
 start_jobs() {
-	local free=$1 job queued_at gain puzzle started=0 estimated=0 estimate_started=$EPOCHSECONDS
+	local free=$1 job queued_at gain puzzle saturated started=0 estimated=0 estimate_started=$EPOCHSECONDS
 	local -a ranked=()
+	local -A is_saturated=()
+	while IFS= read -r puzzle; do is_saturated[$puzzle]=1; done < <(saturated_puzzles)
 	while IFS=$'\t' read -r job queued_at gain; do
 		estimated=$((estimated + 1))
+		puzzle=$(jq -r .puzzle "$job")
 		if ((gain == 0)); then
-			puzzle=$(jq -r .puzzle "$job")
 			remove_unless_requeued "$job" "$queued_at"
 			event "wrap nothing $puzzle"
 			continue
 		fi
-		ranked+=("$gain"$'\t'"$job"$'\t'"$queued_at")
+		ranked+=("${is_saturated[$puzzle]:-0}"$'\t'"$gain"$'\t'"$job"$'\t'"$queued_at")
 	done < <(idle_jobs | xargs -r -P "$wrap_estimate_jobs" -I{} bash -c 'estimate_job "$1"' _ {})
 	((estimated == 0)) || log "estimated $estimated jobs in $((EPOCHSECONDS - estimate_started))s"
-	while IFS=$'\t' read -r gain job queued_at; do
+	while IFS=$'\t' read -r saturated gain job queued_at; do
 		((started < free)) || break
 		puzzle=$(jq -r .puzzle "$job")
 		if ! with_lock queue claim_puzzle "$puzzle"; then
 			log "skip $puzzle: task of it claimed or next in queue meanwhile"
 			continue
 		fi
-		log "run $puzzle estimated gain $gain"
+		log "run $puzzle estimated gain $gain saturated=$saturated"
 		run_job "$puzzle" </dev/null &
 		running_pid[$puzzle]=$! running_job[$puzzle]=$job running_queued[$puzzle]=$queued_at
 		running_gain[$puzzle]=$gain running_started[$puzzle]=$EPOCHSECONDS
 		started=$((started + 1))
-	done < <(((${#ranked[@]})) && printf '%s\n' "${ranked[@]}" | sort -t$'\t' -k1,1nr)
+	done < <(((${#ranked[@]})) && printf '%s\n' "${ranked[@]}" | sort -t$'\t' -k1,1n -k2,2nr)
 }
 
 next_task_puzzle() {

@@ -18,6 +18,7 @@ cell_escalate_after_plateaus=1
 core_langs="perl ruby bash python lua"
 far_from_top_ratio=1.3
 max_plateau_streak=3
+rewarded_firsts_per_puzzle=5
 task_wall_seconds=3600
 opencode_task_wall_seconds=7200
 task_budget_usd=2.5

@@ -70,6 +70,7 @@ pick() {
 			| ladder_rank($ladders; $task; $cell) as $ladder_rank
 			| select($ladder_rank != "held")
 			| {id: $task.id, key: [
+				(if $task.puzzle | IN($context.saturated[]) then 1 else 0 end),
 				($task | kind_rank),
 				(if $task.urgent then 0 else 1 end),
 				$ladder_rank,
@@ -112,11 +113,12 @@ best_task() {
 		--argjson running_keys "$(jq -s '[.[].key]' "$state"/running/*.json </dev/null)" \
 		--argjson running_puzzles "$(puzzles_with_running_tasks | jq -R -n '[inputs]')" \
 		--argjson wrapped "$(wrapped_puzzles | jq -R -n '[inputs]')" \
+		--argjson saturated "$(saturated_puzzles | jq -R -n '[inputs]')" \
 		--arg only_kind "${CG_ONLY_KIND:-}" --arg held_kinds "$held_kinds" --arg core_langs "$core_langs" --argjson far_ratio "$far_from_top_ratio" --argjson max_streak "$max_plateau_streak" \
 		'{langs: $langs[0], referees: $referees[0], cells: $cells[0], last_lang: $last_lang, lang_count: $lang_count, lang_priority: $lang_priority[0],
 		  only_kind: $only_kind, held_kinds: ($held_kinds | split(" ") | map(select(. != ""))), core_langs: ($core_langs | split(" ")), far_ratio: $far_ratio, max_streak: $max_streak,
 		  ready_langs: ([$langs[0][] | select(. == "ready")] | length),
-		  running_keys: $running_keys, running_puzzles: $running_puzzles, wrapped: $wrapped}' >"$work/context.json"
+		  running_keys: $running_keys, running_puzzles: $running_puzzles, wrapped: $wrapped, saturated: $saturated}' >"$work/context.json"
 	id=$(pick "$work/context.json")
 	rm -rf "$work"
 	[[ -n $id ]] && echo "$id"

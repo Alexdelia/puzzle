@@ -344,6 +344,11 @@ puzzles_with_running_tasks() {
 	jq -r .puzzle "$state"/running/*.json </dev/null 2>/dev/null | sort -u || true
 }
 
+saturated_puzzles() {
+	jq -r 'select(.status == "first") | input_filename | split("/")[-2]' "$state"/cell/*/*.json </dev/null 2>/dev/null |
+		sort | uniq -c | awk -v firsts="$rewarded_firsts_per_puzzle" '$1 >= firsts { print $2 }'
+}
+
 wrapped_puzzles() {
 	[[ -n $(loop_pids wrapd) ]] || return 0
 	ls "$wrap_running_dir" 2>/dev/null || true
