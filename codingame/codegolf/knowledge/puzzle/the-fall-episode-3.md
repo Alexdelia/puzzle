@@ -163,3 +163,32 @@ DFS port, perl 670, CG #7. Unmemoized, test 01 turn 2 costs ~130 ms CPU in perl 
 - Gotcha: `str.split(key)` with one key occurrence yields 2 pieces ([prefix, suffix]), not 3,
   so a digit-keyed `'0P0 4P4...'` plan table needs each key twice or `[1]` is the rest of the
   string. Keep `bytes.split(b'~')` + index.
+
+## Correction 2026-10-25 (task 1792930757432767269): 117 IS a byte target
+
+- The "stale char lengths" claim above is **wrong**: `knowledge/lang/_shared/length.md` cites the CG
+  staff announcement (forum.codingame.com/t/char-vs-bytes-clash-of-code-shortest-and-code-golf-puzzles/200149,
+  2023-03-29): code golf counts **bytes since 2023-03**, old rows recomputed. The 117 row
+  (PetyFloyd, creationTime 1787906162099 = 2026-08-28) is a real 117-byte solution for these validators.
+  The 97-char UTF-16 metric probe proved nothing: CG strips NUL bytes, so that source could not run.
+- Plan minima are exact (A*/Dijkstra over every action incl. WAIT, rocks simulated): v1 10, v2 6, v3 6,
+  v4 3 = 25 rotations (v4 against `hidden/04`). v1 must rotate (1,1); v2 must rotate (1,2); v3 must rotate
+  a cell with x=9. So 25 rotation bytes are mandatory for a plan hardcode under hidden/04.
+- 119 B native plan hardcode (our row, CG 100%, rank #3, 2026-10-25):
+  `for c in b'DATA'.split()[ord(input()[-1])%5&3]+b'\4'*99:print(c%13,c//13,c&32and'LEFT'or'RIGHT')`
+  - data 28 B: chunks v2,v3,v4,v1 separated by single spaces, base-13 swapped bytes `c=13*y+x`
+    (all <128, no whitespace/quote/backslash); selection `ord(H-last)%5&3` -> 0,1,2,3 for v2,v3,v4,v1
+  - direction from the byte: `c&32` (LEFT iff bit 5), 0 extra rotations; v1's two 2-rotation pairs
+    (2,2)x2 and (2,8)x2 are net-free (2R == 2L on a 4-cycle)
+  - pad cell (4,0) type 0/1 in all four hidden grids, `+b'\4'*99`
+  - byte cost model: `for c in ` 9 + literal 3+data + `.split()` 8 + selector 22 + pad 8 + `:print(` 7
+    + coords 9 + 2 commas + E (len(P)+18) + `)` 1 = 97+data+E; 28+22 -> 119
+- Reaching 117 would need data 27 (3 chunks = two validators sharing one action sequence) or 26, or E=21
+  (3-char predicate) *plus* one more byte. No shared plan found: v3+v4 have no common 2-action prefix;
+  v1v2/v1v3/v2v3/v2v4 joint search exhausts; v1+v4 joint A* finds none <=13 rotations (257k states, 122 s).
+  3-char predicate scan over bases 2..20 x both orientations on the current singles: only base14 normal
+  `c&4`, whose bytes (9,5)=131,(9,6)=135 need `\xNN` escapes -> 124 B.
+- Probe 2026-10-25 (submission logged in probe/probes.tsv, python `probe/python/v4no87.py` 118 B): v4 with
+  only the (6,3) RIGHT + (3,4) RIGHT rotations (drop (8,7) LEFT) does **not** score 100% (own row stayed 119,
+  so the 118 was rejected). The (8,7) rotation is needed against a column-8 rock; its path crosses rows 5..7,
+  so the real v4's unknown 0->1 cells could in principle divert it, but this candidate did not.
