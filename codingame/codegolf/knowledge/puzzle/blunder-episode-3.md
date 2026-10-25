@@ -6,8 +6,9 @@ pretty_id `blunder-episode-3`, leaderboard `blunder-episode-3-codesize`, io.
 
 - input: `N`, then `N` lines `num t`, `num` unique ascending
 - output one line, exact string among `O(1)`, `O(log n)`, `O(n)`, `O(n log n)`, `O(n^2)`, `O(n^2 log n)`, `O(n^3)`, `O(2^n)`
-- 8 tests, one per class, in that order (test 01 = `O(1)` ... test 08 = `O(2^n)`); hidden validators: reference scores 100% on submit, their class order unverified
+- 8 tests, one per class, in that order (test 01 = `O(1)` ... test 08 = `O(2^n)`); 8 hidden validators, one per class in the same order (verified by the key probe, `referee/hidden/facts.md`)
 - t values noisy; log-space least squares (variance of `log t - log f(n)` per class, pick min) passes all 8 tests and our 18 validators
+- io limit 6000 ms per test (shared probe, `knowledge/lang/_shared/io-time-limit.md`, not re-probed here)
 
 ## Traps vs statement
 
@@ -33,7 +34,7 @@ Method (local 20/20 before validators 13-18, now 20/26): two-point growth expone
 
 **CG refuted 2026-10-20: this method scores 88% on CG** (Bash cell, perl one-liner, `int(2k+.9)` = thresholds `x/2+.05`, local 20/20): per-validator report (2026-10-24) shows only validator 7 (O(n^3), weight 60 of 500) fails. First/last points alone are not robust enough for CG: cells using it must change method.
 
-Local validators 13-18 (added 2026-10-20) reproduce the failure: contiguous subranges of the real CG tests (O(1) n 3410..9910, O(log n) 3105..4990, O(n) 7705..9405, O(n log n) 8134..9734, O(n^2) 6234..7134, O(n^2 log n) 159..224), each picked so the reference (log-space variance) wins with margin >= 2x and the two-point exponent misclassifies; the two-point bash 116 now fails 6/26 locally. Which CG validator actually failed stays unknown (CG gives no per-validator detail, 88% = 44/50, 6 validators fail): local 26/26 is necessary, not proof of CG 100%.
+Local validators 13-18 (regenerated 2026-10-25) reproduce the failure: they use their class's grid (same as the hidden validator grid) with a scaled first/last point or a rescaled series, each picked so the reference (log-space variance) wins with margin >= 2.02x and the two-point exponent misclassifies; the two-point bash 116 now fails 6/26 locally (validators 13-18) and 7/8 hidden (only hidden 07). Local 26/26 is necessary, not proof of CG 100% for a general method (hidden t values are redrawn; only the hidden keys/answers are exact).
 
 Endpoint noise: at full test ranges the two-point method needs a 40-50% error on the first or last t to flip (O(1) 1.49x, O(log n) 1.76x, O(n^2 log n) 1.55x, O(n^3) 1.77x); real test 02 first point already sits +30% above the fit.
 
