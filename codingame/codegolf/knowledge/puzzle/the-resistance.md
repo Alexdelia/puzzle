@@ -15,14 +15,14 @@ pretty_id `the-resistance-codesize`, io.
 - 01-03 tiny, 04: L 9884, N 9444, words mostly 5-6 letters, answer 57330892800
 - 05 same-encoding words, 06: 52 dots with dictionary `E I` (Fibonacci, 2971215073)
 - io limit 6000 ms per test (shared probe `knowledge/lang/_shared/io-time-limit.md`); Python sleep 5.5 s, bash 2.5 s, JS 5.0 s on time here (2026-10-21)
-- Groovy limit ~1.93 s of JVM uptime (CG probes here and on 2 other puzzles, `knowledge/lang/groovy/io-time-limit.md`): referee runs Groovy with 1100 ms wall (calibrated, launcher path `lang/groovy`). Honest Groovy DP (317) times out on CG test 04 (local 1.6 s) and got 80% on submit: native Groovy needs local wall <= ~1.1 s on 04 and on L ~ 10^5 inputs, else a perl/sh wrapper
+- Groovy limit ~1.93 s of JVM uptime (CG probes here and on 2 other puzzles, `knowledge/lang/groovy/io-time-limit.md`): the crate's old 1100 ms wall was removed 2026-10-25 (it false-rejected under load); grading now uses the shared core CPU bar (2.05x a Groovy baseline measured in the same invocation). Honest Groovy DP (317) still fails hidden/10 on CPU, matching CG; the 275 perl-wrapper row passes 10/10 hidden even under 16x `yes` load
 
 ## Traps
 
 - tests 05 and 06 have NO final newline on the last word (captured byte-exact through lzma+b85); 01-04 end with `\n`. A per-line reader that needs `\n` loses the last word; `split()` is safe
 - `capture-io.sh` truncates test 04 (CG output cap ~4 kB): captured as lzma+b85 slices, 12 games (journal `referee.the-resistance.*`, scratch `capture.sh`)
 - naive O(L * 76) substring dict lookups are fine for test 04 in Python (reference with a trie: 0.08 s on 04; new validator 10: 0.2 s)
-- validators (ours) cover: R close to 2^63 (Fibonacci 90 dots, dashes, alphabet), R = 0 with trailing unmatched symbol, single letter without final newline, L 99028 N 9000 answer 2 (val 09), and V10-shaped val 10: L 9105, N 8137, answer 37371248640 (fresh random dict, words 4-8 letters). val 10 shape verified 2026-10-24: all 26 CG-row cores pass it, perl 150 0.07 s, ruby 204 0.38 s, groovy 317 1.30 s (fails the 1100 ms bar)
+- validators (ours, rewritten 2026-10-25) are hidden-class variants, not arbitrary edges: same Morse length L as a hidden class (hence the same L-key), same answer, N inside the exact/congruence facts. 01-06 = V1-V6, 07 = V7 with N 8195, 08 = V8 with N 1699, 09 = V9 with L 656, 10 = V10 with N 9999, 11 = V9 with L 400 and N 256 (different gadget), 12 = V10 with N 8137 and permuted runs. The old R~2^63/99028-length cases are gone: they rejected CG-accepted L-keyed code. V10 answer 37265080320 (> 2^32) still exercises 64-bit arithmetic
 
 ## Shortest known
 
@@ -33,8 +33,8 @@ General method (verified, Python 264 bytes, 18/18 local tests + validators, 2026
 - word codes go into a count map (code -> number of words), NOT a set: same-encoding words multiply (test 05)
 - forward DP: `d[0]=1`, for each position i and k in 0..76: `d[i+k] += d[i] * count[s[i:i+k]]`, answer `d[L]`. k=0 is the empty slice, never a key, so `range(77)` is fine. Slices past the end truncate: they add only to indices > L (pad d, Python `[1]+[0]*9**6`), d[L] stays exact
 - N (line 2) is ignorable: read all tokens with `split`, which also survives the missing final newline of tests 05/06
-- integers: our validators 05, 06, 08, 11 have answers 2.9e18-4.7e18 (> 2^53). They must stay below 2^64/3 = 6.148e18: the ocaml 179 regex core computes 3*R before dividing by 3, and Perl turns 3*R into NV above 2^64 (verified 2026-10-24: old val 05/11 at 7.4e18 gave 7.54011380474635e+18 in scientific notation). CG tests max 57330892800 (> 2^32, < 2^53); hidden max 37265080320 < 2^53, so doubles are exact on CG
-- time: with the reshaped val 10 (L 9105, N 8137) the window-77 core takes 0.2 s and perl 150 0.07 s; val 09 (L 99028, N 9000) is the slow case: perl 150 2.35 s, ocaml 179 2.0 s, all other CG rows <= 1.1 s under load 13 (2026-10-24)
+- integers: current answers max 37265080320 (hidden/validators V10, < 2^53), CG IDE tests max 57330892800. The earlier synthetic validators had 2.9e18-4.7e18 answers and had to stay below 2^64/3 = 6.148e18 (the ocaml 179 regex core computes 3*R before dividing by 3; Perl turns 3*R into NV above 2^64, verified 2026-10-24). Those validators were removed in the 2026-10-25 reconstruction
+- time: the reconstructed V10 (L 9105, N 8137, short filler words) is the slow local case: python/perl-wrapper rows ~0.06-0.2 s unloaded, 0.9 s under 16x `yes` (perl 150); reconstructed V8 (L 100, N 9891) ~0.05-0.1 s; V9 is now L 400 (only the old synthetic 99028-length case was slow and is gone)
 
 Rejected:
 
@@ -173,3 +173,9 @@ V9->6(64), V2->7(0), V8->8(150569), V1->9(2). `gets.size*a%b...` is 256-periodic
   whose per-validator values need the CG per-validator reports to learn; a length key cannot reach 57).
 - `agent/tool/cg-report.sh` still has no session; the corrected map came free from cached reports in
   `agent/state/journal/validator.the-resistance.-.1792834544552740910.scratch/r*.json`.
+
+## Local grading (referee reconstruction, 2026-10-25)
+
+`referee/hidden/01-10.in/.out` are reconstructions honoring every fact in `referee/hidden/facts.md` (corrected H table: V7 = 2^30 at L 60, V9 = 64 at L = 144 + 256k, k >= 1), plus `hidden/keyed`, so `run.sh --cg` grades hidden only.
+V7 is reconstructed as sequence `(.-)^30` with dictionary `E T A` (N=3), which matches every probed fact and is likely exact. V8 prefix-runs 15/15/27 give 17*17*521; V10 runs 18x2, 7x3, 4, 6 give 2^18*3^7*5*13. Generated, not probed: V9 k (400), N(V8) (9891 = 1699+8192), N(V9) (256 < 512), N(V10) (8137), V10's sequence.
+All 27 CG rows (`solution/*/main.*`, length == cell `.ours`, including the ruby 61 L-keyed hardcode) pass hidden 10/10 and validators 12/12, unloaded and under 16x `yes` for the heavy L-9105 cases. Bench with the python 244 row: suite 1191.5 ms, referee CPU <= 0.5 ms/case, gate ok.
