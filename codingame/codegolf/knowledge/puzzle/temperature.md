@@ -151,3 +151,35 @@ with 30 short bodies (best 6/12). So the 30 B program is neither a token-index, 
 simple arithmetic formula on the usual stats, nor a `-F` tokenization trick; the remaining
 lead is the shared scripting feature (implicit numeric string coercion / min over strings /
 `$G[abs]` sparse-array style; Perl forum tip post 106 "no split, no comparison operators").
+
+## Byte-metric switch: the 30 B Ruby top is pre-switch (2026-10-25)
+
+Leaderboard dump (`Leaderboards/getFilteredPuzzleLeaderboard`, Ruby, 2026-10-25; all
+100% rows, n=1000) settles what the "unexplained 30 B" is from the metric side:
+
+- every 100% row with `criteriaScore < 46` was created **on or before 2026-10-16**
+  (30 chouch 2022-06-16, 30 sffsefsdfaf 2026-07-19, 32 Icebox 2026-10-05,
+  33 YALOKGAR 2026-09-13, 33 zekovdev 2026-10-16, 38 cedricdd 2026-09-25,
+  45 alliumnsk 2026-02-12, 45 Waffle3z 2026-08-13)
+- only 6 100% rows were created **on or after 2026-10-19**: 46 (ours, 2026-10-25),
+  47 PetyFloyd, 50 Meruem, 51 FrancoisB, 60, 61
+- the 2026-10-19 probe in `lang/_shared/length.md` shows the length metric is now
+  **bytes - trailing newline**; rows submitted before it were counted as characters
+
+So the Perl 29 / Ruby 30 / Bash 31 / PHP 32 cluster is pre-switch. It is NOT reachable
+as a byte count (packing under a byte metric is a loss, see below). **The actionable
+byte-era target for Ruby is 45-46, and our 46 B exploit is the shortest row created
+after the switch.** Do not spend submits chasing 30 with byte-counted code.
+
+Char-era packing, measured locally (Ruby 3.1.2): `eval(payload.encode'UTF-16BE'.b)`
+runs, costs ~22-25 chars of overhead (`eval`, quotes, `.encode'UTF-16BE'`, `.b`) and
+stores 2 payload bytes per source char. A 30-char row could therefore hold at most a
+~16-byte payload, so the 30 B row is not a packed general solution either; the most
+likely reading is a char-era exploit whose validators/score were not recomputed.
+Source: task cell.temperature.ruby.1792925631335450080, scratch `lb-ruby.json`.
+
+Also relevant to every candidate search here: `p` on a String prints it **with quotes**
+(`p "-1"` -> `"-1"`), so every `p$F.min_by(...)`, `p$F[-1]`, `p$F.sort[0]` shape fails
+all 12 validators regardless of selection quality; token output needs `$><<`/`print`/
+`puts`, or the expression must be numeric under `p`. Re-scored with this rule, the best
+template/index/2-atom family is <8/12 (scratch `h.rb`, `enum.rb`, `idx5.py`, `f45.rb`).
