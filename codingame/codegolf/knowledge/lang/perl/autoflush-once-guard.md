@@ -15,3 +15,10 @@ so the last operand must be numeric/truthy: put the list assignment last
 Verified: shadows-of-the-knight-episode-1 perl 91 (CG 100%, `#!perl -alp`, 3 init lines
 read on iteration 1), local 16/16 + 13/13 hidden, 2026-10-24. `$|++or RHS` also
 short-circuits and ignores the RHS value, but costs 6 vs 5 (`$|||=`) before the RHS.
+
+Negative forms verified 2026-10-25 (shadows python task, CG perl 5.34): `$|=($L,$U)=@F;<><><>;`
+does not even compile (`syntax error near "<>"`; bare diamonds need `;` separators), and
+`$|=($L,$U)=@F;<>;<>;<>;` is **not** a guard: the three reads run on every `-p` iteration and
+eat three direction lines per turn. Only `$|||=` (or another `||=` variable) short-circuits;
+trying to save the 5 B `$|||=` on this header cost a whole design (would have been a 73 B
+`-aE` body, wrapper 108).
