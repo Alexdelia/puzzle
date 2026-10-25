@@ -45,3 +45,4 @@
 2026-10-24T17:20:09Z	cell.network-cabling.perl.1792698297968363581	perl	69	range+range via top2-bottom2 of combined sorted x,y (69 B): which of hidden 6-9 pass?	report unavailable (no CG session); not 100%: CG row stayed 88, local hidden/05 fails (25 vs 24), V8 provably not range+range
 2026-10-25T20:19:02Z	cell.network-cabling.bash.1792955290417481541	bash	87	87 B guaranteed N+first-x hardcode (read -d. slurp): all 9 hidden validators 100%?	yes: 100% at length 87, committed
 2026-10-25T20:24:50Z	cell.network-cabling.bash.1792955290417481541	bash	86	86 B N+first-x hardcode, n%16 key with global -7, 9 slots (all distinct): 100%?	yes: 100% at length 86, committed
+2026-10-25T21:24:34Z	cell.network-cabling.bash.1792960132727940023	bash	77	checksum hardcode octal: V6@2 V7@5 V8@7 V9@8, 100%?	pending, submission 41565295
