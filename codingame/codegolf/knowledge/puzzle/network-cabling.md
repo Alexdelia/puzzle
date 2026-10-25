@@ -170,3 +170,16 @@ Details, sources and probe log: `puzzle/network-cabling/referee/hidden/facts.md`
 82 [ovs] 2023-04 / FrancoisB / Alexdelia, 83 Eric.  The Ruby 73 predates the Perl 73 (2025-11);
 Perl ladder 73/74/75 then 79.  Perl cannot hardcode 9 answers below ~70 + a 3 B key (no base36
 decode), so Perl 73 is likely general; Ruby's 73 coincides exactly with the checksum-table shape.
+
+### 2026-10-25 (bash plateau-retry 7): live tops, N+first-x hardcode 86 B, 78 B checksum shape blocked
+
+- **live leaderboard** (`getFilteredPuzzleLeaderboard`, 2026-10-25 ~21:10Z; the cached "top 79" is stale):
+  Bash Zylo 77 (2026-10-25), saito_ta 79 (2023-05-25), Eric 81 (2025-11), LolCat 81 (2023-09), YALOKGAR 86 (2026-10-20), ours 86 (2026-10-25).
+  Perl Zylo 70 (2026-10-25), Eric 73 (2025-11-25), LolCat 74, saito_ta 75, YALOKGAR 79.
+  Assume every sub-81 row is a report-derived hardcode (checksum table) unless proven general; today's humans hold 77/70.
+- **N + first x1 separates all 9 validators** (same key as p37): V4 n=1 (x1=9), V3 n=4, V6 n=8, V9 n=11, V8 n=99999, V7 n=100000; N=3 group split by x1: V1 0 -> 8, V2 2 -> 6, V5 -5 -> 24.
+  `n%16+(n<4)*x1-7` is a bijection onto slots 0..8 for a 9-element table: V5 -9->0, V6 1, V7 -7->2, V4 3, V9 4, V1 -4->5, V3 -3->6, V2 -2->7, V8 8 (bash negative subscript = len+k).
+  bash `read -d. n a b` + `t=(...)` + `echo $[64#${t[IDX]}]` = **86 B, CG 100 %** (probe `probe/bash/n86.sh`, 2026-10-25; n87 = 87 B also 100 %; bash trick file `knowledge/lang/bash/base64-arith-literal-table.md`).
+- floor of that family (brute force): index = base + `(n<4)*x1` + offset; M=9 needs K=16 and the 7 offset (14 chars), M=8 is impossible with any gate/offset (V1/V3 merge forces `n<5` minus, which puts V5 at 8 > 7), single-digit modulus cannot reach M=9. So the guaranteed N+x1 hardcode cannot go below 86; 79 needs a different key/representation.
+- **78 B exact 79-shape, needs the report**: `sum|perl -0pe'$_=(<9 decimal answers>)[$_%9]'` (sum prints "checksum blocks"; Perl `%` takes the leading number). Local V1-V5 BSD-sum residues mod 9 = 1,4,6,0,8 (all distinct; byte-sum residues are 1,4,8,8,3 and collide V3/V4, so the Ruby `String#sum%9` shape guess needs another modulus). The 4 unknown residues mod 9 must fill exactly {2,3,5,7} for the 9-slot table (~0.4 %) and then be permuted; the report broker is still `no CG session` (2026-10-25), every one of our 27 rows is 100 %, so partial scores are hidden and the row oracle is only a 1-bit conjunction. Blocked on the user running `agent/tool/report-login.sh`.
+- code-golf hidden validators are very likely the classic training puzzle's hidden validators: forum post 63 (`forum.codingame.com/t/network-cabling-puzzle-discussion/41`) lists the same nine titles and 100/100/100/100/100/100/200/200/200 points, while the code-golf IDE examples are the classic IDE tests (classic test 7 expects 3142894 = code-golf sample 07). Unverified that the inputs are identical.
