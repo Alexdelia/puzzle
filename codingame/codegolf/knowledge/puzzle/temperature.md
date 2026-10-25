@@ -104,3 +104,16 @@ Source: tasks cell.temperature.perl.1792865466027369154 and cell.temperature.per
 `#!ruby -0an` + `l=eval$F[-1];p l-l[2]*5-$F.size/8*9` = 47 B, probe-confirmed 100% (fails 5/6 IDE tests, hidden 12/12). `-0` slurps (one record), `-a` gives `$F` = all tokens incl N, `-n` suppresses autoprint. Reads off the table above: last token 4/12 -> `l[2]*5` = 5 (`Integer#[]` is bit 2); the 11-token input is V12 -> `$F.size/8` = 1 -> 9. `eval$F[-1]` is 1 B under `.to_i`. Next saving must come from the 11 B `$F.size/8*9` term or from an index/slice hash; 46 B = 1 B away. General Ruby floor is 48 (`gets;p gets.split.min_by{x=_1.to_i;x*x-x/2}.to_i`).
 
 Source: task cell.temperature.ruby.1792521563575695963, 2026-10-24; probe `puzzle/temperature/probe/ruby/e47.rb`.
+
+## Ruby 46 B hidden exploit (CG 100%, row 46, 2026-10-25)
+
+`#!ruby -0an` + `l=eval$F[-1];p l-l[2]*5-$_.hex/9*9` = 46 B (fails the IDE tests, hidden
+12/12, submitted and row updated). Same key as the 47 B form, but the V12 indicator is
+`$_.hex/9*9` (10 B) instead of `$F.size/8*9` (11 B): with `-0an` slurp, `$_` is the whole
+input and `String#hex` parses its leading `N` in base 16 (`10` -> 16), so `$_.hex/9` is 1
+only on V12 (N=10); every other validator has N <= 6. `hex` also works as a plain 6 B
+`N` accessor (`$_.hex` vs `$_.to_i` 7 B) whenever the decimal value is 0..9 or the hex
+offset is wanted. Also verified /9, /16 and `$_.oct/8` all give the same 9/0 term; all
+are >= 10 B, so 46 is the local floor of this shape.
+
+Source: task cell.temperature.ruby.1792878202232865737, 2026-10-25.
