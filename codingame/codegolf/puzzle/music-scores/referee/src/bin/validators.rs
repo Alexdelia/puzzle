@@ -23,13 +23,7 @@ struct Args {
 	#[arg(long, default_value_t = 1)]
 	seed: u64,
 	#[arg(long, default_value_t = 0)]
-	pad_left: usize,
-	#[arg(long, default_value_t = 0)]
-	pad_right: usize,
-	#[arg(long, default_value_t = 0)]
-	pad_top: usize,
-	#[arg(long, default_value_t = 0)]
-	pad_bottom: usize,
+	translate: isize,
 }
 
 struct Image {
@@ -79,6 +73,18 @@ impl Image {
 		self.pixels[row * self.width + column]
 	}
 
+	fn set(&mut self, row: usize, column: usize, black: bool) {
+		self.pixels[row * self.width + column] = black;
+	}
+
+	fn blank(&self) -> Self {
+		Self {
+			width: self.width,
+			height: self.height,
+			pixels: vec![false; self.width * self.height],
+		}
+	}
+
 	fn encode(&self) -> String {
 		let mut runs: Vec<(bool, usize)> = Vec::new();
 		for &pixel in &self.pixels {
@@ -102,37 +108,79 @@ impl Image {
 	}
 }
 
-fn note_segments(image: &Image) -> Result<Vec<Range<usize>>> {
-	let staff_left = (0..image.width)
-		.find(|&column| (0..image.height).any(|row| image.black(row, column)))
-		.context("blank image")?;
-	let staff_rows: Vec<usize> = (0..image.height)
-		.filter(|&row| image.black(row, staff_left))
-		.collect();
-	let line_tops: Vec<usize> = staff_rows
-		.iter()
-		.enumerate()
-		.filter(|&(index, &row)| index == 0 || staff_rows[index - 1] + 1 != row)
-		.map(|(_, &row)| row)
-		.collect();
-	ensure!(
-		line_tops.len() == 5,
-		"{count} staff lines",
-		count = line_tops.len()
-	);
-	let ledger_shift = line_tops[4] - line_tops[3];
-	let ledger_rows: Vec<usize> = staff_rows
-		.iter()
-		.filter(|&&row| row >= line_tops[4])
-		.map(|&row| row + ledger_shift)
-		.filter(|&row| row < image.height)
-		.collect();
-	let free_rows: Vec<usize> = (0..image.height)
-		.filter(|&row| !image.black(row, staff_left) && !ledger_rows.contains(&row))
-		.collect();
+struct Layout {
+	x0: usize,
+	staff_row: Vec<bool>,
+	ledger_row: Vec<bool>,
+	left: Vec<usize>,
+	right: Vec<usize>,
+	rightmost: usize,
+}
+
+impl Layout {
+	fn detect(image: &Image) -> Result<Self> {
+		let x0 = (0..image.width)
+			.find(|&column| (0..image.height).any(|row| image.black(row, column)))
+			.context("blank image")?;
+		let staff_rows: Vec<usize> = (0..image.height)
+			.filter(|&row| image.black(row, x0))
+			.collect();
+		let line_tops: Vec<usize> = staff_rows
+			.iter()
+			.enumerate()
+			.filter(|&(index, &row)| index == 0 || staff_rows[index - 1] + 1 != row)
+			.map(|(_, &row)| row)
+			.collect();
+		ensure!(
+			line_tops.len() == 5,
+			"{count} staff lines",
+			count = line_tops.len()
+		);
+		let ledger_shift = line_tops[4] - line_tops[3];
+		let mut staff_row = vec![false; image.height];
+		for &row in &staff_rows {
+			staff_row[row] = true;
+		}
+		let mut ledger_row = vec![false; image.height];
+		for &row in &staff_rows {
+			let ledger = row + ledger_shift;
+			if row >= line_tops[4] && ledger < image.height {
+				ledger_row[ledger] = true;
+			}
+		}
+		let mut left = vec![image.width; image.height];
+		let mut right = vec![0; image.height];
+		let mut rightmost = 0;
+		for &row in &staff_rows {
+			if let Some(column) = (0..image.width).find(|&column| image.black(row, column)) {
+				left[row] = column;
+			}
+			if let Some(column) = (0..image.width)
+				.rev()
+				.find(|&column| image.black(row, column))
+			{
+				right[row] = column;
+				rightmost = rightmost.max(column);
+			}
+		}
+		Ok(Self {
+			x0,
+			staff_row,
+			ledger_row,
+			left,
+			right,
+			rightmost,
+		})
+	}
+}
+
+fn note_segments(image: &Image, layout: &Layout) -> Result<Vec<Range<usize>>> {
 	let mut segments: Vec<Range<usize>> = Vec::new();
 	for column in 0..image.width {
-		if !free_rows.iter().any(|&row| image.black(row, column)) {
+		let occupied = (0..image.height).any(|row| {
+			!layout.staff_row[row] && !layout.ledger_row[row] && image.black(row, column)
+		});
+		if !occupied {
 			continue;
 		}
 		match segments.last_mut() {
@@ -140,7 +188,9 @@ fn note_segments(image: &Image) -> Result<Vec<Range<usize>>> {
 			_ => segments.push(column..column + 1),
 		}
 	}
-	let ledger_black = |column: usize| ledger_rows.iter().any(|&row| image.black(row, column));
+	let ledger_black = |column: usize| {
+		(0..image.height).any(|row| layout.ledger_row[row] && image.black(row, column))
+	};
 	let mut bounds = vec![0];
 	bounds.extend(
 		segments
@@ -194,35 +244,145 @@ fn permutation(order: Order, count: usize, seed: u64) -> Vec<usize> {
 	indices
 }
 
-fn rearrange(image: &Image, segments: &[Range<usize>], order: &[usize], args: &Args) -> Image {
-	let staff_only_column = segments[0].start - 1;
-	let mut columns: Vec<Option<usize>> = vec![None; args.pad_left];
-	let mut cursor = 0;
-	for (slot, segment) in segments.iter().enumerate() {
-		if slot > 0 && cursor == segment.start {
-			columns.push(Some(staff_only_column));
+fn augment(
+	slot: usize,
+	candidates: &[Vec<usize>],
+	seen: &mut [bool],
+	matched: &mut [usize],
+) -> bool {
+	for &note in &candidates[slot] {
+		if seen[note] {
+			continue;
 		}
-		columns.extend((cursor..segment.start).map(Some));
-		columns.extend(segments[order[slot]].clone().map(Some));
-		cursor = segment.end;
+		seen[note] = true;
+		if matched[note] == usize::MAX || augment(matched[note], candidates, seen, matched) {
+			matched[note] = slot;
+			return true;
+		}
 	}
-	columns.extend((cursor..image.width).map(Some));
-	columns.extend(std::iter::repeat_n(None, args.pad_right));
-	let width = columns.len();
-	let height = args.pad_top + image.height + args.pad_bottom;
-	let mut pixels = vec![false; width * height];
+	false
+}
+
+fn assign(
+	segments: &[Range<usize>],
+	order: &[usize],
+	rightmost: usize,
+	width: usize,
+) -> Result<Vec<usize>> {
+	let count = segments.len();
+	let widths: Vec<usize> = segments
+		.iter()
+		.map(|segment| segment.end - segment.start)
+		.collect();
+	let mut candidates: Vec<Vec<usize>> = Vec::with_capacity(count);
+	for (slot, segment) in segments.iter().enumerate() {
+		let end = if slot + 1 < count {
+			segments[slot + 1].start
+		} else {
+			width.min(rightmost + 1)
+		};
+		let slot_width = end - segment.start;
+		let requested = order[slot];
+		let mut preferred = Vec::with_capacity(count);
+		preferred.push(requested);
+		preferred.extend((0..count).filter(|&note| note != requested));
+		let fitting: Vec<usize> = preferred
+			.into_iter()
+			.filter(|&note| {
+				if slot + 1 == count {
+					widths[note] <= slot_width
+				} else {
+					widths[note] < slot_width
+				}
+			})
+			.collect();
+		ensure!(
+			!fitting.is_empty(),
+			"no note fits slot {slot} of width {slot_width}"
+		);
+		candidates.push(fitting);
+	}
+	let mut matched = vec![usize::MAX; count];
+	for slot in 0..count {
+		let mut seen = vec![false; count];
+		ensure!(
+			augment(slot, &candidates, &mut seen, &mut matched),
+			"no assignment for slot {slot}"
+		);
+	}
+	let mut assignment = vec![usize::MAX; count];
+	for (note, &slot) in matched.iter().enumerate() {
+		ensure!(slot != usize::MAX, "unassigned note {note}");
+		assignment[slot] = note;
+	}
+	Ok(assignment)
+}
+
+fn translated(
+	image: &Image,
+	layout: &Layout,
+	segments: &[Range<usize>],
+	delta: isize,
+) -> Result<Vec<(usize, usize)>> {
+	let mut slots = Vec::with_capacity(segments.len());
+	for segment in segments {
+		let start = segment
+			.start
+			.checked_add_signed(delta)
+			.context("negative target column")?;
+		let end = segment
+			.end
+			.checked_add_signed(delta)
+			.context("negative target column")?;
+		ensure!(
+			start > layout.x0,
+			"note starts at {start}, not after staff column {x0}",
+			x0 = layout.x0
+		);
+		ensure!(
+			end <= layout.rightmost + 1 && end <= image.width,
+			"note ends at {end}, beyond staff {right}",
+			right = layout.rightmost
+		);
+		slots.push((start, end));
+	}
+	Ok(slots)
+}
+
+fn rebuild(
+	image: &Image,
+	layout: &Layout,
+	segments: &[Range<usize>],
+	slots: &[(usize, usize)],
+	assignment: &[usize],
+) -> Result<Image> {
+	let mut result = image.blank();
 	for row in 0..image.height {
-		for (target, source) in columns.iter().enumerate() {
-			if let Some(column) = source {
-				pixels[(row + args.pad_top) * width + target] = image.black(row, *column);
+		if !layout.staff_row[row] {
+			continue;
+		}
+		for column in layout.left[row]..=layout.right[row] {
+			result.set(row, column, true);
+		}
+	}
+	for (slot, &note) in assignment.iter().enumerate() {
+		if note == usize::MAX {
+			continue;
+		}
+		let (start, end) = slots[slot];
+		let source = &segments[note];
+		ensure!(
+			start + source.len() <= end,
+			"note {note} of width {note_width} does not fit slot {slot}",
+			note_width = source.len()
+		);
+		for row in 0..image.height {
+			for column in source.clone() {
+				result.set(row, start + column - source.start, image.black(row, column));
 			}
 		}
 	}
-	Image {
-		width,
-		height,
-		pixels,
-	}
+	Ok(result)
 }
 
 fn main() -> Result<()> {
@@ -234,28 +394,46 @@ fn main() -> Result<()> {
 		.with_context(|| format!("read {file}", file = expected_file.display()))?;
 	let notes: Vec<&str> = expected.split_whitespace().collect();
 	let image = Image::parse(&input)?;
-	let segments = note_segments(&image)?;
+	let layout = Layout::detect(&image)?;
+	let segments = note_segments(&image, &layout)?;
 	ensure!(
 		segments.len() == notes.len(),
-		"{segments} column segments for {notes} notes",
-		segments = segments.len(),
-		notes = notes.len()
+		"{count} column segments for {note_count} notes",
+		count = segments.len(),
+		note_count = notes.len()
 	);
-	let order = permutation(args.order, notes.len(), args.seed);
-	let result = rearrange(&image, &segments, &order, &args);
+	let (slots, assignment) = if args.translate == 0 {
+		let order = permutation(args.order, notes.len(), args.seed);
+		let assignment = assign(&segments, &order, layout.rightmost, image.width)?;
+		let mut slots = Vec::with_capacity(segments.len());
+		for (slot, segment) in segments.iter().enumerate() {
+			let end = if slot + 1 < segments.len() {
+				segments[slot + 1].start
+			} else {
+				image.width
+			};
+			slots.push((segment.start, end));
+		}
+		(slots, assignment)
+	} else {
+		let slots = translated(&image, &layout, &segments, args.translate)?;
+		let assignment: Vec<usize> = (0..segments.len()).collect();
+		(slots, assignment)
+	};
+	let result = rebuild(&image, &layout, &segments, &slots, &assignment)?;
+	let regrouped = note_segments(&result, &layout)?;
+	ensure!(
+		regrouped.len() == notes.len(),
+		"rebuilt image splits into {count} segments",
+		count = regrouped.len()
+	);
 	ensure!(
 		(101..5000).contains(&result.width) && (71..300).contains(&result.height),
 		"size {width}x{height} out of constraints",
 		width = result.width,
 		height = result.height
 	);
-	let regrouped = note_segments(&result)?;
-	ensure!(
-		regrouped.len() == notes.len(),
-		"rearranged image splits into {count} segments: {regrouped:?} from {segments:?}",
-		count = regrouped.len()
-	);
-	let reordered: Vec<&str> = order.iter().map(|&index| notes[index]).collect();
+	let reordered: Vec<&str> = assignment.iter().map(|&note| notes[note]).collect();
 	fs::write(args.target.with_extension("in"), result.encode())?;
 	fs::write(
 		args.target.with_extension("out"),
