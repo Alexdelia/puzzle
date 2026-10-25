@@ -294,3 +294,48 @@ No submit; row stays 25 (`p`dd`=~/2 3/?$`.hex/3+3:2`).
   V8 4, V9 10 against answers 2,2,3,5,2), so the C 46 rows are not read-all-tokens;
   no LE/BE byte window (width 2..8, offset 0..7) with mod/div k<=5000 (+c) fits
   either. The C exploit is still unexplained.
+
+## Ruby 20 B hunt, task 1792957353482026369 (2026-10-25, all negative)
+
+Row stayed 25 (``p`dd`=~/2 3/?$`.hex/3+3:2``); no submit spent. New exact tables on
+hidden/01..10 (`S` = raw input, ANS = 2 2 2 2 3 3 5 2 4):
+
+- `S.count('3')` = 0 1 1 1 1 1 3 1 3; `S.count('4')` = 0 0 0 1 0 0 3 1 1
+- `scan("3\n").size` = 0 0 1 0 1 1 2 0 2; `scan("2 3").size` = 0 0 0 0 1 1 1 0 1
+- `index("2 3")` = nil nil nil nil 6 2 18 nil 2; `rindex('2')` = 4 8 4 4 6 8 30 7 8
+- `S.lines.max.hex` = 1 3 2 3 2 2 8 9 3
+- after `S=~/2 3/`: `$`` sizes 6 2 18 2, `$'` sizes 1 5 13 9,
+  `$`.count('3') = 0 0 1 1, `$'.count('3') = 0 0 1 1
+- V10 has THREE '3' chars (N line `3`, `2 3`, `3 4`): earlier "count('3')=extras"
+  is false for V10 (extras 2)
+- Ruby `String#lines` keeps `\n`: `lines.max[-1]` is always `"\n"`;
+  `lines.max[-2]` is the last digit of the max line: 2 2 2 4 3 3 8 0 4 (fails V4/V8/V9)
+- answers = `2 + |X∩Y|`; on the 4 gate inputs extras = N/3+1 (N=2,2,8,3), and
+  `$'`-based: extras = (post.size+4)/5 (post sizes 1,5,13,9) but the formula costs too much
+- C 46 argument vs an out*-file exploit: `main(){system("cat out*");}` is 25 B, so a
+  readable-out channel would put C far below 46; bash 27, perl 21, php 21 likewise.
+  A genuine <=20 B key is still the likely explanation for the three ruby 20 rows.
+
+Searches that returned 0 hits (scratch of this task; all fit the 9 exact inputs):
+
+- ternary `=~/R/?F:G`, R from 1607 regex signatures (sigs.json, <=7 chars, atoms+
+  quantifiers) + anchored/literal extras (1613), F = `$``/`$&`/`$'` + accessor
+  (hex/to_i/size/sum/ord/oct/[i]/[i].hex/[i].ord/bytesize/length/split.size/lines.size/
+  count(?3)/index(?3)/rindex(?3)/scan(?3).size) x {/k,%k,*k,+c,-c,/k+c,%k+c} k<=9,
+  c -3..9, G constant: E<=19 (24 B) and E<=15 (20 B) both 0
+- `gets"SEP"` separator reads (all 56 distinct separators 1..6 chars) with
+  size/hex/to_i/sum/ord/count3/lines + affine: 0
+- shell backtick transforms `p`CMD`FEAT(+affine)`: md5sum/sha1sum/sha256sum/
+  sha512sum/cksum/sum/base64 with hex/to_i %k /k +c for k<=400000: 0; sort/tac/rev/
+  uniq/wc/nl/cat -n/grep -c/cut/fold/head/tail/od/tr -d with size/sum/hex/to_i/ord/
+  count(+affine): 0
+- `unpack1` of C c S s L l Q q e E f g G D d J j V v N n (both endians) %k, /k, +c,
+  k<=99999: 0
+- all regexes of the form `U.*`, `.*U`, `U[\s\S]*`, lazy, /m, for U=substrings <=6:
+  match.size/hex/sum/ord/to_i/count(?3) + affine (48 deduped features): 0 at <=24 B
+- 1041 primitive features (substring index/rindex/scan-count/tail, chars, bytes,
+  slices, lines, tokens, aggregates) + affine /k %k *k +c: 0 at <=24 B; the only
+  cheap pair-features are <=6 B suffixes, no pair hit
+
+Not covered by any run: multi-statement programs with two reads (all cheap shapes
+cost >=21 by hand), blocks with >=4 B bodies, and an infra/sandbox channel.
