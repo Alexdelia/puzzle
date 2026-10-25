@@ -24,3 +24,10 @@ Sources: per-validator reports of 2026-10-20 probes (`agent/tool/cg-report.sh 41
 Size separates the 6 stable validators: (W,H) = 1x100, 15x15, 24x24, 50x50, 1000x1000, 8000x8000 (W alone separates them from each other: 1, 15, 24, 50, 1000, 8000; V1 may be 1 wide in some runs, V2 seen 16 wide). No bomb table is safe: bombs are not proven fixed (V8 moves between (0,2) and (0,3)). V8 alone: bomb on column 0 near the top, so `x=0, y=0..30` in N31 jumps always hits it (if the forum + probe range holds).
 
 Golf consequence: the general method stays. Tight budgets: V3 1x100 N12 from (0,1), V4 15x15 N12 from (2,6), V5 24x24 N15 from (22,14), V6/V7 = test 6/7, V8 8000 N31 bomb (0,2..3) (edge bomb: the hard case for reflection bisection; the method's measured edge-bomb fail on 8000 is 0%).
+
+## Local validators (2026-10-25)
+
+- `validators/11`..`18` (V7 role, 1000x1000 N27 start (501,501)): bombs rebuilt inside the known V7 region, `bx` 500..749 (`by` was never probed). The old bombs had `bx` 3, 8, 97, 250, 476 (all outside the region: every probe of `bx<500` failed) and `bx` 999 (above the only proven upper bound: `bx<=749` passed). `(3,1)` rejected the CG-100% perl 200: the parity method needs 30 > 27 jumps there, exactly the left-edge class that cannot happen.
+- New mix keeps the 4 uniform + 4 edge roles: (523,443) (600,969) (688,302) (741,150) uniform in the region; (749,0) (748,1) (747,998) (743,999) at the region ends and the y edges. Perl 200 turns: 20 24 23 21 27 27 21 22; the two 27s are the tightest V7 cases that still pass.
+- The other groups are unchanged: they follow the captured IDE tests and the uniform/near-corner bomb mix, and all cores pass them. Their exact regions are less certain (V1/V2 maps random per run, V3..V6 bombs only weakly bounded).
+- 2026-10-25 check: bash 224, perl 200, python 261, ruby 215, lua 255 all pass `--cg` 46/46 locally; python 261 bench suite wall 2.27 s, referee CPU 56 ms (1.2 ms/case).
