@@ -74,3 +74,15 @@ row can lag ~4 min (and `submit.sh --probe`'s miss path polls it for 210 s). Fas
 the same awk `submit.sh` uses. A miss leaves `criteria_score` unchanged. Do not run several probes
 in parallel: a hit from one makes the others' row check pass against the wrong probe (they can
 then be copied into the solution file).
+
+## Row oracle needs a *shorter* 100 % probe: no isolation without the report (2026-10-25, blunder-episode-3 python)
+
+The per-validator report is the only multi-bit channel. When `cg-report.sh` says "no CG session",
+the fallback row oracle only fires when the probe scores 100 % **and is shorter than our own row**
+(CG keeps the best score then shortest length per language). A per-validator isolation probe must key
+on the input to know each validator's answer and carry a predicate, so it is always longer than the
+shortest hardcode row of that language: even at 100 % it does not move the row and leaves no trace
+(and `/progress` keeps the global best, often another language, so `criteria_score` does not move
+either). Consequence: without the report, each submit is a 1-bit test of a *complete candidate
+solution* shorter than the row; a k-bit unknown cannot be bisected. Plan exploits accordingly (test
+the top-k candidate tables, or fix the session first), do not spend probes on long isolation code.
