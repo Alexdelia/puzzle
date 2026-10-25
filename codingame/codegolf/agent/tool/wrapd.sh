@@ -64,7 +64,7 @@ start_jobs() {
 		((started < free)) || break
 		puzzle=$(jq -r .puzzle "$job")
 		if ! with_lock queue claim_puzzle "$puzzle"; then
-			log "skip $puzzle: task of it claimed meanwhile"
+			log "skip $puzzle: task of it claimed or next in queue meanwhile"
 			continue
 		fi
 		log "run $puzzle estimated gain $gain"
@@ -75,13 +75,19 @@ start_jobs() {
 	done < <(((${#ranked[@]})) && printf '%s\n' "${ranked[@]}" | sort -t$'\t' -k1,1nr)
 }
 
+next_task_puzzle() {
+	local next
+	next=$("$tool_dir/next.sh" --peek 2>/dev/null) && jq -r .puzzle "$next" 2>/dev/null || true
+}
+
 idle_jobs() {
-	local job puzzle
+	local job puzzle next_puzzle
 	local -A task_running=()
 	while IFS= read -r puzzle; do task_running[$puzzle]=1; done < <(puzzles_with_running_tasks)
+	next_puzzle=$(next_task_puzzle)
 	while IFS= read -r job; do
 		puzzle=$(jq -r .puzzle "$job")
-		[[ -z ${running_pid[$puzzle]:-} && -z ${task_running[$puzzle]:-} ]] && printf '%s\n' "$job"
+		[[ -z ${running_pid[$puzzle]:-} && -z ${task_running[$puzzle]:-} && $puzzle != "$next_puzzle" ]] && printf '%s\n' "$job"
 	done < <(ready_jobs)
 }
 
@@ -89,6 +95,7 @@ claim_puzzle() {
 	local puzzles
 	puzzles=$(puzzles_with_running_tasks)
 	grep -qxF "$1" <<<"$puzzles" && return 1
+	[[ $(next_task_puzzle) == "$1" ]] && return 1
 	touch "$wrap_running_dir/$1"
 }
 

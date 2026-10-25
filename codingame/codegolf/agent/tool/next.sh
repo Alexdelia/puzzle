@@ -3,10 +3,15 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 shopt -s nullglob
 
-usage="usage: next.sh <worker-id> <worker-pid> [task-id]; task-id: claim that queued task instead of the best one; exit 0 claimed (prints running file), 1 nothing claimable, 3 rate limited, 4 over weekly pace (STOP set), 5 five-hour window full (prints running task count); when only some kinds run on claude (claude_kinds), a full claude window holds those kinds back instead"
-worker=${1:?$usage}
-worker_pid=${2:?$usage}
-forced_task=${3:-}
+usage="usage: next.sh <worker-id> <worker-pid> [task-id] | next.sh --peek; task-id: claim that queued task instead of the best one; exit 0 claimed (prints running file), 1 nothing claimable, 3 rate limited, 4 over weekly pace (STOP set), 5 five-hour window full (prints running task count); when only some kinds run on claude (claude_kinds), a full claude window holds those kinds back instead; --peek: print the queue file of the task the next claim would take, claim nothing, take no lock (exit 1 when none)"
+peek=
+if [[ ${1:-} == --peek ]]; then
+	peek=1
+else
+	worker=${1:?$usage}
+	worker_pid=${2:?$usage}
+	forced_task=${3:-}
+fi
 
 status_map() {
 	jq -n 'reduce inputs as $entry ({}; . + {(input_filename | split("/") | last | rtrimstr(".json")): $entry.status})' "$@" </dev/null
@@ -59,7 +64,7 @@ pick() {
 			else 1 end;
 		$context_file[0] as $context
 		| core_ladders($context; map(.key) + $context.running_keys) as $ladders
-		| map(select(ready($context) and ($context.only_kind == "" or .kind == $context.only_kind) and ((.kind | IN($context.held_kinds[])) | not) and ((.key | IN($context.running_keys[])) | not) and ((.puzzle | IN($context.wrapped[])) | not)))
+		| map(select(ready($context) and ($context.only_kind == "" or .kind == $context.only_kind) and ((.kind | IN($context.held_kinds[])) | not) and ((.key | IN($context.running_keys[])) | not) and (.puzzle == "-" or ((.puzzle | IN($context.running_puzzles[])) | not)) and ((.puzzle | IN($context.wrapped[])) | not)))
 		| map(. as $task
 			| ($context.cells[$task.puzzle + "/" + $task.lang] // {}) as $cell
 			| ladder_rank($ladders; $task; $cell) as $ladder_rank
@@ -93,6 +98,41 @@ claude_gate() {
 	fi
 }
 
+best_task() {
+	local held_kinds=$1 work id
+	work=$(mktemp -d)
+	status_map "$state"/lang/*.json >"$work/langs.json"
+	status_map "$state"/referee/*.json >"$work/referees.json"
+	cell_map "$state"/cell/*/*.json >"$work/cells.json"
+	lang_priority >"$work/lang_priority.json"
+	jq -n --slurpfile langs "$work/langs.json" --slurpfile referees "$work/referees.json" \
+		--slurpfile cells "$work/cells.json" --slurpfile lang_priority "$work/lang_priority.json" \
+		--arg last_lang "$(cat "$state/last_cell_lang" 2>/dev/null || true)" \
+		--argjson lang_count "$(langs | wc -l)" \
+		--argjson running_keys "$(jq -s '[.[].key]' "$state"/running/*.json </dev/null)" \
+		--argjson running_puzzles "$(puzzles_with_running_tasks | jq -R -n '[inputs]')" \
+		--argjson wrapped "$(wrapped_puzzles | jq -R -n '[inputs]')" \
+		--arg only_kind "${CG_ONLY_KIND:-}" --arg held_kinds "$held_kinds" --arg core_langs "$core_langs" --argjson far_ratio "$far_from_top_ratio" --argjson max_streak "$max_plateau_streak" \
+		'{langs: $langs[0], referees: $referees[0], cells: $cells[0], last_lang: $last_lang, lang_count: $lang_count, lang_priority: $lang_priority[0],
+		  only_kind: $only_kind, held_kinds: ($held_kinds | split(" ") | map(select(. != ""))), core_langs: ($core_langs | split(" ")), far_ratio: $far_ratio, max_streak: $max_streak,
+		  ready_langs: ([$langs[0][] | select(. == "ready")] | length),
+		  running_keys: $running_keys, running_puzzles: $running_puzzles, wrapped: $wrapped}' >"$work/context.json"
+	id=$(pick "$work/context.json")
+	rm -rf "$work"
+	[[ -n $id ]] && echo "$id"
+}
+
+peek_next() {
+	local queued=("$state"/queue/*.json)
+	((${#queued[@]})) || return 1
+	local gate running_tasks held_kinds= id
+	read -r gate running_tasks < <(claude_gate) || true
+	[[ -n $gate ]] && every_task_on_claude && return 1
+	[[ -n $gate ]] && held_kinds=$claude_kinds
+	id=$(best_task "$held_kinds") || return 1
+	echo "$state/queue/$id.json"
+}
+
 claim() {
 	local queued=("$state"/queue/*.json)
 	((${#queued[@]})) || return 1
@@ -109,29 +149,12 @@ claim() {
 		return "$gate"
 	fi
 	[[ -n $gate ]] && held_kinds=$claude_kinds
-	local work id
-	work=$(mktemp -d)
-	status_map "$state"/lang/*.json >"$work/langs.json"
-	status_map "$state"/referee/*.json >"$work/referees.json"
-	cell_map "$state"/cell/*/*.json >"$work/cells.json"
-	lang_priority >"$work/lang_priority.json"
-	jq -n --slurpfile langs "$work/langs.json" --slurpfile referees "$work/referees.json" \
-		--slurpfile cells "$work/cells.json" --slurpfile lang_priority "$work/lang_priority.json" \
-		--arg last_lang "$(cat "$state/last_cell_lang" 2>/dev/null || true)" \
-		--argjson lang_count "$(langs | wc -l)" \
-		--argjson running_keys "$(jq -s '[.[].key]' "$state"/running/*.json </dev/null)" \
-		--argjson wrapped "$(wrapped_puzzles | jq -R -n '[inputs]')" \
-		--arg only_kind "${CG_ONLY_KIND:-}" --arg held_kinds "$held_kinds" --arg core_langs "$core_langs" --argjson far_ratio "$far_from_top_ratio" --argjson max_streak "$max_plateau_streak" \
-		'{langs: $langs[0], referees: $referees[0], cells: $cells[0], last_lang: $last_lang, lang_count: $lang_count, lang_priority: $lang_priority[0],
-		  only_kind: $only_kind, held_kinds: ($held_kinds | split(" ") | map(select(. != ""))), core_langs: ($core_langs | split(" ")), far_ratio: $far_ratio, max_streak: $max_streak,
-		  ready_langs: ([$langs[0][] | select(. == "ready")] | length),
-		  running_keys: $running_keys, wrapped: $wrapped}' >"$work/context.json"
+	local id
 	if [[ -n $forced_task ]]; then
 		id=$([[ -f $state/queue/$forced_task.json ]] && echo "$forced_task" || true)
 	else
-		id=$(pick "$work/context.json")
+		id=$(best_task "$held_kinds" || true)
 	fi
-	rm -rf "$work"
 	[[ -n $id ]] || return 1
 	local running=$state/running/$id.json
 	mv "$state/queue/$id.json" "$running"
@@ -164,6 +187,10 @@ missing_referees() {
 		done
 }
 
+if [[ -n $peek ]]; then
+	peek_next
+	exit
+fi
 missing_referees
 refresh_usage
 status=0
