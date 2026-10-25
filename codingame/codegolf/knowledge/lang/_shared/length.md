@@ -24,3 +24,9 @@ _CG_ClementHammel, 2023-03-29). Consequences:
   (2023-07..2026-09 rows) is real
 - Ruby char-era packing overhead was ~22-25 chars (`eval(...).encode'UTF-16BE'.b`), so packing
   was worthwhile for payloads > ~55 chars then; it is useless now (costs bytes)
+
+## A leading `#!` line is counted (verified 2026-10-25, ascii-art-codesize probes)
+
+- Python probe 41563421: 131 B file = 95 B first line `#!` + the 93 B perl-wrapper payload, then a 35 B self-reading loader `exec(open(__file__).readline()[2:])`. Hidden 7/7 locally; a CG test game with the same code returned `success: true` (the file really runs as a normal `python3` script and the first line is intact), so it scored 100 % on CG's current validators, but our 93 B Python row did not move (checked after 4 min). CG counts the whole source, shebang included.
+- Perl probe 41563439: `#!perl -ln\n` + the 61 B `print` body (72 B total, hidden 7/7) also did not move our 71 B Perl row.
+- Consequence: no free-first-line trick; `agent/tool/count.sh` (whole file, trailing newlines free) matches CG. `#!perl -E` on a shebang is still fatal on CG (test game with `#!perl -lnE\nsay 42` returned `success:false`, no output), so CG emulates the shebang flags (`perl file`), it does not exec the file directly.

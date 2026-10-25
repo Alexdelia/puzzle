@@ -17,3 +17,5 @@
 - [trace-hardcode](trace-hardcode.md): with `referee/hidden/complete`, hardcode the reference action traces keyed on the init input, print them early (rotations can move earlier), then the no-op; probe-only, verified the-fall-episode-2 perl 187 rank 1
 - [leaderboard-creation-time](leaderboard-creation-time.md): leaderboard rows carry `creationTime` ms: check a top is current before assuming it is stale, verified on CG
 - [lookup-perfect-hash](lookup-perfect-hash.md): brute-forced cheap perfect hash of recovered validator inputs, no-op slots for AWK split, probe-only, verified blunder-episode-1 ruby 172
+- [progress-best-not-probe](progress-best-not-probe.md): `/progress` score/criteria are the best row's, not the latest submission's; probes are row-move-only oracles, verified
+- [test-game-sandbox](test-game-sandbox.md): CG test-game player runs as PID 1, cwd /tmp, Answer.rb, no testcase argv/env; stderr visible in the log; spaces do not split moves, verified
