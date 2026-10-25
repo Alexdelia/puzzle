@@ -28,3 +28,6 @@
 - [index-assign-int-indicator](index-assign-int-indicator.md): `h="WEN"[i=gets.sum%3]` assignment in index, `0**i` integer indicator for String#*, `puts arr*999` flush without $>.sync, verified CG
 - [int-bit-index](int-bit-index.md): `n[i]` is 0/1, feeds corrections as integers (no bool/int error), `eval$F[-1]` 1 B under `.to_i`, sign bit `q[63]` as 0/1 selector, `x|1^t&1` sets a low bit; temperature ruby 47 CG 100%
 - [gets-limit-vs-read](gets-limit-vs-read.md): `gets(n)` reads one line capped at n chars (never crosses `\n`), `$<.read(n)` reads n bytes across lines; prefix-read keys need `$<.read`
+- [backtick-shell-core](backtick-shell-core.md): `$><<` + backticks = 6 B over a dash shell command, awk `$1` needs no escape, missing final newline free; super-computer 48 CG 100%
+- [fallback-line-stat](fallback-line-stat.md): `p TABLE[line1-stat]||A+B/gets.hex`, nil/out-of-range fallback, 1-vs-huge integer-division selector, `p X||ternary` parse trap; super-computer 44 CG 100%
+- [sum-whole-stdin-mod](sum-whole-stdin-mod.md): `$<.read.sum` is bytes mod 2**16, 39 B 5-answer table shape, residue recovery needs per-validator reports
