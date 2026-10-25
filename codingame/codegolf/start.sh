@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 source agent/tool/lib.sh
 shopt -s nullglob
 
-usage="usage: start.sh [--workers n | --wrap-only | --no-wrap] [--backend claude|opencode] [--once] [--best] [--full-window] [--full-week] [--kind <kind>]; --backend: agent CLI of the workers (opencode: $opencode_model at $opencode_effort; kinds in claude_kinds ($claude_kinds) always on claude $model), --kind: only tasks of that kind, no wrap generator, each worker exits once none is left, --wrap-only: wrap generator alone, no workers, no weekly pace check, --no-wrap: workers alone, no wrap generator (one still alive keeps running, or keeps stopping), --full-window: no 97% five-hour cap, --full-week: no weekly pace stop"
+usage="usage: start.sh [--workers n | --wrap-only] [--wrap] [--backend claude|opencode] [--once] [--best] [--full-window] [--full-week] [--kind <kind>]; --backend: agent CLI of the workers (opencode: $opencode_model at $opencode_effort; kinds in claude_kinds ($claude_kinds) always on claude $model), --kind: only tasks of that kind, no wrap generator, each worker exits once none is left, --wrap-only: wrap generator alone, no workers, no weekly pace check, --wrap: wrap generator too (without it or --wrap-only: workers alone, a wrap generator still alive keeps running, or keeps stopping), --full-window: no 97% five-hour cap, --full-week: no weekly pace stop"
 arguments=("$@")
 count=$workers
 backend_choice=$backend
@@ -13,7 +13,7 @@ best=
 full_window=
 full_week=
 wrap_only=
-no_wrap=
+wrap=
 only_kind=
 while (($#)); do
 	case $1 in
@@ -23,17 +23,14 @@ while (($#)); do
 	--best) best=1 && shift ;;
 	--full-window) full_window=1 && shift ;;
 	--full-week) full_week=1 && shift ;;
-	--wrap-only) wrap_only=1 && shift ;;
-	--no-wrap) no_wrap=1 && shift ;;
+	--wrap-only) wrap_only=1 wrap=1 && shift ;;
+	--wrap) wrap=1 && shift ;;
 	--kind) only_kind=$2 && shift 2 ;;
 	*) echo "$usage" >&2 && exit 2 ;;
 	esac
 done
-if [[ -n $wrap_only ]]; then
-	[[ -z $once ]] || { echo "start.sh: --wrap-only and --once exclude each other (--once runs no wrap generator)" >&2 && exit 2; }
-	count=0
-fi
-[[ -z $wrap_only || -z $no_wrap ]] || { echo "start.sh: --wrap-only and --no-wrap exclude each other" >&2 && exit 2; }
+[[ -z $wrap || -z $once$only_kind ]] || { echo "start.sh: --wrap and --wrap-only exclude --once and --kind (those run no wrap generator)" >&2 && exit 2; }
+[[ -z $wrap_only ]] || count=0
 
 [[ $backend_choice == claude || $backend_choice == opencode ]] || { echo "$usage" >&2 && exit 2; }
 [[ -z $only_kind || $only_kind =~ ^(lang|referee|validator|wrap|puzzle|cell|review)$ ]] || { echo "$usage" >&2 && exit 2; }
@@ -50,14 +47,14 @@ if [[ -z $wrap_only ]] && every_task_on_claude && over_weekly_pace; then
 	echo "start.sh: weekly usage ${used}% >= ${elapsed}% of the week elapsed (margin ${weekly_pace_margin_percent}%): not starting" >&2
 	exit 1
 fi
-loops='worker|wrapd|wrap'
-[[ -z $no_wrap ]] || loops=worker
+loops=worker
+[[ -z $wrap ]] || loops='worker|wrapd|wrap'
 alive=$(loop_pids "$loops" | wc -l)
 if ((alive)); then
 	echo "start.sh: $alive worker loops still alive (a soft stop lets them finish their task first): wait for them to exit, or ./stop.sh --now" >&2
 	exit 1
 fi
-if [[ -z $no_wrap ]]; then
+if [[ -n $wrap ]]; then
 	rm -f "$state/STOP_WRAP"
 elif [[ -e $state/STOP && -n $(loop_pids wrapd) ]]; then
 	touch "$state/STOP_WRAP"
@@ -83,9 +80,9 @@ start_report_broker
 [[ -s $report_dir/cookies.txt ]] || echo "start.sh: no CG session for the report broker, submits carry no per-validator report: run agent/tool/report-login.sh in a terminal of your own"
 systemctl --user set-property --runtime codegolf.slice MemoryMax="$workers_memory_max" MemorySwapMax=infinity
 export CG_BEST_MODEL=$best CG_FULL_WINDOW=$full_window
-event "start workers=$count backend=$backend ${only_kind:+kind=$only_kind} ${wrap_only:+wrap-only} ${no_wrap:+no-wrap} ${once:+once} ${best:+best} ${full_window:+full-window} ${full_week:+full-week}"
+event "start workers=$count backend=$backend ${only_kind:+kind=$only_kind} ${wrap_only:+wrap-only} ${wrap:+wrap} ${once:+once} ${best:+best} ${full_window:+full-window} ${full_week:+full-week}"
 pids=()
-if [[ -z $once && -z $only_kind && -z $no_wrap ]]; then
+if [[ -n $wrap ]]; then
 	setsid agent/tool/sandbox.sh agent/tool/wrapd.sh >>"$state/worker/wrapd.log" 2>&1 &
 	[[ -z $wrap_only ]] || pids+=($!)
 fi
@@ -97,7 +94,7 @@ done
 if [[ -n $wrap_only ]]; then
 	echo "start.sh: wrap generator only, log in agent/state/worker/wrapd.log, stop with ./stop.sh"
 else
-	echo "start.sh: $count $backend workers${no_wrap:+, no wrap generator}${only_kind:+, $only_kind tasks only, exiting once none is left}${best:+, best model for every task}${full_window:+, five-hour window used up to 100%}${full_week:+, weekly pace ignored}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
+	echo "start.sh: $count $backend workers${wrap:+, wrap generator too, log in agent/state/worker/wrapd.log}${only_kind:+, $only_kind tasks only, exiting once none is left}${best:+, best model for every task}${full_window:+, five-hour window used up to 100%}${full_week:+, weekly pace ignored}, logs in agent/state/worker/worker-<n>.log, stop with ./stop.sh"
 fi
 wait "${pids[@]}" || true
 event "all workers stopped"
