@@ -127,3 +127,26 @@ Per validator, sources, probe kit: `puzzle/super-computer/referee/hidden/facts.m
 - perl 37 B, CG 100 %, row 37 rank 1, top 39 (submission 41559851, 2026-10-24): `print+(1,91708,7991,3,9)[<>/8%8-2/<>]`. Two-read list index: the LIST holds all five answers (both big ones), the index reads N then J1 in one expression, negative indices reach the tail (N=4,5 -> -2 -> 3; N=9 -> -1 -> 9, N=8 -> 0 -> 1), N=16 with J1=1 -> 0 -> 1, V8 -> 1 -> 91708, V7 `3-2/875000` truncates to 2 -> 7991 (see `knowledge/lang/perl/two-read-list-index.md`). No `||`, no table keyed only on N
 - the 42 B one-read `||` exploit that this replaced: `print+(3,0,9,0,1)[20%<>]||7991+83717/<>|0` (41 B, verified 100 %); the old 42 B `N%8` 6-slot table also worked. All of them need V2's (N,J1) only as far as listed above
 - remaining below 37: the 37 B key is tight; a 35 B form would need a 4-slot list (content 7) with a <=6-char two-read key or a shorter big-answer encoding; the two-read list index avoids the 2 B `vec` parens
+
+## Ruby <44 is impossible on (N,J1) facts only (proved 2026-10-25, journal cell.super-computer.ruby.1792928462374338389)
+
+- re-checked 2026-10-25 12:2xZ: report broker still `no CG session`; the six staged bit probes
+  (41561822, 41562676, 41562677 for sum%7; 41562684-6 for size%7) are still undecoded, all 27
+  languages still have a 100 % row, and the puzzle detail still exposes exactly 3 testcases.
+  => the 39 B whole-input table stays blocked on `agent/tool/report-login.sh` (user-only).
+- exhaustive Ruby searches (scripts in the journal scratch, exact Ruby 3.1 integer semantics):
+  - two-read key `gets.A op gets.B` (A in hex/to_i/sum/ord/size, B in hex/to_i/ord, 8 ops, both
+    operand orders): no 5-slot table satisfies the 8 classes; V7's 125k possible hex(J1) values
+    always leave [-5,4] or collide.
+  - single read plus up to two one-digit constant ops over line-1 accessors, `gets" "` accessors
+    and `$<.read(k<=4)` prefixes: no fit.
+  - cross-line reads are exactly dead: `gets" ".sum` -> V3=V5=148 (N=8,J1=2 vs N=9,J1=1),
+    `gets" ".size` -> V3=V5=4, `gets" ".ord` -> V5=V7=V8=ord('9').
+  - only a single whole-input stat (`.sum`/`.size` etc.) can split the two N=99999 validators
+    within a 5-slot table; every such stat depends on bytes the controller facts do not pin.
+- Ruby `T[K]` evaluates T then K, so a `gets` inside T reads line 1 and one in K reads line 2
+  (same order as perl). It does not help here: the index then has only J1 and V1=V2=V5=V6=V8=1.
+- `#!ruby -0p` slurp (`$_` = whole input, 11 B shebang) costs more than `p` + `$<.read`; and
+  `$<.read(13).index" "` (19 B, invariant: V7 12, V8 7) still has V1=V3=V5=3.
+- so ruby 44 is the floor without CG per-validator data; a shorter row requires the broker
+  session + the finish recipe above (5/6/7 slots = 35/37/39 B).
