@@ -28,3 +28,16 @@ not add quote/backslash cost, or in a Perl cell if the newline problem is solved
 `-l` (+2 for `\n` in the print loses the 3 B gain).
 
 Trap: the line-1 digit fields are only safe because of the trailing newline; do not add `-l`.
+
+## `-F` implies `-a` (and `-n`): drop `-a` from wrapper flags (verified 2026-10-25, perl 5.42)
+
+`perl -F'\D\K' -e '...'` and `perl -F'\D\K' -E '...'` both run the body once per input
+line with `@F` split (tested on a 2-line input: two body runs, `@F` = `("4 ","9\n")` then
+`("U","R")`). So `-F` alone turns on `-a` (which implies `-n`); any wrapper that currently
+passes `-aF<pattern>` can pass `-F<pattern>` and save 2 B (`-a` plus nothing else changes).
+`-E` still works after `-F` (for hosts where `say` is allowed).
+
+On this puzzle's Perl cell: `#!perl -pF\D\K` + the `for@F` body with a literal-newline
+print is 92 B (77 B body), 1 over the `#!perl -alp` 91 B form; `-l` cannot be added because
+then H<10 is a bare field and `$$_` (i.e. `$9`) dies read-only. No space between `perl` and
+the switches (`#!perl-pF\D\K`) makes perl ignore the switches entirely.
