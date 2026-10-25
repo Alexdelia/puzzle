@@ -23,3 +23,4 @@
 - [base64-arith-literal-table](base64-arith-literal-table.md): `$[64#${t[i]}]` decodes space-separated base-64 table words (base 2..64 digits 0-9a-zA-Z@_); `read -d. n a b` slurps stdin and splits first/second word; negative array index = len-n, verified CG 5.1.16
 - [sort-version-signed](sort-version-signed.md): `sort -V` on signed ints = non-negatives ascending, then negatives by magnitude, positive wins ties; `-k1.2V` on `%+d`-formatted numbers is the true abs order, verified locally
 - [perl-wrapper-quoting](perl-wrapper-quoting.md): plain/ANSI-C/double-quote prices for `perl -e` in a bash cell, which chars stay literal in double quotes, verified
+- [interactive-perl-p-line-turn](interactive-perl-p-line-turn.md): `perl -apE` on interactive puzzles: line t -> turn t, `$.` exact turn, `@F` stale by nbE+1, `$|=1;` mandatory, budgets 31+COND / 43+COND, verified dont-panic
