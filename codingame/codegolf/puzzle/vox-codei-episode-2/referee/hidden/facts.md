@@ -30,3 +30,10 @@ Confidence: certain. Final check: python probe `probe/python/exactE.py` (891) wi
 - `rounds bombs` separates the validators except v1/v4 (both 30 1); v1 and v4 are both flip x and one plan (bomb at turn 14, from tests 1/2/4) wins both after the flip. `b*(r+9)%10` (php, cell) is injective on the 9 distinct pairs
 - since the transform per validator is fixed, a hardcode can store plans already in the validator's orientation: no orientation detection, output depends only on (r, b) and turn. Such a code fails the IDE tests locally (they are the untransformed maps), only the validators count on CG
 - maps: v1..v9 12x9, v10 16x12
+
+## Local referee (2026-10-25)
+
+- `referee/src/runner.rs` `ClosedStdin<G>` ignores a failed turn-input write like CG; plan-print-then-exit rows are no longer flaky ("solution closed its input" gone)
+- `--cg` grades `hidden/` only (IDE tests and synthetic validators are skipped while `hidden/complete` exists). All 27 `solution/*/main.*` at their cell `.ours` pass hidden 10/10, except clojure 289 / groovy 553 / scala 231 locally at `turn 1: no answer within 1000 ms` under host load: JVM launcher startup, not modelled (CG starts its first-turn clock after JVM boot; the rows are CG 100%). Groovy/scala pass on an idle host
+- a player that exits with too few buffered lines still fails `turn 2: solution exited`
+- general reference python 3833 (git 2b62a0a7) passes tests+validators+hidden 30/30; the synthetic validators still reject the rounds-keyed plan hardcodes by design
