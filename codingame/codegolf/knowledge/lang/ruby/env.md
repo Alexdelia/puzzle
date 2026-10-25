@@ -10,3 +10,9 @@ Verified 2026-10-19 with test games on chuck-norris, CG output identical to loca
 - only drift: CG ruby built with YJIT (`RubyVM::YJIT` defined, disabled), local nix build has no YJIT: irrelevant for output
 - stderr shows in test-games `output` but is not judged
 - local launcher startup ~75 ms per run (interpreter boot + rubygems)
+
+## Determinism of built-in hashes (verified 2026-10-25)
+
+`String#hash`/`Object#hash` are seeded per process: `"2\n1 2\n2 3\n".hash%9` gave
+4, 8, 7 on three runs of the same Ruby 3.1.2, so hardcoded keys must never use
+`hash`/`object_id` (they differ for every validator run).
