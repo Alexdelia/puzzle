@@ -63,6 +63,8 @@ Same method; python 276 on CG (#7, top 240). Gains in `lang/python/alias-input.m
 
 8 validators, weight 125 each, titles = test titles (CG per-validator report 2026-10-24). Stable configs: V3 1x100 N12 start (0,1); V4 15x15 N12 (2,6); V5 24x24 N15 (22,14); V6 = test 6 config, V7 = test 7 config (start included); V8 8000x8000 N31, start x 3196..3203. V1 (small map, W<=2 H<=5 seen, N large) and V2 (16x5 N80 start (15,4) in some runs, other maps in others) change map between runs. Bombs: V8 on (0,2) or (0,3) (probe + forum https://forum.codingame.com/t/shadows-of-the-knight-episode-2-puzzle-discussion/1676?page=4), V3..V7 bombs bisected to small ranges but not proven fixed, test-sample bombs refuted on V3..V8: no bomb hardcode, general method stays. Details and per-validator ranges: `puzzle/shadows-of-the-knight-episode-2/referee/hidden/facts.md`. Probe failures can be CG flakes or run variation: only passes are proof.
 
+Local `validators/11`-`18` (V7) were rebuilt 2026-10-25 into the known bomb region: `bx` 500..749 (every probe of `bx<500` failed; one pass of `bx<=749`), `by` never probed, so bombs vary over y. The old left-edge bombs (`bx` 3, 8, 97, 250, 476, and 999 above the proven bound) were impossible for V7; (3,1) rejected the CG-100% perl 200 at 30 > 27 jumps. All five cores (bash 224, perl 200, python 261, ruby 215, lua 255) pass `--cg` 46/46 after the change. Other validator groups are unchanged (IDE-test configs plus uniform/near-corner bombs; their regions are less certain and all cores pass).
+
 ## php 279 (2026-10-21)
 
 Same method, with a better skeleton (php 279 #1 over top 280, verified on CG). Transferable:
@@ -115,12 +117,13 @@ Parity-biased reflection: jump `q=(l+h|1)-o` so `s=o+q` is odd (half-integer thr
 - update = one bound to `(s+X)>>1` with `X=(/W/ ^ (q<o))` (X=1 raise l, X=0 lower h); perl symbolic ref `${$x?l:h}=...` picks the target: update 48 -> 31 B, sum 19 -> 8 B, jump +3 B
 - `(s+X)>>1` is exact for odd s (ceil/floor of the half-integer threshold). When the edge rule fires, s can be even: then both branches give s>>1 = the threshold, still sound (a real SAME sets one bound exactly), only the SAME early-exit is lost
 - costs ~1-3 jumps per run (lost SAME terminations) vs the exact 3-way update. Exact sim on the recovered ranges: V7 1-2% and V8 7.4-8% budget fail (V6 0/13), yet CG accepted it 100% on the live hidden bombs (probe 2026-10-24, 200 B, rank 1). So the parity method is a legitimate shorter general method here, tight-budget validators included
+- the local 45/46 of 2026-10-24 was a referee fault, not the method: `validators/16` was a 1000x1000 bomb at (3,1), left of V7's known bomb region (`bx` 500..749), where this core needs 30 > 27 jumps. V7 validators now stay inside the region (2026-10-25) and perl 200 passes `--cg` 46/46
 
 Transfer: any language whose bisection bisects a 1D interval from a movable position can drop the equality case by forcing an odd `sum` and picking the bound with a computed flag (no 3-way ternary). Verified correctness exhaustive (W,H<=9, every start/bomb, 0 wrong).
 
 ## ruby 215 (2026-10-25, rank 1, CG 100% verified)
 
-Native parity core (no wrapper): the perl 200 method with the out-of-range rule *also* forced odd (`t+q`), i.e. no SAME branch and no q==p fix anywhere. Local referee `--cg` 46/46, including the synthetic edge-bomb validators (1000x1000 bomb (3,1), 8000x8000 near-corner bombs) that fail the safe (even-threshold) parity core on jump budget. CG accepted 215 (submissions 41561819 at 217 and the 215 follow-up, both 100%; 220 also 100%).
+Native parity core (no wrapper): the perl 200 method with the out-of-range rule *also* forced odd (`t+q`), i.e. no SAME branch and no q==p fix anywhere. Local referee `--cg` 46/46, including the tight V7 bombs at the ends of the known region ((749,0), (748,1): 25 turns here, 27 for perl 200) and the 8000x8000 near-corner bombs. CG accepted 215 (submissions 41561819 at 217 and the 215 follow-up, both 100%; 220 also 100%).
 
 - edge rule without ternary: `q=t+s-s*q[63]>>1` (`Integer#[]` sign bit picks `t` for q<0, `t+s` else), then set q's low bit to `(t+1)&1`: `q=...>>1|1^t&1` so `t+q` is always odd; folds the parity correction into the edge branch, no separate `q^=` line
 - bounds live in the size array: after each axis `z[i]=l`, final `puts z*" "`; the position array `a` keeps the last jumped x through the y phase so its first y jump stays a pure 1D comparison (the no-x-final-jump trick only works if x is NOT overwritten with lx)
