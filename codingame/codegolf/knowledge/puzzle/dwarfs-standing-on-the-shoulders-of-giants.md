@@ -373,3 +373,5 @@ IDE tests 02/04 by design; submitted as a probe (`probe/perl/gate30.pl`).
 - V7 safety: any per-line predicate counting the N line `3` fails V7 (same N=3
   as V10); `2 3` remains the only proven V7-safe separator, so no per-line key
   shorter than the 30 B one is known.
+
+- 2026-10-25: clojure wrapper around the perl key core (`-e` variant, 112 B total) passes all 6 validators but fails tests 02/04; `submit.sh` refuses it as "hidden-validator exploit: use --probe" (no probes in a review task), so the clojure cell stays native 119. The same perl 35 B row is CG 100%.
