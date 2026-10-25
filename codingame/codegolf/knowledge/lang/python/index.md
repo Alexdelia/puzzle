@@ -6,3 +6,4 @@
 - [walrus-in-slice](walrus-in-slice.md) - `r[(x:=e)-w:x]` beats `for x in[e]` in a comprehension by 4
 - (negative) music-scores letter: `chr(k-(a*y-b)//h%7)` has no integer fit on 12 tests; keep `"AGFEDCB"[(15*y-45)//h%7]`
 - [and-or-conditional](and-or-conditional.md) - `X and A or B` = 2 B shorter than `A if X else B` when A is always truthy (non-empty string/non-zero); digit+keyword merge warning only
+- [bytesum-line-key](bytesum-line-key.md) - `sum(input().encode(),10)` folds the stripped LF into a line byte-sum key (`%13//2` slots), bytes-literal plan table, `i%6and'RIGHT'or'LEFT'`; the-fall-episode-2 193 CG 100%
