@@ -31,3 +31,4 @@
 - [backtick-shell-core](backtick-shell-core.md): `$><<` + backticks = 6 B over a dash shell command, awk `$1` needs no escape, missing final newline free; super-computer 48 CG 100%
 - [fallback-line-stat](fallback-line-stat.md): `p TABLE[line1-stat]||A+B/gets.hex`, nil/out-of-range fallback, 1-vs-huge integer-division selector, `p X||ternary` parse trap; super-computer 44 CG 100%
 - [sum-whole-stdin-mod](sum-whole-stdin-mod.md): `$<.read.sum` is bytes mod 2**16, 39 B 5-answer table shape, residue recovery needs per-validator reports
+- [leading-number-hex](leading-number-hex.md): `$_.hex` 6 B leading-number accessor, base-16 (`10`->16), temperature ruby 46 CG 100%
