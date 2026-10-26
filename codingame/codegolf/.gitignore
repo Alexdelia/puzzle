@@ -1,6 +1,5 @@
 .direnv/
 agent/state/*
-!agent/state/time.log
 !puzzle/*/referee/tests/*.out
 !puzzle/*/referee/validators/*.out
 puzzle/*/solution/
