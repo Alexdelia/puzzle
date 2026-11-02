@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 pub const TOP_BORDER: i32 = 70;
 pub const BOTTOM_BORDER: i32 = 190;
 pub const SIDE_BORDER: i32 = 80;
@@ -7,7 +5,7 @@ pub const WIDTH: i32 = 1920 - 2 * SIDE_BORDER;
 pub const HEIGHT: i32 = 1080 - TOP_BORDER - BOTTOM_BORDER;
 pub const NODE_COUNT: usize = 50;
 pub const MAX_PATH_LENGTH: i32 = 400;
-pub const UNREACHABLE: usize = NODE_COUNT;
+pub const MAX_NODES: usize = u64::BITS as usize;
 
 pub type NodeId = usize;
 pub type TriangleId = usize;
@@ -93,6 +91,7 @@ impl Triangle {
 pub struct Board {
 	pub points: Vec<Point>,
 	pub neighbors: Vec<Vec<NodeId>>,
+	adjacency: Vec<u64>,
 	pub units: Vec<[i32; 2]>,
 	pub remaining: Vec<[i32; 2]>,
 	pub arena: Vec<Triangle>,
@@ -102,9 +101,14 @@ pub struct Board {
 impl Board {
 	pub fn new(points: Vec<Point>) -> Self {
 		let count = points.len();
+		assert!(
+			count <= MAX_NODES,
+			"a board holds at most {MAX_NODES} nodes"
+		);
 		Board {
 			points,
 			neighbors: vec![Vec::new(); count],
+			adjacency: vec![0; count],
 			units: vec![[0, 0]; count],
 			remaining: vec![[0, 0]; count],
 			arena: Vec::new(),
@@ -127,16 +131,19 @@ impl Board {
 				list.push(to);
 				list.sort_unstable();
 			}
+			self.adjacency[from] |= bit(to);
 		}
 	}
 
 	pub fn remove_neighbor(&mut self, a: NodeId, b: NodeId) {
 		self.neighbors[a].retain(|&n| n != b);
 		self.neighbors[b].retain(|&n| n != a);
+		self.adjacency[a] &= !bit(b);
+		self.adjacency[b] &= !bit(a);
 	}
 
 	pub fn connected(&self, a: NodeId, b: NodeId) -> bool {
-		self.neighbors[a].contains(&b)
+		self.adjacency[a] & bit(b) != 0
 	}
 
 	pub fn edges(&self) -> Vec<(NodeId, NodeId)> {
@@ -177,15 +184,34 @@ impl Board {
 		!(has_neg && has_pos)
 	}
 
+	fn has_node_inside(&self, corners: [NodeId; 3]) -> bool {
+		let [a, b, c] = corners.map(|n| self.points[n]);
+		let box_bounds_inside = ccw(a, b, c) || ccw(a, c, b);
+		let [left, right] = [a.x.min(b.x).min(c.x), a.x.max(b.x).max(c.x)];
+		let [top, bottom] = [a.y.min(b.y).min(c.y), a.y.max(b.y).max(c.y)];
+		(0..self.len()).any(|n| {
+			let p = self.points[n];
+			let in_box = (left..=right).contains(&p.x) && (top..=bottom).contains(&p.y);
+			(in_box || !box_bounds_inside) && self.is_inside(n, corners)
+		})
+	}
+
+	pub fn triangles_on(&self, a: NodeId, b: NodeId) -> usize {
+		nodes_of(self.adjacency[a] & self.adjacency[b])
+			.filter(|&c| {
+				let mut corners = [a, b, c];
+				corners.sort_unstable();
+				!self.has_node_inside(corners)
+			})
+			.count()
+	}
+
 	pub fn find_triangles(&self) -> Vec<[NodeId; 3]> {
 		let mut found = Vec::new();
 		for a in 0..self.len() {
-			for &b in &self.neighbors[a] {
-				for &c in &self.neighbors[b] {
-					if a < b
-						&& b < c && self.connected(a, c)
-						&& !(0..self.len()).any(|n| self.is_inside(n, [a, b, c]))
-					{
+			for b in nodes_of(self.adjacency[a] & above(a)) {
+				for c in nodes_of(self.adjacency[a] & self.adjacency[b] & above(b)) {
+					if !self.has_node_inside([a, b, c]) {
 						found.push([a, b, c]);
 					}
 				}
@@ -218,27 +244,42 @@ impl Board {
 		&self.arena[id]
 	}
 
-	pub fn bfs(&self, from: NodeId, blocked: Option<NodeId>) -> Vec<usize> {
-		let mut dist = vec![UNREACHABLE; UNREACHABLE.max(self.len())];
-		dist[from] = 0;
-		let mut queue = VecDeque::from([from]);
-		while let Some(current) = queue.pop_front() {
-			for &next in &self.neighbors[current] {
-				if dist[next] < UNREACHABLE || Some(next) == blocked {
-					continue;
-				}
-				dist[next] = dist[current] + 1;
-				queue.push_back(next);
-			}
+	fn adjacent_to(&self, nodes: u64) -> u64 {
+		nodes_of(nodes).fold(0, |around, n| around | self.adjacency[n])
+	}
+
+	pub fn reachable(&self, from: NodeId, blocked: u64) -> u64 {
+		let mut seen = bit(from);
+		let mut frontier = seen;
+		while frontier != 0 {
+			frontier = self.adjacent_to(frontier) & !seen & !blocked;
+			seen |= frontier;
 		}
-		dist
+		seen
+	}
+
+	pub fn first_step(&self, from: NodeId, to: NodeId) -> Option<NodeId> {
+		let mut seen = bit(to);
+		let mut frontier = seen;
+		while frontier != 0 {
+			let next = self.adjacent_to(frontier) & !seen;
+			if next & bit(from) != 0 {
+				return self.neighbors[from]
+					.iter()
+					.copied()
+					.find(|&n| frontier & bit(n) != 0);
+			}
+			seen |= next;
+			frontier = next;
+		}
+		None
 	}
 
 	pub fn is_strongly_connected(&self) -> bool {
 		(0..self.len()).all(|blocked| {
 			let start = if blocked == 0 { 1 } else { 0 };
-			let dist = self.bfs(start, Some(blocked));
-			(0..self.len()).filter(|&n| dist[n] == UNREACHABLE).count() <= 1
+			let reached = self.reachable(start, bit(blocked)).count_ones() as usize;
+			self.len() - reached <= 1
 		})
 	}
 
@@ -289,11 +330,15 @@ impl Board {
 		t.owner = None;
 	}
 
-	pub fn capture(&mut self, triangle: TriangleId) -> bool {
+	pub fn owners(&self) -> Vec<Option<usize>> {
+		(0..self.len()).map(|node| self.owner(node)).collect()
+	}
+
+	pub fn capture(&mut self, triangle: TriangleId, owners: &[Option<usize>]) -> bool {
 		let old = self.arena[triangle].owner;
 		for player in 0..2 {
 			let t = &self.arena[triangle];
-			if t.can_capture[player] && t.nodes.iter().all(|&n| self.owner(n) == Some(player)) {
+			if t.can_capture[player] && t.nodes.iter().all(|&n| owners[n] == Some(player)) {
 				self.arena[triangle].owner = Some(player);
 			}
 		}
@@ -322,4 +367,22 @@ impl Board {
 			.filter(|&&t| self.arena[t].owner == Some(player))
 			.count()
 	}
+}
+
+pub fn bit(node: NodeId) -> u64 {
+	1 << node
+}
+
+pub fn above(node: NodeId) -> u64 {
+	(u64::MAX << node) << 1
+}
+
+pub fn nodes_of(mut nodes: u64) -> impl Iterator<Item = NodeId> {
+	std::iter::from_fn(move || {
+		(nodes != 0).then(|| {
+			let node = nodes.trailing_zeros() as usize;
+			nodes &= nodes - 1;
+			node
+		})
+	})
 }

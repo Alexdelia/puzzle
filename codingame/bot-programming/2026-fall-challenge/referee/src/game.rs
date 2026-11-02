@@ -300,8 +300,9 @@ impl Game {
 
 	fn capture_triangles(&mut self) -> bool {
 		let mut changed = false;
+		let owners = self.board.owners();
 		for t in self.board.triangles.clone() {
-			if self.board.capture(t) {
+			if self.board.capture(t, &owners) {
 				changed = true;
 				let owner = self.board.arena[t].owner.expect("a capture sets an owner");
 				self.turn_summary

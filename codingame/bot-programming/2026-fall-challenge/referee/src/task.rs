@@ -229,12 +229,7 @@ fn move_units(board: &mut Board, player: usize, from: NodeId, to: NodeId, amount
 	if from == to || amount <= 0 {
 		return;
 	}
-	let dist = board.bfs(to, None);
-	let step = board.neighbors[from]
-		.iter()
-		.copied()
-		.find(|&next| dist[next] < dist[from]);
-	if let Some(next) = step {
+	if let Some(next) = board.first_step(from, to) {
 		board.units[from][player] -= amount;
 		board.remaining[from][player] -= amount;
 		board.units[next][player] += amount;
