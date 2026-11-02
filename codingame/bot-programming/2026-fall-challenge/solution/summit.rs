@@ -6,8 +6,9 @@ const ME: usize = 0;
 const OPPONENT: usize = 1;
 const UNREACHABLE: u32 = 99;
 const TURN_BUDGET: Duration = Duration::from_millis(35);
-const BASE_SEARCH_SHARE: f64 = 0.4;
-const ACTION_SEARCH_SHARE: f64 = 0.65;
+const BASE_SEARCH_SHARE: f64 = 0.3;
+const SCREEN_SHARE: f64 = 0.45;
+const ROLLOUT_SHARE: f64 = 0.8;
 const IMPROVEMENT_EPSILON: f64 = 1e-9;
 
 struct Params {
@@ -23,6 +24,11 @@ struct Params {
 	prediction_share: f64,
 	action_margin: f64,
 	locked_weight: f64,
+	rollout_depth: usize,
+	rollout_candidates: usize,
+	rollout_floor: f64,
+	rollout_margin: f64,
+	rollout_holds: bool,
 }
 
 fn tuned(name: &str, default: f64) -> f64 {
@@ -47,6 +53,11 @@ impl Params {
 			prediction_share: tuned("PREDICTION_SHARE", 0.75),
 			action_margin: tuned("ACTION_MARGIN", 0.0),
 			locked_weight: tuned("LOCKED_WEIGHT", 3.0),
+			rollout_depth: tuned("ROLLOUT_DEPTH", 0.0) as usize,
+			rollout_candidates: tuned("ROLLOUT_CANDIDATES", 12.0) as usize,
+			rollout_floor: tuned("ROLLOUT_FLOOR", -40.0),
+			rollout_margin: tuned("ROLLOUT_MARGIN", 0.0),
+			rollout_holds: tuned("ROLLOUT_HOLDS", 1.0) != 0.0,
 		}
 	}
 }
@@ -407,39 +418,46 @@ fn finalize(state: &mut State) {
 fn simulate(
 	points: &[Point],
 	state: &State,
-	mine: &[i32],
-	opponent: &[(usize, usize)],
-	orders: &[Order],
+	moves: [&[(usize, usize)]; 2],
+	orders: [&[Order]; 2],
 ) -> State {
-	let attacked = orders.iter().fold(0, |set, order| match order.action {
-		Action::Attack(target) => set | bit(target),
-		_ => set,
+	let attacked = orders.map(|list| {
+		list.iter().fold(0, |set, order| match order.action {
+			Action::Attack(target) => set | bit(target),
+			_ => set,
+		})
 	});
 	let mut next = state.clone();
-	for (house, units) in next.units.iter_mut().enumerate() {
-		*units = [mine[house], 0];
+	for units in &mut next.units {
+		*units = [0, 0];
 	}
-	for &(origin, destination) in opponent {
-		if attacked & bit(origin) == 0 {
-			next.units[destination][OPPONENT] += 1;
+	for player in [ME, OPPONENT] {
+		let killed = attacked[1 - player];
+		for &(origin, destination) in moves[player] {
+			if killed & bit(origin) == 0 {
+				next.units[destination][player] += 1;
+			}
 		}
 	}
-	let mut ordered = orders.to_vec();
-	ordered.sort_by_key(|order| match order.action {
-		Action::AddPath(a, b) => (order.action.phase(), squared_length(points, a, b)),
-		action => (action.phase(), 0),
+	let mut ordered: Vec<(usize, Order)> = [ME, OPPONENT]
+		.into_iter()
+		.flat_map(|player| orders[player].iter().map(move |&order| (player, order)))
+		.collect();
+	ordered.sort_by_key(|&(player, order)| match order.action {
+		Action::AddPath(a, b) => (order.action.phase(), squared_length(points, a, b), player),
+		action => (action.phase(), 0, player),
 	});
 	let mut reshaped = false;
-	for order in ordered {
+	for (player, order) in ordered {
 		let triangle = &mut next.triangles[order.triangle];
-		if triangle.owner != Some(ME) {
+		if triangle.owner != Some(player) {
 			continue;
 		}
 		triangle.owner = None;
-		triangle.can_capture[ME] = false;
+		triangle.can_capture[player] = false;
 		match order.action {
 			Action::Attack(_) => {}
-			Action::Spawn(house) => next.units[house][ME] += 1,
+			Action::Spawn(house) => next.units[house][player] += 1,
 			Action::AddPath(a, b) => {
 				next.connect(a, b);
 				reshaped = true;
@@ -589,15 +607,15 @@ fn target_distance(graph: &Graph, state: &State, player: usize) -> Vec<u32> {
 		.collect()
 }
 
-fn plan_spawns(graph: &Graph, state: &State, params: &Params) -> Vec<Order> {
-	let army = units_of(state, ME).max(0) as usize;
+fn plan_spawns(graph: &Graph, state: &State, player: usize, params: &Params) -> Vec<Order> {
+	let army = units_of(state, player).max(0) as usize;
 	let owned: Vec<usize> = (0..state.triangles.len())
-		.filter(|&t| state.triangles[t].owner == Some(ME))
+		.filter(|&t| state.triangles[t].owner == Some(player))
 		.collect();
-	if army >= params.max_army || owned.is_empty() || capturable(state, ME).next().is_none() {
+	if army >= params.max_army || owned.is_empty() || capturable(state, player).next().is_none() {
 		return Vec::new();
 	}
-	let frontier = target_distance(graph, state, ME);
+	let frontier = target_distance(graph, state, player);
 	let mut ranked: Vec<Order> = owned
 		.into_iter()
 		.map(|triangle| {
@@ -620,8 +638,8 @@ fn plan_spawns(graph: &Graph, state: &State, params: &Params) -> Vec<Order> {
 	ranked
 }
 
-fn movable_units(state: &State, orders: &[Order]) -> Option<Vec<usize>> {
-	let mut counts: Vec<i32> = state.units.iter().map(|u| u[ME]).collect();
+fn movable_units(state: &State, player: usize, orders: &[Order]) -> Option<Vec<usize>> {
+	let mut counts: Vec<i32> = state.units.iter().map(|u| u[player]).collect();
 	for order in orders.iter().filter(|o| o.action.costs_units()) {
 		for corner in state.triangles[order.triangle].corners {
 			counts[corner] -= 1;
@@ -657,6 +675,34 @@ fn opponent_scenarios(
 	]
 }
 
+fn default_policy(
+	graph: &Graph,
+	state: &State,
+	player: usize,
+	params: &Params,
+) -> (Vec<(usize, usize)>, Vec<Order>) {
+	let spawns = plan_spawns(graph, state, player, params);
+	let units = expand(state.units.iter().map(|u| u[player]));
+	let goals = assign_goals(graph, state, player, &units, params);
+	let idle_distance = target_distance(graph, state, player);
+	let moves = units
+		.iter()
+		.zip(&goals)
+		.map(|(&origin, goal)| {
+			let destination = match goal {
+				Some(goal) => graph.first_step(origin, *goal),
+				None => graph.neighbors[origin]
+					.iter()
+					.copied()
+					.find(|&n| idle_distance[n] < idle_distance[origin])
+					.unwrap_or(origin),
+			};
+			(origin, destination)
+		})
+		.collect();
+	(moves, spawns)
+}
+
 struct Turn<'a> {
 	points: &'a [Point],
 	graph: Graph,
@@ -664,6 +710,7 @@ struct Turn<'a> {
 	linkable: Vec<(usize, usize)>,
 	params: &'a Params,
 	scenarios: Vec<(Vec<(usize, usize)>, f64)>,
+	opponent_spawns: Vec<Order>,
 }
 
 struct Plan {
@@ -672,20 +719,85 @@ struct Plan {
 	destinations: Vec<usize>,
 }
 
-impl Turn<'_> {
-	fn outcome(&self, orders: &[Order], destinations: &[usize]) -> f64 {
-		let mut mine = vec![0; self.graph.len()];
-		for &house in destinations {
-			mine[house] += 1;
+impl Plan {
+	fn moves(&self) -> Vec<(usize, usize)> {
+		self.units
+			.iter()
+			.copied()
+			.zip(self.destinations.iter().copied())
+			.collect()
+	}
+}
+
+#[derive(Clone, Copy)]
+enum Change {
+	Hold(usize),
+	Use(Order),
+}
+
+impl Change {
+	fn triangle(self) -> usize {
+		match self {
+			Change::Hold(triangle) => triangle,
+			Change::Use(order) => order.triangle,
 		}
+	}
+
+	fn order(self) -> Option<Order> {
+		match self {
+			Change::Hold(_) => None,
+			Change::Use(order) => Some(order),
+		}
+	}
+
+	fn clashes(self, other: Change) -> bool {
+		let same_target = matches!(
+			(self.order().map(|o| o.action), other.order().map(|o| o.action)),
+			(Some(Action::Attack(x)), Some(Action::Attack(y))) if x == y
+		);
+		self.triangle() == other.triangle() || same_target
+	}
+}
+
+impl Turn<'_> {
+	fn outcome(&self, orders: &[Order], units: &[usize], destinations: &[usize]) -> f64 {
+		let mine: Vec<(usize, usize)> = units
+			.iter()
+			.copied()
+			.zip(destinations.iter().copied())
+			.collect();
 		self.scenarios
 			.iter()
 			.filter(|(_, share)| *share > 0.0)
 			.map(|(opponent, share)| {
-				let next = simulate(self.points, &self.state, &mine, opponent, orders);
+				let next = simulate(self.points, &self.state, [&mine, opponent], [orders, &[]]);
 				share * evaluate(&next, self.params)
 			})
 			.sum()
+	}
+
+	fn rollout(&self, plan: &Plan) -> f64 {
+		let predicted = &self.scenarios[1].0;
+		let orders = [plan.orders.as_slice(), self.opponent_spawns.as_slice()];
+		let mut state = simulate(self.points, &self.state, [&plan.moves(), predicted], orders);
+		for _ in 1..self.params.rollout_depth {
+			let reshaped;
+			let graph = if state.adjacency == self.state.adjacency {
+				&self.graph
+			} else {
+				reshaped = Graph::new(&state.adjacency);
+				&reshaped
+			};
+			let (my_moves, my_orders) = default_policy(graph, &state, ME, self.params);
+			let (their_moves, their_orders) = default_policy(graph, &state, OPPONENT, self.params);
+			state = simulate(
+				self.points,
+				&state,
+				[&my_moves, &their_moves],
+				[&my_orders, &their_orders],
+			);
+		}
+		evaluate(&state, self.params)
 	}
 
 	fn search_moves(&self, orders: Vec<Order>, units: Vec<usize>, deadline: Instant) -> Plan {
@@ -705,7 +817,7 @@ impl Turn<'_> {
 		let mut goal_total: f64 = (0..units.len())
 			.map(|unit| unit_cost(unit, destinations[unit]))
 			.sum();
-		let mut best = self.outcome(&orders, &destinations) - goal_total;
+		let mut best = self.outcome(&orders, &units, &destinations) - goal_total;
 		let mut improved = true;
 		while improved && Instant::now() < deadline {
 			improved = false;
@@ -724,7 +836,7 @@ impl Turn<'_> {
 					destinations[unit] = candidate;
 					let candidate_goal_total =
 						goal_total - unit_cost(unit, current) + unit_cost(unit, candidate);
-					let value = self.outcome(&orders, &destinations) - candidate_goal_total;
+					let value = self.outcome(&orders, &units, &destinations) - candidate_goal_total;
 					if value > best + IMPROVEMENT_EPSILON {
 						best = value;
 						goal_total = candidate_goal_total;
@@ -799,48 +911,94 @@ impl Turn<'_> {
 		Some((units, destinations))
 	}
 
-	fn decide(&self, rules: &Rules, started: Instant) -> Plan {
-		let at = |share: f64| started + TURN_BUDGET.mul_f64(share);
-		let spawns = plan_spawns(&self.graph, &self.state, self.params);
-		let units = movable_units(&self.state, &spawns).expect("spawns cost no units");
-		let base = self.search_moves(spawns, units, at(BASE_SEARCH_SHARE));
-		let base_value = self.outcome(&base.orders, &base.destinations);
+	fn variant(&self, base: &Plan, change: Change) -> Option<Plan> {
+		let mut orders: Vec<Order> = base
+			.orders
+			.iter()
+			.copied()
+			.filter(|o| o.triangle != change.triangle())
+			.collect();
+		orders.extend(change.order());
+		let (units, destinations) = self.without_payers(base, change.order().as_slice())?;
+		Some(Plan {
+			orders,
+			units,
+			destinations,
+		})
+	}
 
-		let mut gains: Vec<(f64, Order)> = Vec::new();
-		for alternative in self.alternatives(rules) {
-			if Instant::now() >= at(ACTION_SEARCH_SHARE) {
+	fn ranked_changes(&self, rules: &Rules, base: &Plan, started: Instant) -> Vec<(f64, Change)> {
+		let at = |share: f64| started + TURN_BUDGET.mul_f64(share);
+		let params = self.params;
+		let rolling = params.rollout_depth > 0;
+		let mut changes: Vec<Change> = self
+			.alternatives(rules)
+			.into_iter()
+			.map(Change::Use)
+			.collect();
+		if rolling && params.rollout_holds {
+			changes.extend(base.orders.iter().map(|o| Change::Hold(o.triangle)));
+		}
+		let floor = if rolling {
+			params.rollout_floor
+		} else {
+			params.action_margin
+		};
+		let base_value = self.outcome(&base.orders, &base.units, &base.destinations);
+		let mut screened: Vec<(f64, Change, Plan)> = Vec::new();
+		for change in changes {
+			if Instant::now() >= at(SCREEN_SHARE) {
 				break;
 			}
-			let mut orders: Vec<Order> = base
-				.orders
-				.iter()
-				.copied()
-				.filter(|o| o.triangle != alternative.triangle)
-				.collect();
-			orders.push(alternative);
-			let Some((_, destinations)) = self.without_payers(&base, &[alternative]) else {
+			let Some(variant) = self.variant(base, change) else {
 				continue;
 			};
-			let gain = self.outcome(&orders, &destinations) - base_value;
-			if gain > self.params.action_margin {
-				gains.push((gain, alternative));
+			let gain =
+				self.outcome(&variant.orders, &variant.units, &variant.destinations) - base_value;
+			if gain > floor {
+				screened.push((gain, change, variant));
 			}
 		}
+		screened.sort_by(|a, b| b.0.total_cmp(&a.0));
+		if !rolling {
+			return screened
+				.into_iter()
+				.map(|(gain, change, _)| (gain, change))
+				.collect();
+		}
+		screened.truncate(params.rollout_candidates);
+		let base_rollout = self.rollout(base);
+		let mut gains = Vec::new();
+		for (_, change, variant) in &screened {
+			if Instant::now() >= at(ROLLOUT_SHARE) {
+				break;
+			}
+			let gain = self.rollout(variant) - base_rollout;
+			if gain > params.rollout_margin {
+				gains.push((gain, *change));
+			}
+		}
+		gains.sort_by(|a, b| b.0.total_cmp(&a.0));
+		gains
+	}
+
+	fn decide(&self, rules: &Rules, started: Instant) -> Plan {
+		let spawns = plan_spawns(&self.graph, &self.state, ME, self.params);
+		let units = movable_units(&self.state, ME, &spawns).expect("spawns cost no units");
+		let base_deadline = started + TURN_BUDGET.mul_f64(BASE_SEARCH_SHARE);
+		let base = self.search_moves(spawns, units, base_deadline);
+		let gains = self.ranked_changes(rules, &base, started);
 		if gains.is_empty() {
 			return base;
 		}
-		gains.sort_by(|a, b| b.0.total_cmp(&a.0));
-		let mut chosen: Vec<Order> = Vec::new();
-		for (_, alternative) in gains {
-			let clashes = chosen.iter().any(|o| {
-				o.triangle == alternative.triangle
-					|| matches!((o.action, alternative.action), (Action::Attack(x), Action::Attack(y)) if x == y)
-			});
-			if clashes {
+		let mut chosen: Vec<Change> = Vec::new();
+		for (_, change) in gains {
+			if chosen.iter().any(|c| c.clashes(change)) {
 				continue;
 			}
-			chosen.push(alternative);
-			if self.without_payers(&base, &chosen).is_none() {
+			chosen.push(change);
+			let uses: Vec<Order> = chosen.iter().filter_map(|c| c.order()).collect();
+			if self.without_payers(&base, &uses).is_none() {
 				chosen.pop();
 			}
 		}
@@ -848,10 +1006,10 @@ impl Turn<'_> {
 			.orders
 			.iter()
 			.copied()
-			.filter(|o| chosen.iter().all(|c| c.triangle != o.triangle))
+			.filter(|o| chosen.iter().all(|c| c.triangle() != o.triangle))
 			.collect();
-		orders.extend(chosen);
-		let units = movable_units(&self.state, &orders).expect("payers were checked");
+		orders.extend(chosen.iter().filter_map(|c| c.order()));
+		let units = movable_units(&self.state, ME, &orders).expect("payers were checked");
 		self.search_moves(orders, units, started + TURN_BUDGET)
 	}
 }
@@ -983,6 +1141,7 @@ fn main() {
 		rules.observe(&state, &linkable);
 		let graph = Graph::new(&state.adjacency);
 		let scenarios = opponent_scenarios(&graph, &state, &params);
+		let opponent_spawns = plan_spawns(&graph, &state, OPPONENT, &params);
 		let turn = Turn {
 			points: &points,
 			graph,
@@ -990,6 +1149,7 @@ fn main() {
 			linkable,
 			params: &params,
 			scenarios,
+			opponent_spawns,
 		};
 		let plan = turn.decide(&rules, started);
 		rules.record(&plan, &turn.state);
