@@ -8,3 +8,11 @@ autobins = false
 [[bin]]
 name = "vertex"
 path = "vertex.rs"
+
+[[bin]]
+name = "boss"
+path = "boss.rs"
+
+[[bin]]
+name = "summit"
+path = "summit.rs"
