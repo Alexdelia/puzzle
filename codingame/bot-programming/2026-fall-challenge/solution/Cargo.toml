@@ -1,0 +1,10 @@
+[package]
+name = "solution"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+autobins = false
+
+[[bin]]
+name = "vertex"
+path = "vertex.rs"
