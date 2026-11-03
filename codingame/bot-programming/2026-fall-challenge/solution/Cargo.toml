@@ -37,6 +37,10 @@ path = "crest.rs"
 name = "horizon"
 path = "horizon.rs"
 
+[[bin]]
+name = "nova"
+path = "nova.rs"
+
 [dev-dependencies]
 tryangle = { path = "../referee" }
 divan = "0.1"
