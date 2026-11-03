@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 autobins = false
 
+[lib]
+name = "engine"
+path = "engine.rs"
+
 [[bin]]
 name = "vertex"
 path = "vertex.rs"
@@ -16,3 +20,11 @@ path = "boss.rs"
 [[bin]]
 name = "summit"
 path = "summit.rs"
+
+[dev-dependencies]
+tryangle = { path = "../referee" }
+divan = "0.1"
+
+[[bench]]
+name = "engine"
+harness = false
