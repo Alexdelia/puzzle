@@ -401,21 +401,25 @@ impl State {
 	}
 
 	pub fn occupied_by(&self, player: usize) -> u64 {
-		(0..MAX_NODES)
-			.filter(|&n| self.units[n][player] > 0)
-			.fold(0, |set, n| set | bit(n))
+		self.units
+			.iter()
+			.enumerate()
+			.fold(0, |set, (n, u)| set | (u64::from(u[player] > 0) << n))
 	}
 
 	fn advantage(&self, player: usize) -> u64 {
-		(0..MAX_NODES)
-			.filter(|&n| self.units[n][player] > self.units[n][1 - player])
-			.fold(0, |set, n| set | bit(n))
+		self.units.iter().enumerate().fold(0, |set, (n, u)| {
+			set | (u64::from(u[player] > u[1 - player]) << n)
+		})
 	}
 
 	fn dominated_by(&self, advantage: u64) -> u64 {
-		(0..MAX_NODES)
-			.filter(|&n| self.adjacency[n] != 0 && self.adjacency[n] & !advantage == 0)
-			.fold(0, |set, n| set | bit(n))
+		self.adjacency
+			.iter()
+			.enumerate()
+			.fold(0, |set, (n, &around)| {
+				set | (u64::from(around != 0 && around & !advantage == 0) << n)
+			})
 	}
 
 	pub fn node_owners(&self) -> [u64; 2] {
@@ -533,9 +537,9 @@ impl State {
 		}
 	}
 
-	fn resolve_all_at_once(&mut self, map: &Map, remaining: &mut Remaining, queues: &Queues) {
+	fn resolve_all_at_once(&mut self, map: &Map, remaining: &mut Remaining, queues: Queues) {
 		for (player, queue) in queues.iter().enumerate() {
-			for &command in queue {
+			for &command in *queue {
 				if self.can_apply(map, remaining, player, command) {
 					self.apply(map, remaining, player, command);
 				}
@@ -543,7 +547,7 @@ impl State {
 		}
 	}
 
-	fn resolve_one_per_frame(&mut self, map: &Map, remaining: &mut Remaining, queues: &Queues) {
+	fn resolve_one_per_frame(&mut self, map: &Map, remaining: &mut Remaining, queues: Queues) {
 		let mut cursors = [0; 2];
 		loop {
 			let picked: [Option<Command>; 2] = std::array::from_fn(|player| {
@@ -580,7 +584,7 @@ impl State {
 
 	pub fn step(&mut self, map: &Map, commands: [&[Command]; 2]) {
 		let mut remaining: Remaining = self.units;
-		let accepted: [Vec<Command>; 2] = std::array::from_fn(|player| {
+		let mut accepted: [Vec<Command>; 2] = std::array::from_fn(|player| {
 			commands[player]
 				.iter()
 				.copied()
@@ -589,21 +593,21 @@ impl State {
 				})
 				.collect()
 		});
+		for queue in &mut accepted {
+			queue.sort_by_key(|&c| (Phase::of(c) as u8, cost(map, c)));
+		}
+		let mut starts = [0; 2];
 		for phase in Phase::ORDER {
-			let mut queues: Queues = std::array::from_fn(|player| {
-				accepted[player]
-					.iter()
-					.copied()
-					.filter(|&c| Phase::of(c) == phase)
-					.collect()
+			let queues: Queues = std::array::from_fn(|player| {
+				let queue = &accepted[player][starts[player]..];
+				let length = queue.iter().take_while(|&&c| Phase::of(c) == phase).count();
+				starts[player] += length;
+				&queue[..length]
 			});
-			for queue in &mut queues {
-				queue.sort_by_key(|&c| cost(map, c));
-			}
 			if phase.one_per_frame() {
-				self.resolve_one_per_frame(map, &mut remaining, &queues);
+				self.resolve_one_per_frame(map, &mut remaining, queues);
 			} else {
-				self.resolve_all_at_once(map, &mut remaining, &queues);
+				self.resolve_all_at_once(map, &mut remaining, queues);
 			}
 		}
 		self.finalize(map);
@@ -611,6 +615,10 @@ impl State {
 
 	fn refresh_capture_rights(&mut self, map: &Map) {
 		let occupied = [0, 1].map(|p| self.occupied_by(p));
+		self.refresh_capture_rights_with(map, occupied);
+	}
+
+	fn refresh_capture_rights_with(&mut self, map: &Map, occupied: [u64; 2]) {
 		for t in self.live.iter() {
 			let owner = (0..2).find(|&p| self.owner[p].has(t));
 			for (player, &occupied) in occupied.iter().enumerate() {
@@ -636,8 +644,7 @@ impl State {
 		killed
 	}
 
-	fn capture_triangles(&mut self, map: &Map) -> bool {
-		let owned = self.node_owners();
+	fn capture_triangles(&mut self, map: &Map, owned: [u64; 2]) -> bool {
 		let mut changed = false;
 		for t in self.live.iter() {
 			for (player, &owned) in owned.iter().enumerate() {
@@ -655,18 +662,14 @@ impl State {
 	}
 
 	fn finalize(&mut self, map: &Map) {
-		let mut surround_checked = false;
-		loop {
+		self.refresh_capture_rights(map);
+		if self.kill_surrounded() {
 			self.refresh_capture_rights(map);
-			if !surround_checked {
-				surround_checked = true;
-				if self.kill_surrounded() {
-					continue;
-				}
-			}
-			if !self.capture_triangles(map) {
-				break;
-			}
+		}
+		let occupied = [0, 1].map(|p| self.occupied_by(p));
+		let owned = self.node_owners();
+		while self.capture_triangles(map, owned) {
+			self.refresh_capture_rights_with(map, occupied);
 		}
 		let dead = map.all_triangles & !self.live;
 		for player in 0..2 {
@@ -698,7 +701,7 @@ impl State {
 }
 
 type Remaining = [[i32; 2]; MAX_NODES];
-type Queues = [Vec<Command>; 2];
+type Queues<'a> = [&'a [Command]; 2];
 
 fn cost(map: &Map, command: Command) -> i32 {
 	match command {

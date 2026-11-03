@@ -29,6 +29,14 @@ path = "apex.rs"
 name = "zenith"
 path = "zenith.rs"
 
+[[bin]]
+name = "crest"
+path = "crest.rs"
+
+[[bin]]
+name = "horizon"
+path = "horizon.rs"
+
 [dev-dependencies]
 tryangle = { path = "../referee" }
 divan = "0.1"
