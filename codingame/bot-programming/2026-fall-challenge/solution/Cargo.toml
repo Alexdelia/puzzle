@@ -21,6 +21,10 @@ path = "boss.rs"
 name = "summit"
 path = "summit.rs"
 
+[[bin]]
+name = "apex"
+path = "apex.rs"
+
 [dev-dependencies]
 tryangle = { path = "../referee" }
 divan = "0.1"

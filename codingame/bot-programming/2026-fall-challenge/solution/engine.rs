@@ -558,12 +558,11 @@ impl State {
 			if picked == [None, None] {
 				return;
 			}
-			let mut order = [0, 1];
-			if let [Some(first), Some(second)] = picked
-				&& cost(map, second) < cost(map, first)
-			{
-				order = [1, 0];
-			}
+			let second_goes_first = match picked {
+				[Some(first), Some(second)] => cost(map, second) < cost(map, first),
+				_ => false,
+			};
+			let order = if second_goes_first { [1, 0] } else { [0, 1] };
 			for player in order {
 				let Some(command) = picked[player] else {
 					continue;
