@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["referee", "solution"]
+members = ["referee", "solution", "env"]
 
 [workspace.package]
 version = "0.1.0"

@@ -79,8 +79,8 @@ def expand(compact):
 		"triangle_mask": triangle_mask,
 		"triangles": compact["triangles"],
 		"attack": unpack_bits(compact["attack"]),
-		"action": compact["action"].long(),
-		"flows": compact["flows"].float(),
+		**({"action": compact["action"].long()} if "action" in compact else {}),
+		**({"flows": compact["flows"].float()} if "flows" in compact else {}),
 	}
 
 
@@ -107,6 +107,8 @@ class Nova(nn.Module):
 		self.hold = nn.Linear(channels, 1)
 		self.spawn = nn.Linear(2 * channels, 1)
 		self.attack = nn.Linear(2 * channels, 1)
+		self.value_hidden = nn.Linear(2 * channels + GLOBAL_FEATURES, 64)
+		self.value_out = nn.Linear(64, 1)
 
 	def layers(self):
 		yield self.embed
@@ -152,6 +154,17 @@ class Nova(nn.Module):
 		return h
 
 	def forward(self, batch):
+		move, triangle, _ = self.evaluate(batch, with_value=False)
+		return move, triangle
+
+	def value(self, batch, h):
+		mask = batch["node_mask"][..., None].float()
+		mean = (h * mask).sum(1) / mask.sum(1).clamp(min=1.0)
+		peak = h.masked_fill(mask == 0, -1e9).amax(1)
+		pooled = torch.cat([mean, peak, batch["globals"]], 1)
+		return self.value_out(F.relu(self.value_hidden(pooled))).squeeze(1)
+
+	def evaluate(self, batch, with_value=True):
 		h = self.hidden(batch)
 		query = self.query(h)
 		key = self.key(h)
@@ -183,7 +196,7 @@ class Nova(nn.Module):
 		)
 		attack = attack.masked_fill(~batch["attack"], -1e9)
 		triangle = torch.cat([hold, spawn, attack], 2)
-		return move, triangle
+		return move, triangle, self.value(batch, h) if with_value else None
 
 
 def losses(model, batch):
@@ -214,7 +227,7 @@ def export(model):
 	payload = bytearray(
 		struct.pack("<BBB", NET_VERSION, model.channels, len(model.rounds))
 	)
-	for layer in model.layers():
+	for layer in [*model.layers(), model.value_hidden, model.value_out]:
 		weight = layer.weight.detach().cpu().numpy().astype(np.float32)
 		bias = layer.bias.detach().cpu().numpy().astype(np.float32)
 		values, step = quantise(weight)

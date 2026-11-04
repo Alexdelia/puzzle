@@ -5,32 +5,34 @@ use std::time::Instant;
 
 pub const WEIGHTS: &str = "";
 
-const NODE_FEATURES: usize = 28;
-const GLOBAL_FEATURES: usize = 8;
-const TRIANGLE_FEATURES: usize = 12;
-const MAX_LIVE: usize = 96;
-const HOLD: i32 = 0;
-const SPAWN_BASE: i32 = 1;
-const ATTACK_BASE: i32 = 4;
-const IGNORED: i32 = -2;
-const NOT_USABLE: i32 = -1;
-const NET_VERSION: u8 = 1;
-const PACK_BASE: u32 = 0x4E00;
+pub const NODE_FEATURES: usize = 28;
+pub const GLOBAL_FEATURES: usize = 8;
+pub const TRIANGLE_FEATURES: usize = 12;
+pub const MAX_LIVE: usize = 96;
+pub const HOLD: i32 = 0;
+pub const SPAWN_BASE: i32 = 1;
+pub const ATTACK_BASE: i32 = 4;
+pub const IGNORED: i32 = -2;
+pub const NOT_USABLE: i32 = -1;
+pub const NET_VERSION: u8 = 1;
+pub const DEFAULT_SEARCH_MS: Option<f64> = None;
+pub const DEFAULT_EXPOSURE: f32 = 0.0;
+pub const PACK_BASE: u32 = 0x4E00;
 
-struct Features {
-	nodes: Vec<[f32; NODE_FEATURES]>,
-	globals: [f32; GLOBAL_FEATURES],
-	live: Vec<usize>,
-	triangles: Vec<[f32; TRIANGLE_FEATURES]>,
-	usable: Vec<bool>,
-	attack_targets: Vec<u64>,
+pub struct Features {
+	pub nodes: Vec<[f32; NODE_FEATURES]>,
+	pub globals: [f32; GLOBAL_FEATURES],
+	pub live: Vec<usize>,
+	pub triangles: Vec<[f32; TRIANGLE_FEATURES]>,
+	pub usable: Vec<bool>,
+	pub attack_targets: Vec<u64>,
 }
 
-fn ln1p(value: i32) -> f32 {
+pub fn ln1p(value: i32) -> f32 {
 	(value.max(0) as f32).ln_1p()
 }
 
-fn distances_from(state: &State, sources: u64, count: usize) -> Vec<f32> {
+pub fn distances_from(state: &State, sources: u64, count: usize) -> Vec<f32> {
 	let mut distance = vec![f32::INFINITY; count];
 	let mut seen = sources;
 	let mut frontier = sources;
@@ -47,7 +49,7 @@ fn distances_from(state: &State, sources: u64, count: usize) -> Vec<f32> {
 	distance
 }
 
-fn surround_threatened(state: &State, victim: usize, node: usize) -> bool {
+pub fn surround_threatened(state: &State, victim: usize, node: usize) -> bool {
 	let attacker = 1 - victim;
 	let around = state.adjacency[node];
 	if state.units[node][victim] == 0 || around == 0 {
@@ -72,12 +74,12 @@ fn surround_threatened(state: &State, victim: usize, node: usize) -> bool {
 	needed <= pool
 }
 
-fn attack_targets(map: &Map, state: &State, triangle: usize, opponent: usize) -> u64 {
+pub fn attack_targets(map: &Map, state: &State, triangle: usize, opponent: usize) -> u64 {
 	let around = nodes_of(map.corners(triangle)).fold(0u64, |acc, c| acc | state.adjacency[c]);
 	around & state.occupied_by(opponent)
 }
 
-fn features(map: &Map, state: &State, me: usize, turn: i32) -> Features {
+pub fn features(map: &Map, state: &State, me: usize, turn: i32) -> Features {
 	let opponent = 1 - me;
 	let count = map.len();
 	let owners = state.node_owners();
@@ -214,8 +216,8 @@ fn features(map: &Map, state: &State, me: usize, turn: i32) -> Features {
 		ln1p(state.units_of(opponent)) / 4.0,
 		state.triangles_of(me) as f32 / 10.0,
 		state.triangles_of(opponent) as f32 / 10.0,
-		state.score[me] as f32 / 100.0,
-		state.score[opponent] as f32 / 100.0,
+		(state.score[me] as f32 / 100.0).min(SCORE_FEATURE_CAP),
+		(state.score[opponent] as f32 / 100.0).min(SCORE_FEATURE_CAP),
 		count as f32 / 64.0,
 	];
 	Features {
@@ -228,78 +230,153 @@ fn features(map: &Map, state: &State, me: usize, turn: i32) -> Features {
 	}
 }
 
-struct Layer {
-	inputs: usize,
-	outputs: usize,
-	weights: Vec<f32>,
-	bias: Vec<f32>,
+pub const SCORE_FEATURE_CAP: f32 = 8.0;
+
+const LANES: usize = 8;
+
+#[inline(always)]
+pub fn dot(a: &[f32], b: &[f32]) -> f32 {
+	let mut lanes = [0.0f32; LANES];
+	let mut a_chunks = a.chunks_exact(LANES);
+	let mut b_chunks = b.chunks_exact(LANES);
+	for (x, y) in (&mut a_chunks).zip(&mut b_chunks) {
+		for k in 0..LANES {
+			lanes[k] += x[k] * y[k];
+		}
+	}
+	let tail: f32 = a_chunks
+		.remainder()
+		.iter()
+		.zip(b_chunks.remainder())
+		.map(|(x, y)| x * y)
+		.sum();
+	lanes.iter().sum::<f32>() + tail
+}
+
+pub struct Layer {
+	pub inputs: usize,
+	pub outputs: usize,
+	pub weights: Vec<f32>,
+	pub columns: Vec<f32>,
+	pub bias: Vec<f32>,
 }
 
 impl Layer {
-	fn apply(&self, input: &[f32], output: &mut [f32]) {
-		for (o, out) in output.iter_mut().enumerate().take(self.outputs) {
-			let row = &self.weights[o * self.inputs..(o + 1) * self.inputs];
-			*out = self.bias[o] + row.iter().zip(input).map(|(w, x)| w * x).sum::<f32>();
+	pub fn new(inputs: usize, outputs: usize, weights: Vec<f32>, bias: Vec<f32>) -> Layer {
+		let columns = (0..inputs * outputs)
+			.map(|at| weights[(at % outputs) * inputs + at / outputs])
+			.collect();
+		Layer {
+			inputs,
+			outputs,
+			weights,
+			columns,
+			bias,
 		}
 	}
 
-	fn run(&self, input: &[f32]) -> Vec<f32> {
+	#[inline(always)]
+	pub fn apply(&self, input: &[f32], output: &mut [f32]) {
+		let input = &input[..self.inputs];
+		if self.outputs % LANES != 0 {
+			for (o, out) in output.iter_mut().enumerate().take(self.outputs) {
+				*out = self.bias[o]
+					+ dot(&self.weights[o * self.inputs..(o + 1) * self.inputs], input);
+			}
+			return;
+		}
+		let mut start = 0;
+		while start + 4 * LANES <= self.outputs {
+			self.block::<{ 4 * LANES }>(input, output, start);
+			start += 4 * LANES;
+		}
+		while start < self.outputs {
+			self.block::<LANES>(input, output, start);
+			start += LANES;
+		}
+	}
+
+	#[inline(always)]
+	fn block<const WIDTH: usize>(&self, input: &[f32], output: &mut [f32], start: usize) {
+		let mut sums = [0.0f32; WIDTH];
+		sums.copy_from_slice(&self.bias[start..start + WIDTH]);
+		for (x, column) in input.iter().zip(self.columns.chunks_exact(self.outputs)) {
+			let weights = &column[start..start + WIDTH];
+			for k in 0..WIDTH {
+				sums[k] += x * weights[k];
+			}
+		}
+		output[start..start + WIDTH].copy_from_slice(&sums);
+	}
+
+	#[inline(always)]
+	pub fn apply_rows(&self, inputs: &[f32], outputs: &mut [f32]) {
+		for (row_in, row_out) in inputs
+			.chunks_exact(self.inputs)
+			.zip(outputs.chunks_exact_mut(self.outputs))
+		{
+			self.apply(row_in, row_out);
+		}
+	}
+
+	pub fn run(&self, input: &[f32]) -> Vec<f32> {
 		let mut output = vec![0.0; self.outputs];
 		self.apply(input, &mut output);
 		output
 	}
 }
 
-struct Round {
-	own: Layer,
-	neighbors: Layer,
-	triangle: Layer,
-	gather: Layer,
+pub struct Round {
+	pub own: Layer,
+	pub neighbors: Layer,
+	pub triangle: Layer,
+	pub gather: Layer,
 }
 
-struct Net {
-	channels: usize,
-	embed: Layer,
-	rounds: Vec<Round>,
-	query: Layer,
-	key: Layer,
-	destination: Layer,
-	stay: Layer,
-	triangle: Layer,
-	hold: Layer,
-	spawn: Layer,
-	attack: Layer,
+pub struct Net {
+	pub channels: usize,
+	pub embed: Layer,
+	pub rounds: Vec<Round>,
+	pub query: Layer,
+	pub key: Layer,
+	pub destination: Layer,
+	pub stay: Layer,
+	pub triangle: Layer,
+	pub hold: Layer,
+	pub spawn: Layer,
+	pub attack: Layer,
+	pub value: Option<(Layer, Layer)>,
 }
 
-struct Reader<'a> {
-	bytes: &'a [u8],
-	at: usize,
+pub struct Reader<'a> {
+	pub bytes: &'a [u8],
+	pub at: usize,
 }
 
 impl Reader<'_> {
-	fn take(&mut self, count: usize) -> &[u8] {
+	pub fn take(&mut self, count: usize) -> &[u8] {
 		let slice = &self.bytes[self.at..self.at + count];
 		self.at += count;
 		slice
 	}
 
-	fn u8(&mut self) -> u8 {
+	pub fn u8(&mut self) -> u8 {
 		self.take(1)[0]
 	}
 
-	fn u16(&mut self) -> usize {
+	pub fn u16(&mut self) -> usize {
 		let b = self.take(2);
 		usize::from(u16::from_le_bytes([b[0], b[1]]))
 	}
 
-	fn f32s(&mut self, count: usize) -> Vec<f32> {
+	pub fn f32s(&mut self, count: usize) -> Vec<f32> {
 		self.take(4 * count)
 			.chunks_exact(4)
 			.map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
 			.collect()
 	}
 
-	fn layer(&mut self) -> Layer {
+	pub fn layer(&mut self) -> Layer {
 		let outputs = self.u16();
 		let inputs = self.u16();
 		let quantised: Vec<i8> = self
@@ -314,16 +391,11 @@ impl Reader<'_> {
 			.enumerate()
 			.map(|(i, &q)| f32::from(q) * steps[i / inputs])
 			.collect();
-		Layer {
-			inputs,
-			outputs,
-			weights,
-			bias,
-		}
+		Layer::new(inputs, outputs, weights, bias)
 	}
 }
 
-fn unpack(text: &str) -> Vec<u8> {
+pub fn unpack(text: &str) -> Vec<u8> {
 	let mut out = Vec::new();
 	let mut bits: u32 = 0;
 	let mut have = 0;
@@ -340,7 +412,7 @@ fn unpack(text: &str) -> Vec<u8> {
 }
 
 impl Net {
-	fn load(bytes: &[u8]) -> Net {
+	pub fn load(bytes: &[u8]) -> Net {
 		let mut reader = Reader { bytes, at: 0 };
 		let version = reader.u8();
 		assert_eq!(version, NET_VERSION, "weights of another net version");
@@ -355,7 +427,7 @@ impl Net {
 				gather: reader.layer(),
 			})
 			.collect();
-		Net {
+		let mut net = Net {
 			channels,
 			embed,
 			rounds,
@@ -367,92 +439,221 @@ impl Net {
 			hold: reader.layer(),
 			spawn: reader.layer(),
 			attack: reader.layer(),
+			value: None,
+		};
+		if reader.bytes.len() > reader.at + 4 {
+			net.value = Some((reader.layer(), reader.layer()));
 		}
+		net
 	}
 
-	fn hidden(&self, map: &Map, state: &State, features: &Features) -> Vec<Vec<f32>> {
-		let count = map.len();
-		let channels = self.channels;
-		let mut h: Vec<Vec<f32>> = features
-			.nodes
+	pub fn hidden(&self, map: &Map, state: &State, features: &Features) -> Vec<Vec<f32>> {
+		self.hidden_flat(map, state, features)
+			.chunks_exact(self.channels)
+			.map(<[f32]>::to_vec)
+			.collect()
+	}
+
+	pub fn hidden_flat(&self, map: &Map, state: &State, features: &Features) -> Vec<f32> {
+		#[cfg(target_arch = "x86_64")]
+		if std::is_x86_feature_detected!("avx2") && std::is_x86_feature_detected!("fma") {
+			return unsafe { self.hidden_avx(map, state, features) };
+		}
+		self.hidden_body(map, state, features)
+	}
+
+	#[cfg(target_arch = "x86_64")]
+	#[target_feature(enable = "avx2,fma")]
+	unsafe fn hidden_avx(&self, map: &Map, state: &State, features: &Features) -> Vec<f32> {
+		self.hidden_body(map, state, features)
+	}
+
+	#[inline(always)]
+	fn hidden_body(&self, map: &Map, state: &State, features: &Features) -> Vec<f32> {
+		let c = self.channels;
+		let count = features.nodes.len();
+		let mut h = vec![0.0f32; count * c];
+		let mut input = [0.0f32; NODE_FEATURES + GLOBAL_FEATURES];
+		input[NODE_FEATURES..].copy_from_slice(&features.globals);
+		for (row, out) in features.nodes.iter().zip(h.chunks_exact_mut(c)) {
+			input[..NODE_FEATURES].copy_from_slice(row);
+			self.embed.apply(&input, out);
+			relu(out);
+		}
+		let corners: Vec<Vec<usize>> = features
+			.live
 			.iter()
-			.map(|row| {
-				let input: Vec<f32> = row.iter().chain(&features.globals).copied().collect();
-				self.embed
-					.run(&input)
-					.into_iter()
-					.map(|v| v.max(0.0))
-					.collect()
-			})
+			.map(|&t| nodes_of(map.corners(t)).collect())
 			.collect();
+		let mut triangle_count = vec![0.0f32; count];
+		for &corner in corners.iter().flatten() {
+			triangle_count[corner] += 1.0;
+		}
+		let degrees: Vec<f32> = (0..count)
+			.map(|n| state.adjacency[n].count_ones() as f32)
+			.collect();
+		let mut gathered = vec![0.0f32; count * c];
+		let mut next = vec![0.0f32; count * c];
+		let mut means = vec![0.0f32; count * c];
+		let mut part = vec![0.0f32; count * c];
+		let mut message = vec![0.0f32; c];
+		let mut triangle_input = vec![0.0f32; c + TRIANGLE_FEATURES];
 		for round in &self.rounds {
-			let mut triangle_sum = vec![vec![0.0f32; channels]; count];
-			let mut triangle_count = vec![0.0f32; count];
-			for (index, &t) in features.live.iter().enumerate() {
-				let corners: Vec<usize> = nodes_of(map.corners(t)).collect();
-				let mut input = vec![0.0f32; channels + TRIANGLE_FEATURES];
-				for &c in &corners {
-					for k in 0..channels {
-						input[k] += h[c][k] / 3.0;
+			gathered.fill(0.0);
+			for (corners_of, features_of) in corners.iter().zip(&features.triangles) {
+				triangle_input[..c].fill(0.0);
+				for &corner in corners_of {
+					for (sum, v) in triangle_input[..c]
+						.iter_mut()
+						.zip(&h[corner * c..(corner + 1) * c])
+					{
+						*sum += v / 3.0;
 					}
 				}
-				input[channels..].copy_from_slice(&features.triangles[index]);
-				let message: Vec<f32> = round
-					.triangle
-					.run(&input)
-					.into_iter()
-					.map(|v| v.max(0.0))
-					.collect();
-				for &c in &corners {
-					for k in 0..channels {
-						triangle_sum[c][k] += message[k];
+				triangle_input[c..].copy_from_slice(features_of);
+				round.triangle.apply(&triangle_input, &mut message);
+				relu(&mut message);
+				for &corner in corners_of {
+					for (sum, m) in gathered[corner * c..(corner + 1) * c]
+						.iter_mut()
+						.zip(&message)
+					{
+						*sum += m;
 					}
-					triangle_count[c] += 1.0;
 				}
 			}
-			let mut next = Vec::with_capacity(count);
 			for n in 0..count {
-				let around = state.adjacency[n];
-				let degree = around.count_ones() as f32;
-				let mut mean = vec![0.0f32; channels];
-				if degree > 0.0 {
-					for m in nodes_of(around) {
-						for k in 0..channels {
-							mean[k] += h[m][k] / degree;
+				let mean = &mut means[n * c..(n + 1) * c];
+				mean.fill(0.0);
+				if degrees[n] > 0.0 {
+					for m in nodes_of(state.adjacency[n]) {
+						for (sum, v) in mean.iter_mut().zip(&h[m * c..(m + 1) * c]) {
+							*sum += v / degrees[n];
 						}
 					}
 				}
-				let gathered: Vec<f32> = if triangle_count[n] > 0.0 {
-					triangle_sum[n]
-						.iter()
-						.map(|v| v / triangle_count[n])
-						.collect()
-				} else {
-					vec![0.0; channels]
-				};
-				let own = round.own.run(&h[n]);
-				let from_neighbors = round.neighbors.run(&mean);
-				let from_triangles = round.gather.run(&gathered);
-				next.push(
-					(0..channels)
-						.map(|k| {
-							(own[k] + from_neighbors[k] + from_triangles[k]).max(0.0) + h[n][k]
-						})
-						.collect(),
-				);
+				if triangle_count[n] > 0.0 {
+					for v in gathered[n * c..(n + 1) * c].iter_mut() {
+						*v /= triangle_count[n];
+					}
+				}
 			}
-			h = next;
+			round.own.apply_rows(&h, &mut next);
+			round.neighbors.apply_rows(&means, &mut part);
+			for (o, p) in next.iter_mut().zip(&part) {
+				*o += p;
+			}
+			round.gather.apply_rows(&gathered, &mut part);
+			for ((o, p), x) in next.iter_mut().zip(&part).zip(&h) {
+				*o = (*o + p).max(0.0) + x;
+			}
+			std::mem::swap(&mut h, &mut next);
 		}
 		h
 	}
 }
 
-struct Decision {
-	moves: Vec<Vec<(usize, f32)>>,
-	triangle_actions: Vec<Vec<(i32, f32)>>,
+#[inline(always)]
+pub fn relu(values: &mut [f32]) {
+	for v in values {
+		*v = v.max(0.0);
+	}
 }
 
-fn softmax(logits: &mut [(i32, f32)]) {
+impl Net {
+	pub fn value(&self, map: &Map, state: &State, features: &Features) -> Option<f32> {
+		let (hidden_layer, out_layer) = self.value.as_ref()?;
+		let h = self.hidden_flat(map, state, features);
+		let channels = self.channels;
+		let count = (h.len() / channels).max(1) as f32;
+		let mut pooled = vec![0.0f32; 2 * channels];
+		for k in 0..channels {
+			let column = h.iter().skip(k).step_by(channels);
+			pooled[k] = column.clone().sum::<f32>() / count;
+			pooled[channels + k] = column.fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+		}
+		pooled.extend_from_slice(&features.globals);
+		let hidden: Vec<f32> = hidden_layer
+			.run(&pooled)
+			.into_iter()
+			.map(|v| v.max(0.0))
+			.collect();
+		Some(out_layer.run(&hidden)[0])
+	}
+}
+
+pub fn exposure(map: &Map, state: &State, me: usize) -> i32 {
+	let opponent = 1 - me;
+	let surrounded: i32 = (0..map.len())
+		.filter(|&n| surround_threatened(state, me, n))
+		.map(|n| state.units[n][me])
+		.sum();
+	let attackable = state
+		.live
+		.iter()
+		.filter(|&t| {
+			state.owner[opponent].has(t)
+				&& state.initial_owner[opponent].has(t)
+				&& nodes_of(map.corners(t)).all(|c| state.units[c][opponent] >= 1)
+		})
+		.flat_map(|t| nodes_of(attack_targets(map, state, t, me)))
+		.map(|n| state.units[n][me])
+		.max()
+		.unwrap_or(0);
+	surrounded + attackable
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn search(
+	net: &Net,
+	map: &Map,
+	state: &State,
+	me: usize,
+	turn: i32,
+	seen: &Features,
+	decision: &Decision,
+	deadline: Instant,
+	rng: &mut Rng,
+) -> (Vec<Command>, usize) {
+	let opponent = 1 - me;
+	let exposure_weight = std::env::var("NOVA_EXPOSURE")
+		.ok()
+		.map(|w| w.parse::<f32>().expect("NOVA_EXPOSURE is a number"))
+		.unwrap_or(DEFAULT_EXPOSURE);
+	let their_view = features(map, state, opponent, turn);
+	let their_decision = decide(net, map, state, opponent, &their_view);
+	let theirs = commands(map, state, opponent, &their_view, &their_decision, None);
+	let score = |mine: &[Command]| {
+		let mut next = *state;
+		let mut ordered: [&[Command]; 2] = [&[], &[]];
+		ordered[me] = mine;
+		ordered[opponent] = &theirs;
+		next.step(map, ordered);
+		let view = features(map, &next, me, turn + 1);
+		net.value(map, &next, &view).unwrap_or(0.0)
+			- exposure_weight * exposure(map, &next, me) as f32
+	};
+	let mut best = commands(map, state, me, seen, decision, None);
+	let mut best_value = score(&best);
+	let mut tried = 1;
+	while Instant::now() < deadline {
+		let candidate = commands(map, state, me, seen, decision, Some(rng));
+		let value = score(&candidate);
+		tried += 1;
+		if value > best_value {
+			best_value = value;
+			best = candidate;
+		}
+	}
+	(best, tried)
+}
+
+pub struct Decision {
+	pub moves: Vec<Vec<(usize, f32)>>,
+	pub triangle_actions: Vec<Vec<(i32, f32)>>,
+}
+
+pub fn softmax(logits: &mut [(i32, f32)]) {
 	let peak = logits
 		.iter()
 		.map(|&(_, l)| l)
@@ -463,7 +664,7 @@ fn softmax(logits: &mut [(i32, f32)]) {
 	}
 }
 
-fn decide(net: &Net, map: &Map, state: &State, me: usize, features: &Features) -> Decision {
+pub fn decide(net: &Net, map: &Map, state: &State, me: usize, features: &Features) -> Decision {
 	let count = map.len();
 	let h = net.hidden(map, state, features);
 	let query: Vec<Vec<f32>> = h.iter().map(|row| net.query.run(row)).collect();
@@ -529,17 +730,17 @@ fn decide(net: &Net, map: &Map, state: &State, me: usize, features: &Features) -
 	}
 }
 
-struct Rng(u64);
+pub struct Rng(pub u64);
 
 impl Rng {
-	fn unit(&mut self) -> f32 {
+	pub fn unit(&mut self) -> f32 {
 		self.0 ^= self.0 << 13;
 		self.0 ^= self.0 >> 7;
 		self.0 ^= self.0 << 17;
 		(self.0 >> 40) as f32 / (1u64 << 24) as f32
 	}
 
-	fn draw<T: Copy>(&mut self, options: &[(T, f32)]) -> T {
+	pub fn draw<T: Copy>(&mut self, options: &[(T, f32)]) -> T {
 		let mut left = self.unit();
 		for &(value, p) in options {
 			left -= p;
@@ -551,7 +752,7 @@ impl Rng {
 	}
 }
 
-fn commands(
+pub fn commands(
 	map: &Map,
 	state: &State,
 	me: usize,
@@ -649,7 +850,7 @@ fn commands(
 	orders
 }
 
-fn text(map: &Map, command: Command) -> String {
+pub fn text(map: &Map, command: Command) -> String {
 	let ordered = |triangle: usize, first: usize| {
 		let corners = map.triangles[triangle];
 		let rest: Vec<usize> = corners.into_iter().filter(|&c| c != first).collect();
@@ -671,7 +872,7 @@ fn text(map: &Map, command: Command) -> String {
 	}
 }
 
-fn answer(map: &Map, orders: &[Command]) -> String {
+pub fn answer(map: &Map, orders: &[Command]) -> String {
 	if orders.is_empty() {
 		return "WAIT".to_string();
 	}
@@ -682,12 +883,12 @@ fn answer(map: &Map, orders: &[Command]) -> String {
 		.join(";")
 }
 
-struct Labels {
-	moves: BTreeMap<(usize, usize), i32>,
-	triangle_actions: Vec<i32>,
+pub struct Labels {
+	pub moves: BTreeMap<(usize, usize), i32>,
+	pub triangle_actions: Vec<i32>,
 }
 
-fn labels(map: &Map, state: &State, me: usize, features: &Features, line: &str) -> Labels {
+pub fn labels(map: &Map, state: &State, me: usize, features: &Features, line: &str) -> Labels {
 	let mut remaining = [0i32; MAX_NODES];
 	for (n, slot) in remaining.iter_mut().enumerate().take(map.len()) {
 		*slot = state.units[n][me];
@@ -768,7 +969,7 @@ fn labels(map: &Map, state: &State, me: usize, features: &Features, line: &str) 
 	}
 }
 
-fn write_record(
+pub fn write_record(
 	out: &mut impl Write,
 	map: &Map,
 	state: &State,
@@ -852,12 +1053,12 @@ fn write_record(
 	out.write_all(&bytes).expect("the dump file is writable");
 }
 
-struct Input<R: BufRead> {
-	lines: std::io::Lines<R>,
+pub struct Input<R: BufRead> {
+	pub lines: std::io::Lines<R>,
 }
 
 impl<R: BufRead> Input<R> {
-	fn ints(&mut self) -> Vec<i64> {
+	pub fn ints(&mut self) -> Vec<i64> {
 		let Some(line) = self.lines.next() else {
 			std::process::exit(0);
 		};
@@ -867,12 +1068,16 @@ impl<R: BufRead> Input<R> {
 			.collect()
 	}
 
-	fn int(&mut self) -> i64 {
+	pub fn int(&mut self) -> i64 {
 		self.ints()[0]
 	}
 }
 
-fn read_state<R: BufRead>(input: &mut Input<R>, map: &Map, me: Option<usize>) -> (State, usize) {
+pub fn read_state<R: BufRead>(
+	input: &mut Input<R>,
+	map: &Map,
+	me: Option<usize>,
+) -> (State, usize) {
 	let scores = input.ints();
 	let count = map.len();
 	let mut seen = vec![[0; 2]; count];
@@ -916,7 +1121,7 @@ fn read_state<R: BufRead>(input: &mut Input<R>, map: &Map, me: Option<usize>) ->
 	(state, me)
 }
 
-fn weights() -> Option<Vec<u8>> {
+pub fn weights() -> Option<Vec<u8>> {
 	if let Ok(path) = std::env::var("NOVA_WEIGHTS") {
 		return Some(std::fs::read(&path).unwrap_or_else(|e| panic!("cannot read {path}: {e}")));
 	}
@@ -958,6 +1163,12 @@ fn main() {
 	let mut sampler = std::env::var("NOVA_SAMPLE")
 		.ok()
 		.map(|seed| Rng(seed.parse::<u64>().expect("NOVA_SAMPLE is a seed") | 1));
+	let search_ms = std::env::var("NOVA_SEARCH_MS")
+		.ok()
+		.map(|ms| ms.parse::<f64>().expect("NOVA_SEARCH_MS is a number"))
+		.or(DEFAULT_SEARCH_MS);
+	let mut searcher = Rng(0x2545F4914F6CDD1D);
+	let mut candidates = 0;
 	let mut me = None;
 	let mut turn = 0;
 	loop {
@@ -993,12 +1204,36 @@ fn main() {
 						}
 					}
 				}
-				commands(&map, &state, side, &features, &decision, sampler.as_mut())
+				match (search_ms, net.value.is_some()) {
+					(Some(budget), true) => {
+						let deadline =
+							started + std::time::Duration::from_secs_f64(budget / 1000.0);
+						let (best, tried) = search(
+							net,
+							&map,
+							&state,
+							side,
+							turn,
+							&features,
+							&decision,
+							deadline,
+							&mut searcher,
+						);
+						candidates = tried;
+						best
+					}
+					_ => commands(&map, &state, side, &features, &decision, sampler.as_mut()),
+				}
 			}
 			None => Vec::new(),
 		};
 		let elapsed = started.elapsed().as_micros();
-		writeln!(out, "{};MSG {elapsed}us", answer(&map, &orders)).expect("stdout is writable");
+		writeln!(
+			out,
+			"{};MSG {elapsed}us c{candidates}",
+			answer(&map, &orders)
+		)
+		.expect("stdout is writable");
 		out.flush().expect("stdout is writable");
 	}
 }

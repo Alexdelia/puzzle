@@ -1,0 +1,14 @@
+[package]
+name = "novaenv"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lib]
+name = "novaenv"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+tryangle = { path = "../referee" }
+solution = { path = "../solution" }
+pyo3 = { version = "0.25", features = ["extension-module", "abi3-py311"] }
