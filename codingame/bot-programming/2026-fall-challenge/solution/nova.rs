@@ -5,6 +5,7 @@ use std::time::Instant;
 
 pub const WEIGHTS: &str = "";
 pub const OPPONENT_WEIGHTS: &str = "";
+pub const VALUE_WEIGHTS: &str = "";
 
 pub const NODE_FEATURES: usize = 28;
 pub const GLOBAL_FEATURES: usize = 8;
@@ -1243,12 +1244,20 @@ fn opponent_weights() -> Option<Vec<u8>> {
 	Some(unpack(OPPONENT_WEIGHTS))
 }
 
+fn value_weights() -> Option<Vec<u8>> {
+	if let Ok(path) = std::env::var("NOVA_VALUE_WEIGHTS") {
+		return Some(std::fs::read(&path).unwrap_or_else(|e| panic!("cannot read {path}: {e}")));
+	}
+	if VALUE_WEIGHTS.is_empty() {
+		return None;
+	}
+	Some(unpack(VALUE_WEIGHTS))
+}
+
 fn main() {
 	let net = weights().map(|bytes| Net::load(&bytes));
 	let predictor = opponent_weights().map(|bytes| Net::load(&bytes));
-	let valuer = std::env::var("NOVA_VALUE_WEIGHTS").ok().map(|path| {
-		Net::load(&std::fs::read(&path).unwrap_or_else(|e| panic!("cannot read {path}: {e}")))
-	});
+	let valuer = value_weights().map(|bytes| Net::load(&bytes));
 	let mut dump = std::env::var("NOVA_DUMP").ok().map(|path| {
 		std::io::BufWriter::new(
 			std::fs::File::create(&path).unwrap_or_else(|e| panic!("cannot create {path}: {e}")),

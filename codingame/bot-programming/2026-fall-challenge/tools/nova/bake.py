@@ -29,6 +29,11 @@ def main():
 		default=None,
 		help="exported weights (.bin) predicting the opponent in the search",
 	)
+	parser.add_argument(
+		"--value",
+		default=None,
+		help="exported weights (.bin) whose value head scores the search candidates",
+	)
 	args = parser.parse_args()
 	subprocess.run(
 		[str(ROOT / "solution" / "bundle.sh"), "nova", args.out],
@@ -49,6 +54,15 @@ def main():
 		body, replaced = re.subn(
 			r'pub const OPPONENT_WEIGHTS: &str = "[^"]*";',
 			f'pub const OPPONENT_WEIGHTS: &str = "{opponent}";',
+			body,
+			count=1,
+		)
+		assert replaced == 1
+	if args.value is not None:
+		value = pack(pathlib.Path(args.value).read_bytes())
+		body, replaced = re.subn(
+			r'pub const VALUE_WEIGHTS: &str = "[^"]*";',
+			f'pub const VALUE_WEIGHTS: &str = "{value}";',
 			body,
 			count=1,
 		)

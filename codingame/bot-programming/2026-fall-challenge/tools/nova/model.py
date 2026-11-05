@@ -223,11 +223,12 @@ def quantise(matrix):
 	return np.clip(np.rint(matrix / step[:, None]), -127, 127).astype(np.int8), step
 
 
-def export(model):
+def export(model, value=True):
 	payload = bytearray(
 		struct.pack("<BBB", NET_VERSION, model.channels, len(model.rounds))
 	)
-	for layer in [*model.layers(), model.value_hidden, model.value_out]:
+	head = [model.value_hidden, model.value_out] if value else []
+	for layer in [*model.layers(), *head]:
 		weight = layer.weight.detach().cpu().numpy().astype(np.float32)
 		bias = layer.bias.detach().cpu().numpy().astype(np.float32)
 		values, step = quantise(weight)
