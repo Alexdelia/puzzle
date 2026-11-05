@@ -93,6 +93,8 @@ struct Match {
 	viewers: [Viewer; 2],
 	asked: [bool; 2],
 	scores: [i32; 2],
+	units: [i32; 2],
+	unit_reward: f32,
 	seed: i64,
 }
 
@@ -122,8 +124,14 @@ impl Match {
 			viewers: [Viewer::default(), Viewer::default()],
 			asked: [false; 2],
 			scores: [0; 2],
+			units: [0; 2],
+			unit_reward: std::env::var("NOVA_UNIT_REWARD")
+				.ok()
+				.map(|w| w.parse::<f32>().expect("NOVA_UNIT_REWARD is a number"))
+				.unwrap_or(0.0),
 			seed,
 		};
+		game.units = [0, 1].map(|p| game.game.board.units_of(p));
 		game.advance();
 		Ok(game)
 	}
@@ -185,9 +193,13 @@ impl Match {
 		let scores = self.game.scores();
 		let gained = [scores[0] - self.scores[0], scores[1] - self.scores[1]];
 		self.scores = scores;
+		let units = [0, 1].map(|p| self.game.board.units_of(p));
+		let grown = [units[0] - self.units[0], units[1] - self.units[1]];
+		self.units = units;
+		let shaped = self.unit_reward * (grown[0] - grown[1]) as f32;
 		[
-			(gained[0] - gained[1]) as f32,
-			(gained[1] - gained[0]) as f32,
+			(gained[0] - gained[1]) as f32 + shaped,
+			(gained[1] - gained[0]) as f32 - shaped,
 		]
 	}
 }

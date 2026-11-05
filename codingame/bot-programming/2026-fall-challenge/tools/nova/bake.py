@@ -24,6 +24,11 @@ def main():
 		default=None,
 		help="default one-turn search budget per turn",
 	)
+	parser.add_argument(
+		"--opponent",
+		default=None,
+		help="exported weights (.bin) predicting the opponent in the search",
+	)
 	args = parser.parse_args()
 	subprocess.run(
 		[str(ROOT / "solution" / "bundle.sh"), "nova", args.out],
@@ -39,6 +44,15 @@ def main():
 		count=1,
 	)
 	assert replaced == 1
+	if args.opponent is not None:
+		opponent = pack(pathlib.Path(args.opponent).read_bytes())
+		body, replaced = re.subn(
+			r'pub const OPPONENT_WEIGHTS: &str = "[^"]*";',
+			f'pub const OPPONENT_WEIGHTS: &str = "{opponent}";',
+			body,
+			count=1,
+		)
+		assert replaced == 1
 	if args.search_ms is not None:
 		body, replaced = re.subn(
 			r"pub const DEFAULT_SEARCH_MS: Option<f64> = None;",

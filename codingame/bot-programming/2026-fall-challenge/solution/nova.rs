@@ -4,6 +4,7 @@ use std::io::{BufRead, Write};
 use std::time::Instant;
 
 pub const WEIGHTS: &str = "";
+pub const OPPONENT_WEIGHTS: &str = "";
 
 pub const NODE_FEATURES: usize = 28;
 pub const GLOBAL_FEATURES: usize = 8;
@@ -16,7 +17,11 @@ pub const IGNORED: i32 = -2;
 pub const NOT_USABLE: i32 = -1;
 pub const NET_VERSION: u8 = 1;
 pub const DEFAULT_SEARCH_MS: Option<f64> = None;
-pub const DEFAULT_EXPOSURE: f32 = 0.0;
+pub const DEFAULT_UNIT_BONUS: f32 = 0.15;
+pub const DEFAULT_TRIANGLE_BONUS: f32 = 0.08;
+pub const DEFAULT_REACH_BONUS: f32 = 0.3;
+pub const REACH_CAP: u32 = 12;
+pub const STALL_TURN: i32 = 12;
 pub const PACK_BASE: u32 = 0x4E00;
 
 pub struct Features {
@@ -582,30 +587,69 @@ impl Net {
 	}
 }
 
-pub fn exposure(map: &Map, state: &State, me: usize) -> i32 {
-	let opponent = 1 - me;
-	let surrounded: i32 = (0..map.len())
-		.filter(|&n| surround_threatened(state, me, n))
-		.map(|n| state.units[n][me])
-		.sum();
-	let attackable = state
+pub fn hop_distances(map: &Map, state: &State) -> Vec<[u8; MAX_NODES]> {
+	(0..map.len())
+		.map(|source| {
+			let mut distance = [u8::MAX; MAX_NODES];
+			distance[source] = 0;
+			let mut frontier = vec![source];
+			while !frontier.is_empty() {
+				let mut next = Vec::new();
+				for &v in &frontier {
+					for w in nodes_of(state.adjacency[v]) {
+						if distance[w] == u8::MAX {
+							distance[w] = distance[v] + 1;
+							next.push(w);
+						}
+					}
+				}
+				frontier = next;
+			}
+			distance
+		})
+		.collect()
+}
+
+pub fn reach_cost(map: &Map, state: &State, me: usize, hops: &[[u8; MAX_NODES]]) -> u32 {
+	let owned = state.node_owners()[me];
+	let mine: Vec<usize> = (0..map.len()).filter(|&v| state.units[v][me] > 0).collect();
+	state
 		.live
 		.iter()
-		.filter(|&t| {
-			state.owner[opponent].has(t)
-				&& state.initial_owner[opponent].has(t)
-				&& nodes_of(map.corners(t)).all(|c| state.units[c][opponent] >= 1)
+		.filter(|&t| !state.owner[me].has(t) && state.can_capture[me].has(t))
+		.map(|t| {
+			let corners = map.triangles[t];
+			corners
+				.iter()
+				.filter(|&&c| owned & bit(c) == 0)
+				.map(|&c| {
+					mine.iter()
+						.filter(|v| !corners.contains(v))
+						.map(|&v| u32::from(hops[v][c]))
+						.min()
+						.unwrap_or(u32::from(u8::MAX))
+				})
+				.sum::<u32>()
 		})
-		.flat_map(|t| nodes_of(attack_targets(map, state, t, me)))
-		.map(|n| state.units[n][me])
-		.max()
-		.unwrap_or(0);
-	surrounded + attackable
+		.min()
+		.unwrap_or(0)
+		.min(REACH_CAP)
+}
+
+fn weight(name: &str, default: f32) -> f32 {
+	std::env::var(name)
+		.ok()
+		.map(|w| {
+			w.parse::<f32>()
+				.unwrap_or_else(|_| panic!("{name} is a number"))
+		})
+		.unwrap_or(default)
 }
 
 #[allow(clippy::too_many_arguments)]
 pub fn search(
-	net: &Net,
+	predictor: &Net,
+	valuer: &Net,
 	map: &Map,
 	state: &State,
 	me: usize,
@@ -616,12 +660,13 @@ pub fn search(
 	rng: &mut Rng,
 ) -> (Vec<Command>, usize) {
 	let opponent = 1 - me;
-	let exposure_weight = std::env::var("NOVA_EXPOSURE")
-		.ok()
-		.map(|w| w.parse::<f32>().expect("NOVA_EXPOSURE is a number"))
-		.unwrap_or(DEFAULT_EXPOSURE);
+	let unit_bonus = weight("NOVA_UNIT_BONUS", DEFAULT_UNIT_BONUS);
+	let triangle_bonus = weight("NOVA_TRIANGLE_BONUS", DEFAULT_TRIANGLE_BONUS);
+	let reach_bonus = weight("NOVA_REACH_BONUS", DEFAULT_REACH_BONUS);
+	let stalled = state.owner[me].len() == 0 && turn >= STALL_TURN;
+	let hops = (reach_bonus != 0.0 && stalled).then(|| hop_distances(map, state));
 	let their_view = features(map, state, opponent, turn);
-	let their_decision = decide(net, map, state, opponent, &their_view);
+	let their_decision = decide(predictor, map, state, opponent, &their_view);
 	let theirs = commands(map, state, opponent, &their_view, &their_decision, None);
 	let score = |mine: &[Command]| {
 		let mut next = *state;
@@ -630,14 +675,24 @@ pub fn search(
 		ordered[opponent] = &theirs;
 		next.step(map, ordered);
 		let view = features(map, &next, me, turn + 1);
-		net.value(map, &next, &view).unwrap_or(0.0)
-			- exposure_weight * exposure(map, &next, me) as f32
+		let mut total = valuer.value(map, &next, &view).unwrap_or(0.0);
+		total += unit_bonus * (next.units_of(me) - next.units_of(opponent)) as f32;
+		total += triangle_bonus * next.owner[me].len() as f32;
+		if let Some(hops) = &hops {
+			total -= reach_bonus * reach_cost(map, &next, me, hops) as f32;
+		}
+		total
 	};
 	let mut best = commands(map, state, me, seen, decision, None);
 	let mut best_value = score(&best);
 	let mut tried = 1;
+	let mut evaluated = std::collections::HashSet::new();
+	evaluated.insert(best.clone());
 	while Instant::now() < deadline {
 		let candidate = commands(map, state, me, seen, decision, Some(rng));
+		if !evaluated.insert(candidate.clone()) {
+			continue;
+		}
 		let value = score(&candidate);
 		tried += 1;
 		if value > best_value {
@@ -1131,8 +1186,22 @@ pub fn weights() -> Option<Vec<u8>> {
 	Some(unpack(WEIGHTS))
 }
 
+fn opponent_weights() -> Option<Vec<u8>> {
+	if let Ok(path) = std::env::var("NOVA_OPPONENT_WEIGHTS") {
+		return Some(std::fs::read(&path).unwrap_or_else(|e| panic!("cannot read {path}: {e}")));
+	}
+	if OPPONENT_WEIGHTS.is_empty() {
+		return None;
+	}
+	Some(unpack(OPPONENT_WEIGHTS))
+}
+
 fn main() {
 	let net = weights().map(|bytes| Net::load(&bytes));
+	let predictor = opponent_weights().map(|bytes| Net::load(&bytes));
+	let valuer = std::env::var("NOVA_VALUE_WEIGHTS").ok().map(|path| {
+		Net::load(&std::fs::read(&path).unwrap_or_else(|e| panic!("cannot read {path}: {e}")))
+	});
 	let mut dump = std::env::var("NOVA_DUMP").ok().map(|path| {
 		std::io::BufWriter::new(
 			std::fs::File::create(&path).unwrap_or_else(|e| panic!("cannot create {path}: {e}")),
@@ -1204,12 +1273,14 @@ fn main() {
 						}
 					}
 				}
-				match (search_ms, net.value.is_some()) {
+				let valuer = valuer.as_ref().unwrap_or(net);
+				match (search_ms, valuer.value.is_some()) {
 					(Some(budget), true) => {
 						let deadline =
 							started + std::time::Duration::from_secs_f64(budget / 1000.0);
 						let (best, tried) = search(
-							net,
+							predictor.as_ref().unwrap_or(net),
+							valuer,
 							&map,
 							&state,
 							side,
