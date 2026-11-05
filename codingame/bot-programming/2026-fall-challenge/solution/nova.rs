@@ -20,6 +20,8 @@ pub const DEFAULT_SEARCH_MS: Option<f64> = None;
 pub const DEFAULT_UNIT_BONUS: f32 = 0.15;
 pub const DEFAULT_TRIANGLE_BONUS: f32 = 0.08;
 pub const DEFAULT_REACH_BONUS: f32 = 0.3;
+pub const DEFAULT_REPLIES: f32 = 1.0;
+pub const DEFAULT_MIX: f32 = 0.0;
 pub const REACH_CAP: u32 = 12;
 pub const STALL_TURN: i32 = 12;
 pub const PACK_BASE: u32 = 0x4E00;
@@ -646,6 +648,16 @@ fn weight(name: &str, default: f32) -> f32 {
 		.unwrap_or(default)
 }
 
+fn budget(name: &str) -> usize {
+	std::env::var(name)
+		.ok()
+		.map(|n| {
+			n.parse::<usize>()
+				.unwrap_or_else(|_| panic!("{name} is a count"))
+		})
+		.unwrap_or(usize::MAX)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn search(
 	predictor: &Net,
@@ -663,16 +675,37 @@ pub fn search(
 	let unit_bonus = weight("NOVA_UNIT_BONUS", DEFAULT_UNIT_BONUS);
 	let triangle_bonus = weight("NOVA_TRIANGLE_BONUS", DEFAULT_TRIANGLE_BONUS);
 	let reach_bonus = weight("NOVA_REACH_BONUS", DEFAULT_REACH_BONUS);
+	let candidate_cap = budget("NOVA_SEARCH_CANDIDATES");
+	let draw_cap = budget("NOVA_SEARCH_DRAWS");
 	let stalled = state.owner[me].len() == 0 && turn >= STALL_TURN;
 	let hops = (reach_bonus != 0.0 && stalled).then(|| hop_distances(map, state));
 	let their_view = features(map, state, opponent, turn);
 	let their_decision = decide(predictor, map, state, opponent, &their_view);
-	let theirs = commands(map, state, opponent, &their_view, &their_decision, None);
-	let score = |mine: &[Command]| {
+	let reply_count = (weight("NOVA_REPLIES", DEFAULT_REPLIES) as usize).max(1);
+	let mix = weight("NOVA_MIX", DEFAULT_MIX);
+	let mut replies = vec![commands(
+		map,
+		state,
+		opponent,
+		&their_view,
+		&their_decision,
+		None,
+	)];
+	while replies.len() < reply_count {
+		replies.push(commands(
+			map,
+			state,
+			opponent,
+			&their_view,
+			&their_decision,
+			Some(rng),
+		));
+	}
+	let against = |mine: &[Command], theirs: &[Command]| {
 		let mut next = *state;
 		let mut ordered: [&[Command]; 2] = [&[], &[]];
 		ordered[me] = mine;
-		ordered[opponent] = &theirs;
+		ordered[opponent] = theirs;
 		next.step(map, ordered);
 		let view = features(map, &next, me, turn + 1);
 		let mut total = valuer.value(map, &next, &view).unwrap_or(0.0);
@@ -683,13 +716,27 @@ pub fn search(
 		}
 		total
 	};
+	let score = |mine: &[Command]| {
+		replies
+			.iter()
+			.map(|theirs| against(mine, theirs))
+			.sum::<f32>()
+			/ replies.len() as f32
+	};
+	let cloned = (mix > 0.0).then(|| decide(predictor, map, state, me, seen));
 	let mut best = commands(map, state, me, seen, decision, None);
 	let mut best_value = score(&best);
 	let mut tried = 1;
 	let mut evaluated = std::collections::HashSet::new();
 	evaluated.insert(best.clone());
-	while Instant::now() < deadline {
-		let candidate = commands(map, state, me, seen, decision, Some(rng));
+	let mut draws = 0;
+	while Instant::now() < deadline && tried < candidate_cap && draws < draw_cap {
+		draws += 1;
+		let source = match &cloned {
+			Some(clone) if rng.unit() < mix => clone,
+			_ => decision,
+		};
+		let candidate = commands(map, state, me, seen, source, Some(rng));
 		if !evaluated.insert(candidate.clone()) {
 			continue;
 		}
@@ -1299,12 +1346,13 @@ fn main() {
 			None => Vec::new(),
 		};
 		let elapsed = started.elapsed().as_micros();
-		writeln!(
-			out,
-			"{};MSG {elapsed}us c{candidates}",
-			answer(&map, &orders)
-		)
-		.expect("stdout is writable");
+		let line = answer(&map, &orders);
+		if let (Some(file), None) = (dump.as_mut(), recorded.as_ref()) {
+			let labels = labels(&map, &state, side, &features, &line);
+			write_record(file, &map, &state, side, turn, &features, &labels);
+			file.flush().expect("the dump file is writable");
+		}
+		writeln!(out, "{line};MSG {elapsed}us c{candidates}").expect("stdout is writable");
 		out.flush().expect("stdout is writable");
 	}
 }

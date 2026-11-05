@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import bc
 from bc import held_out
 from model import NODES, RECORD
 
@@ -81,11 +82,21 @@ def main():
 	)
 	parser.add_argument("--holdout", type=float, default=0.2)
 	parser.add_argument("--jobs", type=int, default=8)
+	parser.add_argument(
+		"--all",
+		action="store_true",
+		help="score every dump, not only held-out top players",
+	)
+	parser.add_argument(
+		"--top", default=None, help="comma list of players held out, replacing TOP"
+	)
 	args = parser.parse_args()
+	if args.top:
+		bc.TOP = tuple(args.top.split(","))
 	dumps = [
 		p
 		for p in sorted(pathlib.Path(args.data).glob("*.bin"))
-		if held_out(p, args.holdout)
+		if args.all or held_out(p, args.holdout)
 	]
 	streams = {}
 	for directory in args.streams:

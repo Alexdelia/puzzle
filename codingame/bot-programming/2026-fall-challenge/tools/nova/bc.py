@@ -121,11 +121,20 @@ def main():
 	)
 	parser.add_argument("--seed", type=int, default=1)
 	parser.add_argument(
+		"--top",
+		default=None,
+		help="comma list of players held out and weighted, replacing TOP",
+	)
+	parser.add_argument("--init", default=None, help="checkpoint (.pt) to fine-tune")
+	parser.add_argument(
 		"--train-only",
 		default=None,
 		help="train only on games whose player name contains this text",
 	)
 	args = parser.parse_args()
+	if args.top:
+		global TOP
+		TOP = tuple(args.top.split(","))
 	torch.manual_seed(args.seed)
 	rng = random.Random(args.seed)
 	paths = sorted(
@@ -150,6 +159,10 @@ def main():
 	device = "cuda" if torch.cuda.is_available() else "cpu"
 	train, test = tensors(train_records, live_limit), tensors(test_records, live_limit)
 	model = Nova(args.channels, args.rounds).to(device)
+	if args.init:
+		model.load_state_dict(
+			torch.load(args.init, weights_only=False)["model"], strict=False
+		)
 	optimiser = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
 	steps = args.epochs * ((len(train_records) + args.batch - 1) // args.batch)
 	schedule = torch.optim.lr_scheduler.OneCycleLR(
