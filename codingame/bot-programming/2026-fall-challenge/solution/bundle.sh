@@ -3,13 +3,23 @@ set -euo pipefail
 
 readonly CODINGAME_CHARACTER_LIMIT=100000
 here=$(cd "$(dirname "$0")" && pwd)
-usage="usage: bundle.sh <bot name, e.g. apex> [output file] [NAME=VALUE overriding DEFAULT_NAME ...]"
-bot=${1:?$usage}
+usage="usage: bundle.sh <bot>[/<variant>, default best] [output file] [NAME=VALUE overriding DEFAULT_NAME ...]"
+spec=${1:?$usage}
+bot=${spec%%/*}
+variant=${spec#"$bot"}
+variant=${variant#/}
 source="$here/$bot.rs"
-output=${2:-$here/../target/bundle/$bot.rs}
+output=${2:-$here/../target/bundle/${spec//\//_}.rs}
 shift $(($# < 2 ? $# : 2))
-weights=${WEIGHT_DIR:-$here/../weight/$bot}
-settings="$here/$bot.bundle"
+if [[ -n ${WEIGHT_DIR:-} ]]; then
+	weights=$WEIGHT_DIR
+elif [[ -n $variant ]]; then
+	weights="$here/../weight/$bot/$variant"
+	[[ -d $weights ]] || { echo "no variant at $weights" >&2; exit 1; }
+else
+	weights="$here/../weight/$bot/best"
+fi
+settings="$weights/settings"
 [[ -f $source ]] || { echo "no bot at $source" >&2; exit 1; }
 
 mkdir -p "$(dirname "$output")"
@@ -85,7 +95,7 @@ PYTHON
 
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
-rustc --edition 2021 -O --crate-type bin -o "$scratch/$bot" "$output"
+rustc --edition 2021 -O --crate-type bin --crate-name bot -o "$scratch/$bot" "$output"
 
 size=$(python3 -c 'import sys; print(len(open(sys.argv[1], encoding="utf-8").read().encode("utf-16-le")) // 2)' "$output")
 if ((size > CODINGAME_CHARACTER_LIMIT)); then
