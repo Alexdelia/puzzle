@@ -28,6 +28,7 @@ pub const DEFAULT_TEMPERATURE: f32 = 1.0;
 pub const DEFAULT_OPPONENT_TRIANGLE_BONUS: f32 = 0.0;
 pub const DEFAULT_FORCE_ATTACKS: f32 = 0.0;
 pub const DEFAULT_ATTACK_BONUS: f32 = 0.0;
+pub const DEFAULT_ATTACK_BONUS_PER_ATTACK: f32 = 0.0;
 pub const DEFAULT_THREAT_SHARE: f32 = 0.0;
 pub const DEFAULT_THREATS: f32 = 2.0;
 pub const REACH_CAP: u32 = 12;
@@ -730,6 +731,10 @@ pub fn search(
 	};
 	let worst_share = weight("NOVA_WORST", DEFAULT_WORST);
 	let attack_bonus = weight("NOVA_ATTACK_BONUS", DEFAULT_ATTACK_BONUS);
+	let bonus_per_attack = weight(
+		"NOVA_ATTACK_BONUS_PER_ATTACK",
+		DEFAULT_ATTACK_BONUS_PER_ATTACK,
+	) > 0.0;
 	let mut best = commands(map, state, me, seen, decision, None);
 	let threat_share = weight("NOVA_THREAT_SHARE", DEFAULT_THREAT_SHARE);
 	let threats = if threat_share > 0.0 {
@@ -748,8 +753,16 @@ pub fn search(
 		let values: Vec<f32> = replies.iter().map(|theirs| against(mine, theirs)).collect();
 		let mean = values.iter().sum::<f32>() / values.len() as f32;
 		let worst = values.iter().copied().fold(f32::INFINITY, f32::min);
-		let attacking = mine.iter().any(|c| matches!(c, Command::Attack { .. }));
-		let base = mean + worst_share * (worst - mean) + if attacking { attack_bonus } else { 0.0 };
+		let attacks = mine
+			.iter()
+			.filter(|c| matches!(c, Command::Attack { .. }))
+			.count();
+		let rewarded = if bonus_per_attack {
+			attacks
+		} else {
+			attacks.min(1)
+		};
+		let base = mean + worst_share * (worst - mean) + attack_bonus * rewarded as f32;
 		let threatened = threats
 			.iter()
 			.map(|threat| against(mine, threat))
