@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 use std::time::Instant;
 
-pub const WEIGHTS: &str = "";
+pub const POLICY_WEIGHTS: &str = "";
 pub const OPPONENT_WEIGHTS: &str = "";
 pub const VALUE_WEIGHTS: &str = "";
 
@@ -1373,10 +1373,10 @@ pub fn weights() -> Option<Vec<u8>> {
 	if let Ok(path) = std::env::var("NOVA_WEIGHTS") {
 		return Some(std::fs::read(&path).unwrap_or_else(|e| panic!("cannot read {path}: {e}")));
 	}
-	if WEIGHTS.is_empty() {
+	if POLICY_WEIGHTS.is_empty() {
 		return None;
 	}
-	Some(unpack(WEIGHTS))
+	Some(unpack(POLICY_WEIGHTS))
 }
 
 fn opponent_weights() -> Option<Vec<u8>> {

@@ -1,21 +1,18 @@
 import argparse
+import os
 import pathlib
-import re
+import shutil
 import subprocess
-import sys
 import tempfile
-
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from model import pack
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 def main():
 	parser = argparse.ArgumentParser(
-		description="bundle nova for CodinGame with a weights file packed into WEIGHTS"
+		description="bundle nova for CodinGame with explicit weights instead of weight/nova"
 	)
-	parser.add_argument("weights", help="exported weights (.bin)")
+	parser.add_argument("weights", help="exported policy weights (.bin)")
 	parser.add_argument(
 		"out", help="bundled Rust file; its name must be a valid crate name"
 	)
@@ -42,75 +39,21 @@ def main():
 		help="NAME=VALUE overriding the f32 constant DEFAULT_NAME",
 	)
 	args = parser.parse_args()
-	subprocess.run(
-		[str(ROOT / "solution" / "bundle.sh"), "nova", args.out],
-		check=True,
-		stdout=subprocess.DEVNULL,
-	)
-	source = pathlib.Path(args.out)
-	text = pack(pathlib.Path(args.weights).read_bytes())
-	body, replaced = re.subn(
-		r'pub const WEIGHTS: &str = "[^"]*";',
-		f'pub const WEIGHTS: &str = "{text}";',
-		source.read_text(encoding="utf-8"),
-		count=1,
-	)
-	assert replaced == 1
-	if args.opponent is not None:
-		opponent = pack(pathlib.Path(args.opponent).read_bytes())
-		body, replaced = re.subn(
-			r'pub const OPPONENT_WEIGHTS: &str = "[^"]*";',
-			f'pub const OPPONENT_WEIGHTS: &str = "{opponent}";',
-			body,
-			count=1,
-		)
-		assert replaced == 1
-	if args.value is not None:
-		value = pack(pathlib.Path(args.value).read_bytes())
-		body, replaced = re.subn(
-			r'pub const VALUE_WEIGHTS: &str = "[^"]*";',
-			f'pub const VALUE_WEIGHTS: &str = "{value}";',
-			body,
-			count=1,
-		)
-		assert replaced == 1
+	settings = [
+		f"{name}={float(value)}" for name, value in (s.split("=", 1) for s in args.set)
+	]
 	if args.search_ms is not None:
-		body, replaced = re.subn(
-			r"pub const DEFAULT_SEARCH_MS: Option<f64> = None;",
-			f"pub const DEFAULT_SEARCH_MS: Option<f64> = Some({args.search_ms});",
-			body,
-			count=1,
-		)
-		assert replaced == 1
-	for setting in args.set:
-		name, value = setting.split("=", 1)
-		body, replaced = re.subn(
-			rf"pub const DEFAULT_{name}: f32 = [^;]*;",
-			f"pub const DEFAULT_{name}: f32 = {float(value)};",
-			body,
-			count=1,
-		)
-		assert replaced == 1, f"no f32 constant DEFAULT_{name}"
-	body = "\n".join(line.lstrip() for line in body.splitlines()) + "\n"
-	source.write_text(body, encoding="utf-8")
-	with tempfile.TemporaryDirectory() as scratch:
+		settings.append(f"SEARCH_MS=Some({args.search_ms})")
+	with tempfile.TemporaryDirectory() as weight_dir:
+		roles = {"policy": args.weights, "opponent": args.opponent, "value": args.value}
+		for role, path in roles.items():
+			if path is not None:
+				shutil.copyfile(path, f"{weight_dir}/{role}.bin")
 		subprocess.run(
-			[
-				"rustc",
-				"--edition",
-				"2021",
-				"-O",
-				"--crate-type",
-				"bin",
-				"-o",
-				f"{scratch}/bot",
-				str(source),
-			],
+			[str(ROOT / "solution" / "bundle.sh"), "nova", args.out, *settings],
 			check=True,
+			env={**os.environ, "WEIGHT_DIR": weight_dir},
 		)
-	units = len(body.encode("utf-16-le")) // 2
-	print(f"{source}: {units} UTF-16 units, weights {len(text)} characters")
-	assert units <= 100000, "over the CodinGame limit"
 
 
 if __name__ == "__main__":
