@@ -48,11 +48,11 @@ fn play(cli: &Cli, pairing: &Pairing) -> MatchResult {
 	let mut game = Game::new(board, cli.map.league);
 	let mut d0 = cli
 		.bots
-		.driver(usize::from(pairing.swapped))
+		.tagged_driver(usize::from(pairing.swapped), pairing.index)
 		.unwrap_or_else(die);
 	let mut d1 = cli
 		.bots
-		.driver(usize::from(!pairing.swapped))
+		.tagged_driver(usize::from(!pairing.swapped), pairing.index)
 		.unwrap_or_else(die);
 	let limits = cli.bots.enforce_cg_time.then(TimeLimits::default);
 	let mut result = run_match(&mut game, [d0.as_mut(), d1.as_mut()], limits, None);
@@ -111,7 +111,7 @@ fn main() {
 	let mut faults = [0usize; 2];
 	let mut slowest = [Duration::ZERO; 2];
 	let mut score_sum = [0i64; 2];
-	for (_, seed, swapped, result) in &played {
+	for (index, seed, swapped, result) in &played {
 		match result.winner {
 			Some(side) => wins[side] += 1,
 			None => draws += 1,
@@ -128,7 +128,7 @@ fn main() {
 		}
 		if cli.verbose {
 			println!(
-				"seed {seed} swapped {swapped} winner {:?} score {} {} turns {} reason {:?} {}",
+				"game {index} seed {seed} swapped {swapped} winner {:?} score {} {} turns {} reason {:?} {}",
 				result.winner,
 				result.score[0],
 				result.score[1],

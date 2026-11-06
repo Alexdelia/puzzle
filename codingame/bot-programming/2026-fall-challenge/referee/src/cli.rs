@@ -40,6 +40,13 @@ impl BotArgs {
 	pub fn driver(&self, side: usize) -> Result<Box<dyn Driver>, String> {
 		make_driver(self.spec(side), self.timeout())
 	}
+
+	pub fn tagged_driver(&self, side: usize, game: usize) -> Result<Box<dyn Driver>, String> {
+		let spec = self
+			.spec(side)
+			.replace("%GAME%", &format!("{game}-p{}", side + 1));
+		make_driver(&spec, self.timeout())
+	}
 }
 
 #[derive(Args, Clone, Debug)]

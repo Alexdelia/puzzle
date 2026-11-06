@@ -22,7 +22,9 @@ pub const DEFAULT_UNIT_BONUS: f32 = 0.15;
 pub const DEFAULT_TRIANGLE_BONUS: f32 = 0.08;
 pub const DEFAULT_REACH_BONUS: f32 = 0.3;
 pub const DEFAULT_REPLIES: f32 = 1.0;
-pub const DEFAULT_MIX: f32 = 0.0;
+pub const DEFAULT_CLIMB: f32 = 0.0;
+pub const DEFAULT_WORST: f32 = 0.0;
+pub const DEFAULT_TEMPERATURE: f32 = 1.0;
 pub const REACH_CAP: u32 = 12;
 pub const STALL_TURN: i32 = 12;
 pub const PACK_BASE: u32 = 0x4E00;
@@ -683,7 +685,6 @@ pub fn search(
 	let their_view = features(map, state, opponent, turn);
 	let their_decision = decide(predictor, map, state, opponent, &their_view);
 	let reply_count = (weight("NOVA_REPLIES", DEFAULT_REPLIES) as usize).max(1);
-	let mix = weight("NOVA_MIX", DEFAULT_MIX);
 	let mut replies = vec![commands(
 		map,
 		state,
@@ -717,27 +718,50 @@ pub fn search(
 		}
 		total
 	};
+	let worst_share = weight("NOVA_WORST", DEFAULT_WORST);
 	let score = |mine: &[Command]| {
-		replies
-			.iter()
-			.map(|theirs| against(mine, theirs))
-			.sum::<f32>()
-			/ replies.len() as f32
+		let values: Vec<f32> = replies.iter().map(|theirs| against(mine, theirs)).collect();
+		let mean = values.iter().sum::<f32>() / values.len() as f32;
+		let worst = values.iter().copied().fold(f32::INFINITY, f32::min);
+		mean + worst_share * (worst - mean)
 	};
-	let cloned = (mix > 0.0).then(|| decide(predictor, map, state, me, seen));
+	let temperature = weight("NOVA_TEMPERATURE", DEFAULT_TEMPERATURE);
+	let tempered = (temperature != 1.0).then(|| tempered(decision, temperature));
+	let decision_for_draws = tempered.as_ref().unwrap_or(decision);
 	let mut best = commands(map, state, me, seen, decision, None);
 	let mut best_value = score(&best);
 	let mut tried = 1;
 	let mut evaluated = std::collections::HashSet::new();
 	evaluated.insert(best.clone());
 	let mut draws = 0;
-	while Instant::now() < deadline && tried < candidate_cap && draws < draw_cap {
+	let climb_share = weight("NOVA_CLIMB", DEFAULT_CLIMB);
+	let started = Instant::now();
+	let sampling_end = started
+		+ deadline
+			.saturating_duration_since(started)
+			.mul_f32(1.0 - climb_share);
+	while Instant::now() < sampling_end && tried < candidate_cap && draws < draw_cap {
 		draws += 1;
-		let source = match &cloned {
-			Some(clone) if rng.unit() < mix => clone,
-			_ => decision,
+		let candidate = commands(map, state, me, seen, decision_for_draws, Some(rng));
+		if !evaluated.insert(candidate.clone()) {
+			continue;
+		}
+		let value = score(&candidate);
+		tried += 1;
+		if value > best_value {
+			best_value = value;
+			best = candidate;
+		}
+	}
+	while climb_share > 0.0
+		&& Instant::now() < deadline
+		&& tried < candidate_cap
+		&& draws < draw_cap
+	{
+		draws += 1;
+		let Some(candidate) = mutate(map, state, me, seen, decision, &best, rng) else {
+			continue;
 		};
-		let candidate = commands(map, state, me, seen, source, Some(rng));
 		if !evaluated.insert(candidate.clone()) {
 			continue;
 		}
@@ -749,6 +773,127 @@ pub fn search(
 		}
 	}
 	(best, tried)
+}
+
+fn tempered(decision: &Decision, temperature: f32) -> Decision {
+	fn reshape<T: Copy>(options: &[(T, f32)], temperature: f32) -> Vec<(T, f32)> {
+		let powered: Vec<(T, f32)> = options
+			.iter()
+			.map(|&(a, p)| (a, p.max(1e-12).powf(1.0 / temperature)))
+			.collect();
+		let total: f32 = powered.iter().map(|&(_, p)| p).sum();
+		powered.into_iter().map(|(a, p)| (a, p / total)).collect()
+	}
+	Decision {
+		moves: decision
+			.moves
+			.iter()
+			.map(|o| reshape(o, temperature))
+			.collect(),
+		triangle_actions: decision
+			.triangle_actions
+			.iter()
+			.map(|o| reshape(o, temperature))
+			.collect(),
+	}
+}
+
+fn command_key(command: &Command) -> (u8, usize, usize, i32) {
+	match *command {
+		Command::Attack { triangle, target } => (0, triangle, target, 0),
+		Command::Spawn { triangle, node } => (1, triangle, node, 0),
+		Command::Move { from, to, amount } => (2, from, to, amount),
+		_ => (3, 0, 0, 0),
+	}
+}
+
+fn mutate(
+	map: &Map,
+	state: &State,
+	me: usize,
+	features: &Features,
+	decision: &Decision,
+	plan: &[Command],
+	rng: &mut Rng,
+) -> Option<Vec<Command>> {
+	let houses: Vec<usize> = (0..decision.moves.len())
+		.filter(|&v| state.units[v][me] > 0 && decision.moves[v].len() > 1)
+		.collect();
+	let triangles: Vec<usize> = (0..decision.triangle_actions.len())
+		.filter(|&i| decision.triangle_actions[i].len() > 1)
+		.collect();
+	let choices = houses.len() + triangles.len();
+	if choices == 0 {
+		return None;
+	}
+	let pick = ((rng.unit() * choices as f32) as usize).min(choices - 1);
+	let mut next: Vec<Command> = Vec::with_capacity(plan.len() + 2);
+	if pick < houses.len() {
+		let v = houses[pick];
+		let attacking = plan
+			.iter()
+			.filter_map(|c| match *c {
+				Command::Attack { triangle, .. } if map.triangles[triangle].contains(&v) => {
+					Some(())
+				}
+				_ => None,
+			})
+			.count() as i32;
+		let units = state.units[v][me] - attacking;
+		if units <= 0 {
+			return None;
+		}
+		next.extend(
+			plan.iter()
+				.copied()
+				.filter(|c| !matches!(*c, Command::Move { from, .. } if from == v)),
+		);
+		let options = &decision.moves[v];
+		let mut counts: BTreeMap<usize, i32> = BTreeMap::new();
+		if rng.unit() < 0.5 {
+			*counts.entry(rng.draw(options)).or_default() += units;
+		} else {
+			for _ in 0..units {
+				*counts.entry(rng.draw(options)).or_default() += 1;
+			}
+		}
+		for (w, amount) in counts {
+			if w != v {
+				next.push(Command::Move {
+					from: v,
+					to: w,
+					amount,
+				});
+			}
+		}
+	} else {
+		let index = triangles[pick - houses.len()];
+		let t = features.live[index];
+		let corners = map.triangles[t];
+		let action = rng.draw(&decision.triangle_actions[index]);
+		if action >= ATTACK_BASE {
+			return None;
+		}
+		if plan
+			.iter()
+			.any(|c| matches!(*c, Command::Attack { triangle, .. } if triangle == t))
+		{
+			return None;
+		}
+		next.extend(
+			plan.iter()
+				.copied()
+				.filter(|c| !matches!(*c, Command::Spawn { triangle, .. } if triangle == t)),
+		);
+		if action != HOLD {
+			next.push(Command::Spawn {
+				triangle: t,
+				node: corners[(action - SPAWN_BASE) as usize],
+			});
+		}
+	}
+	next.sort_by_key(command_key);
+	Some(next)
 }
 
 pub struct Decision {
@@ -1292,7 +1437,13 @@ fn main() {
 		.ok()
 		.map(|ms| ms.parse::<f64>().expect("NOVA_SEARCH_MS is a number"))
 		.or(DEFAULT_SEARCH_MS);
-	let mut searcher = Rng(0x2545F4914F6CDD1D);
+	let mut searcher = Rng(
+		std::env::var("NOVA_SEARCH_SEED").map_or(0x2545F4914F6CDD1D, |text| {
+			text.bytes().fold(0xcbf29ce484222325u64, |h, b| {
+				(h ^ u64::from(b)).wrapping_mul(0x100000001b3)
+			}) | 1
+		}),
+	);
 	let mut candidates = 0;
 	let mut me = None;
 	let mut turn = 0;

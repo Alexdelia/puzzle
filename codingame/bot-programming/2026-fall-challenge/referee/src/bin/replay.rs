@@ -15,7 +15,7 @@ struct Cli {
 	/// CodinGame text logs (`GET /games/<id>`)
 	logs: Vec<String>,
 
-	/// nickname whose side is reported first
+	/// nickname whose side is reported first, or * for the first agent
 	#[arg(long)]
 	me: String,
 
@@ -75,7 +75,11 @@ fn main() {
 		let text = std::fs::read_to_string(path).unwrap_or_else(die);
 		let log = CgLog::parse(&text).unwrap_or_else(die);
 		let names = agent_names(&text);
-		let Some(me) = names.iter().position(|n| *n == cli.me) else {
+		let Some(me) = names
+			.iter()
+			.position(|n| *n == cli.me)
+			.or((cli.me == "*").then_some(0))
+		else {
 			eprintln!("{path}: no agent named {}", cli.me);
 			continue;
 		};

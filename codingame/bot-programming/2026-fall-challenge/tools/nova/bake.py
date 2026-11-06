@@ -3,6 +3,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from model import pack
@@ -33,6 +34,12 @@ def main():
 		"--value",
 		default=None,
 		help="exported weights (.bin) whose value head scores the search candidates",
+	)
+	parser.add_argument(
+		"--set",
+		action="append",
+		default=[],
+		help="NAME=VALUE overriding the f32 constant DEFAULT_NAME",
 	)
 	args = parser.parse_args()
 	subprocess.run(
@@ -75,7 +82,32 @@ def main():
 			count=1,
 		)
 		assert replaced == 1
+	for setting in args.set:
+		name, value = setting.split("=", 1)
+		body, replaced = re.subn(
+			rf"pub const DEFAULT_{name}: f32 = [^;]*;",
+			f"pub const DEFAULT_{name}: f32 = {float(value)};",
+			body,
+			count=1,
+		)
+		assert replaced == 1, f"no f32 constant DEFAULT_{name}"
+	body = "\n".join(line.lstrip() for line in body.splitlines()) + "\n"
 	source.write_text(body, encoding="utf-8")
+	with tempfile.TemporaryDirectory() as scratch:
+		subprocess.run(
+			[
+				"rustc",
+				"--edition",
+				"2021",
+				"-O",
+				"--crate-type",
+				"bin",
+				"-o",
+				f"{scratch}/bot",
+				str(source),
+			],
+			check=True,
+		)
 	units = len(body.encode("utf-16-le")) // 2
 	print(f"{source}: {units} UTF-16 units, weights {len(text)} characters")
 	assert units <= 100000, "over the CodinGame limit"
