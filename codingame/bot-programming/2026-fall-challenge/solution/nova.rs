@@ -25,6 +25,11 @@ pub const DEFAULT_REPLIES: f32 = 1.0;
 pub const DEFAULT_CLIMB: f32 = 0.0;
 pub const DEFAULT_WORST: f32 = 0.0;
 pub const DEFAULT_TEMPERATURE: f32 = 1.0;
+pub const DEFAULT_OPPONENT_TRIANGLE_BONUS: f32 = 0.0;
+pub const DEFAULT_FORCE_ATTACKS: f32 = 0.0;
+pub const DEFAULT_ATTACK_BONUS: f32 = 0.0;
+pub const DEFAULT_THREAT_SHARE: f32 = 0.0;
+pub const DEFAULT_THREATS: f32 = 2.0;
 pub const REACH_CAP: u32 = 12;
 pub const STALL_TURN: i32 = 12;
 pub const PACK_BASE: u32 = 0x4E00;
@@ -678,6 +683,10 @@ pub fn search(
 	let unit_bonus = weight("NOVA_UNIT_BONUS", DEFAULT_UNIT_BONUS);
 	let triangle_bonus = weight("NOVA_TRIANGLE_BONUS", DEFAULT_TRIANGLE_BONUS);
 	let reach_bonus = weight("NOVA_REACH_BONUS", DEFAULT_REACH_BONUS);
+	let opponent_triangle_bonus = weight(
+		"NOVA_OPPONENT_TRIANGLE_BONUS",
+		DEFAULT_OPPONENT_TRIANGLE_BONUS,
+	);
 	let candidate_cap = budget("NOVA_SEARCH_CANDIDATES");
 	let draw_cap = budget("NOVA_SEARCH_DRAWS");
 	let stalled = state.owner[me].len() == 0 && turn >= STALL_TURN;
@@ -713,26 +722,68 @@ pub fn search(
 		let mut total = valuer.value(map, &next, &view).unwrap_or(0.0);
 		total += unit_bonus * (next.units_of(me) - next.units_of(opponent)) as f32;
 		total += triangle_bonus * next.owner[me].len() as f32;
+		total -= opponent_triangle_bonus * next.owner[opponent].len() as f32;
 		if let Some(hops) = &hops {
 			total -= reach_bonus * reach_cost(map, &next, me, hops) as f32;
 		}
 		total
 	};
 	let worst_share = weight("NOVA_WORST", DEFAULT_WORST);
+	let attack_bonus = weight("NOVA_ATTACK_BONUS", DEFAULT_ATTACK_BONUS);
+	let mut best = commands(map, state, me, seen, decision, None);
+	let threat_share = weight("NOVA_THREAT_SHARE", DEFAULT_THREAT_SHARE);
+	let threats = if threat_share > 0.0 {
+		strongest_threats(
+			attack_options(&their_view, &their_decision)
+				.into_iter()
+				.map(|(attack, triangle)| with_attack(&replies[0], attack, triangle))
+				.collect(),
+			|threat| against(&best, threat),
+			weight("NOVA_THREATS", DEFAULT_THREATS) as usize,
+		)
+	} else {
+		Vec::new()
+	};
 	let score = |mine: &[Command]| {
 		let values: Vec<f32> = replies.iter().map(|theirs| against(mine, theirs)).collect();
 		let mean = values.iter().sum::<f32>() / values.len() as f32;
 		let worst = values.iter().copied().fold(f32::INFINITY, f32::min);
-		mean + worst_share * (worst - mean)
+		let attacking = mine.iter().any(|c| matches!(c, Command::Attack { .. }));
+		let base = mean + worst_share * (worst - mean) + if attacking { attack_bonus } else { 0.0 };
+		let threatened = threats
+			.iter()
+			.map(|threat| against(mine, threat))
+			.fold(f32::INFINITY, f32::min);
+		if threatened < base {
+			base + threat_share * (threatened - base)
+		} else {
+			base
+		}
 	};
 	let temperature = weight("NOVA_TEMPERATURE", DEFAULT_TEMPERATURE);
 	let tempered = (temperature != 1.0).then(|| tempered(decision, temperature));
 	let decision_for_draws = tempered.as_ref().unwrap_or(decision);
-	let mut best = commands(map, state, me, seen, decision, None);
 	let mut best_value = score(&best);
 	let mut tried = 1;
 	let mut evaluated = std::collections::HashSet::new();
 	evaluated.insert(best.clone());
+	if weight("NOVA_FORCE_ATTACKS", DEFAULT_FORCE_ATTACKS) > 0.0 {
+		for (attack, triangle) in attack_options(seen, decision) {
+			if Instant::now() >= deadline || tried >= candidate_cap {
+				break;
+			}
+			let candidate = with_attack(&best, attack, triangle);
+			if !evaluated.insert(candidate.clone()) {
+				continue;
+			}
+			let value = score(&candidate);
+			tried += 1;
+			if value > best_value {
+				best_value = value;
+				best = candidate;
+			}
+		}
+	}
 	let mut draws = 0;
 	let climb_share = weight("NOVA_CLIMB", DEFAULT_CLIMB);
 	let started = Instant::now();
@@ -773,6 +824,55 @@ pub fn search(
 		}
 	}
 	(best, tried)
+}
+
+fn attack_options(features: &Features, decision: &Decision) -> Vec<(Command, usize)> {
+	decision
+		.triangle_actions
+		.iter()
+		.enumerate()
+		.flat_map(|(index, options)| {
+			let triangle = features.live[index];
+			options
+				.iter()
+				.filter(|&&(action, _)| action >= ATTACK_BASE)
+				.map(move |&(action, _)| {
+					let target = (action - ATTACK_BASE) as usize;
+					(Command::Attack { triangle, target }, triangle)
+				})
+		})
+		.collect()
+}
+
+fn strongest_threats(
+	threats: Vec<Vec<Command>>,
+	value_after: impl Fn(&[Command]) -> f32,
+	keep: usize,
+) -> Vec<Vec<Command>> {
+	let mut ranked: Vec<(f32, Vec<Command>)> = threats
+		.into_iter()
+		.map(|threat| (value_after(&threat), threat))
+		.collect();
+	ranked.sort_by(|a, b| a.0.total_cmp(&b.0));
+	ranked
+		.into_iter()
+		.take(keep)
+		.map(|(_, threat)| threat)
+		.collect()
+}
+
+fn with_attack(plan: &[Command], attack: Command, used: usize) -> Vec<Command> {
+	let mut next: Vec<Command> = plan
+		.iter()
+		.copied()
+		.filter(|c| match *c {
+			Command::Spawn { triangle, .. } | Command::Attack { triangle, .. } => triangle != used,
+			_ => true,
+		})
+		.collect();
+	next.push(attack);
+	next.sort_by_key(command_key);
+	next
 }
 
 fn tempered(decision: &Decision, temperature: f32) -> Decision {
