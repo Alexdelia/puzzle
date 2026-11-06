@@ -41,6 +41,10 @@ path = "horizon.rs"
 name = "nova"
 path = "nova.rs"
 
+[[bin]]
+name = "spreader"
+path = "spreader.rs"
+
 [dev-dependencies]
 tryangle = { path = "../referee" }
 divan = "0.1"
