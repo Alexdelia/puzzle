@@ -1,6 +1,7 @@
 use engine::{Command, MAX_NODES, Map, Point, State, bit, nodes_of};
 use std::cell::RefCell;
 use std::io::{BufRead, Write};
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 pub const NET_WEIGHTS: &str = "";
@@ -15,6 +16,7 @@ const GLOBAL_FEATURES: usize = 8;
 const MAX_DEGREE: usize = 12;
 const MOVE_SLOTS: usize = MAX_DEGREE + 1;
 const MAX_USABLE: usize = 32;
+const MAX_WIDTH: usize = 64;
 const RECORD_NODES: usize = 64;
 const PACK_BASE: u32 = 0x4E00;
 const MAGIC: u32 = 0x3154_4D43;
@@ -132,28 +134,68 @@ impl Neighbors {
 	}
 }
 
+struct Topology {
+	neighbors: Rc<Neighbors>,
+	live_at: [f32; MAX_NODES],
+}
+
+impl Topology {
+	fn of(map: &Map, state: &State) -> Topology {
+		let count = map.len();
+		let mut neighbors = Neighbors {
+			flat: Vec::with_capacity(count * 4),
+			starts: Vec::with_capacity(count + 1),
+		};
+		neighbors.starts.push(0);
+		for n in 0..count {
+			neighbors
+				.flat
+				.extend(nodes_of(state.adjacency[n]).take(MAX_DEGREE));
+			neighbors.starts.push(neighbors.flat.len());
+		}
+		let mut live_at = [0f32; MAX_NODES];
+		for t in state.live.iter() {
+			for c in nodes_of(map.corners(t)) {
+				live_at[c] += 1.0;
+			}
+		}
+		Topology {
+			neighbors: Rc::new(neighbors),
+			live_at,
+		}
+	}
+}
+
 struct Obs {
 	nodes: Vec<[f32; NODE_FEATURES]>,
 	globals: [f32; GLOBAL_FEATURES],
-	neighbors: Neighbors,
+	neighbors: Rc<Neighbors>,
 	usable: Vec<usize>,
 	corners: Vec<[usize; 3]>,
 	attack_targets: Vec<u64>,
 }
 
-fn observe(map: &Map, state: &State, player: usize, turn: i32, flip: bool) -> Obs {
+fn observe(
+	map: &Map,
+	topology: &Topology,
+	state: &State,
+	player: usize,
+	turn: i32,
+	flip: bool,
+) -> Obs {
 	let count = map.len();
 	let opponent = 1 - player;
 	let units = |n: usize, p: usize| state.units[n][p];
-	let force = |n: usize, p: usize| {
-		units(n, p)
-			+ nodes_of(state.adjacency[n])
-				.map(|m| units(m, p))
-				.sum::<i32>()
-	};
+	let mut nearby = [[0i32; 2]; MAX_NODES];
+	for (n, sums) in nearby.iter_mut().enumerate().take(count) {
+		for m in nodes_of(state.adjacency[n]) {
+			sums[0] += units(m, 0);
+			sums[1] += units(m, 1);
+		}
+	}
+	let force = |n: usize, p: usize| units(n, p) + nearby[n][p];
 	let owners = state.node_owners();
 	let reach = [player, opponent].map(|p| distances(state, occupied(state, p, count)));
-	let mut live_at = [0f32; MAX_NODES];
 	let mut owned_at = [[0f32; MAX_NODES]; 2];
 	let mut capturable_at = [[0f32; MAX_NODES]; 2];
 	let mut locked_at = [[0f32; MAX_NODES]; 2];
@@ -171,9 +213,6 @@ fn observe(map: &Map, state: &State, player: usize, turn: i32, flip: bool) -> Ob
 				attackable[side] |= around(state, corners);
 			}
 			for c in nodes_of(corners) {
-				if side == 0 {
-					live_at[c] += 1.0;
-				}
 				if owned {
 					owned_at[side][c] += 1.0;
 				}
@@ -192,9 +231,7 @@ fn observe(map: &Map, state: &State, player: usize, turn: i32, flip: bool) -> Ob
 		units(n, victim) > 0
 			&& state.adjacency[n] != 0
 			&& nodes_of(state.adjacency[n]).all(|m| {
-				let incoming: i32 = nodes_of(state.adjacency[m] & !bit(n))
-					.map(|k| units(k, attacker))
-					.sum();
+				let incoming = nearby[m][attacker] - units(n, attacker);
 				units(m, attacker) + incoming > units(m, victim)
 			})
 	};
@@ -227,7 +264,7 @@ fn observe(map: &Map, state: &State, player: usize, turn: i32, flip: bool) -> Ob
 				f32::from(reach[1][n].min(12)) / 8.0,
 				x,
 				y,
-				live_at[n] / 6.0,
+				topology.live_at[n] / 6.0,
 				owned_at[0][n] / 3.0,
 				owned_at[1][n] / 3.0,
 				capturable_at[0][n] / 3.0,
@@ -255,17 +292,7 @@ fn observe(map: &Map, state: &State, player: usize, turn: i32, flip: bool) -> Ob
 		state.live.len() as f32 / 40.0,
 		1.0,
 	];
-	let mut neighbors = Neighbors {
-		flat: Vec::with_capacity(count * 4),
-		starts: Vec::with_capacity(count + 1),
-	};
-	neighbors.starts.push(0);
-	for n in 0..count {
-		neighbors
-			.flat
-			.extend(nodes_of(state.adjacency[n]).take(MAX_DEGREE));
-		neighbors.starts.push(neighbors.flat.len());
-	}
+	let neighbors = Rc::clone(&topology.neighbors);
 	let usable: Vec<usize> = (state.owner[player] & state.initial_owner[player] & state.live)
 		.iter()
 		.collect();
@@ -377,6 +404,7 @@ impl Dense {
 		}
 	}
 
+	#[inline(always)]
 	fn apply(&self, input: &[f32], out: &mut [f32]) {
 		for (o, slot) in out.iter_mut().enumerate() {
 			let row = &self.weights[o * self.inputs..(o + 1) * self.inputs];
@@ -474,21 +502,61 @@ impl Dense {
 	}
 }
 
+#[inline(always)]
 fn dot(a: &[f32], b: &[f32]) -> f32 {
 	let mut lanes = [0f32; 8];
-	let chunks = a.len() / 8;
-	for i in 0..chunks {
+	let (a_chunks, a_rest) = a.split_at(a.len() / 8 * 8);
+	let b_chunks = &b[..a_chunks.len()];
+	for (x, y) in a_chunks.chunks_exact(8).zip(b_chunks.chunks_exact(8)) {
 		for k in 0..8 {
-			lanes[k] += a[i * 8 + k] * b[i * 8 + k];
+			lanes[k] += x[k] * y[k];
 		}
 	}
 	let mut total: f32 = lanes.iter().sum();
-	for i in chunks * 8..a.len() {
-		total += a[i] * b[i];
+	for (x, y) in a_rest.iter().zip(&b[a_chunks.len()..]) {
+		total += x * y;
 	}
 	total
 }
 
+#[inline(always)]
+fn gather_fixed<const W: usize>(hidden: &[f32], both: &mut [f32], neighbors: &Neighbors) {
+	for (n, row) in both.chunks_exact_mut(2 * W).enumerate() {
+		let (own, pooled) = row.split_at_mut(W);
+		own.copy_from_slice(&hidden[n * W..(n + 1) * W]);
+		let around = neighbors.of(n);
+		let mut sum = [0f32; W];
+		for &m in around {
+			let h: &[f32; W] = hidden[m * W..(m + 1) * W].try_into().unwrap();
+			for k in 0..W {
+				sum[k] += h[k];
+			}
+		}
+		let scale = 1.0 / around.len().max(1) as f32;
+		let pooled: &mut [f32; W] = pooled.try_into().unwrap();
+		for k in 0..W {
+			pooled[k] = sum[k] * scale;
+		}
+	}
+}
+
+fn gather_any(w: usize, hidden: &[f32], both: &mut [f32], neighbors: &Neighbors) {
+	for (n, row) in both.chunks_exact_mut(2 * w).enumerate() {
+		let (own, pooled) = row.split_at_mut(w);
+		own.copy_from_slice(&hidden[n * w..(n + 1) * w]);
+		pooled.fill(0.0);
+		let around = neighbors.of(n);
+		for &m in around {
+			for (p, h) in pooled.iter_mut().zip(&hidden[m * w..(m + 1) * w]) {
+				*p += h;
+			}
+		}
+		let scale = 1.0 / around.len().max(1) as f32;
+		pooled.iter_mut().for_each(|p| *p *= scale);
+	}
+}
+
+#[inline(always)]
 fn relu(values: &mut [f32]) {
 	for v in values {
 		*v = v.max(0.0);
@@ -574,6 +642,10 @@ impl Net {
 		let features = r.u32() as usize;
 		let globals = r.u32() as usize;
 		let width = r.u32() as usize;
+		assert!(
+			width <= MAX_WIDTH,
+			"comet nets are at most {MAX_WIDTH} wide"
+		);
 		let depth = r.u32() as usize;
 		assert_eq!(features, NODE_FEATURES, "node feature count matches");
 		assert_eq!(globals, GLOBAL_FEATURES, "global feature count matches");
@@ -611,6 +683,7 @@ impl Net {
 		net
 	}
 
+	#[inline(always)]
 	fn trunk(&self, obs: &Obs, hidden: &mut Vec<f32>) {
 		let w = self.width;
 		let count = obs.nodes.len();
@@ -636,20 +709,11 @@ impl Net {
 		delta.clear();
 		delta.resize(count * w, 0.0);
 		for round in &self.rounds {
-			for (n, row) in both.chunks_exact_mut(2 * w).enumerate() {
-				let (own, pooled) = row.split_at_mut(w);
-				own.copy_from_slice(&hidden[n * w..(n + 1) * w]);
-				pooled.fill(0.0);
-				let around = obs.neighbors.of(n);
-				for &m in around {
-					for (p, h) in pooled.iter_mut().zip(&hidden[m * w..(m + 1) * w]) {
-						*p += h;
-					}
-				}
-				if !around.is_empty() {
-					let scale = 1.0 / around.len() as f32;
-					pooled.iter_mut().for_each(|p| *p *= scale);
-				}
+			match w {
+				32 => gather_fixed::<32>(hidden, both, &obs.neighbors),
+				48 => gather_fixed::<48>(hidden, both, &obs.neighbors),
+				64 => gather_fixed::<64>(hidden, both, &obs.neighbors),
+				_ => gather_any(w, hidden, both, &obs.neighbors),
 			}
 			round.own_and_mean.apply_rows(both, delta);
 			for (h, &d) in hidden.iter_mut().zip(delta.iter()) {
@@ -659,6 +723,21 @@ impl Net {
 	}
 
 	fn value(&self, obs: &Obs) -> f32 {
+		#[cfg(target_arch = "x86_64")]
+		if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+			return unsafe { self.value_avx(obs) };
+		}
+		self.value_plain(obs)
+	}
+
+	#[cfg(target_arch = "x86_64")]
+	#[target_feature(enable = "avx2,fma")]
+	unsafe fn value_avx(&self, obs: &Obs) -> f32 {
+		self.value_plain(obs)
+	}
+
+	#[inline(always)]
+	fn value_plain(&self, obs: &Obs) -> f32 {
 		let mut hidden = std::mem::take(&mut self.scratch.borrow_mut().hidden);
 		self.trunk(obs, &mut hidden);
 		let value = self.value_from(obs, &hidden);
@@ -666,25 +745,28 @@ impl Net {
 		value
 	}
 
+	#[inline(always)]
 	fn value_from(&self, obs: &Obs, hidden: &[f32]) -> f32 {
 		let w = self.width;
-		let count = obs.nodes.len();
-		let mut joined = vec![0f32; 2 * w + GLOBAL_FEATURES];
-		for k in w..2 * w {
-			joined[k] = f32::NEG_INFINITY;
-		}
-		for n in 0..count {
-			for k in 0..w {
-				let h = hidden[n * w + k];
-				joined[k] += h / count as f32;
-				joined[w + k] = joined[w + k].max(h);
+		let mut joined = [0f32; 2 * MAX_WIDTH + GLOBAL_FEATURES];
+		let joined = &mut joined[..2 * w + GLOBAL_FEATURES];
+		let (sums, rest) = joined.split_at_mut(w);
+		let (peaks, globals) = rest.split_at_mut(w);
+		peaks.fill(f32::NEG_INFINITY);
+		for row in hidden.chunks_exact(w) {
+			for ((s, p), &h) in sums.iter_mut().zip(peaks.iter_mut()).zip(row) {
+				*s += h;
+				*p = p.max(h);
 			}
 		}
-		joined[2 * w..].copy_from_slice(&obs.globals);
-		let mut layer = vec![0f32; w];
-		self.value_hidden.apply(&joined, &mut layer);
-		relu(&mut layer);
-		dot(&layer, &self.value_out) + self.value_bias
+		let inverse = 1.0 / obs.nodes.len() as f32;
+		sums.iter_mut().for_each(|s| *s *= inverse);
+		globals.copy_from_slice(&obs.globals);
+		let mut layer = [0f32; MAX_WIDTH];
+		let layer = &mut layer[..w];
+		self.value_hidden.apply_rows(joined, layer);
+		relu(layer);
+		dot(layer, &self.value_out) + self.value_bias
 	}
 
 	fn policy(&self, obs: &Obs, state: &State, player: usize) -> Policy {
@@ -925,6 +1007,7 @@ struct Search<'a> {
 	net: &'a Net,
 	params: &'a Params,
 	root: &'a State,
+	topology: &'a Topology,
 	turn: i32,
 	flip: bool,
 	evaluations: usize,
@@ -953,7 +1036,8 @@ impl Search<'_> {
 			(false, false) => {}
 		}
 		let flip = self.flip != (player == THEM);
-		let obs = observe(self.map, &next, player, self.turn + 1, flip);
+		debug_assert_eq!(next.adjacency, self.root.adjacency);
+		let obs = observe(self.map, self.topology, &next, player, self.turn + 1, flip);
 		let triangles = [player, opponent].map(|p| (next.owner[p] & next.live).len() as f32);
 		self.net.value(&obs)
 			+ self.params.unit_bonus * (units[0] - units[1])
@@ -997,8 +1081,15 @@ impl Search<'_> {
 
 	fn run(&mut self, started: Instant, rng: &mut Rng) -> Vec<Command> {
 		let deadline = started + self.params.budget;
-		let mine = observe(self.map, self.root, ME, self.turn, self.flip);
-		let theirs = observe(self.map, self.root, THEM, self.turn, !self.flip);
+		let mine = observe(self.map, self.topology, self.root, ME, self.turn, self.flip);
+		let theirs = observe(
+			self.map,
+			self.topology,
+			self.root,
+			THEM,
+			self.turn,
+			!self.flip,
+		);
 		let my_policy = self.net.policy(&mine, self.root, ME);
 		let their_policy = self.net.policy(&theirs, self.root, THEM);
 		let greedy = plan(self.root, ME, &mine, &my_policy, None);
@@ -1423,11 +1514,12 @@ fn main() {
 	while let Some((state, started)) = read_state(&mut input, &map) {
 		turn += 1;
 		let flip = *flip.get_or_insert_with(|| flipped(&map, &state));
+		let topology = Topology::of(&map, &state);
 		if let (Some(extract), Some(recorded)) = (extract.as_mut(), recorded.as_ref()) {
 			let Some(line) = recorded.get(turn as usize - 1) else {
 				break;
 			};
-			let obs = observe(&map, &state, ME, turn, flip);
+			let obs = observe(&map, &topology, &state, ME, turn, flip);
 			let labels = labels(&map, &state, &obs, line);
 			write_record(extract, &state, &obs, turn, &labels, 0);
 			continue;
@@ -1436,7 +1528,7 @@ fn main() {
 		let line = match (shadow.as_mut(), net.as_ref()) {
 			(Some(shadow), _) => shadow.ask(&transcript),
 			(None, Some(net)) if params.budget.is_zero() => {
-				let obs = observe(&map, &state, ME, turn, flip);
+				let obs = observe(&map, &topology, &state, ME, turn, flip);
 				let policy = net.policy(&obs, &state, ME);
 				let orders = plan(
 					&state,
@@ -1453,6 +1545,7 @@ fn main() {
 					net,
 					params: &params,
 					root: &state,
+					topology: &topology,
 					turn,
 					flip,
 					evaluations: 0,
@@ -1463,7 +1556,7 @@ fn main() {
 			(None, None) => "WAIT".to_string(),
 		};
 		if let Some(record) = record.as_mut() {
-			let obs = observe(&map, &state, ME, turn, flip);
+			let obs = observe(&map, &topology, &state, ME, turn, flip);
 			let labels = labels(&map, &state, &obs, &line);
 			let source = if shadow.is_some() { 2 } else { 1 };
 			write_record(record, &state, &obs, turn, &labels, source);
