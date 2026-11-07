@@ -83,6 +83,7 @@ def main():
 		"turn": ((total,), np.int32),
 		"count": ((total,), np.int32),
 		"source": ((total,), np.int32),
+		"search": ((total,), np.float32),
 	}
 	arrays = {
 		k: np.lib.format.open_memmap(
@@ -93,7 +94,15 @@ def main():
 	at = 0
 	for i, name in enumerate(names):
 		raw = np.fromfile(paths[name], dtype=RECORD)
-		raw = raw[keep_mask(raw["turn"], args.every, args.stride)]
+		search = np.full(len(raw), np.nan, dtype=np.float32)
+		scores = paths[name] + ".val"
+		if os.path.exists(scores):
+			found = np.fromfile(scores, dtype="<f4")
+			if len(found) == len(raw):
+				search = found
+		kept = keep_mask(raw["turn"], args.every, args.stride)
+		raw = raw[kept]
+		search = search[kept]
 		if len(raw) == 0:
 			continue
 		assert raw["count"].max() <= NODES
@@ -119,6 +128,7 @@ def main():
 		arrays["turn"][at:end] = raw["turn"]
 		arrays["count"][at:end] = raw["count"]
 		arrays["source"][at:end] = raw["pad"]
+		arrays["search"][at:end] = search
 		at = end
 		if i % 5000 == 0:
 			print(f"{i} streams, {at} records", flush=True)

@@ -243,6 +243,9 @@ def batch_tensors(data, idx, device):
 		"labels": pick("labels").long(),
 		"masks": pick("masks"),
 		"value": pick("value"),
+		"search": pick("search")
+		if "search" in data
+		else torch.full_like(count, float("nan"), dtype=torch.float32),
 		"imitate": (pick("source") != 2).float()
 		if "source" in data
 		else torch.ones_like(count, dtype=torch.float32),
@@ -250,10 +253,17 @@ def batch_tensors(data, idx, device):
 	}
 
 
-def losses(net, t):
+def losses(net, t, bootstrap=0.0):
 	h = net.trunk(t["nodes"], t["globals"], t["neighbors"], t["valid"])
 	value = net.value(h, t["globals"], t["valid"])
-	value_loss = F.binary_cross_entropy_with_logits(value, (t["value"] + 1) / 2)
+	target = (t["value"] + 1) / 2
+	searched = torch.isfinite(t["search"])
+	if bootstrap > 0 and searched.any():
+		blend = (1 - bootstrap) * target + bootstrap * torch.sigmoid(
+			torch.nan_to_num(t["search"])
+		)
+		target = torch.where(searched, blend, target)
+	value_loss = F.binary_cross_entropy_with_logits(value, target)
 	move_logits = net.moves(h, t["neighbors"])
 	has = (t["units"] > 0) & (t["imitate"][:, None] > 0)
 	target = t["moves"] / t["units"].clamp(min=1)[..., None]
@@ -305,6 +315,12 @@ def main():
 	parser.add_argument("--lr", type=float, default=2e-3)
 	parser.add_argument("--value-weight", type=float, default=0.5)
 	parser.add_argument("--init")
+	parser.add_argument(
+		"--bootstrap",
+		type=float,
+		default=0.0,
+		help="share of the value target taken from the recorded search score",
+	)
 	args = parser.parse_args()
 	device = "cuda"
 
@@ -349,7 +365,7 @@ def main():
 			for _, pack, train2, _, size in extras:
 				t2 = batch_tensors(pack, np.sort(rng.choice(train2, size)), device)
 				t = {k: torch.cat([t[k], t2[k]]) for k in t}
-			vl, ml, al, ma, aa = losses(net, t)
+			vl, ml, al, ma, aa = losses(net, t, args.bootstrap)
 			loss = args.policy_weight * (ml + al) + args.value_weight * vl
 			opt.zero_grad()
 			loss.backward()

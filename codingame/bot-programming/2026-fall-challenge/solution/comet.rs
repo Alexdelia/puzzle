@@ -1079,7 +1079,7 @@ impl Search<'_> {
 		mean + self.params.worst_share * (worst - mean)
 	}
 
-	fn run(&mut self, started: Instant, rng: &mut Rng) -> Vec<Command> {
+	fn run(&mut self, started: Instant, rng: &mut Rng) -> (Vec<Command>, f32) {
 		let deadline = started + self.params.budget;
 		let mine = observe(self.map, self.topology, self.root, ME, self.turn, self.flip);
 		let theirs = observe(
@@ -1185,7 +1185,7 @@ impl Search<'_> {
 				"turn {turn} value {best_value:.3} evaluations {evaluations} unique {unique} draws {draws}"
 			);
 		}
-		best
+		(best, best_value)
 	}
 }
 
@@ -1495,7 +1495,10 @@ fn main() {
 		std::io::BufWriter::new(std::fs::File::create(path).expect("the record file opens"))
 	});
 	let mut record = std::env::var("COMET_RECORD").ok().map(|path| {
-		std::io::BufWriter::new(std::fs::File::create(path).expect("the record file opens"))
+		let open = |path: String| {
+			std::io::BufWriter::new(std::fs::File::create(path).expect("the record file opens"))
+		};
+		(open(format!("{path}.val")), open(path))
 	});
 	let mut out = std::io::stdout().lock();
 	let count = input.int() as usize;
@@ -1525,6 +1528,7 @@ fn main() {
 			continue;
 		}
 		let transcript = input.take_transcript();
+		let mut searched = f32::NAN;
 		let line = match (shadow.as_mut(), net.as_ref()) {
 			(Some(shadow), _) => shadow.ask(&transcript),
 			(None, Some(net)) if params.budget.is_zero() => {
@@ -1550,17 +1554,22 @@ fn main() {
 					flip,
 					evaluations: 0,
 				};
-				let orders = search.run(started, &mut rng);
+				let (orders, value) = search.run(started, &mut rng);
+				searched = value;
 				answer(&map, &orders)
 			}
 			(None, None) => "WAIT".to_string(),
 		};
-		if let Some(record) = record.as_mut() {
+		if let Some((scores, record)) = record.as_mut() {
 			let obs = observe(&map, &topology, &state, ME, turn, flip);
 			let labels = labels(&map, &state, &obs, &line);
 			let source = if shadow.is_some() { 2 } else { 1 };
 			write_record(record, &state, &obs, turn, &labels, source);
 			record.flush().expect("the record file is writable");
+			scores
+				.write_all(&searched.to_le_bytes())
+				.expect("the score file is writable");
+			scores.flush().expect("the score file is writable");
 		}
 		writeln!(out, "{line}").expect("stdout is writable");
 		out.flush().expect("stdout is writable");
