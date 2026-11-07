@@ -1,5 +1,5 @@
 use engine::{Command, MAX_NODES, Map, Point, State, bit, nodes_of};
-use std::collections::BTreeMap;
+use std::cell::RefCell;
 use std::io::{BufRead, Write};
 use std::time::{Duration, Instant};
 
@@ -55,6 +55,46 @@ impl Rng {
 	}
 }
 
+#[derive(Default)]
+struct Mix(u64);
+
+impl std::hash::Hasher for Mix {
+	fn finish(&self) -> u64 {
+		self.0
+	}
+
+	fn write(&mut self, bytes: &[u8]) {
+		for &b in bytes {
+			self.write_u64(u64::from(b));
+		}
+	}
+
+	fn write_u64(&mut self, value: u64) {
+		self.0 = (self.0.rotate_left(5) ^ value).wrapping_mul(0x51_7cc1_b727_220a_95);
+	}
+
+	fn write_usize(&mut self, value: usize) {
+		self.write_u64(value as u64);
+	}
+
+	fn write_i32(&mut self, value: i32) {
+		self.write_u64(value as u32 as u64);
+	}
+
+	fn write_isize(&mut self, value: isize) {
+		self.write_u64(value as u64);
+	}
+}
+
+type Seen = std::collections::HashSet<u64, std::hash::BuildHasherDefault<Mix>>;
+
+fn fingerprint(commands: &[Command]) -> u64 {
+	use std::hash::{Hash, Hasher};
+	let mut mix = Mix::default();
+	commands.hash(&mut mix);
+	mix.finish()
+}
+
 fn around(state: &State, nodes: u64) -> u64 {
 	nodes_of(nodes).fold(0, |set, n| set | state.adjacency[n])
 }
@@ -81,10 +121,21 @@ fn occupied(state: &State, player: usize, count: usize) -> u64 {
 		.fold(0, |set, n| set | bit(n))
 }
 
+struct Neighbors {
+	flat: Vec<usize>,
+	starts: Vec<usize>,
+}
+
+impl Neighbors {
+	fn of(&self, node: usize) -> &[usize] {
+		&self.flat[self.starts[node]..self.starts[node + 1]]
+	}
+}
+
 struct Obs {
 	nodes: Vec<[f32; NODE_FEATURES]>,
 	globals: [f32; GLOBAL_FEATURES],
-	neighbors: Vec<Vec<usize>>,
+	neighbors: Neighbors,
 	usable: Vec<usize>,
 	corners: Vec<[usize; 3]>,
 	attack_targets: Vec<u64>,
@@ -204,9 +255,17 @@ fn observe(map: &Map, state: &State, player: usize, turn: i32, flip: bool) -> Ob
 		state.live.len() as f32 / 40.0,
 		1.0,
 	];
-	let neighbors = (0..count)
-		.map(|n| nodes_of(state.adjacency[n]).take(MAX_DEGREE).collect())
-		.collect();
+	let mut neighbors = Neighbors {
+		flat: Vec::with_capacity(count * 4),
+		starts: Vec::with_capacity(count + 1),
+	};
+	neighbors.starts.push(0);
+	for n in 0..count {
+		neighbors
+			.flat
+			.extend(nodes_of(state.adjacency[n]).take(MAX_DEGREE));
+		neighbors.starts.push(neighbors.flat.len());
+	}
 	let usable: Vec<usize> = (state.owner[player] & state.initial_owner[player] & state.live)
 		.iter()
 		.collect();
@@ -326,39 +385,69 @@ impl Dense {
 	}
 
 	fn apply_rows(&self, input: &[f32], out: &mut [f32]) {
+		self.apply_rows_with(input, self.inputs, &self.bias, out);
+	}
+
+	fn apply_rows_with(&self, input: &[f32], inputs: usize, bias: &[f32], out: &mut [f32]) {
 		#[cfg(target_arch = "x86_64")]
 		if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
-			unsafe { self.apply_rows_avx(input, out) };
+			unsafe { self.apply_rows_avx(input, inputs, bias, out) };
 			return;
 		}
-		self.apply_rows_plain(input, out);
+		self.apply_rows_plain(input, inputs, bias, out);
 	}
 
 	#[cfg(target_arch = "x86_64")]
 	#[target_feature(enable = "avx2,fma")]
-	unsafe fn apply_rows_avx(&self, input: &[f32], out: &mut [f32]) {
-		self.apply_rows_plain(input, out);
+	unsafe fn apply_rows_avx(&self, input: &[f32], inputs: usize, bias: &[f32], out: &mut [f32]) {
+		self.apply_rows_plain(input, inputs, bias, out);
 	}
 
 	#[inline(always)]
-	fn apply_rows_plain(&self, input: &[f32], out: &mut [f32]) {
-		match self.bias.len() {
-			32 => self.apply_rows_fixed::<32>(input, out),
-			48 => self.apply_rows_fixed::<48>(input, out),
-			64 => self.apply_rows_fixed::<64>(input, out),
-			_ => self.apply_rows_any(input, out),
+	fn apply_rows_plain(&self, input: &[f32], inputs: usize, bias: &[f32], out: &mut [f32]) {
+		match bias.len() {
+			32 => self.apply_rows_fixed::<32>(input, inputs, bias, out),
+			48 => self.apply_rows_fixed::<48>(input, inputs, bias, out),
+			64 => self.apply_rows_fixed::<64>(input, inputs, bias, out),
+			_ => self.apply_rows_any(input, inputs, bias, out),
 		}
 	}
 
 	#[inline(always)]
-	fn apply_rows_fixed<const O: usize>(&self, input: &[f32], out: &mut [f32]) {
-		let bias: [f32; O] = self.bias[..O].try_into().unwrap();
-		for (x, y) in input.chunks_exact(self.inputs).zip(out.chunks_exact_mut(O)) {
+	fn apply_rows_fixed<const O: usize>(
+		&self,
+		input: &[f32],
+		inputs: usize,
+		bias: &[f32],
+		out: &mut [f32],
+	) {
+		let bias: [f32; O] = bias[..O].try_into().unwrap();
+		let pairs = input.len() / (2 * inputs);
+		for (x, y) in input
+			.chunks_exact(2 * inputs)
+			.zip(out.chunks_exact_mut(2 * O))
+		{
+			let (x0, x1) = x.split_at(inputs);
+			let mut acc0 = bias;
+			let mut acc1 = bias;
+			for ((&a, &b), column) in x0.iter().zip(x1).zip(self.transposed.chunks_exact(O)) {
+				let column: &[f32; O] = column.try_into().unwrap();
+				for k in 0..O {
+					acc0[k] = a.mul_add(column[k], acc0[k]);
+					acc1[k] = b.mul_add(column[k], acc1[k]);
+				}
+			}
+			y[..O].copy_from_slice(&acc0);
+			y[O..].copy_from_slice(&acc1);
+		}
+		let rest = &input[pairs * 2 * inputs..];
+		let rest_out = &mut out[pairs * 2 * O..];
+		for (x, y) in rest.chunks_exact(inputs).zip(rest_out.chunks_exact_mut(O)) {
 			let mut acc = bias;
 			for (&xi, column) in x.iter().zip(self.transposed.chunks_exact(O)) {
 				let column: &[f32; O] = column.try_into().unwrap();
 				for k in 0..O {
-					acc[k] += xi * column[k];
+					acc[k] = xi.mul_add(column[k], acc[k]);
 				}
 			}
 			y.copy_from_slice(&acc);
@@ -366,13 +455,13 @@ impl Dense {
 	}
 
 	#[inline(always)]
-	fn apply_rows_any(&self, input: &[f32], out: &mut [f32]) {
-		let outputs = self.bias.len();
+	fn apply_rows_any(&self, input: &[f32], inputs: usize, bias: &[f32], out: &mut [f32]) {
+		let outputs = bias.len();
 		for (x, y) in input
-			.chunks_exact(self.inputs)
+			.chunks_exact(inputs)
 			.zip(out.chunks_exact_mut(outputs))
 		{
-			y.copy_from_slice(&self.bias);
+			y.copy_from_slice(bias);
 			for (&xi, column) in x.iter().zip(self.transposed.chunks_exact(outputs)) {
 				if xi == 0.0 {
 					continue;
@@ -419,8 +508,35 @@ fn joint(a: &[f32], b: &[f32], extra: Option<&[f32]>, out: &[f32]) -> f32 {
 }
 
 struct Round {
-	own: Dense,
-	mean: Dense,
+	own_and_mean: Dense,
+}
+
+impl Round {
+	fn new(own: Dense, mean: Dense) -> Round {
+		let width = own.bias.len();
+		let weights = (0..width)
+			.flat_map(|o| {
+				let own_row = &own.weights[o * own.inputs..(o + 1) * own.inputs];
+				let mean_row = &mean.weights[o * mean.inputs..(o + 1) * mean.inputs];
+				own_row
+					.iter()
+					.chain(mean_row)
+					.copied()
+					.collect::<Vec<f32>>()
+			})
+			.collect();
+		Round {
+			own_and_mean: Dense::new(own.inputs + mean.inputs, weights, own.bias),
+		}
+	}
+}
+
+#[derive(Default)]
+struct Scratch {
+	hidden: Vec<f32>,
+	both: Vec<f32>,
+	delta: Vec<f32>,
+	bias: Vec<f32>,
 }
 
 struct Net {
@@ -443,6 +559,7 @@ struct Net {
 	value_hidden: Dense,
 	value_out: Vec<f32>,
 	value_bias: f32,
+	scratch: RefCell<Scratch>,
 }
 
 struct Policy {
@@ -462,9 +579,10 @@ impl Net {
 		assert_eq!(globals, GLOBAL_FEATURES, "global feature count matches");
 		let input = r.dense(width, features + globals, true);
 		let rounds = (0..depth)
-			.map(|_| Round {
-				own: r.dense(width, width, true),
-				mean: r.dense(width, width, false),
+			.map(|_| {
+				let own = r.dense(width, width, true);
+				let mean = r.dense(width, width, false);
+				Round::new(own, mean)
 			})
 			.collect();
 		let net = Net {
@@ -487,52 +605,65 @@ impl Net {
 			value_hidden: r.dense(width, 2 * width + globals, true),
 			value_out: r.floats(width),
 			value_bias: r.floats(1)[0],
+			scratch: RefCell::new(Scratch::default()),
 		};
 		assert_eq!(r.at, r.bytes.len(), "comet weights are fully read");
 		net
 	}
 
-	fn trunk(&self, obs: &Obs) -> Vec<f32> {
+	fn trunk(&self, obs: &Obs, hidden: &mut Vec<f32>) {
 		let w = self.width;
 		let count = obs.nodes.len();
-		let wide = NODE_FEATURES + GLOBAL_FEATURES;
-		let mut joined = vec![0f32; count * wide];
-		for (n, row) in joined.chunks_exact_mut(wide).enumerate() {
-			row[..NODE_FEATURES].copy_from_slice(&obs.nodes[n]);
-			row[NODE_FEATURES..].copy_from_slice(&obs.globals);
+		let mut scratch = self.scratch.borrow_mut();
+		let Scratch {
+			both, delta, bias, ..
+		} = &mut *scratch;
+		bias.clear();
+		bias.extend_from_slice(&self.input.bias);
+		let global_columns = self.input.transposed[NODE_FEATURES * w..].chunks_exact(w);
+		for (&g, column) in obs.globals.iter().zip(global_columns) {
+			for (b, &c) in bias.iter_mut().zip(column) {
+				*b += g * c;
+			}
 		}
-		let mut hidden = vec![0f32; count * w];
-		self.input.apply_rows(&joined, &mut hidden);
-		relu(&mut hidden);
-		let mut pooled = vec![0f32; count * w];
-		let mut own = vec![0f32; count * w];
-		let mut gathered = vec![0f32; count * w];
+		hidden.clear();
+		hidden.resize(count * w, 0.0);
+		self.input
+			.apply_rows_with(obs.nodes.as_flattened(), NODE_FEATURES, bias, hidden);
+		relu(hidden);
+		both.clear();
+		both.resize(count * 2 * w, 0.0);
+		delta.clear();
+		delta.resize(count * w, 0.0);
 		for round in &self.rounds {
-			for (n, row) in pooled.chunks_exact_mut(w).enumerate() {
-				row.iter_mut().for_each(|p| *p = 0.0);
-				let around = &obs.neighbors[n];
+			for (n, row) in both.chunks_exact_mut(2 * w).enumerate() {
+				let (own, pooled) = row.split_at_mut(w);
+				own.copy_from_slice(&hidden[n * w..(n + 1) * w]);
+				pooled.fill(0.0);
+				let around = obs.neighbors.of(n);
 				for &m in around {
-					for (p, h) in row.iter_mut().zip(&hidden[m * w..(m + 1) * w]) {
+					for (p, h) in pooled.iter_mut().zip(&hidden[m * w..(m + 1) * w]) {
 						*p += h;
 					}
 				}
 				if !around.is_empty() {
 					let scale = 1.0 / around.len() as f32;
-					row.iter_mut().for_each(|p| *p *= scale);
+					pooled.iter_mut().for_each(|p| *p *= scale);
 				}
 			}
-			round.own.apply_rows(&hidden, &mut own);
-			round.mean.apply_rows(&pooled, &mut gathered);
-			for ((h, &a), &b) in hidden.iter_mut().zip(&own).zip(&gathered) {
-				*h += (a + b).max(0.0);
+			round.own_and_mean.apply_rows(both, delta);
+			for (h, &d) in hidden.iter_mut().zip(delta.iter()) {
+				*h += d.max(0.0);
 			}
 		}
-		hidden
 	}
 
 	fn value(&self, obs: &Obs) -> f32 {
-		let hidden = self.trunk(obs);
-		self.value_from(obs, &hidden)
+		let mut hidden = std::mem::take(&mut self.scratch.borrow_mut().hidden);
+		self.trunk(obs, &mut hidden);
+		let value = self.value_from(obs, &hidden);
+		self.scratch.borrow_mut().hidden = hidden;
+		value
 	}
 
 	fn value_from(&self, obs: &Obs, hidden: &[f32]) -> f32 {
@@ -558,7 +689,8 @@ impl Net {
 
 	fn policy(&self, obs: &Obs, state: &State, player: usize) -> Policy {
 		let w = self.width;
-		let hidden = self.trunk(obs);
+		let mut hidden = Vec::new();
+		self.trunk(obs, &mut hidden);
 		let count = obs.nodes.len();
 		let node = |n: usize| &hidden[n * w..(n + 1) * w];
 		let mut from = vec![0f32; count * w];
@@ -582,7 +714,7 @@ impl Net {
 					&self.move_out,
 				);
 				let mut options: Vec<(usize, f32)> = vec![(v, stay)];
-				options.extend(obs.neighbors[v].iter().map(|&t| {
+				options.extend(obs.neighbors.of(v).iter().map(|&t| {
 					(
 						t,
 						joint(source, &to[t * w..(t + 1) * w], None, &self.move_out),
@@ -706,20 +838,21 @@ fn plan(
 		if options.is_empty() || units <= 0 {
 			continue;
 		}
-		let mut counts: BTreeMap<usize, i32> = BTreeMap::new();
+		let mut counts = [0i32; MOVE_SLOTS];
 		match rng.as_deref_mut() {
 			Some(rng) => {
 				let weights: Vec<f32> = options.iter().map(|o| o.1).collect();
 				for _ in 0..units {
-					*counts.entry(options[rng.draw(&weights)].0).or_default() += 1;
+					counts[rng.draw(&weights)] += 1;
 				}
 			}
 			None => {
 				let mut shares: Vec<(usize, i32, f32)> = options
 					.iter()
-					.map(|&(to, p)| {
+					.enumerate()
+					.map(|(slot, &(_, p))| {
 						let exact = p * units as f32;
-						(to, exact.floor() as i32, exact - exact.floor())
+						(slot, exact.floor() as i32, exact - exact.floor())
 					})
 					.collect();
 				let mut left = units - shares.iter().map(|s| s.1).sum::<i32>();
@@ -731,12 +864,12 @@ fn plan(
 					share.1 += 1;
 					left -= 1;
 				}
-				for (to, amount, _) in shares {
-					*counts.entry(to).or_default() += amount;
+				for (slot, amount, _) in shares {
+					counts[slot] += amount;
 				}
 			}
 		}
-		for (to, amount) in counts {
+		for (&(to, _), &amount) in options.iter().zip(&counts) {
 			if to != v && amount > 0 {
 				orders.push(Command::Move {
 					from: v,
@@ -763,6 +896,7 @@ struct Params {
 	verify_replies: usize,
 	verify_share: f64,
 	verify_keep: usize,
+	max_evaluations: usize,
 }
 
 impl Params {
@@ -781,6 +915,7 @@ impl Params {
 			verify_replies: tuned("VERIFY_REPLIES", 12.0) as usize,
 			verify_share: tuned("VERIFY_SHARE", 0.35),
 			verify_keep: tuned("VERIFY_KEEP", 1000.0) as usize,
+			max_evaluations: tuned("EVALS", 1e12) as usize,
 		}
 	}
 }
@@ -796,6 +931,10 @@ struct Search<'a> {
 }
 
 impl Search<'_> {
+	fn exhausted(&self, until: Instant, evaluations: usize) -> bool {
+		self.evaluations >= evaluations || Instant::now() >= until
+	}
+
 	fn evaluate(&mut self, mine: &[Command], theirs: &[Command]) -> f32 {
 		self.evaluate_as(ME, mine, theirs)
 	}
@@ -831,13 +970,13 @@ impl Search<'_> {
 	) -> Vec<Command> {
 		let mut best = plan(self.root, THEM, theirs, policy, None);
 		let mut best_value = self.evaluate_as(THEM, mine, &best);
-		let mut seen = std::collections::HashSet::new();
-		seen.insert(best.clone());
+		let mut seen = Seen::default();
+		seen.insert(fingerprint(&best));
 		let mut draws = 0;
 		while Instant::now() < deadline && draws < 5_000 {
 			draws += 1;
 			let candidate = plan(self.root, THEM, theirs, policy, Some(rng));
-			if !seen.insert(candidate.clone()) {
+			if !seen.insert(fingerprint(&candidate)) {
 				continue;
 			}
 			let value = self.evaluate_as(THEM, mine, &candidate);
@@ -891,15 +1030,17 @@ impl Search<'_> {
 		} else {
 			deadline
 		};
+		let cap = self.params.max_evaluations;
+		let sample_cap = (cap as f64 * (1.0 - self.params.verify_share)) as usize;
 		let first = self.score(&greedy, &replies);
 		let mut top: Vec<(f32, Vec<Command>)> = vec![(first, greedy.clone())];
-		let mut seen = std::collections::HashSet::new();
-		seen.insert(greedy);
+		let mut seen = Seen::default();
+		seen.insert(fingerprint(&greedy));
 		let mut draws = 0;
-		while Instant::now() < sample_end && draws < 20_000 {
+		while !self.exhausted(sample_end, sample_cap) && draws < 20_000 {
 			draws += 1;
 			let candidate = plan(self.root, ME, &mine, &sampling, Some(rng));
-			if !seen.insert(candidate.clone()) {
+			if !seen.insert(fingerprint(&candidate)) {
 				continue;
 			}
 			let value = self.score(&candidate, &replies);
@@ -915,7 +1056,7 @@ impl Search<'_> {
 			.map(|(value, plan)| (value, 1.0, plan))
 			.collect();
 		let mut used = replies.clone();
-		while field.len() > 1 && Instant::now() < deadline {
+		while field.len() > 1 && !self.exhausted(deadline, cap) {
 			let mut extra: Vec<Vec<Command>> = Vec::new();
 			let mut attempts = 0;
 			while extra.len() < self.params.verify_replies && attempts < 60 {
@@ -932,7 +1073,7 @@ impl Search<'_> {
 			let weight = extra.len() as f32;
 			let mut scored = 0;
 			for entry in field.iter_mut() {
-				if Instant::now() >= deadline {
+				if self.exhausted(deadline, cap) {
 					break;
 				}
 				let more = self.score(&entry.2, &extra);
@@ -1024,7 +1165,7 @@ fn labels(map: &Map, state: &State, obs: &Obs, line: &str) -> Labels {
 				let Some(step) = state.first_step(from, to) else {
 					continue;
 				};
-				let Some(slot) = obs.neighbors[from].iter().position(|&n| n == step) else {
+				let Some(slot) = obs.neighbors.of(from).iter().position(|&n| n == step) else {
 					continue;
 				};
 				let amount = (amount.min(i32::MAX as usize) as i32).min(left[from]);
@@ -1088,9 +1229,8 @@ fn write_record(
 	}
 	for n in 0..RECORD_NODES {
 		for k in 0..MAX_DEGREE {
-			let value = obs
-				.neighbors
-				.get(n)
+			let value = (n < count)
+				.then(|| obs.neighbors.of(n))
 				.and_then(|list| list.get(k))
 				.map_or(-1, |&m| m as i8);
 			bytes.push(value as u8);

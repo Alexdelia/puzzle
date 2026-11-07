@@ -284,10 +284,17 @@ def main():
 	)
 	parser.add_argument("--data", required=True, help="directory written by build.py")
 	parser.add_argument(
-		"--data2", help="second build.py directory mixed into every batch"
+		"--data2",
+		nargs="*",
+		default=[],
+		help="further build.py directories mixed into every batch",
 	)
 	parser.add_argument(
-		"--mix", type=float, default=0.5, help="share of each batch drawn from --data2"
+		"--mix",
+		type=float,
+		nargs="*",
+		default=[],
+		help="share of each batch drawn from each --data2 directory",
 	)
 	parser.add_argument("--policy-weight", type=float, default=1.0)
 	parser.add_argument("--out", required=True)
@@ -315,17 +322,20 @@ def main():
 	data = open_pack(args.data)
 	train_idx, test_idx = split(data)
 	print(f"records {len(data['game'])} train {len(train_idx)} holdout {len(test_idx)}")
-	data2 = open_pack(args.data2) if args.data2 else None
-	if data2 is not None:
-		train2, test2 = split(data2)
+	assert len(args.mix) == len(args.data2)
+	extras = []
+	for path, share in zip(args.data2, args.mix):
+		pack = open_pack(path)
+		train2, test2 = split(pack)
 		print(
-			f"second records {len(data2['game'])} train {len(train2)} holdout {len(test2)}"
+			f"{path}: records {len(pack['game'])} train {len(train2)} holdout {len(test2)}"
 		)
+		extras.append((path, pack, train2, test2, int(args.batch * share)))
+	first = args.batch - sum(extra[4] for extra in extras)
 	net = Net(args.width, args.depth).to(device)
 	if args.init:
 		net.load_state_dict(torch.load(args.init))
 	opt = torch.optim.Adam(net.parameters(), lr=args.lr)
-	first = args.batch if args.data2 is None else int(args.batch * (1 - args.mix))
 	steps = args.epochs * (len(train_idx) // first)
 	sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=args.lr, total_steps=steps)
 	rng = np.random.default_rng(1)
@@ -334,13 +344,10 @@ def main():
 		order = rng.permutation(train_idx)
 		totals = np.zeros(5)
 		batches = 0
-		first = args.batch if data2 is None else int(args.batch * (1 - args.mix))
 		for start in range(0, len(order) - first + 1, first):
 			t = batch_tensors(data, np.sort(order[start : start + first]), device)
-			if data2 is not None:
-				t2 = batch_tensors(
-					data2, np.sort(rng.choice(train2, args.batch - first)), device
-				)
+			for _, pack, train2, _, size in extras:
+				t2 = batch_tensors(pack, np.sort(rng.choice(train2, size)), device)
 				t = {k: torch.cat([t[k], t2[k]]) for k in t}
 			vl, ml, al, ma, aa = losses(net, t)
 			loss = args.policy_weight * (ml + al) + args.value_weight * vl
@@ -353,24 +360,23 @@ def main():
 		net.eval()
 		tests = np.zeros(5)
 		tb = 0
-		tests2 = np.zeros(5)
-		tb2 = 0
 		with torch.no_grad():
 			for start in range(0, len(test_idx), 2048):
 				t = batch_tensors(data, test_idx[start : start + 2048], device)
 				tests += [x.item() for x in losses(net, t)]
 				tb += 1
-			if data2 is not None:
+			for path, pack, _, test2, _ in extras:
+				tests2 = np.zeros(5)
+				tb2 = 0
 				for start in range(0, len(test2), 2048):
-					t = batch_tensors(data2, test2[start : start + 2048], device)
+					t = batch_tensors(pack, test2[start : start + 2048], device)
 					tests2 += [x.item() for x in losses(net, t)]
 					tb2 += 1
-		if tb2:
-			te2 = tests2 / tb2
-			print(
-				f"epoch {epoch} second holdout value {te2[0]:.3f} move {te2[1]:.3f} action {te2[2]:.3f}",
-				flush=True,
-			)
+				te2 = tests2 / max(tb2, 1)
+				print(
+					f"epoch {epoch} {os.path.basename(path)} holdout value {te2[0]:.3f} move {te2[1]:.3f} action {te2[2]:.3f} macc {te2[3]:.3f} aacc {te2[4]:.3f}",
+					flush=True,
+				)
 		tr = totals / batches
 		te = tests / tb
 		print(
