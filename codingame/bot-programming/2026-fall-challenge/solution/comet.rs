@@ -4,7 +4,7 @@ use std::io::{BufRead, Write};
 use std::time::{Duration, Instant};
 
 pub const NET_WEIGHTS: &str = "";
-pub const DEFAULT_SEARCH_MS: f64 = 40.0;
+pub const DEFAULT_SEARCH_MS: f64 = 48.0;
 
 const ME: usize = 0;
 const THEM: usize = 1;
@@ -778,8 +778,8 @@ impl Params {
 			reply_share: tuned("REPLY_SHARE", 0.25),
 			temperature: tuned("TEMPERATURE", 0.5) as f32,
 			verify_top: tuned("VERIFY_TOP", 8.0) as usize,
-			verify_replies: tuned("VERIFY_REPLIES", 8.0) as usize,
-			verify_share: tuned("VERIFY_SHARE", 0.3),
+			verify_replies: tuned("VERIFY_REPLIES", 12.0) as usize,
+			verify_share: tuned("VERIFY_SHARE", 0.35),
 			verify_keep: tuned("VERIFY_KEEP", 1000.0) as usize,
 		}
 	}
