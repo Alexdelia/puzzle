@@ -45,6 +45,10 @@ path = "nova.rs"
 name = "spreader"
 path = "spreader.rs"
 
+[[bin]]
+name = "comet"
+path = "comet.rs"
+
 [dev-dependencies]
 tryangle = { path = "../referee" }
 divan = "0.1"

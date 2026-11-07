@@ -31,6 +31,7 @@ pub const DEFAULT_ATTACK_BONUS: f32 = 0.0;
 pub const DEFAULT_ATTACK_BONUS_PER_ATTACK: f32 = 0.0;
 pub const DEFAULT_THREAT_SHARE: f32 = 0.0;
 pub const DEFAULT_THREATS: f32 = 2.0;
+pub const DEFAULT_TERMINAL: f32 = 0.0;
 pub const REACH_CAP: u32 = 12;
 pub const STALL_TURN: i32 = 12;
 pub const PACK_BASE: u32 = 0x4E00;
@@ -684,6 +685,7 @@ pub fn search(
 	let unit_bonus = weight("NOVA_UNIT_BONUS", DEFAULT_UNIT_BONUS);
 	let triangle_bonus = weight("NOVA_TRIANGLE_BONUS", DEFAULT_TRIANGLE_BONUS);
 	let reach_bonus = weight("NOVA_REACH_BONUS", DEFAULT_REACH_BONUS);
+	let terminal = weight("NOVA_TERMINAL", DEFAULT_TERMINAL);
 	let opponent_triangle_bonus = weight(
 		"NOVA_OPPONENT_TRIANGLE_BONUS",
 		DEFAULT_OPPONENT_TRIANGLE_BONUS,
@@ -719,6 +721,16 @@ pub fn search(
 		ordered[me] = mine;
 		ordered[opponent] = theirs;
 		next.step(map, ordered);
+		if terminal > 0.0 {
+			let eliminated = next.eliminated();
+			let margin = (next.units_of(me) - next.units_of(opponent)) as f32 * 1e-3;
+			match (eliminated[me], eliminated[opponent]) {
+				(true, true) => return margin,
+				(true, false) => return -terminal + margin,
+				(false, true) => return terminal + margin,
+				(false, false) => {}
+			}
+		}
 		let view = features(map, &next, me, turn + 1);
 		let mut total = valuer.value(map, &next, &view).unwrap_or(0.0);
 		total += unit_bonus * (next.units_of(me) - next.units_of(opponent)) as f32;
