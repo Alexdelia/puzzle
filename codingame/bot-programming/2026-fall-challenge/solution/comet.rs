@@ -66,8 +66,10 @@ impl std::hash::Hasher for Mix {
 	}
 
 	fn write(&mut self, bytes: &[u8]) {
-		for &b in bytes {
-			self.write_u64(u64::from(b));
+		for chunk in bytes.chunks(8) {
+			let mut word = [0u8; 8];
+			word[..chunk.len()].copy_from_slice(chunk);
+			self.write_u64(u64::from_le_bytes(word));
 		}
 	}
 
@@ -89,6 +91,21 @@ impl std::hash::Hasher for Mix {
 }
 
 type Seen = std::collections::HashSet<u64, std::hash::BuildHasherDefault<Mix>>;
+type Values = std::collections::HashMap<u64, f32, std::hash::BuildHasherDefault<Mix>>;
+
+fn state_key(state: &State, player: usize) -> u64 {
+	use std::hash::{Hash, Hasher};
+	let mut mix = Mix(player as u64 + 1);
+	for pair in &state.units {
+		mix.write_u64((u64::from(pair[0] as u32) << 32) | u64::from(pair[1] as u32));
+	}
+	state.edges.hash(&mut mix);
+	state.live.hash(&mut mix);
+	state.owner.hash(&mut mix);
+	state.can_capture.hash(&mut mix);
+	state.score.hash(&mut mix);
+	mix.finish()
+}
 
 fn fingerprint(commands: &[Command]) -> u64 {
 	use std::hash::{Hash, Hasher};
@@ -982,6 +999,7 @@ struct Params {
 	verify_replies: usize,
 	verify_share: f64,
 	verify_keep: usize,
+	verify_reserve: f64,
 	max_evaluations: usize,
 }
 
@@ -1003,6 +1021,7 @@ impl Params {
 			verify_replies: tuned("VERIFY_REPLIES", 12.0) as usize,
 			verify_share: tuned("VERIFY_SHARE", 0.35),
 			verify_keep: tuned("VERIFY_KEEP", 1000.0) as usize,
+			verify_reserve: tuned("VERIFY_RESERVE", 1.3),
 			max_evaluations: tuned("EVALS", 1e12) as usize,
 		}
 	}
@@ -1017,6 +1036,8 @@ struct Search<'a> {
 	turn: i32,
 	flip: bool,
 	evaluations: usize,
+	values: Values,
+	hits: usize,
 }
 
 impl Search<'_> {
@@ -1043,9 +1064,21 @@ impl Search<'_> {
 		}
 		let flip = self.flip != (player == THEM);
 		debug_assert_eq!(next.adjacency, self.root.adjacency);
-		let obs = observe(self.map, self.topology, &next, player, self.turn + 1, flip);
+		let key = state_key(&next, player);
+		let value = match self.values.get(&key) {
+			Some(&value) => {
+				self.hits += 1;
+				value
+			}
+			None => {
+				let obs = observe(self.map, self.topology, &next, player, self.turn + 1, flip);
+				let value = self.net.value(&obs);
+				self.values.insert(key, value);
+				value
+			}
+		};
 		let triangles = [player, opponent].map(|p| (next.owner[p] & next.live).len() as f32);
-		self.net.value(&obs)
+		value
 			+ self.params.unit_bonus * (units[0] - units[1])
 			+ self.params.triangle_bonus * (triangles[0] - triangles[1])
 	}
@@ -1161,7 +1194,25 @@ impl Search<'_> {
 		let mut seen = Seen::default();
 		seen.insert(fingerprint(&greedy));
 		let mut draws = 0;
-		while !self.exhausted(sample_end, sample_cap) && draws < 20_000 {
+		let verify_cost = (verify * self.params.verify_replies
+			+ self.params.verify_replies * self.params.reply_best_of.max(1))
+			as f64;
+		let sampling_start = Instant::now();
+		let sampling_from = self.evaluations;
+		loop {
+			let measured = self.evaluations.saturating_sub(sampling_from);
+			let until = if self.params.verify_reserve > 0.0 && measured >= 64 {
+				let per_evaluation = sampling_start.elapsed().as_secs_f64() / measured as f64;
+				let reserve = per_evaluation * verify_cost * self.params.verify_reserve;
+				deadline
+					.checked_sub(Duration::from_secs_f64(reserve))
+					.unwrap_or(started)
+			} else {
+				sample_end
+			};
+			if self.exhausted(until, sample_cap) || draws >= 20_000 {
+				break;
+			}
 			draws += 1;
 			let candidate = plan(self.root, ME, &mine, &sampling, Some(rng));
 			if !seen.insert(fingerprint(&candidate)) {
@@ -1216,10 +1267,11 @@ impl Search<'_> {
 		let best_value = field[0].0;
 		let best = field[0].2.clone();
 		if std::env::var_os("COMET_DEBUG").is_some() {
-			let (turn, evaluations, unique) = (self.turn, self.evaluations, seen.len());
+			let (turn, evaluations, unique, hits) =
+				(self.turn, self.evaluations, seen.len(), self.hits);
 			let elapsed = started.elapsed().as_secs_f64() * 1000.0;
 			eprintln!(
-				"turn {turn} value {best_value:.3} evaluations {evaluations} unique {unique} draws {draws} elapsed {elapsed:.2}"
+				"turn {turn} value {best_value:.3} evaluations {evaluations} unique {unique} draws {draws} hits {hits} elapsed {elapsed:.2}"
 			);
 		}
 		(best, best_value)
@@ -1821,6 +1873,8 @@ fn main() {
 				turn,
 				flip,
 				evaluations: 0,
+				values: Values::default(),
+				hits: 0,
 			};
 			let row = if std::env::var_os("COMET_REPLY_JUDGE").is_some() {
 				search.judge(&theirs, &mut rng)
@@ -1847,6 +1901,8 @@ fn main() {
 					turn,
 					flip,
 					evaluations: 0,
+					values: Values::default(),
+					hits: 0,
 				};
 				let (_, value) = search.run(started, &mut rng);
 				scores
@@ -1881,6 +1937,8 @@ fn main() {
 					turn,
 					flip,
 					evaluations: 0,
+					values: Values::default(),
+					hits: 0,
 				};
 				let (orders, value) = search.run(started, &mut rng);
 				searched = value;
