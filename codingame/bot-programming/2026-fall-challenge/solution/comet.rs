@@ -44,16 +44,15 @@ impl Rng {
 		(self.next() >> 40) as f32 / (1u64 << 24) as f32
 	}
 
-	fn draw(&mut self, weights: &[f32]) -> usize {
-		let total: f32 = weights.iter().sum();
+	fn draw(&mut self, options: &[(usize, f32)], total: f32) -> usize {
 		let mut pick = self.unit() * total;
-		for (index, &w) in weights.iter().enumerate() {
+		for (index, &(_, w)) in options.iter().enumerate() {
 			if pick < w {
 				return index;
 			}
 			pick -= w;
 		}
-		weights.len() - 1
+		options.len() - 1
 	}
 }
 
@@ -153,7 +152,9 @@ impl Neighbors {
 
 struct Topology {
 	neighbors: Rc<Neighbors>,
-	live_at: [f32; MAX_NODES],
+	live_share: [f32; MAX_NODES],
+	position: [[f32; 2]; MAX_NODES],
+	thirds: [f32; 256],
 }
 
 impl Topology {
@@ -176,9 +177,18 @@ impl Topology {
 				live_at[c] += 1.0;
 			}
 		}
+		let mut position = [[0f32; 2]; MAX_NODES];
+		for (slot, point) in position.iter_mut().zip(&map.points) {
+			*slot = [
+				(point.x - 80) as f32 / 1760.0,
+				(point.y - 70) as f32 / 820.0,
+			];
+		}
 		Topology {
 			neighbors: Rc::new(neighbors),
-			live_at,
+			live_share: live_at.map(|live| live / 6.0),
+			position,
+			thirds: std::array::from_fn(|k| k as f32 / 3.0),
 		}
 	}
 }
@@ -192,14 +202,28 @@ struct Obs {
 	attack_targets: Vec<u64>,
 }
 
-fn observe(
+impl Obs {
+	fn blank(topology: &Topology) -> Obs {
+		Obs {
+			nodes: Vec::new(),
+			globals: [0.0; GLOBAL_FEATURES],
+			neighbors: Rc::clone(&topology.neighbors),
+			usable: Vec::new(),
+			corners: Vec::new(),
+			attack_targets: Vec::new(),
+		}
+	}
+}
+
+fn features(
 	map: &Map,
 	topology: &Topology,
 	state: &State,
 	player: usize,
 	turn: i32,
 	flip: bool,
-) -> Obs {
+	obs: &mut Obs,
+) {
 	let count = map.len();
 	let opponent = 1 - player;
 	let units = |n: usize, p: usize| state.units[n][p];
@@ -213,32 +237,38 @@ fn observe(
 	let force = |n: usize, p: usize| units(n, p) + nearby[n][p];
 	let owners = state.node_owners();
 	let reach = [player, opponent].map(|p| distances(state, occupied(state, p, count)));
-	let mut owned_at = [[0f32; MAX_NODES]; 2];
-	let mut capturable_at = [[0f32; MAX_NODES]; 2];
-	let mut locked_at = [[0f32; MAX_NODES]; 2];
-	let mut progress_at = [[0f32; MAX_NODES]; 2];
+	let mut owned_at = [[0u8; MAX_NODES]; 2];
+	let mut capturable_at = [[0u8; MAX_NODES]; 2];
+	let mut locked_at = [[0u8; MAX_NODES]; 2];
+	let mut progress_at = [[0u8; MAX_NODES]; 2];
 	let mut attackable = [0u64; 2];
+	let claimed = state.owner[0] | state.owner[1];
 	for t in state.live.iter() {
 		let corners = map.corners(t);
-		let unowned = !state.owner[0].has(t) && !state.owner[1].has(t);
+		let corner_list = map.triangles[t];
+		let unowned = !claimed.has(t);
 		for (side, p) in [player, opponent].into_iter().enumerate() {
 			let owned = state.owner[p].has(t);
 			let capturable = !owned && state.can_capture[p].has(t);
 			let locked = unowned && !state.can_capture[p].has(t);
-			let progress = (corners & owners[p]).count_ones() as f32 / 3.0;
-			if owned && nodes_of(corners).all(|c| units(c, p) >= 1) {
-				attackable[side] |= around(state, corners);
-			}
-			for c in nodes_of(corners) {
-				if owned {
-					owned_at[side][c] += 1.0;
+			if owned {
+				if corner_list.iter().all(|&c| units(c, p) >= 1) {
+					attackable[side] |= around(state, corners);
 				}
-				if capturable {
-					capturable_at[side][c] += 1.0;
+				for &c in &corner_list {
+					owned_at[side][c] += 1;
+				}
+			}
+			if capturable {
+				let progress = (corners & owners[p]).count_ones() as u8;
+				for &c in &corner_list {
+					capturable_at[side][c] += 1;
 					progress_at[side][c] = progress_at[side][c].max(progress);
 				}
-				if locked {
-					locked_at[side][c] += 1.0;
+			}
+			if locked {
+				for &c in &corner_list {
+					locked_at[side][c] += 1;
 				}
 			}
 		}
@@ -252,54 +282,52 @@ fn observe(
 				units(m, attacker) + incoming > units(m, victim)
 			})
 	};
-	let flag = |b: bool| if b { 1.0 } else { 0.0 };
-	let nodes = (0..count)
-		.map(|n| {
-			let point = map.points[n];
-			let mut x = (point.x - 80) as f32 / 1760.0;
-			let mut y = (point.y - 70) as f32 / 820.0;
-			if flip {
-				x = 1.0 - x;
-				y = 1.0 - y;
-			}
-			let [mine, theirs] = [units(n, player), units(n, opponent)];
-			let [my_force, their_force] = [force(n, player), force(n, opponent)];
-			[
-				mine as f32 / 4.0,
-				theirs as f32 / 4.0,
-				flag(mine > 0),
-				flag(theirs > 0),
-				flag(mine > theirs),
-				flag(theirs > mine),
-				my_force as f32 / 8.0,
-				their_force as f32 / 8.0,
-				flag(my_force > their_force),
-				state.adjacency[n].count_ones() as f32 / 8.0,
-				flag(owners[player] & bit(n) != 0),
-				flag(owners[opponent] & bit(n) != 0),
-				f32::from(reach[0][n].min(12)) / 8.0,
-				f32::from(reach[1][n].min(12)) / 8.0,
-				x,
-				y,
-				topology.live_at[n] / 6.0,
-				owned_at[0][n] / 3.0,
-				owned_at[1][n] / 3.0,
-				capturable_at[0][n] / 3.0,
-				locked_at[0][n] / 3.0,
-				capturable_at[1][n] / 3.0,
-				locked_at[1][n] / 3.0,
-				progress_at[0][n],
-				progress_at[1][n],
-				flag(threatened(n, player)),
-				flag(threatened(n, opponent)),
-				flag(attackable[1] & bit(n) != 0) * mine as f32 / 4.0,
-				flag(attackable[0] & bit(n) != 0) * theirs as f32 / 4.0,
-			]
-		})
-		.collect();
+	let flag = |b: bool| f32::from(u8::from(b));
+	let third = |count: u8| topology.thirds[usize::from(count)];
+	obs.nodes.clear();
+	obs.nodes.extend((0..count).map(|n| {
+		let [mut x, mut y] = topology.position[n];
+		if flip {
+			x = 1.0 - x;
+			y = 1.0 - y;
+		}
+		let [mine, theirs] = [units(n, player), units(n, opponent)];
+		let [my_force, their_force] = [force(n, player), force(n, opponent)];
+		[
+			mine as f32 / 4.0,
+			theirs as f32 / 4.0,
+			flag(mine > 0),
+			flag(theirs > 0),
+			flag(mine > theirs),
+			flag(theirs > mine),
+			my_force as f32 / 8.0,
+			their_force as f32 / 8.0,
+			flag(my_force > their_force),
+			state.adjacency[n].count_ones() as f32 / 8.0,
+			flag(owners[player] & bit(n) != 0),
+			flag(owners[opponent] & bit(n) != 0),
+			f32::from(reach[0][n].min(12)) / 8.0,
+			f32::from(reach[1][n].min(12)) / 8.0,
+			x,
+			y,
+			topology.live_share[n],
+			third(owned_at[0][n]),
+			third(owned_at[1][n]),
+			third(capturable_at[0][n]),
+			third(locked_at[0][n]),
+			third(capturable_at[1][n]),
+			third(locked_at[1][n]),
+			third(progress_at[0][n]),
+			third(progress_at[1][n]),
+			flag(threatened(n, player)),
+			flag(threatened(n, opponent)),
+			flag(attackable[1] & bit(n) != 0) * mine as f32 / 4.0,
+			flag(attackable[0] & bit(n) != 0) * theirs as f32 / 4.0,
+		]
+	}));
 	let score_gap = (state.score[player] - state.score[opponent]) as f32;
 	let triangles = [player, opponent].map(|p| (state.owner[p] & state.live).len() as f32);
-	let globals = [
+	obs.globals = [
 		turn as f32 / LAST_TURN as f32,
 		(score_gap / 100.0).tanh(),
 		state.units_of(player) as f32 / 30.0,
@@ -309,13 +337,26 @@ fn observe(
 		state.live.len() as f32 / 40.0,
 		1.0,
 	];
-	let neighbors = Rc::clone(&topology.neighbors);
-	let usable: Vec<usize> = (state.owner[player] & state.initial_owner[player] & state.live)
+}
+
+fn observe(
+	map: &Map,
+	topology: &Topology,
+	state: &State,
+	player: usize,
+	turn: i32,
+	flip: bool,
+) -> Obs {
+	let mut obs = Obs::blank(topology);
+	features(map, topology, state, player, turn, flip, &mut obs);
+	let units = |n: usize, p: usize| state.units[n][p];
+	obs.usable = (state.owner[player] & state.initial_owner[player] & state.live)
 		.iter()
 		.collect();
-	let enemy = occupied(state, opponent, count);
-	let corners = usable.iter().map(|&t| map.triangles[t]).collect();
-	let attack_targets = usable
+	let enemy = occupied(state, 1 - player, map.len());
+	obs.corners = obs.usable.iter().map(|&t| map.triangles[t]).collect();
+	obs.attack_targets = obs
+		.usable
 		.iter()
 		.map(|&t| {
 			let corners = map.corners(t);
@@ -326,14 +367,7 @@ fn observe(
 			}
 		})
 		.collect();
-	Obs {
-		nodes,
-		globals,
-		neighbors,
-		usable,
-		corners,
-		attack_targets,
-	}
+	obs
 }
 
 fn unpack(text: &str) -> Vec<u8> {
@@ -468,35 +502,79 @@ impl Dense {
 		out: &mut [f32],
 	) {
 		let bias: [f32; O] = bias[..O].try_into().unwrap();
-		let pairs = input.len() / (2 * inputs);
-		for (x, y) in input
-			.chunks_exact(2 * inputs)
-			.zip(out.chunks_exact_mut(2 * O))
-		{
-			let (x0, x1) = x.split_at(inputs);
-			let mut acc0 = bias;
-			let mut acc1 = bias;
-			for ((&a, &b), column) in x0.iter().zip(x1).zip(self.transposed.chunks_exact(O)) {
-				let column: &[f32; O] = column.try_into().unwrap();
-				for k in 0..O {
-					acc0[k] = a.mul_add(column[k], acc0[k]);
-					acc1[k] = b.mul_add(column[k], acc1[k]);
-				}
-			}
+		let mut x = input.chunks_exact(3 * inputs);
+		let mut y = out.chunks_exact_mut(3 * O);
+		for (x, y) in (&mut x).zip(&mut y) {
+			let [mut acc0, mut acc1, mut acc2] = [bias; 3];
+			accumulate3(x, &self.transposed, &mut acc0, &mut acc1, &mut acc2);
 			y[..O].copy_from_slice(&acc0);
-			y[O..].copy_from_slice(&acc1);
+			y[O..2 * O].copy_from_slice(&acc1);
+			y[2 * O..].copy_from_slice(&acc2);
 		}
-		let rest = &input[pairs * 2 * inputs..];
-		let rest_out = &mut out[pairs * 2 * O..];
-		for (x, y) in rest.chunks_exact(inputs).zip(rest_out.chunks_exact_mut(O)) {
+		let rest = x.remainder().chunks_exact(inputs);
+		for (x, y) in rest.zip(y.into_remainder().chunks_exact_mut(O)) {
 			let mut acc = bias;
-			for (&xi, column) in x.iter().zip(self.transposed.chunks_exact(O)) {
-				let column: &[f32; O] = column.try_into().unwrap();
-				for k in 0..O {
-					acc[k] = xi.mul_add(column[k], acc[k]);
-				}
-			}
+			accumulate1(x, &self.transposed, &mut acc);
 			y.copy_from_slice(&acc);
+		}
+	}
+
+	fn apply_round(&self, hidden: &mut [f32], pooled: &[f32]) {
+		#[cfg(target_arch = "x86_64")]
+		if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+			unsafe { self.apply_round_avx(hidden, pooled) };
+			return;
+		}
+		self.apply_round_plain(hidden, pooled);
+	}
+
+	#[cfg(target_arch = "x86_64")]
+	#[target_feature(enable = "avx2,fma")]
+	unsafe fn apply_round_avx(&self, hidden: &mut [f32], pooled: &[f32]) {
+		self.apply_round_plain(hidden, pooled);
+	}
+
+	#[inline(always)]
+	fn apply_round_plain(&self, hidden: &mut [f32], pooled: &[f32]) {
+		match self.bias.len() {
+			32 => self.apply_round_fixed::<32>(hidden, pooled),
+			40 => self.apply_round_fixed::<40>(hidden, pooled),
+			48 => self.apply_round_fixed::<48>(hidden, pooled),
+			64 => self.apply_round_fixed::<64>(hidden, pooled),
+			w => {
+				let both: Vec<f32> = hidden
+					.chunks_exact(w)
+					.zip(pooled.chunks_exact(w))
+					.flat_map(|(h, p)| h.iter().chain(p))
+					.copied()
+					.collect();
+				let mut delta = vec![0.0; hidden.len()];
+				self.apply_rows_any(&both, 2 * w, &self.bias, &mut delta);
+				residual(hidden, &delta);
+			}
+		}
+	}
+
+	#[inline(always)]
+	fn apply_round_fixed<const O: usize>(&self, hidden: &mut [f32], pooled: &[f32]) {
+		let bias: [f32; O] = self.bias[..O].try_into().unwrap();
+		let (own_columns, mean_columns) = self.transposed.split_at(O * O);
+		let mut hidden_rows = hidden.chunks_exact_mut(3 * O);
+		let mut pooled_rows = pooled.chunks_exact(3 * O);
+		for (h, p) in (&mut hidden_rows).zip(&mut pooled_rows) {
+			let [mut acc0, mut acc1, mut acc2] = [bias; 3];
+			accumulate3(h, own_columns, &mut acc0, &mut acc1, &mut acc2);
+			accumulate3(p, mean_columns, &mut acc0, &mut acc1, &mut acc2);
+			residual(&mut h[..O], &acc0);
+			residual(&mut h[O..2 * O], &acc1);
+			residual(&mut h[2 * O..], &acc2);
+		}
+		let rest = hidden_rows.into_remainder().chunks_exact_mut(O);
+		for (h, p) in rest.zip(pooled_rows.remainder().chunks_exact(O)) {
+			let mut acc = bias;
+			accumulate1(h, own_columns, &mut acc);
+			accumulate1(p, mean_columns, &mut acc);
+			residual(h, &acc);
 		}
 	}
 
@@ -521,6 +599,44 @@ impl Dense {
 }
 
 #[inline(always)]
+fn accumulate3<const O: usize>(
+	rows: &[f32],
+	columns: &[f32],
+	acc0: &mut [f32; O],
+	acc1: &mut [f32; O],
+	acc2: &mut [f32; O],
+) {
+	let width = rows.len() / 3;
+	let (x0, x12) = rows.split_at(width);
+	let (x1, x2) = x12.split_at(width);
+	for (((&a, &b), &c), column) in x0.iter().zip(x1).zip(x2).zip(columns.chunks_exact(O)) {
+		let column: &[f32; O] = column.try_into().unwrap();
+		for k in 0..O {
+			acc0[k] = a.mul_add(column[k], acc0[k]);
+			acc1[k] = b.mul_add(column[k], acc1[k]);
+			acc2[k] = c.mul_add(column[k], acc2[k]);
+		}
+	}
+}
+
+#[inline(always)]
+fn accumulate1<const O: usize>(row: &[f32], columns: &[f32], acc: &mut [f32; O]) {
+	for (&x, column) in row.iter().zip(columns.chunks_exact(O)) {
+		let column: &[f32; O] = column.try_into().unwrap();
+		for k in 0..O {
+			acc[k] = x.mul_add(column[k], acc[k]);
+		}
+	}
+}
+
+#[inline(always)]
+fn residual(hidden: &mut [f32], delta: &[f32]) {
+	for (h, &d) in hidden.iter_mut().zip(delta) {
+		*h += d.max(0.0);
+	}
+}
+
+#[inline(always)]
 fn dot(a: &[f32], b: &[f32]) -> f32 {
 	let mut lanes = [0f32; 8];
 	let (a_chunks, a_rest) = a.split_at(a.len() / 8 * 8);
@@ -538,10 +654,8 @@ fn dot(a: &[f32], b: &[f32]) -> f32 {
 }
 
 #[inline(always)]
-fn gather_fixed<const W: usize>(hidden: &[f32], both: &mut [f32], neighbors: &Neighbors) {
-	for (n, row) in both.chunks_exact_mut(2 * W).enumerate() {
-		let (own, pooled) = row.split_at_mut(W);
-		own.copy_from_slice(&hidden[n * W..(n + 1) * W]);
+fn gather_fixed<const W: usize>(hidden: &[f32], pooled: &mut [f32], neighbors: &Neighbors) {
+	for (n, pooled) in pooled.chunks_exact_mut(W).enumerate() {
 		let around = neighbors.of(n);
 		let mut sum = [0f32; W];
 		for &m in around {
@@ -558,10 +672,8 @@ fn gather_fixed<const W: usize>(hidden: &[f32], both: &mut [f32], neighbors: &Ne
 	}
 }
 
-fn gather_any(w: usize, hidden: &[f32], both: &mut [f32], neighbors: &Neighbors) {
-	for (n, row) in both.chunks_exact_mut(2 * w).enumerate() {
-		let (own, pooled) = row.split_at_mut(w);
-		own.copy_from_slice(&hidden[n * w..(n + 1) * w]);
+fn gather_any(w: usize, hidden: &[f32], pooled: &mut [f32], neighbors: &Neighbors) {
+	for (n, pooled) in pooled.chunks_exact_mut(w).enumerate() {
 		pooled.fill(0.0);
 		let around = neighbors.of(n);
 		for &m in around {
@@ -620,8 +732,7 @@ impl Round {
 #[derive(Default)]
 struct Scratch {
 	hidden: Vec<f32>,
-	both: Vec<f32>,
-	delta: Vec<f32>,
+	pooled: Vec<f32>,
 	bias: Vec<f32>,
 }
 
@@ -705,10 +816,9 @@ impl Net {
 	fn trunk(&self, obs: &Obs, hidden: &mut Vec<f32>) {
 		let w = self.width;
 		let count = obs.nodes.len();
+		let neighbors = &obs.neighbors;
 		let mut scratch = self.scratch.borrow_mut();
-		let Scratch {
-			both, delta, bias, ..
-		} = &mut *scratch;
+		let Scratch { pooled, bias, .. } = &mut *scratch;
 		bias.clear();
 		bias.extend_from_slice(&self.input.bias);
 		let global_columns = self.input.transposed[NODE_FEATURES * w..].chunks_exact(w);
@@ -717,27 +827,20 @@ impl Net {
 				*b += g * c;
 			}
 		}
-		hidden.clear();
 		hidden.resize(count * w, 0.0);
 		self.input
 			.apply_rows_with(obs.nodes.as_flattened(), NODE_FEATURES, bias, hidden);
 		relu(hidden);
-		both.clear();
-		both.resize(count * 2 * w, 0.0);
-		delta.clear();
-		delta.resize(count * w, 0.0);
+		pooled.resize(count * w, 0.0);
 		for round in &self.rounds {
 			match w {
-				32 => gather_fixed::<32>(hidden, both, &obs.neighbors),
-				40 => gather_fixed::<40>(hidden, both, &obs.neighbors),
-				48 => gather_fixed::<48>(hidden, both, &obs.neighbors),
-				64 => gather_fixed::<64>(hidden, both, &obs.neighbors),
-				_ => gather_any(w, hidden, both, &obs.neighbors),
+				32 => gather_fixed::<32>(hidden, pooled, neighbors),
+				40 => gather_fixed::<40>(hidden, pooled, neighbors),
+				48 => gather_fixed::<48>(hidden, pooled, neighbors),
+				64 => gather_fixed::<64>(hidden, pooled, neighbors),
+				_ => gather_any(w, hidden, pooled, neighbors),
 			}
-			round.own_and_mean.apply_rows(both, delta);
-			for (h, &d) in hidden.iter_mut().zip(delta.iter()) {
-				*h += d.max(0.0);
-			}
+			round.own_and_mean.apply_round(hidden, pooled);
 		}
 	}
 
@@ -871,6 +974,10 @@ fn softmax(options: &mut [(usize, f32)]) {
 	}
 }
 
+fn total(options: &[(usize, f32)]) -> f32 {
+	options.iter().map(|o| o.1).sum()
+}
+
 fn tempered(policy: &Policy, temperature: f32) -> Policy {
 	let reshape = |options: &Vec<(usize, f32)>| {
 		let mut out: Vec<(usize, f32)> = options
@@ -895,15 +1002,12 @@ fn plan(
 	mut rng: Option<&mut Rng>,
 ) -> Vec<Command> {
 	let mut reserved = [0i32; MAX_NODES];
-	let mut orders = Vec::new();
+	let mut orders = Vec::with_capacity(policy.actions.len() + 2 * policy.moves.len());
 	for (index, options) in policy.actions.iter().enumerate() {
 		let t = obs.usable[index];
 		let corners = obs.corners[index];
 		let choice = match rng.as_deref_mut() {
-			Some(rng) => {
-				let weights: Vec<f32> = options.iter().map(|o| o.1).collect();
-				options[rng.draw(&weights)].0
-			}
+			Some(rng) => options[rng.draw(options, total(options))].0,
 			None => {
 				options
 					.iter()
@@ -942,9 +1046,9 @@ fn plan(
 		let mut counts = [0i32; MOVE_SLOTS];
 		match rng.as_deref_mut() {
 			Some(rng) => {
-				let weights: Vec<f32> = options.iter().map(|o| o.1).collect();
+				let total = total(options);
 				for _ in 0..units {
-					counts[rng.draw(&weights)] += 1;
+					counts[rng.draw(options, total)] += 1;
 				}
 			}
 			None => {
@@ -1038,9 +1142,34 @@ struct Search<'a> {
 	evaluations: usize,
 	values: Values,
 	hits: usize,
+	obs: Obs,
 }
 
-impl Search<'_> {
+impl<'a> Search<'a> {
+	fn new(
+		map: &'a Map,
+		net: &'a Net,
+		params: &'a Params,
+		root: &'a State,
+		topology: &'a Topology,
+		turn: i32,
+		flip: bool,
+	) -> Search<'a> {
+		Search {
+			map,
+			net,
+			params,
+			root,
+			topology,
+			turn,
+			flip,
+			evaluations: 0,
+			values: Values::default(),
+			hits: 0,
+			obs: Obs::blank(topology),
+		}
+	}
+
 	fn exhausted(&self, until: Instant, evaluations: usize) -> bool {
 		self.evaluations >= evaluations || Instant::now() >= until
 	}
@@ -1071,8 +1200,17 @@ impl Search<'_> {
 				value
 			}
 			None => {
-				let obs = observe(self.map, self.topology, &next, player, self.turn + 1, flip);
-				let value = self.net.value(&obs);
+				let turn = self.turn + 1;
+				features(
+					self.map,
+					self.topology,
+					&next,
+					player,
+					turn,
+					flip,
+					&mut self.obs,
+				);
+				let value = self.net.value(&self.obs);
 				self.values.insert(key, value);
 				value
 			}
@@ -1864,18 +2002,7 @@ fn main() {
 			let mut next = state;
 			next.step(&map, [&mine, &theirs]);
 			expected = Some(next);
-			let mut search = Search {
-				map: &map,
-				net,
-				params: &params,
-				root: &state,
-				topology: &topology,
-				turn,
-				flip,
-				evaluations: 0,
-				values: Values::default(),
-				hits: 0,
-			};
+			let mut search = Search::new(&map, net, &params, &state, &topology, turn, flip);
 			let row = if std::env::var_os("COMET_REPLY_JUDGE").is_some() {
 				search.judge(&theirs, &mut rng)
 			} else {
@@ -1892,18 +2019,7 @@ fn main() {
 			let labels = labels(&map, &state, &obs, line);
 			write_record(extract, &state, &obs, turn, &labels, 0);
 			if let (Some(scores), Some(net)) = (extract_scores.as_mut(), net.as_ref()) {
-				let mut search = Search {
-					map: &map,
-					net,
-					params: &params,
-					root: &state,
-					topology: &topology,
-					turn,
-					flip,
-					evaluations: 0,
-					values: Values::default(),
-					hits: 0,
-				};
+				let mut search = Search::new(&map, net, &params, &state, &topology, turn, flip);
 				let (_, value) = search.run(started, &mut rng);
 				scores
 					.write_all(&value.to_le_bytes())
@@ -1928,18 +2044,7 @@ fn main() {
 				answer(&map, &orders)
 			}
 			(None, Some(net)) => {
-				let mut search = Search {
-					map: &map,
-					net,
-					params: &params,
-					root: &state,
-					topology: &topology,
-					turn,
-					flip,
-					evaluations: 0,
-					values: Values::default(),
-					hits: 0,
-				};
+				let mut search = Search::new(&map, net, &params, &state, &topology, turn, flip);
 				let (orders, value) = search.run(started, &mut rng);
 				searched = value;
 				answer(&map, &orders)

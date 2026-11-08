@@ -401,29 +401,24 @@ impl State {
 	}
 
 	pub fn occupied_by(&self, player: usize) -> u64 {
-		self.units
-			.iter()
-			.enumerate()
-			.fold(0, |set, (n, u)| set | (u64::from(u[player] > 0) << n))
+		mask_of(&self.units, |u| u[player] > 0)
 	}
 
 	fn advantage(&self, player: usize) -> u64 {
-		self.units.iter().enumerate().fold(0, |set, (n, u)| {
-			set | (u64::from(u[player] > u[1 - player]) << n)
-		})
+		mask_of(&self.units, |u| u[player] > u[1 - player])
 	}
 
 	fn dominated_by(&self, advantage: u64) -> u64 {
-		self.adjacency
-			.iter()
-			.enumerate()
-			.fold(0, |set, (n, &around)| {
-				set | (u64::from(around != 0 && around & !advantage == 0) << n)
-			})
+		mask_of(&self.adjacency, |&around| {
+			(around != 0) & (around & !advantage == 0)
+		})
 	}
 
 	pub fn node_owners(&self) -> [u64; 2] {
-		let advantage = [0, 1].map(|p| self.advantage(p));
+		self.node_owners_with([0, 1].map(|p| self.advantage(p)))
+	}
+
+	fn node_owners_with(&self, advantage: [u64; 2]) -> [u64; 2] {
 		let dominated = advantage.map(|a| self.dominated_by(a));
 		[
 			dominated[0] | (!dominated[1] & advantage[0]),
@@ -584,18 +579,21 @@ impl State {
 
 	pub fn step(&mut self, map: &Map, commands: [&[Command]; 2]) {
 		let mut remaining: Remaining = self.units;
-		let mut accepted: [Vec<Command>; 2] = std::array::from_fn(|player| {
-			commands[player]
-				.iter()
-				.copied()
-				.filter(|&c| {
-					self.is_well_formed(map, c) && self.can_apply(map, &remaining, player, c)
-				})
-				.collect()
+		let accepted: [Vec<Command>; 2] = std::array::from_fn(|player| {
+			let mut queue = Vec::with_capacity(commands[player].len());
+			for phase in Phase::ORDER {
+				let from = queue.len();
+				queue.extend(commands[player].iter().copied().filter(|&c| {
+					Phase::of(c) == phase
+						&& self.is_well_formed(map, c)
+						&& self.can_apply(map, &remaining, player, c)
+				}));
+				if phase == Phase::AddPath {
+					queue[from..].sort_by_key(|&c| cost(map, c));
+				}
+			}
+			queue
 		});
-		for queue in &mut accepted {
-			queue.sort_by_key(|&c| (Phase::of(c) as u8, cost(map, c)));
-		}
 		let mut starts = [0; 2];
 		for phase in Phase::ORDER {
 			let queues: Queues = std::array::from_fn(|player| {
@@ -613,29 +611,29 @@ impl State {
 		self.finalize(map);
 	}
 
-	fn refresh_capture_rights(&mut self, map: &Map) {
-		let occupied = [0, 1].map(|p| self.occupied_by(p));
-		self.refresh_capture_rights_with(map, occupied);
-	}
-
 	fn refresh_capture_rights_with(&mut self, map: &Map, occupied: [u64; 2]) {
+		let mut untouched = [TriangleSet::default(); 2];
 		for t in self.live.iter() {
-			let owner = (0..2).find(|&p| self.owner[p].has(t));
 			for (player, &occupied) in occupied.iter().enumerate() {
-				let allowed = match owner {
-					Some(owner) => owner != player,
-					None => self.can_capture[player].has(t) || map.corners(t) & occupied == 0,
-				};
-				self.can_capture[player].assign(t, allowed);
+				if map.corners(t) & occupied == 0 {
+					untouched[player].insert(t);
+				}
 			}
+		}
+		let [first, second] = self.owner;
+		let allowed = [
+			!first & (second | self.can_capture[0] | untouched[0]),
+			first | (!second & (self.can_capture[1] | untouched[1])),
+		];
+		for (rights, allowed) in self.can_capture.iter_mut().zip(allowed) {
+			*rights = (*rights & !self.live) | (allowed & self.live);
 		}
 	}
 
-	fn kill_surrounded(&mut self) -> bool {
-		let advantage = [0, 1].map(|p| self.advantage(p));
+	fn kill_surrounded(&mut self, advantage: [u64; 2], occupied: [u64; 2]) -> bool {
 		let mut killed = false;
 		for player in 0..2 {
-			let doomed = self.dominated_by(advantage[1 - player]) & self.occupied_by(player);
+			let doomed = self.dominated_by(advantage[1 - player]) & occupied[player];
 			for node in nodes_of(doomed) {
 				self.units[node][player] = 0;
 				killed = true;
@@ -662,12 +660,15 @@ impl State {
 	}
 
 	fn finalize(&mut self, map: &Map) {
-		self.refresh_capture_rights(map);
-		if self.kill_surrounded() {
-			self.refresh_capture_rights(map);
+		let mut occupied = [0, 1].map(|p| self.occupied_by(p));
+		let mut advantage = [0, 1].map(|p| self.advantage(p));
+		self.refresh_capture_rights_with(map, occupied);
+		if self.kill_surrounded(advantage, occupied) {
+			occupied = [0, 1].map(|p| self.occupied_by(p));
+			advantage = [0, 1].map(|p| self.advantage(p));
+			self.refresh_capture_rights_with(map, occupied);
 		}
-		let occupied = [0, 1].map(|p| self.occupied_by(p));
-		let owned = self.node_owners();
+		let owned = self.node_owners_with(advantage);
 		while self.capture_triangles(map, owned) {
 			self.refresh_capture_rights_with(map, occupied);
 		}
@@ -698,6 +699,13 @@ impl State {
 		}
 		out
 	}
+}
+
+fn mask_of<T>(items: &[T; MAX_NODES], test: impl Fn(&T) -> bool) -> u64 {
+	items
+		.iter()
+		.rev()
+		.fold(0, |set, item| (set << 1) | u64::from(test(item)))
 }
 
 type Remaining = [[i32; 2]; MAX_NODES];
