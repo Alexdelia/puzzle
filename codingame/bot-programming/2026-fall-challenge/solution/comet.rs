@@ -435,6 +435,7 @@ impl Dense {
 	fn apply_rows_plain(&self, input: &[f32], inputs: usize, bias: &[f32], out: &mut [f32]) {
 		match bias.len() {
 			32 => self.apply_rows_fixed::<32>(input, inputs, bias, out),
+			40 => self.apply_rows_fixed::<40>(input, inputs, bias, out),
 			48 => self.apply_rows_fixed::<48>(input, inputs, bias, out),
 			64 => self.apply_rows_fixed::<64>(input, inputs, bias, out),
 			_ => self.apply_rows_any(input, inputs, bias, out),
@@ -711,6 +712,7 @@ impl Net {
 		for round in &self.rounds {
 			match w {
 				32 => gather_fixed::<32>(hidden, both, &obs.neighbors),
+				40 => gather_fixed::<40>(hidden, both, &obs.neighbors),
 				48 => gather_fixed::<48>(hidden, both, &obs.neighbors),
 				64 => gather_fixed::<64>(hidden, both, &obs.neighbors),
 				_ => gather_any(w, hidden, both, &obs.neighbors),
@@ -973,6 +975,7 @@ struct Params {
 	sampled: bool,
 	reply_mode: u8,
 	reply_share: f64,
+	reply_best_of: usize,
 	temperature: f32,
 	verify_top: usize,
 	verify_replies: usize,
@@ -990,10 +993,11 @@ impl Params {
 			unit_bonus: tuned("UNIT_BONUS", 0.0) as f32,
 			triangle_bonus: tuned("TRIANGLE_BONUS", 0.0) as f32,
 			sampled: tuned("SAMPLE", 0.0) > 0.0,
-			reply_mode: tuned("REPLY_MODE", 0.0) as u8,
+			reply_mode: tuned("REPLY_MODE", 2.0) as u8,
 			reply_share: tuned("REPLY_SHARE", 0.25),
+			reply_best_of: tuned("REPLY_BEST_OF", 16.0) as usize,
 			temperature: tuned("TEMPERATURE", 0.5) as f32,
-			verify_top: tuned("VERIFY_TOP", 8.0) as usize,
+			verify_top: tuned("VERIFY_TOP", 12.0) as usize,
 			verify_replies: tuned("VERIFY_REPLIES", 12.0) as usize,
 			verify_share: tuned("VERIFY_SHARE", 0.35),
 			verify_keep: tuned("VERIFY_KEEP", 1000.0) as usize,
@@ -1072,6 +1076,33 @@ impl Search<'_> {
 		best
 	}
 
+	fn sampled_reply(
+		&mut self,
+		expected: &[Command],
+		theirs: &Obs,
+		sampling: &Policy,
+		until: Instant,
+		rng: &mut Rng,
+	) -> Vec<Command> {
+		let mut best = plan(self.root, THEM, theirs, sampling, Some(rng));
+		if self.params.reply_best_of <= 1 {
+			return best;
+		}
+		let mut best_value = self.evaluate_as(THEM, expected, &best);
+		for _ in 1..self.params.reply_best_of {
+			if Instant::now() >= until {
+				break;
+			}
+			let candidate = plan(self.root, THEM, theirs, sampling, Some(rng));
+			let value = self.evaluate_as(THEM, expected, &candidate);
+			if value > best_value {
+				best_value = value;
+				best = candidate;
+			}
+		}
+		best
+	}
+
 	fn score(&mut self, mine: &[Command], replies: &[Vec<Command>]) -> f32 {
 		let values: Vec<f32> = replies.iter().map(|r| self.evaluate(mine, r)).collect();
 		let mean = values.iter().sum::<f32>() / values.len() as f32;
@@ -1109,7 +1140,7 @@ impl Search<'_> {
 		let mut attempts = 0;
 		while replies.len() < self.params.replies.max(1) && attempts < 60 {
 			attempts += 1;
-			let reply = plan(self.root, THEM, &theirs, &their_sampling, Some(rng));
+			let reply = self.sampled_reply(&greedy, &theirs, &their_sampling, deadline, rng);
 			if !replies.contains(&reply) {
 				replies.push(reply);
 			}
@@ -1150,9 +1181,12 @@ impl Search<'_> {
 		while field.len() > 1 && !self.exhausted(deadline, cap) {
 			let mut extra: Vec<Vec<Command>> = Vec::new();
 			let mut attempts = 0;
-			while extra.len() < self.params.verify_replies && attempts < 60 {
+			while extra.len() < self.params.verify_replies
+				&& attempts < 60
+				&& Instant::now() < deadline
+			{
 				attempts += 1;
-				let reply = plan(self.root, THEM, &theirs, &their_sampling, Some(rng));
+				let reply = self.sampled_reply(&greedy, &theirs, &their_sampling, deadline, rng);
 				if !used.contains(&reply) {
 					used.push(reply.clone());
 					extra.push(reply);
@@ -1181,12 +1215,133 @@ impl Search<'_> {
 		let best = field[0].2.clone();
 		if std::env::var_os("COMET_DEBUG").is_some() {
 			let (turn, evaluations, unique) = (self.turn, self.evaluations, seen.len());
+			let elapsed = started.elapsed().as_secs_f64() * 1000.0;
 			eprintln!(
-				"turn {turn} value {best_value:.3} evaluations {evaluations} unique {unique} draws {draws}"
+				"turn {turn} value {best_value:.3} evaluations {evaluations} unique {unique} draws {draws} elapsed {elapsed:.2}"
 			);
 		}
 		(best, best_value)
 	}
+}
+
+const BEST_OF: [usize; 5] = [1, 2, 4, 8, 32];
+const BEST_OF_REPEATS: usize = 4;
+
+fn is_move(command: &Command) -> bool {
+	matches!(command, Command::Move { .. })
+}
+
+impl Search<'_> {
+	fn diagnose(&mut self, mine: &[Command], theirs: &[Command], rng: &mut Rng) -> String {
+		let my_obs = observe(self.map, self.topology, self.root, ME, self.turn, self.flip);
+		let my_policy = self.net.policy(&my_obs, self.root, ME);
+		let my_greedy = plan(self.root, ME, &my_obs, &my_policy, None);
+		let their_obs = observe(
+			self.map,
+			self.topology,
+			self.root,
+			THEM,
+			self.turn,
+			!self.flip,
+		);
+		let their_policy = self.net.policy(&their_obs, self.root, THEM);
+		let actual = self.evaluate(mine, theirs);
+		let greedy = plan(self.root, THEM, &their_obs, &their_policy, None);
+		let greedy_value = self.evaluate(mine, &greedy);
+		let hybrid = |moves: &[Command], actions: &[Command]| -> Vec<Command> {
+			moves
+				.iter()
+				.filter(|c| is_move(c))
+				.chain(actions.iter().filter(|c| !is_move(c)))
+				.copied()
+				.collect()
+		};
+		let actual_moves = self.evaluate(mine, &hybrid(theirs, &greedy));
+		let actual_actions = self.evaluate(mine, &hybrid(&greedy, theirs));
+		let deadline = Instant::now() + Duration::from_millis(12);
+		let adversarial = self.best_reply(&my_greedy, &their_obs, &their_policy, deadline, rng);
+		let adversarial_value = self.evaluate(mine, &adversarial);
+		let mut columns = vec![
+			actual,
+			greedy_value,
+			actual_moves,
+			actual_actions,
+			adversarial_value,
+		];
+		let sampling = tempered(&their_policy, self.params.temperature);
+		let samples: Vec<Vec<Command>> = (0..BEST_OF_REPEATS * BEST_OF[BEST_OF.len() - 1])
+			.map(|_| plan(self.root, THEM, &their_obs, &sampling, Some(rng)))
+			.collect();
+		let their_values: Vec<f32> = samples
+			.iter()
+			.map(|r| self.evaluate_as(THEM, &my_greedy, r))
+			.collect();
+		let my_values: Vec<f32> = samples.iter().map(|r| self.evaluate(mine, r)).collect();
+		for k in BEST_OF {
+			let picks: Vec<f32> = samples
+				.chunks(k)
+				.zip(their_values.chunks(k))
+				.zip(my_values.chunks(k))
+				.take(BEST_OF_REPEATS * BEST_OF[BEST_OF.len() - 1] / k)
+				.map(|((_, theirs), mine)| {
+					let best = (0..theirs.len())
+						.max_by(|&a, &b| theirs[a].total_cmp(&theirs[b]))
+						.expect("chunks are never empty");
+					mine[best]
+				})
+				.collect();
+			columns.push(picks.iter().sum::<f32>() / picks.len() as f32);
+		}
+		let below =
+			my_values.iter().filter(|&&v| v < actual).count() as f32 / my_values.len() as f32;
+		columns.push(below);
+		let turn = self.turn;
+		let row: Vec<String> = columns.iter().map(|v| format!("{v:.4}")).collect();
+		format!("{turn} {}", row.join(" "))
+	}
+}
+
+fn command_of(map: &Map, text: &str) -> Option<Command> {
+	let words: Vec<&str> = text.split_whitespace().collect();
+	let numbers: Vec<usize> = words
+		.iter()
+		.skip(1)
+		.map(|w| w.parse().ok())
+		.collect::<Option<_>>()?;
+	if numbers.iter().take(4).any(|&n| n >= map.len()) {
+		return None;
+	}
+	let triangle = || map.triangle([numbers[0], numbers[1], numbers[2]]);
+	match (words.first()?.to_ascii_uppercase().as_str(), numbers.len()) {
+		("MOVE", 3) => Some(Command::Move {
+			from: numbers[0],
+			to: numbers[1],
+			amount: numbers[2].min(i32::MAX as usize) as i32,
+		}),
+		("SPAWN", 3) => Some(Command::Spawn {
+			triangle: triangle()?,
+			node: numbers[0],
+		}),
+		("ATTACK", 4) => Some(Command::Attack {
+			triangle: triangle()?,
+			target: numbers[3],
+		}),
+		("ADD_PATH", 4) => Some(Command::AddPath {
+			triangle: triangle()?,
+			from: numbers[0],
+			to: numbers[3],
+		}),
+		("REMOVE_PATH", 4) => Some(Command::RemovePath {
+			triangle: triangle()?,
+			from: numbers[0],
+			to: numbers[3],
+		}),
+		_ => None,
+	}
+}
+
+fn commands_of(map: &Map, line: &str) -> Vec<Command> {
+	line.split(';').filter_map(|c| command_of(map, c)).collect()
 }
 
 fn text(map: &Map, command: Command) -> String {
@@ -1494,6 +1649,22 @@ fn main() {
 	let mut extract = std::env::var("COMET_EXTRACT").ok().map(|path| {
 		std::io::BufWriter::new(std::fs::File::create(path).expect("the record file opens"))
 	});
+	let mut extract_scores = std::env::var("COMET_EXTRACT_SCORES").ok().map(|path| {
+		std::io::BufWriter::new(std::fs::File::create(path).expect("the score file opens"))
+	});
+	let their_recorded: Option<Vec<String>> =
+		std::env::var("COMET_THEIR_ANSWERS").ok().map(|path| {
+			std::fs::read_to_string(path)
+				.expect("the opponent answers file reads")
+				.lines()
+				.map(str::to_string)
+				.collect()
+		});
+	let mut diagnosis = std::env::var("COMET_REPLY_DIAG").ok().map(|path| {
+		std::io::BufWriter::new(std::fs::File::create(path).expect("the diagnosis file opens"))
+	});
+	let mut expected: Option<State> = None;
+	let mut mismatches = 0;
 	let mut record = std::env::var("COMET_RECORD").ok().map(|path| {
 		let open = |path: String| {
 			std::io::BufWriter::new(std::fs::File::create(path).expect("the record file opens"))
@@ -1518,6 +1689,39 @@ fn main() {
 		turn += 1;
 		let flip = *flip.get_or_insert_with(|| flipped(&map, &state));
 		let topology = Topology::of(&map, &state);
+		if let (Some(diagnosis), Some(recorded), Some(their_recorded), Some(net)) = (
+			diagnosis.as_mut(),
+			recorded.as_ref(),
+			their_recorded.as_ref(),
+			net.as_ref(),
+		) {
+			let index = turn as usize - 1;
+			let (Some(mine), Some(theirs)) = (recorded.get(index), their_recorded.get(index))
+			else {
+				break;
+			};
+			if expected.is_some_and(|e| e.units != state.units) {
+				mismatches += 1;
+			}
+			let mine = commands_of(&map, mine);
+			let theirs = commands_of(&map, theirs);
+			let mut next = state;
+			next.step(&map, [&mine, &theirs]);
+			expected = Some(next);
+			let mut search = Search {
+				map: &map,
+				net,
+				params: &params,
+				root: &state,
+				topology: &topology,
+				turn,
+				flip,
+				evaluations: 0,
+			};
+			let row = search.diagnose(&mine, &theirs, &mut rng);
+			writeln!(diagnosis, "{row}").expect("the diagnosis file is writable");
+			continue;
+		}
 		if let (Some(extract), Some(recorded)) = (extract.as_mut(), recorded.as_ref()) {
 			let Some(line) = recorded.get(turn as usize - 1) else {
 				break;
@@ -1525,6 +1729,22 @@ fn main() {
 			let obs = observe(&map, &topology, &state, ME, turn, flip);
 			let labels = labels(&map, &state, &obs, line);
 			write_record(extract, &state, &obs, turn, &labels, 0);
+			if let (Some(scores), Some(net)) = (extract_scores.as_mut(), net.as_ref()) {
+				let mut search = Search {
+					map: &map,
+					net,
+					params: &params,
+					root: &state,
+					topology: &topology,
+					turn,
+					flip,
+					evaluations: 0,
+				};
+				let (_, value) = search.run(started, &mut rng);
+				scores
+					.write_all(&value.to_le_bytes())
+					.expect("the score file is writable");
+			}
 			continue;
 		}
 		let transcript = input.take_transcript();
@@ -1576,5 +1796,12 @@ fn main() {
 	}
 	if let Some(extract) = extract.as_mut() {
 		extract.flush().expect("the record file is writable");
+	}
+	if let Some(scores) = extract_scores.as_mut() {
+		scores.flush().expect("the score file is writable");
+	}
+	if let Some(diagnosis) = diagnosis.as_mut() {
+		diagnosis.flush().expect("the diagnosis file is writable");
+		eprintln!("mismatches {mismatches} turns {turn}");
 	}
 }
