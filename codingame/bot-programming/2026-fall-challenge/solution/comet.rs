@@ -976,6 +976,7 @@ struct Params {
 	reply_mode: u8,
 	reply_share: f64,
 	reply_best_of: usize,
+	reply_plain_share: f32,
 	temperature: f32,
 	verify_top: usize,
 	verify_replies: usize,
@@ -996,6 +997,7 @@ impl Params {
 			reply_mode: tuned("REPLY_MODE", 2.0) as u8,
 			reply_share: tuned("REPLY_SHARE", 0.25),
 			reply_best_of: tuned("REPLY_BEST_OF", 16.0) as usize,
+			reply_plain_share: tuned("REPLY_PLAIN_SHARE", 0.0) as f32,
 			temperature: tuned("TEMPERATURE", 0.5) as f32,
 			verify_top: tuned("VERIFY_TOP", 12.0) as usize,
 			verify_replies: tuned("VERIFY_REPLIES", 12.0) as usize,
@@ -1085,7 +1087,7 @@ impl Search<'_> {
 		rng: &mut Rng,
 	) -> Vec<Command> {
 		let mut best = plan(self.root, THEM, theirs, sampling, Some(rng));
-		if self.params.reply_best_of <= 1 {
+		if self.params.reply_best_of <= 1 || rng.unit() < self.params.reply_plain_share {
 			return best;
 		}
 		let mut best_value = self.evaluate_as(THEM, expected, &best);
@@ -1298,6 +1300,108 @@ impl Search<'_> {
 		let turn = self.turn;
 		let row: Vec<String> = columns.iter().map(|v| format!("{v:.4}")).collect();
 		format!("{turn} {}", row.join(" "))
+	}
+}
+
+const JUDGE_CANDIDATES: usize = 48;
+const JUDGE_REPLIES: usize = 12;
+const JUDGE_BEST_OF: [usize; 4] = [1, 4, 16, 64];
+
+impl Search<'_> {
+	fn judge(&mut self, theirs: &[Command], rng: &mut Rng) -> String {
+		let my_obs = observe(self.map, self.topology, self.root, ME, self.turn, self.flip);
+		let my_policy = self.net.policy(&my_obs, self.root, ME);
+		let greedy = plan(self.root, ME, &my_obs, &my_policy, None);
+		let their_obs = observe(
+			self.map,
+			self.topology,
+			self.root,
+			THEM,
+			self.turn,
+			!self.flip,
+		);
+		let their_policy = self.net.policy(&their_obs, self.root, THEM);
+		let their_greedy = plan(self.root, THEM, &their_obs, &their_policy, None);
+		let deadline = Instant::now() + Duration::from_millis(12);
+		let adversarial = self.best_reply(&greedy, &their_obs, &their_policy, deadline, rng);
+		let my_sampling = tempered(&my_policy, self.params.temperature);
+		let their_sampling = tempered(&their_policy, self.params.temperature);
+		let mut candidates = vec![greedy.clone()];
+		let mut seen = Seen::default();
+		seen.insert(fingerprint(&greedy));
+		for _ in 0..JUDGE_CANDIDATES * 8 {
+			if candidates.len() >= JUDGE_CANDIDATES {
+				break;
+			}
+			let candidate = plan(self.root, ME, &my_obs, &my_sampling, Some(rng));
+			if seen.insert(fingerprint(&candidate)) {
+				candidates.push(candidate);
+			}
+		}
+		let most = JUDGE_BEST_OF[JUDGE_BEST_OF.len() - 1];
+		let samples: Vec<Vec<Command>> = (0..JUDGE_REPLIES * most)
+			.map(|_| plan(self.root, THEM, &their_obs, &their_sampling, Some(rng)))
+			.collect();
+		let their_values: Vec<f32> = samples
+			.iter()
+			.map(|r| self.evaluate_as(THEM, &greedy, r))
+			.collect();
+		let mut pool: Vec<Vec<Command>> = vec![their_greedy, adversarial];
+		let mut sets: Vec<Vec<usize>> = Vec::new();
+		for k in JUDGE_BEST_OF {
+			let mut set = Vec::new();
+			for chunk in 0..JUDGE_REPLIES {
+				let range = chunk * k..(chunk + 1) * k;
+				let best = range
+					.max_by(|&a, &b| their_values[a].total_cmp(&their_values[b]))
+					.expect("chunks are never empty");
+				set.push(pool.len());
+				pool.push(samples[best].clone());
+			}
+			sets.push(set);
+		}
+		let values: Vec<Vec<f32>> = candidates
+			.iter()
+			.map(|c| pool.iter().map(|r| self.evaluate(c, r)).collect())
+			.collect();
+		let truth: Vec<f32> = candidates
+			.iter()
+			.map(|c| self.evaluate(c, theirs))
+			.collect();
+		let mean = |row: &Vec<f32>, set: &[usize]| {
+			set.iter().map(|&i| row[i]).sum::<f32>() / set.len() as f32
+		};
+		let worst = |row: &Vec<f32>, set: &[usize]| {
+			set.iter().map(|&i| row[i]).fold(f32::INFINITY, f32::min)
+		};
+		let both = |set: &[usize]| [&[0usize, 1][..], set].concat();
+		let models: Vec<Box<dyn Fn(&Vec<f32>) -> f32>> = vec![
+			Box::new(|row| row[0]),
+			Box::new(|row| row[1]),
+			Box::new(|row| mean(row, &[0, 1])),
+			Box::new(|row| mean(row, &sets[0])),
+			Box::new(|row| mean(row, &sets[1])),
+			Box::new(|row| mean(row, &sets[2])),
+			Box::new(|row| mean(row, &sets[3])),
+			Box::new(|row| mean(row, &both(&sets[0]))),
+			Box::new(|row| mean(row, &both(&sets[2]))),
+			Box::new(|row| mean(row, &both(&sets[3]))),
+			Box::new(|row| worst(row, &both(&sets[2]))),
+			Box::new(|row| 0.7 * mean(row, &both(&sets[2])) + 0.3 * worst(row, &both(&sets[2]))),
+		];
+		let best = truth.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+		let average = truth.iter().sum::<f32>() / truth.len() as f32;
+		let mut columns = vec![best, average];
+		for model in &models {
+			let pick = (0..candidates.len())
+				.max_by(|&a, &b| model(&values[a]).total_cmp(&model(&values[b])))
+				.expect("there is always a candidate");
+			columns.push(truth[pick]);
+		}
+		let turn = self.turn;
+		let count = candidates.len();
+		let row: Vec<String> = columns.iter().map(|v| format!("{v:.4}")).collect();
+		format!("{turn} {count} {}", row.join(" "))
 	}
 }
 
@@ -1718,7 +1822,11 @@ fn main() {
 				flip,
 				evaluations: 0,
 			};
-			let row = search.diagnose(&mine, &theirs, &mut rng);
+			let row = if std::env::var_os("COMET_REPLY_JUDGE").is_some() {
+				search.judge(&theirs, &mut rng)
+			} else {
+				search.diagnose(&mine, &theirs, &mut rng)
+			};
 			writeln!(diagnosis, "{row}").expect("the diagnosis file is writable");
 			continue;
 		}
