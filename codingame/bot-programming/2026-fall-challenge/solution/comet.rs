@@ -94,16 +94,16 @@ type Values = std::collections::HashMap<u64, f32, std::hash::BuildHasherDefault<
 
 fn state_key(state: &State, player: usize) -> u64 {
 	use std::hash::{Hash, Hasher};
-	let mut mix = Mix(player as u64 + 1);
-	for pair in &state.units {
-		mix.write_u64((u64::from(pair[0] as u32) << 32) | u64::from(pair[1] as u32));
+	let [mut first, mut second] = [Mix(player as u64 + 1), Mix::default()];
+	let word = |pair: [i32; 2]| (u64::from(pair[0] as u32) << 32) | u64::from(pair[1] as u32);
+	for pairs in state.units.chunks_exact(2) {
+		first.write_u64(word(pairs[0]));
+		second.write_u64(word(pairs[1]));
 	}
-	state.edges.hash(&mut mix);
-	state.live.hash(&mut mix);
-	state.owner.hash(&mut mix);
-	state.can_capture.hash(&mut mix);
-	state.score.hash(&mut mix);
-	mix.finish()
+	state.owner.hash(&mut first);
+	state.can_capture.hash(&mut second);
+	first.write_u64(word(state.score) ^ second.0);
+	first.0
 }
 
 fn fingerprint(commands: &[Command]) -> u64 {
@@ -133,12 +133,6 @@ fn distances(state: &State, sources: u64) -> [u8; MAX_NODES] {
 	distance
 }
 
-fn occupied(state: &State, player: usize, count: usize) -> u64 {
-	(0..count)
-		.filter(|&n| state.units[n][player] > 0)
-		.fold(0, |set, n| set | bit(n))
-}
-
 struct Neighbors {
 	flat: Vec<usize>,
 	starts: Vec<usize>,
@@ -152,8 +146,8 @@ impl Neighbors {
 
 struct Topology {
 	neighbors: Rc<Neighbors>,
-	live_share: [f32; MAX_NODES],
-	position: [[f32; 2]; MAX_NODES],
+	live: Vec<(usize, u64, [usize; 3])>,
+	fixed: [[[f32; 4]; MAX_NODES]; 2],
 	thirds: [f32; 256],
 }
 
@@ -177,17 +171,23 @@ impl Topology {
 				live_at[c] += 1.0;
 			}
 		}
-		let mut position = [[0f32; 2]; MAX_NODES];
-		for (slot, point) in position.iter_mut().zip(&map.points) {
-			*slot = [
-				(point.x - 80) as f32 / 1760.0,
-				(point.y - 70) as f32 / 820.0,
-			];
+		let mut fixed = [[[0f32; 4]; MAX_NODES]; 2];
+		for (n, point) in map.points.iter().enumerate() {
+			let degree = state.adjacency[n].count_ones() as f32 / 8.0;
+			let x = (point.x - 80) as f32 / 1760.0;
+			let y = (point.y - 70) as f32 / 820.0;
+			let live_share = live_at[n] / 6.0;
+			fixed[0][n] = [degree, x, y, live_share];
+			fixed[1][n] = [degree, 1.0 - x, 1.0 - y, live_share];
 		}
 		Topology {
 			neighbors: Rc::new(neighbors),
-			live_share: live_at.map(|live| live / 6.0),
-			position,
+			live: state
+				.live
+				.iter()
+				.map(|t| (t, map.corners(t), map.triangles[t]))
+				.collect(),
+			fixed,
 			thirds: std::array::from_fn(|k| k as f32 / 3.0),
 		}
 	}
@@ -219,6 +219,7 @@ fn features(
 	map: &Map,
 	topology: &Topology,
 	state: &State,
+	owners: [u64; 2],
 	player: usize,
 	turn: i32,
 	flip: bool,
@@ -235,17 +236,14 @@ fn features(
 		}
 	}
 	let force = |n: usize, p: usize| units(n, p) + nearby[n][p];
-	let owners = state.node_owners();
-	let reach = [player, opponent].map(|p| distances(state, occupied(state, p, count)));
+	let reach = [player, opponent].map(|p| distances(state, state.occupied_by(p)));
 	let mut owned_at = [[0u8; MAX_NODES]; 2];
 	let mut capturable_at = [[0u8; MAX_NODES]; 2];
 	let mut locked_at = [[0u8; MAX_NODES]; 2];
 	let mut progress_at = [[0u8; MAX_NODES]; 2];
 	let mut attackable = [0u64; 2];
 	let claimed = state.owner[0] | state.owner[1];
-	for t in state.live.iter() {
-		let corners = map.corners(t);
-		let corner_list = map.triangles[t];
+	for &(t, corners, corner_list) in &topology.live {
 		let unowned = !claimed.has(t);
 		for (side, p) in [player, opponent].into_iter().enumerate() {
 			let owned = state.owner[p].has(t);
@@ -284,16 +282,13 @@ fn features(
 	};
 	let flag = |b: bool| f32::from(u8::from(b));
 	let third = |count: u8| topology.thirds[usize::from(count)];
-	obs.nodes.clear();
-	obs.nodes.extend((0..count).map(|n| {
-		let [mut x, mut y] = topology.position[n];
-		if flip {
-			x = 1.0 - x;
-			y = 1.0 - y;
-		}
+	let fixed = &topology.fixed[usize::from(flip)];
+	obs.nodes.resize(count, [0.0; NODE_FEATURES]);
+	for (n, row) in obs.nodes.iter_mut().enumerate() {
+		let [degree, x, y, live_share] = fixed[n];
 		let [mine, theirs] = [units(n, player), units(n, opponent)];
 		let [my_force, their_force] = [force(n, player), force(n, opponent)];
-		[
+		*row = [
 			mine as f32 / 4.0,
 			theirs as f32 / 4.0,
 			flag(mine > 0),
@@ -303,14 +298,14 @@ fn features(
 			my_force as f32 / 8.0,
 			their_force as f32 / 8.0,
 			flag(my_force > their_force),
-			state.adjacency[n].count_ones() as f32 / 8.0,
+			degree,
 			flag(owners[player] & bit(n) != 0),
 			flag(owners[opponent] & bit(n) != 0),
 			f32::from(reach[0][n].min(12)) / 8.0,
 			f32::from(reach[1][n].min(12)) / 8.0,
 			x,
 			y,
-			topology.live_share[n],
+			live_share,
 			third(owned_at[0][n]),
 			third(owned_at[1][n]),
 			third(capturable_at[0][n]),
@@ -323,8 +318,8 @@ fn features(
 			flag(threatened(n, opponent)),
 			flag(attackable[1] & bit(n) != 0) * mine as f32 / 4.0,
 			flag(attackable[0] & bit(n) != 0) * theirs as f32 / 4.0,
-		]
-	}));
+		];
+	}
 	let score_gap = (state.score[player] - state.score[opponent]) as f32;
 	let triangles = [player, opponent].map(|p| (state.owner[p] & state.live).len() as f32);
 	obs.globals = [
@@ -348,12 +343,13 @@ fn observe(
 	flip: bool,
 ) -> Obs {
 	let mut obs = Obs::blank(topology);
-	features(map, topology, state, player, turn, flip, &mut obs);
+	let owners = state.node_owners();
+	features(map, topology, state, owners, player, turn, flip, &mut obs);
 	let units = |n: usize, p: usize| state.units[n][p];
 	obs.usable = (state.owner[player] & state.initial_owner[player] & state.live)
 		.iter()
 		.collect();
-	let enemy = occupied(state, 1 - player, map.len());
+	let enemy = state.occupied_by(1 - player);
 	obs.corners = obs.usable.iter().map(|&t| map.triangles[t]).collect();
 	obs.attack_targets = obs
 		.usable
@@ -1002,7 +998,7 @@ fn plan(
 	mut rng: Option<&mut Rng>,
 ) -> Vec<Command> {
 	let mut reserved = [0i32; MAX_NODES];
-	let mut orders = Vec::with_capacity(policy.actions.len() + 2 * policy.moves.len());
+	let mut orders = Vec::with_capacity(32);
 	for (index, options) in policy.actions.iter().enumerate() {
 		let t = obs.usable[index];
 		let corners = obs.corners[index];
@@ -1044,11 +1040,14 @@ fn plan(
 			continue;
 		}
 		let mut counts = [0i32; MOVE_SLOTS];
+		let mut moved = 0;
 		match rng.as_deref_mut() {
 			Some(rng) => {
 				let total = total(options);
 				for _ in 0..units {
-					counts[rng.draw(options, total)] += 1;
+					let slot = rng.draw(options, total);
+					counts[slot] += 1;
+					moved |= bit(slot);
 				}
 			}
 			None => {
@@ -1071,17 +1070,18 @@ fn plan(
 				}
 				for (slot, amount, _) in shares {
 					counts[slot] += amount;
+					if amount > 0 {
+						moved |= bit(slot);
+					}
 				}
 			}
 		}
-		for (&(to, _), &amount) in options.iter().zip(&counts) {
-			if to != v && amount > 0 {
-				orders.push(Command::Move {
-					from: v,
-					to,
-					amount,
-				});
-			}
+		for slot in nodes_of(moved & !bit(0)) {
+			orders.push(Command::Move {
+				from: v,
+				to: options[slot].0,
+				amount: counts[slot],
+			});
 		}
 	}
 	orders
@@ -1170,6 +1170,14 @@ impl<'a> Search<'a> {
 		}
 	}
 
+	fn side(&self, player: usize) -> (Obs, Policy, Vec<Command>) {
+		let flip = self.flip != (player == THEM);
+		let obs = observe(self.map, self.topology, self.root, player, self.turn, flip);
+		let policy = self.net.policy(&obs, self.root, player);
+		let greedy = plan(self.root, player, &obs, &policy, None);
+		(obs, policy, greedy)
+	}
+
 	fn exhausted(&self, until: Instant, evaluations: usize) -> bool {
 		self.evaluations >= evaluations || Instant::now() >= until
 	}
@@ -1179,10 +1187,19 @@ impl<'a> Search<'a> {
 	}
 
 	fn evaluate_as(&mut self, player: usize, mine: &[Command], theirs: &[Command]) -> f32 {
+		let accepted = [self.accept(ME, mine), self.accept(THEM, theirs)];
+		self.evaluate_accepted(player, [&accepted[0], &accepted[1]])
+	}
+
+	fn accept(&self, player: usize, commands: &[Command]) -> Vec<Command> {
+		self.root.accepted(self.map, player, commands)
+	}
+
+	fn evaluate_accepted(&mut self, player: usize, accepted: [&[Command]; 2]) -> f32 {
 		self.evaluations += 1;
 		let opponent = 1 - player;
 		let mut next = *self.root;
-		next.step(self.map, [mine, theirs]);
+		let owners = next.resolve_accepted(self.map, accepted);
 		let units = [player, opponent].map(|p| next.units_of(p) as f32);
 		let eliminated = next.eliminated();
 		match (eliminated[player], eliminated[opponent]) {
@@ -1193,6 +1210,7 @@ impl<'a> Search<'a> {
 		}
 		let flip = self.flip != (player == THEM);
 		debug_assert_eq!(next.adjacency, self.root.adjacency);
+		debug_assert_eq!(next.live, self.root.live);
 		let key = state_key(&next, player);
 		let value = match self.values.get(&key) {
 			Some(&value) => {
@@ -1205,6 +1223,7 @@ impl<'a> Search<'a> {
 					self.map,
 					self.topology,
 					&next,
+					owners,
 					player,
 					turn,
 					flip,
@@ -1230,7 +1249,8 @@ impl<'a> Search<'a> {
 		rng: &mut Rng,
 	) -> Vec<Command> {
 		let mut best = plan(self.root, THEM, theirs, policy, None);
-		let mut best_value = self.evaluate_as(THEM, mine, &best);
+		let mine = self.accept(ME, mine);
+		let mut best_value = self.evaluate_accepted(THEM, [&mine, &self.accept(THEM, &best)]);
 		let mut seen = Seen::default();
 		seen.insert(fingerprint(&best));
 		let mut draws = 0;
@@ -1240,7 +1260,7 @@ impl<'a> Search<'a> {
 			if !seen.insert(fingerprint(&candidate)) {
 				continue;
 			}
-			let value = self.evaluate_as(THEM, mine, &candidate);
+			let value = self.evaluate_accepted(THEM, [&mine, &self.accept(THEM, &candidate)]);
 			if value > best_value {
 				best_value = value;
 				best = candidate;
@@ -1261,13 +1281,14 @@ impl<'a> Search<'a> {
 		if self.params.reply_best_of <= 1 || rng.unit() < self.params.reply_plain_share {
 			return best;
 		}
-		let mut best_value = self.evaluate_as(THEM, expected, &best);
+		let expected = self.accept(ME, expected);
+		let mut best_value = self.evaluate_accepted(THEM, [&expected, &self.accept(THEM, &best)]);
 		for _ in 1..self.params.reply_best_of {
 			if Instant::now() >= until {
 				break;
 			}
 			let candidate = plan(self.root, THEM, theirs, sampling, Some(rng));
-			let value = self.evaluate_as(THEM, expected, &candidate);
+			let value = self.evaluate_accepted(THEM, [&expected, &self.accept(THEM, &candidate)]);
 			if value > best_value {
 				best_value = value;
 				best = candidate;
@@ -1276,8 +1297,11 @@ impl<'a> Search<'a> {
 		best
 	}
 
-	fn score(&mut self, mine: &[Command], replies: &[Vec<Command>]) -> f32 {
-		let values: Vec<f32> = replies.iter().map(|r| self.evaluate(mine, r)).collect();
+	fn score(&mut self, mine: &[Command], accepted_replies: &[Vec<Command>]) -> f32 {
+		let mine = self.accept(ME, mine);
+		let values: Vec<f32> = (accepted_replies.iter())
+			.map(|r| self.evaluate_accepted(ME, [&mine, r]))
+			.collect();
 		let mean = values.iter().sum::<f32>() / values.len() as f32;
 		let worst = values.iter().copied().fold(f32::INFINITY, f32::min);
 		mean + self.params.worst_share * (worst - mean)
@@ -1285,21 +1309,11 @@ impl<'a> Search<'a> {
 
 	fn run(&mut self, started: Instant, rng: &mut Rng) -> (Vec<Command>, f32) {
 		let deadline = started + self.params.budget;
-		let mine = observe(self.map, self.topology, self.root, ME, self.turn, self.flip);
-		let theirs = observe(
-			self.map,
-			self.topology,
-			self.root,
-			THEM,
-			self.turn,
-			!self.flip,
-		);
-		let my_policy = self.net.policy(&mine, self.root, ME);
-		let their_policy = self.net.policy(&theirs, self.root, THEM);
-		let greedy = plan(self.root, ME, &mine, &my_policy, None);
+		let (mine, my_policy, greedy) = self.side(ME);
+		let (theirs, their_policy, their_greedy) = self.side(THEM);
 		let mut replies = Vec::new();
 		if self.params.reply_mode != 1 {
-			replies.push(plan(self.root, THEM, &theirs, &their_policy, None));
+			replies.push(their_greedy);
 		}
 		if self.params.reply_mode != 0 {
 			let reply_deadline =
@@ -1327,7 +1341,9 @@ impl<'a> Search<'a> {
 		};
 		let cap = self.params.max_evaluations;
 		let sample_cap = (cap as f64 * (1.0 - self.params.verify_share)) as usize;
-		let first = self.score(&greedy, &replies);
+		let accepted_replies: Vec<Vec<Command>> =
+			replies.iter().map(|r| self.accept(THEM, r)).collect();
+		let first = self.score(&greedy, &accepted_replies);
 		let mut top: Vec<(f32, Vec<Command>)> = vec![(first, greedy.clone())];
 		let mut seen = Seen::default();
 		seen.insert(fingerprint(&greedy));
@@ -1356,7 +1372,7 @@ impl<'a> Search<'a> {
 			if !seen.insert(fingerprint(&candidate)) {
 				continue;
 			}
-			let value = self.score(&candidate, &replies);
+			let value = self.score(&candidate, &accepted_replies);
 			let keep = verify.max(1);
 			if top.len() < keep || value > top[top.len() - 1].0 {
 				let at = top.partition_point(|entry| entry.0 >= value);
@@ -1386,6 +1402,7 @@ impl<'a> Search<'a> {
 			if extra.is_empty() {
 				break;
 			}
+			let extra: Vec<Vec<Command>> = extra.iter().map(|r| self.accept(THEM, r)).collect();
 			let weight = extra.len() as f32;
 			let mut scored = 0;
 			for entry in field.iter_mut() {
@@ -1425,20 +1442,9 @@ fn is_move(command: &Command) -> bool {
 
 impl Search<'_> {
 	fn diagnose(&mut self, mine: &[Command], theirs: &[Command], rng: &mut Rng) -> String {
-		let my_obs = observe(self.map, self.topology, self.root, ME, self.turn, self.flip);
-		let my_policy = self.net.policy(&my_obs, self.root, ME);
-		let my_greedy = plan(self.root, ME, &my_obs, &my_policy, None);
-		let their_obs = observe(
-			self.map,
-			self.topology,
-			self.root,
-			THEM,
-			self.turn,
-			!self.flip,
-		);
-		let their_policy = self.net.policy(&their_obs, self.root, THEM);
+		let (_, _, my_greedy) = self.side(ME);
+		let (their_obs, their_policy, greedy) = self.side(THEM);
 		let actual = self.evaluate(mine, theirs);
-		let greedy = plan(self.root, THEM, &their_obs, &their_policy, None);
 		let greedy_value = self.evaluate(mine, &greedy);
 		let hybrid = |moves: &[Command], actions: &[Command]| -> Vec<Command> {
 			moves
@@ -1499,19 +1505,8 @@ const JUDGE_BEST_OF: [usize; 4] = [1, 4, 16, 64];
 
 impl Search<'_> {
 	fn judge(&mut self, theirs: &[Command], rng: &mut Rng) -> String {
-		let my_obs = observe(self.map, self.topology, self.root, ME, self.turn, self.flip);
-		let my_policy = self.net.policy(&my_obs, self.root, ME);
-		let greedy = plan(self.root, ME, &my_obs, &my_policy, None);
-		let their_obs = observe(
-			self.map,
-			self.topology,
-			self.root,
-			THEM,
-			self.turn,
-			!self.flip,
-		);
-		let their_policy = self.net.policy(&their_obs, self.root, THEM);
-		let their_greedy = plan(self.root, THEM, &their_obs, &their_policy, None);
+		let (my_obs, my_policy, greedy) = self.side(ME);
+		let (their_obs, their_policy, their_greedy) = self.side(THEM);
 		let deadline = Instant::now() + Duration::from_millis(12);
 		let adversarial = self.best_reply(&greedy, &their_obs, &their_policy, deadline, rng);
 		let my_sampling = tempered(&my_policy, self.params.temperature);
@@ -1923,6 +1918,21 @@ fn load_net() -> Option<Net> {
 	(!NET_WEIGHTS.is_empty()).then(|| Net::load(unpack(NET_WEIGHTS)))
 }
 
+fn lines_named(variable: &str) -> Option<Vec<String>> {
+	let path = std::env::var(variable).ok()?;
+	let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path} reads: {e}"));
+	Some(text.lines().map(str::to_string).collect())
+}
+
+fn created(path: String) -> std::io::BufWriter<std::fs::File> {
+	let file = std::fs::File::create(&path).unwrap_or_else(|e| panic!("{path} opens: {e}"));
+	std::io::BufWriter::new(file)
+}
+
+fn file_named(variable: &str) -> Option<std::io::BufWriter<std::fs::File>> {
+	std::env::var(variable).ok().map(created)
+}
+
 fn main() {
 	let net = load_net();
 	let params = Params::load();
@@ -1933,38 +1943,16 @@ fn main() {
 	let mut shadow = std::env::var("COMET_SHADOW")
 		.ok()
 		.map(|c| Shadow::launch(&c));
-	let recorded: Option<Vec<String>> = std::env::var("COMET_ANSWERS").ok().map(|path| {
-		std::fs::read_to_string(path)
-			.expect("the answers file reads")
-			.lines()
-			.map(str::to_string)
-			.collect()
-	});
-	let mut extract = std::env::var("COMET_EXTRACT").ok().map(|path| {
-		std::io::BufWriter::new(std::fs::File::create(path).expect("the record file opens"))
-	});
-	let mut extract_scores = std::env::var("COMET_EXTRACT_SCORES").ok().map(|path| {
-		std::io::BufWriter::new(std::fs::File::create(path).expect("the score file opens"))
-	});
-	let their_recorded: Option<Vec<String>> =
-		std::env::var("COMET_THEIR_ANSWERS").ok().map(|path| {
-			std::fs::read_to_string(path)
-				.expect("the opponent answers file reads")
-				.lines()
-				.map(str::to_string)
-				.collect()
-		});
-	let mut diagnosis = std::env::var("COMET_REPLY_DIAG").ok().map(|path| {
-		std::io::BufWriter::new(std::fs::File::create(path).expect("the diagnosis file opens"))
-	});
+	let recorded = lines_named("COMET_ANSWERS");
+	let mut extract = file_named("COMET_EXTRACT");
+	let mut extract_scores = file_named("COMET_EXTRACT_SCORES");
+	let their_recorded = lines_named("COMET_THEIR_ANSWERS");
+	let mut diagnosis = file_named("COMET_REPLY_DIAG");
 	let mut expected: Option<State> = None;
 	let mut mismatches = 0;
-	let mut record = std::env::var("COMET_RECORD").ok().map(|path| {
-		let open = |path: String| {
-			std::io::BufWriter::new(std::fs::File::create(path).expect("the record file opens"))
-		};
-		(open(format!("{path}.val")), open(path))
-	});
+	let mut record = std::env::var("COMET_RECORD")
+		.ok()
+		.map(|path| (created(format!("{path}.val")), created(path)));
 	let mut out = std::io::stdout().lock();
 	let count = input.int() as usize;
 	let mut points = vec![Point { x: 0, y: 0 }; count];

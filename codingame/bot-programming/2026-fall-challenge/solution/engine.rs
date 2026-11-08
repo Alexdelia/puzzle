@@ -401,11 +401,35 @@ impl State {
 	}
 
 	pub fn occupied_by(&self, player: usize) -> u64 {
-		mask_of(&self.units, |u| u[player] > 0)
+		self.unit_masks()[0][player]
 	}
 
-	fn advantage(&self, player: usize) -> u64 {
-		mask_of(&self.units, |u| u[player] > u[1 - player])
+	#[cfg(not(target_arch = "x86_64"))]
+	fn unit_masks(&self) -> [[u64; 2]; 2] {
+		let mask = |test: fn([i32; 2], usize) -> bool| {
+			[0, 1].map(|p| mask_of(&self.units, |u| test(*u, p)))
+		};
+		[mask(|u, p| u[p] > 0), mask(|u, p| u[p] > u[1 - p])]
+	}
+
+	#[cfg(target_arch = "x86_64")]
+	fn unit_masks(&self) -> [[u64; 2]; 2] {
+		use std::arch::x86_64::*;
+		let mut masks = [[0; 2]; 2];
+		for (quad, pairs) in self.units.chunks_exact(4).enumerate() {
+			unsafe {
+				let [low, high] = [0, 2].map(|at| _mm_loadu_ps(pairs[at..].as_ptr().cast()));
+				let mine = _mm_castps_si128(_mm_shuffle_ps(low, high, 0b10_00_10_00));
+				let theirs = _mm_castps_si128(_mm_shuffle_ps(low, high, 0b11_01_11_01));
+				let none = _mm_setzero_si128();
+				let tests = [[mine, none], [theirs, none], [mine, theirs], [theirs, mine]];
+				for (k, [a, b]) in tests.into_iter().enumerate() {
+					let bits = _mm_movemask_ps(_mm_castsi128_ps(_mm_cmpgt_epi32(a, b)));
+					masks[k / 2][k % 2] |= u64::from(bits as u8) << (4 * quad);
+				}
+			}
+		}
+		masks
 	}
 
 	fn dominated_by(&self, advantage: u64) -> u64 {
@@ -415,15 +439,11 @@ impl State {
 	}
 
 	pub fn node_owners(&self) -> [u64; 2] {
-		self.node_owners_with([0, 1].map(|p| self.advantage(p)))
+		self.node_owners_with(self.unit_masks()[1])
 	}
 
 	fn node_owners_with(&self, advantage: [u64; 2]) -> [u64; 2] {
-		let dominated = advantage.map(|a| self.dominated_by(a));
-		[
-			dominated[0] | (!dominated[1] & advantage[0]),
-			dominated[1] | (!dominated[0] & advantage[1]),
-		]
+		owners_of(advantage, advantage.map(|a| self.dominated_by(a)))
 	}
 
 	fn has_neighbor(&self, map: &Map, triangle: usize, node: usize) -> bool {
@@ -578,22 +598,28 @@ impl State {
 	}
 
 	pub fn step(&mut self, map: &Map, commands: [&[Command]; 2]) {
-		let mut remaining: Remaining = self.units;
-		let accepted: [Vec<Command>; 2] = std::array::from_fn(|player| {
-			let mut queue = Vec::with_capacity(commands[player].len());
-			for phase in Phase::ORDER {
-				let from = queue.len();
-				queue.extend(commands[player].iter().copied().filter(|&c| {
-					Phase::of(c) == phase
-						&& self.is_well_formed(map, c)
-						&& self.can_apply(map, &remaining, player, c)
-				}));
-				if phase == Phase::AddPath {
-					queue[from..].sort_by_key(|&c| cost(map, c));
-				}
+		let accepted = [0, 1].map(|player| self.accepted(map, player, commands[player]));
+		self.resolve_accepted(map, [&accepted[0], &accepted[1]]);
+	}
+
+	pub fn accepted(&self, map: &Map, player: usize, commands: &[Command]) -> Vec<Command> {
+		let mut queue = Vec::with_capacity(commands.len());
+		for phase in Phase::ORDER {
+			let from = queue.len();
+			queue.extend(commands.iter().copied().filter(|&c| {
+				Phase::of(c) == phase
+					&& self.is_well_formed(map, c)
+					&& self.can_apply(map, &self.units, player, c)
+			}));
+			if phase == Phase::AddPath {
+				queue[from..].sort_by_key(|&c| cost(map, c));
 			}
-			queue
-		});
+		}
+		queue
+	}
+
+	pub fn resolve_accepted(&mut self, map: &Map, accepted: [&[Command]; 2]) -> [u64; 2] {
+		let mut remaining: Remaining = self.units;
 		let mut starts = [0; 2];
 		for phase in Phase::ORDER {
 			let queues: Queues = std::array::from_fn(|player| {
@@ -608,10 +634,10 @@ impl State {
 				self.resolve_all_at_once(map, &mut remaining, queues);
 			}
 		}
-		self.finalize(map);
+		self.finalize(map)
 	}
 
-	fn refresh_capture_rights_with(&mut self, map: &Map, occupied: [u64; 2]) {
+	fn untouched_by(&self, map: &Map, occupied: [u64; 2]) -> [TriangleSet; 2] {
 		let mut untouched = [TriangleSet::default(); 2];
 		for t in self.live.iter() {
 			for (player, &occupied) in occupied.iter().enumerate() {
@@ -620,6 +646,10 @@ impl State {
 				}
 			}
 		}
+		untouched
+	}
+
+	fn refresh_capture_rights_with(&mut self, untouched: [TriangleSet; 2]) {
 		let [first, second] = self.owner;
 		let allowed = [
 			!first & (second | self.can_capture[0] | untouched[0]),
@@ -630,10 +660,10 @@ impl State {
 		}
 	}
 
-	fn kill_surrounded(&mut self, advantage: [u64; 2], occupied: [u64; 2]) -> bool {
+	fn kill_surrounded(&mut self, dominated: [u64; 2], occupied: [u64; 2]) -> bool {
 		let mut killed = false;
 		for player in 0..2 {
-			let doomed = self.dominated_by(advantage[1 - player]) & occupied[player];
+			let doomed = dominated[1 - player] & occupied[player];
 			for node in nodes_of(doomed) {
 				self.units[node][player] = 0;
 				killed = true;
@@ -659,18 +689,19 @@ impl State {
 		changed
 	}
 
-	fn finalize(&mut self, map: &Map) {
-		let mut occupied = [0, 1].map(|p| self.occupied_by(p));
-		let mut advantage = [0, 1].map(|p| self.advantage(p));
-		self.refresh_capture_rights_with(map, occupied);
-		if self.kill_surrounded(advantage, occupied) {
-			occupied = [0, 1].map(|p| self.occupied_by(p));
-			advantage = [0, 1].map(|p| self.advantage(p));
-			self.refresh_capture_rights_with(map, occupied);
+	fn finalize(&mut self, map: &Map) -> [u64; 2] {
+		let [occupied, advantage] = self.unit_masks();
+		let mut untouched = self.untouched_by(map, occupied);
+		self.refresh_capture_rights_with(untouched);
+		let dominated = advantage.map(|a| self.dominated_by(a));
+		let mut owned = owners_of(advantage, dominated);
+		if self.kill_surrounded(dominated, occupied) {
+			untouched = self.untouched_by(map, self.unit_masks()[0]);
+			self.refresh_capture_rights_with(untouched);
+			owned = self.node_owners();
 		}
-		let owned = self.node_owners_with(advantage);
 		while self.capture_triangles(map, owned) {
-			self.refresh_capture_rights_with(map, occupied);
+			self.refresh_capture_rights_with(untouched);
 		}
 		let dead = map.all_triangles & !self.live;
 		for player in 0..2 {
@@ -679,6 +710,7 @@ impl State {
 			self.initial_owner[player] = self.owner[player];
 			self.can_capture[player] |= dead;
 		}
+		owned
 	}
 
 	pub fn eliminated(&self) -> [bool; 2] {
@@ -699,6 +731,13 @@ impl State {
 		}
 		out
 	}
+}
+
+fn owners_of(advantage: [u64; 2], dominated: [u64; 2]) -> [u64; 2] {
+	[
+		dominated[0] | (!dominated[1] & advantage[0]),
+		dominated[1] | (!dominated[0] & advantage[1]),
+	]
 }
 
 fn mask_of<T>(items: &[T; MAX_NODES], test: impl Fn(&T) -> bool) -> u64 {
