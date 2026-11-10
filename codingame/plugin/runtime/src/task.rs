@@ -117,13 +117,16 @@ impl TaskStore<'_> {
 		fs::create_dir_all(self.run.tasks())?;
 		let counter = self.take_counter()?;
 		let id = TaskId(format!("t{counter:04}-{kind}", kind = spec.kind));
-		fs::create_dir_all(self.run.task_dir(&id))?;
-		write_atomic(&self.spec_path(&id), toml::to_string(&spec)?.as_bytes())?;
+		let staging = self.run.tasks().join(format!(".tmp-{id}"));
+		let _ = fs::remove_dir_all(&staging);
+		fs::create_dir_all(&staging)?;
 		write_atomic(
-			&self.run.task_dir(&id).join("spec.md"),
-			spec.body.as_bytes(),
+			&staging.join("spec.toml"),
+			toml::to_string(&spec)?.as_bytes(),
 		)?;
-		write_atomic(&self.state_path(&id), TaskState::Queued.name().as_bytes())?;
+		write_atomic(&staging.join("spec.md"), spec.body.as_bytes())?;
+		write_atomic(&staging.join("state"), TaskState::Queued.name().as_bytes())?;
+		fs::rename(&staging, self.run.task_dir(&id))?;
 		Ok(id)
 	}
 
@@ -182,13 +185,16 @@ impl TaskStore<'_> {
 		let mut summaries = Vec::new();
 		for entry in entries {
 			let entry = entry?;
-			if !entry.file_type()?.is_dir() {
+			let name = entry.file_name().to_string_lossy().into_owned();
+			if name.starts_with('.') || !entry.file_type()?.is_dir() {
 				continue;
 			}
-			let id = TaskId(entry.file_name().to_string_lossy().into_owned());
-			let spec = self.spec(&id)?;
+			let id = TaskId(name);
+			let (Ok(spec), Ok(state)) = (self.spec(&id), self.state(&id)) else {
+				continue;
+			};
 			summaries.push(TaskSummary {
-				state: self.state(&id)?,
+				state,
 				kind: spec.kind,
 				title: spec.title,
 				priority: spec.priority,

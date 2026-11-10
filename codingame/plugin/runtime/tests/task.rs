@@ -170,3 +170,24 @@ fn journal_tail_last_n() {
 	assert_eq!(&stamp[13..14], ":");
 	assert_eq!(journal_tail(&run, 99).len(), 5);
 }
+
+#[test]
+fn journal_lives_in_journal_md() {
+	let (_dir, run) = run_dir();
+	assert_eq!(run.journal().file_name().unwrap(), "journal.md");
+}
+
+#[test]
+fn half_written_task_dirs_do_not_poison_list() {
+	let (_dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let id = store.create(spec("a", 1)).unwrap();
+	std::fs::create_dir_all(run.tasks().join(".tmp-t0002-b")).unwrap();
+	std::fs::write(run.tasks().join(".tmp-t0002-b").join("spec.toml"), "kind").unwrap();
+	std::fs::create_dir_all(run.tasks().join("t0003-c")).unwrap();
+	std::fs::write(run.tasks().join("t0003-c").join("spec.toml"), "kind").unwrap();
+	let listed = store.list().unwrap();
+	assert_eq!(listed.len(), 1);
+	assert_eq!(store.next_queued().unwrap(), Some(id));
+	assert!(store.reconcile_after_restart().unwrap().is_empty());
+}

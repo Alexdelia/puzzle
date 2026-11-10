@@ -48,7 +48,7 @@ impl RunDir {
 	}
 
 	pub fn journal(&self) -> PathBuf {
-		self.run().join("journal.jsonl")
+		self.run().join("journal.md")
 	}
 
 	pub fn events(&self) -> PathBuf {
