@@ -63,6 +63,10 @@ impl RunDir {
 		self.run().join("ledger.tsv")
 	}
 
+	pub fn usage(&self) -> PathBuf {
+		self.run().join("usage.json")
+	}
+
 	pub fn status(&self) -> PathBuf {
 		self.run().join("status.md")
 	}
