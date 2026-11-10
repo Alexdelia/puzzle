@@ -160,3 +160,27 @@ fn write_atomic_never_partial() {
 		500_000
 	);
 }
+
+#[test]
+fn write_atomic_concurrent_writers_leave_no_temp_files() {
+	let dir = tempfile::tempdir().unwrap();
+	let path = dir.path().join("state.json");
+	let payloads: Vec<Vec<u8>> = (0..8u8).map(|n| vec![b'a' + n; 200_000]).collect();
+
+	std::thread::scope(|scope| {
+		for payload in &payloads {
+			scope.spawn(|| {
+				for _ in 0..20 {
+					write_atomic(&path, payload).unwrap();
+				}
+			});
+		}
+	});
+
+	assert!(payloads.contains(&fs::read(&path).unwrap()));
+	let names: Vec<_> = fs::read_dir(dir.path())
+		.unwrap()
+		.map(|entry| entry.unwrap().file_name())
+		.collect();
+	assert_eq!(names, vec![std::ffi::OsString::from("state.json")]);
+}
