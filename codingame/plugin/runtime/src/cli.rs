@@ -12,6 +12,7 @@ use crate::atomic::write_atomic;
 use crate::config::Config;
 use crate::paths::RunDir;
 use crate::run_info::{Mode, RunInfo};
+use crate::worker::{WorkerVerb, run_worker};
 
 const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\n";
 const SECONDS_PER_HOUR: u64 = 3600;
@@ -19,6 +20,8 @@ const SECONDS_PER_HOUR: u64 = 3600;
 #[derive(Debug, Parser)]
 #[command(name = "contest")]
 pub struct Cli {
+	#[arg(long, global = true, default_value_t = 60)]
+	pub timeout: u64,
 	#[command(subcommand)]
 	pub command: Verb,
 }
@@ -26,6 +29,8 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Verb {
 	Init(InitArgs),
+	#[command(flatten)]
+	Worker(WorkerVerb),
 }
 
 #[derive(Debug, clap::Args)]
@@ -46,6 +51,7 @@ pub struct InitArgs {
 pub fn run(cli: Cli) -> anyhow::Result<()> {
 	match cli.command {
 		Verb::Init(args) => init(args),
+		Verb::Worker(verb) => run_worker(verb, cli.timeout),
 	}
 }
 
