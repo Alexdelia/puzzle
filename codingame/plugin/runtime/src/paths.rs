@@ -74,6 +74,8 @@ impl fmt::Display for JobId {
 	}
 }
 
+pub const TASK_META_DIR: &str = "meta";
+
 #[derive(Debug, Clone)]
 pub struct RunDir {
 	pub root: PathBuf,
@@ -142,6 +144,10 @@ impl RunDir {
 
 	pub fn task_dir(&self, id: &TaskId) -> PathBuf {
 		self.tasks().join(&id.0)
+	}
+
+	pub fn task_meta(&self, id: &TaskId) -> PathBuf {
+		self.task_dir(id).join(TASK_META_DIR)
 	}
 
 	pub fn jobs(&self) -> PathBuf {

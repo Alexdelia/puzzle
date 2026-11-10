@@ -11,7 +11,7 @@ use crate::paths::RunDir;
 const STOP_MESSAGE: &str = "stop requested: update notes.md and result.md, run contest commit --milestone stop, then end your turn";
 const STOP_WRITABLE_SUFFIXES: [&str; 2] = ["/notes.md", "/result.md"];
 const STOP_COMMANDS: [&str; 2] = ["contest commit", "contest task"];
-const SHELL_CONTROL: [&str; 7] = [";", "&", "|", "`", "$(", "\n", "\r"];
+const SHELL_CONTROL: [&str; 9] = [";", "&", "|", "`", "$(", "\n", "\r", "<", ">"];
 const BLOCK_EXIT: u8 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

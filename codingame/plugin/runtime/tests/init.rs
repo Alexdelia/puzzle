@@ -134,7 +134,10 @@ fn config_defaults_round_trip() {
 	assert_eq!(config.ram_budget_mb, 13000);
 	assert_eq!(config.claude_bin, Path::new("claude"));
 	assert!(config.sandbox);
-	assert_eq!(config.blocked_url_substrings.len(), 4);
+	assert_eq!(
+		config.blocked_url_substrings,
+		["alexdelia", "discord.com", "discord.gg"]
+	);
 	assert!(config.plugin_dir.join("runtime/Cargo.toml").is_file());
 
 	fs::write(&path, "workers = 5\n").unwrap();

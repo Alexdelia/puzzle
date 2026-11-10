@@ -83,7 +83,7 @@ fn commit_only_task_paths() {
 	assert!(sha.is_some());
 	let files = git(repo.path(), &["show", "--name-only", "--format=", "HEAD"]);
 	assert!(files.contains("referee/a.rs"));
-	assert!(files.contains(&format!("run/tasks/{id}/spec.toml")));
+	assert!(files.contains(&format!("run/tasks/{id}/meta/spec.toml")));
 	assert!(!files.contains("other/b.rs"));
 	let status = git(repo.path(), &["status", "--porcelain"]);
 	assert!(status.contains("?? other/"));

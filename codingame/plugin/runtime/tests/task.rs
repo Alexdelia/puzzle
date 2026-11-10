@@ -184,12 +184,34 @@ fn half_written_task_dirs_do_not_poison_list() {
 	let (_dir, run) = run_dir();
 	let store = TaskStore { run: &run };
 	let id = store.create(spec("a", 1)).unwrap();
-	std::fs::create_dir_all(run.tasks().join(".tmp-t0002-b")).unwrap();
-	std::fs::write(run.tasks().join(".tmp-t0002-b").join("spec.toml"), "kind").unwrap();
-	std::fs::create_dir_all(run.tasks().join("t0003-c")).unwrap();
-	std::fs::write(run.tasks().join("t0003-c").join("spec.toml"), "kind").unwrap();
+	std::fs::create_dir_all(run.tasks().join(".tmp-t0002-b/meta")).unwrap();
+	std::fs::write(run.tasks().join(".tmp-t0002-b/meta/spec.toml"), "kind").unwrap();
+	std::fs::create_dir_all(run.tasks().join("t0003-c/meta")).unwrap();
+	std::fs::write(run.tasks().join("t0003-c/meta/spec.toml"), "kind").unwrap();
 	let listed = store.list().unwrap();
 	assert_eq!(listed.len(), 1);
 	assert_eq!(store.next_queued().unwrap(), Some(id));
 	assert!(store.reconcile_after_restart().unwrap().is_empty());
+}
+
+#[test]
+fn supervisor_files_live_in_meta_dir() {
+	let (_dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let id = store.create(spec("a", 1)).unwrap();
+	let meta = run.task_meta(&id);
+	assert_eq!(meta, run.task_dir(&id).join("meta"));
+	for file in ["spec.toml", "spec.md", "state"] {
+		assert!(meta.join(file).is_file(), "{file}");
+		assert!(!run.task_dir(&id).join(file).exists(), "{file}");
+	}
+	store.transition(&id, TaskState::Running).unwrap();
+	assert_eq!(
+		std::fs::read_to_string(meta.join("state")).unwrap(),
+		"running"
+	);
+	store.set_priority(&id, 7).unwrap();
+	assert_eq!(store.spec(&id).unwrap().priority, 7);
+	store.append_notes(&id, "n").unwrap();
+	assert!(run.task_dir(&id).join("notes.md").is_file());
 }

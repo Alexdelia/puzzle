@@ -25,7 +25,7 @@ fn blocks_github_user_url() {
 	);
 	assert_eq!(
 		decision,
-		HookDecision::Block("blocked source: github.com/Alexdelia".into())
+		HookDecision::Block("blocked source: alexdelia".into())
 	);
 }
 
@@ -50,6 +50,24 @@ fn block_list_ignores_case() {
 		false,
 	);
 	assert!(is_blocked(&decision));
+}
+
+#[test]
+fn default_block_list_matches_bare_user_needle() {
+	assert_eq!(
+		Config::default().blocked_url_substrings,
+		["alexdelia", "discord.com", "discord.gg"]
+	);
+	for url in [
+		"https://raw.githubusercontent.com/AlexDelia/puzzle/main/x",
+		"https://gitlab.com/ALEXDELIA/x",
+		"https://Discord.GG/abc",
+	] {
+		assert!(
+			is_blocked(&decide("WebFetch", json!({"url": url}), false)),
+			"{url}"
+		);
+	}
 }
 
 #[test]
@@ -146,6 +164,10 @@ fn stop_blocks_other_bash() {
 		"contest commit --milestone $(cargo build)",
 		"contest commit --milestone `cargo build`",
 		"contest commit --milestone stop\ncargo build",
+		"contest task done > /tmp/x",
+		"contest task done < /etc/passwd",
+		"contest commit --milestone <(cargo build)",
+		"contest commit --milestone >(cat)",
 		"contest job submit --class batch --ram-mb 1 -- true",
 	] {
 		assert_eq!(

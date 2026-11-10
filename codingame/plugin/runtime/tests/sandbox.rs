@@ -2,13 +2,16 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use contest::claude_config::{agent_env, write_claude_settings};
+use contest::atomic::write_atomic;
+use contest::claude_config::{agent_env, credentials_expire_within, write_claude_settings};
 use contest::config::Config;
 use contest::paths::{JobId, RunDir, TaskId};
-use contest::sandbox::{SandboxSpec, bwrap_args, bwrap_command, contest_bin_dir};
+use contest::sandbox::{
+	SandboxSpec, bwrap_args, bwrap_command, contest_bin_dir, dropped_env_names,
+};
 use tempfile::TempDir;
 
-const HIDDEN_ENV: [&str; 9] = [
+const HIDDEN_ENV: [&str; 10] = [
 	"DBUS_SESSION_BUS_ADDRESS",
 	"SSH_AUTH_SOCK",
 	"GNOME_KEYRING_CONTROL",
@@ -18,6 +21,7 @@ const HIDDEN_ENV: [&str; 9] = [
 	"XAUTHORITY",
 	"SWAYSOCK",
 	"I3SOCK",
+	"XDG_RUNTIME_DIR",
 ];
 
 fn text(path: &Path) -> String {
@@ -31,6 +35,9 @@ fn task() -> TaskId {
 fn spec_under(root: &Path, own_task: Option<TaskId>) -> SandboxSpec {
 	let repo = root.join("repo");
 	let contest = repo.join("bot-programming/c1");
+	let home_owner = own_task
+		.as_ref()
+		.map_or("manager".to_owned(), |task| task.0.clone());
 	SandboxSpec {
 		repo_root: repo.clone(),
 		contest_root: contest.clone(),
@@ -41,10 +48,10 @@ fn spec_under(root: &Path, own_task: Option<TaskId>) -> SandboxSpec {
 		plugin_ro: vec![repo.join("plugin/runtime/target"), repo.join("plugin/kb")],
 		claude_config: contest.join("run/claude-config"),
 		credentials: root.join("host-home/.claude/.credentials.json"),
-		sandbox_home: contest.join("run/agents/home"),
+		sandbox_home: contest.join(format!("run/agents/{home_owner}/home")),
 		home: root.join("host-home"),
 		own_task,
-		host_session_env: vec!["CLAUDE_CODE_MESSAGING_TOKEN".into()],
+		dropped_host_env: vec!["CLAUDE_CODE_MESSAGING_TOKEN".into()],
 	}
 }
 
@@ -102,9 +109,13 @@ fn bwrap_starts_with_isolation_flags() {
 		"--tmpfs",
 		"/tmp",
 		"--tmpfs",
+		"/var/tmp",
+		"--tmpfs",
+		"/run/user",
+		"--tmpfs",
 		"/home",
 		"--bind",
-		"/r/repo/bot-programming/c1/run/agents/home",
+		"/r/repo/bot-programming/c1/run/agents/t0001-sim-bench/home",
 		"/r/host-home",
 		"--tmpfs",
 		"/r/repo",
@@ -153,15 +164,21 @@ fn run_dir_is_read_only_except_own_task_and_requests() {
 	let contest = position(&args, "--bind", &spec.contest_root);
 	let run_ro = position(&args, "--ro-bind", &run.root.join("run"));
 	let task_rw = position(&args, "--bind", &run.task_dir(&task));
-	let spec_ro = position(&args, "--ro-bind", &run.task_dir(&task).join("spec.toml"));
-	let spec_md_ro = position(&args, "--ro-bind", &run.task_dir(&task).join("spec.md"));
-	let state_ro = position(&args, "--ro-bind", &run.task_dir(&task).join("state"));
+	let meta_ro = position(&args, "--ro-bind", &run.task_meta(&task));
 	let requests_rw = position(&args, "--bind", &run.task_requests(&task));
 	assert!(position(&args, "--tmpfs", &spec.repo_root) < contest);
 	assert!(contest < run_ro);
 	assert!(run_ro < task_rw);
-	assert!(task_rw < spec_ro && task_rw < spec_md_ro && task_rw < state_ro);
+	assert!(task_rw < meta_ro);
 	assert!(run_ro < requests_rw);
+	let task_files = text(&run.task_dir(&task));
+	assert!(
+		mounts(&args).iter().all(
+			|(_, _, dest)| !dest.starts_with(&format!("{task_files}/spec"))
+				&& !dest.ends_with("/state")
+		),
+		"{args:?}"
+	);
 	let rw: Vec<String> = mounts(&args)
 		.into_iter()
 		.filter(|(flag, _, _)| flag == "--bind")
@@ -169,6 +186,17 @@ fn run_dir_is_read_only_except_own_task_and_requests() {
 		.collect();
 	assert!(!rw.contains(&text(&run.jobs())));
 	assert!(!rw.contains(&text(&run.tasks())));
+}
+
+#[test]
+fn host_executed_contest_files_read_only() {
+	let spec = spec();
+	let args = bwrap_args(&spec);
+	let contest = position(&args, "--bind", &spec.contest_root);
+	let claude = position(&args, "--ro-bind", &spec.contest_root.join(".claude"));
+	let direnv = position(&args, "--ro-bind", &spec.contest_root.join(".direnv"));
+	let envrc = position(&args, "--ro-bind-try", &spec.contest_root.join(".envrc"));
+	assert!(contest < claude && contest < direnv && contest < envrc);
 }
 
 #[test]
@@ -267,11 +295,15 @@ fn layout() -> Layout {
 	touch(&spec.plugin_ro[0].join("contest"), "bin");
 	touch(&run.config(), "workers = 3\n");
 	for id in [&task, &other] {
-		for file in ["spec.toml", "spec.md", "state", "notes.md"] {
-			touch(&run.task_dir(id).join(file), "x");
+		for file in ["spec.toml", "spec.md", "state"] {
+			touch(&run.task_meta(id).join(file), "x");
 		}
+		touch(&run.task_dir(id).join("notes.md"), "x");
 		fs::create_dir_all(run.task_requests(id)).unwrap();
 	}
+	fs::create_dir_all(spec.contest_root.join(".claude")).unwrap();
+	fs::create_dir_all(spec.contest_root.join(".direnv")).unwrap();
+	touch(&spec.contest_root.join(".envrc"), "use flake");
 	fs::create_dir_all(run.jobs().join("j0001")).unwrap();
 	touch(&spec.claude_config.join("settings.json"), "{}");
 	fs::create_dir_all(&spec.sandbox_home).unwrap();
@@ -313,6 +345,11 @@ fn probe_line(path: &Path) -> String {
 	format!(
 		"if [ -e '{path}' ]; then if (echo w >> '{path}') 2>/dev/null; then echo rw; else echo ro; fi; else echo absent; fi"
 	)
+}
+
+fn probe_empty_line(path: &Path) -> String {
+	let path = text(path);
+	format!("if [ -z \"$(ls -A '{path}')\" ]; then echo empty; else echo listed; fi")
 }
 
 fn probe_dir_line(path: &Path) -> String {
@@ -369,19 +406,46 @@ fn real_bwrap_enforces_layout() {
 		),
 		(
 			"own spec",
-			probe_line(&run.task_dir(&task).join("spec.toml")),
+			probe_line(&run.task_meta(&task).join("spec.toml")),
 			"ro",
 		),
 		(
 			"own spec body",
-			probe_line(&run.task_dir(&task).join("spec.md")),
+			probe_line(&run.task_meta(&task).join("spec.md")),
 			"ro",
 		),
 		(
 			"own state",
-			probe_line(&run.task_dir(&task).join("state")),
+			probe_line(&run.task_meta(&task).join("state")),
 			"ro",
 		),
+		("own meta dir", probe_dir_line(&run.task_meta(&task)), "ro"),
+		(
+			"contest .claude",
+			probe_dir_line(&spec.contest_root.join(".claude")),
+			"ro",
+		),
+		(
+			"contest .direnv",
+			probe_dir_line(&spec.contest_root.join(".direnv")),
+			"ro",
+		),
+		(
+			"contest .envrc",
+			probe_line(&spec.contest_root.join(".envrc")),
+			"ro",
+		),
+		(
+			"session bus",
+			probe_line(&Path::new("/run/user").join(uid().to_string()).join("bus")),
+			"absent",
+		),
+		(
+			"user runtime dirs",
+			probe_empty_line(Path::new("/run/user")),
+			"empty",
+		),
+		("var tmp", probe_empty_line(Path::new("/var/tmp")), "empty"),
 		(
 			"other notes",
 			probe_line(&run.task_dir(&other).join("notes.md")),
@@ -437,6 +501,55 @@ fn real_bwrap_enforces_layout() {
 	assert_eq!(fs::read_to_string(run.config()).unwrap(), "workers = 3\n");
 }
 
+fn uid() -> u32 {
+	unsafe { libc::getuid() }
+}
+
+#[test]
+fn real_bwrap_meta_stays_read_only_after_host_rewrite() {
+	if !bwrap_available() {
+		eprintln!("bwrap not found, skipped");
+		return;
+	}
+	let Layout {
+		_dir,
+		spec,
+		run,
+		task,
+		..
+	} = layout();
+	let state = run.task_meta(&task).join("state");
+	let ready = run.task_dir(&task).join("ready");
+	let rewritten = run.task_dir(&task).join("rewritten");
+	let script = format!(
+		"touch '{ready}'; while [ ! -e '{rewritten}' ]; do sleep 0.02; done; cat '{state}'; echo; {probe}",
+		ready = text(&ready),
+		rewritten = text(&rewritten),
+		state = text(&state),
+		probe = probe_line(&state),
+	);
+	let argv = vec!["sh".to_string(), "-c".to_string(), script];
+	let command = bwrap_command(&spec, &argv);
+	let child = Command::new(&command[0])
+		.args(&command[1..])
+		.stdout(std::process::Stdio::piped())
+		.spawn()
+		.unwrap();
+	while !ready.exists() {
+		std::thread::sleep(std::time::Duration::from_millis(20));
+	}
+	write_atomic(&state, b"running").unwrap();
+	fs::write(&rewritten, "").unwrap();
+	let output = child.wait_with_output().unwrap();
+	assert_eq!(
+		String::from_utf8_lossy(&output.stdout)
+			.lines()
+			.collect::<Vec<_>>(),
+		["running", "ro"]
+	);
+	assert_eq!(fs::read_to_string(&state).unwrap(), "running");
+}
+
 #[test]
 fn real_bwrap_hides_host_environment() {
 	if !bwrap_available() {
@@ -444,13 +557,13 @@ fn real_bwrap_hides_host_environment() {
 		return;
 	}
 	let Layout { _dir, spec, .. } = layout();
-	let script =
-		"echo ${SSH_AUTH_SOCK:-unset} ${CLAUDE_CODE_MESSAGING_TOKEN:-unset} $CLAUDE_CONFIG_DIR";
+	let script = "echo ${SSH_AUTH_SOCK:-unset} ${XDG_RUNTIME_DIR:-unset} ${CLAUDE_CODE_MESSAGING_TOKEN:-unset} $CLAUDE_CONFIG_DIR";
 	let argv = vec!["sh".to_string(), "-c".to_string(), script.to_string()];
 	let command = bwrap_command(&spec, &argv);
 	let output = Command::new(&command[0])
 		.args(&command[1..])
 		.env("SSH_AUTH_SOCK", "/run/agent.sock")
+		.env("XDG_RUNTIME_DIR", "/run/user/1000")
 		.env("CLAUDE_CODE_MESSAGING_TOKEN", "host-session")
 		.env("CLAUDE_CONFIG_DIR", "/run-config")
 		.env("HOME", &spec.home)
@@ -458,7 +571,7 @@ fn real_bwrap_hides_host_environment() {
 		.unwrap();
 	assert_eq!(
 		String::from_utf8_lossy(&output.stdout).trim(),
-		"unset unset /run-config"
+		"unset unset unset /run-config"
 	);
 }
 
@@ -534,8 +647,18 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 	assert_eq!(spec.repo_root, config.repo_root);
 	assert_eq!(spec.toolbox, config.toolbox);
 	assert_eq!(spec.claude_config, contest_root.join("run/claude-config"));
-	assert_eq!(spec.sandbox_home, contest_root.join("run/agents/home"));
+	assert_eq!(
+		spec.sandbox_home,
+		contest_root.join("run/agents/t0001-sim-bench/home")
+	);
 	assert!(spec.sandbox_home.is_dir());
+	assert!(contest_root.join(".claude").is_dir());
+	assert!(contest_root.join(".direnv").is_dir());
+	let manager = SandboxSpec::for_run(&run, &config, None).unwrap();
+	assert_eq!(
+		manager.sandbox_home,
+		contest_root.join("run/agents/manager/home")
+	);
 	assert_eq!(spec.plugin_ro[0], contest_bin_dir().unwrap());
 	assert_eq!(
 		spec.plugin_ro[1..],
@@ -547,20 +670,88 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 		spec.home.join(".claude/.credentials.json")
 	);
 	assert_eq!(spec.own_task, Some(task()));
-	let host_claude_env: Vec<String> = std::env::vars()
-		.map(|(name, _)| name)
-		.filter(|name| name.starts_with("CLAUDE") && name != "CLAUDE_CONFIG_DIR")
-		.collect();
-	assert!(
-		host_claude_env
-			.iter()
-			.all(|name| spec.host_session_env.contains(name))
-	);
-	assert!(
-		!spec
-			.host_session_env
-			.contains(&"CLAUDE_CONFIG_DIR".to_string())
+	assert_eq!(
+		spec.dropped_host_env,
+		dropped_env_names(std::env::vars().map(|(name, _)| name))
 	);
 	let unpinned = Config::default();
 	assert!(SandboxSpec::for_run(&run, &unpinned, None).is_err());
+}
+
+#[test]
+fn dropped_env_names_cover_claude_session_and_secrets() {
+	let names = [
+		"CLAUDECODE",
+		"CLAUDE_CODE_MESSAGING_TOKEN",
+		"CLAUDE_CONFIG_DIR",
+		"ANTHROPIC_API_KEY",
+		"ANTHROPIC_BASE_URL",
+		"GH_TOKEN",
+		"GITHUB_TOKEN",
+		"GITHUB_WORKSPACE",
+		"HOME",
+		"PATH",
+	]
+	.map(String::from);
+	assert_eq!(
+		dropped_env_names(names),
+		[
+			"ANTHROPIC_API_KEY",
+			"ANTHROPIC_BASE_URL",
+			"CLAUDECODE",
+			"CLAUDE_CODE_MESSAGING_TOKEN",
+			"GH_TOKEN",
+			"GITHUB_TOKEN",
+		]
+		.map(String::from)
+	);
+}
+
+fn credentials_file(dir: &TempDir, body: &str) -> std::path::PathBuf {
+	let path = dir.path().join(".credentials.json");
+	fs::write(&path, body).unwrap();
+	path
+}
+
+fn now_ms() -> i64 {
+	std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap()
+		.as_millis() as i64
+}
+
+#[test]
+fn credentials_expiry_reads_only_expires_at() {
+	let dir = TempDir::new().unwrap();
+	let soon = now_ms() + 5 * 60 * 1000;
+	let later = now_ms() + 60 * 60 * 1000;
+	let body = |expires: i64| {
+		format!(
+			r#"{{"claudeAiOauth":{{"accessToken":"a","refreshToken":"r","expiresAt":{expires},"scopes":["x"]}}}}"#
+		)
+	};
+	let path = credentials_file(&dir, &body(soon));
+	assert!(credentials_expire_within(&path, 15 * 60).unwrap());
+	let path = credentials_file(&dir, &body(later));
+	assert!(!credentials_expire_within(&path, 15 * 60).unwrap());
+	let path = credentials_file(
+		&dir,
+		r#"{"claudeAiOauth":{"accessToken":"a","expiresAt":null}}"#,
+	);
+	assert!(!credentials_expire_within(&path, 15 * 60).unwrap());
+}
+
+#[test]
+fn credentials_expiry_errors_never_echo_secrets() {
+	let dir = TempDir::new().unwrap();
+	for body in [
+		r#"{"other":{"accessToken":"sk-secret-token"}}"#,
+		r#"{"claudeAiOauth":{"accessToken":"sk-secret-token","expiresAt":"sk-secret-token"}}"#,
+		"sk-secret-token not json",
+	] {
+		let path = credentials_file(&dir, body);
+		let error = credentials_expire_within(&path, 60).unwrap_err();
+		assert!(!format!("{error:#}").contains("sk-secret"), "{error:#}");
+	}
+	assert!(credentials_expire_within(&dir.path().join("missing"), 60).is_err());
 }

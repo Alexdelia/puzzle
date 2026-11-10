@@ -2,8 +2,10 @@ use std::fs;
 use std::io;
 use std::os::unix::fs::symlink;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
+use serde::Deserialize;
 use serde_json::json;
 
 use crate::atomic::write_atomic;
@@ -11,6 +13,33 @@ use crate::config::Config;
 use crate::paths::{RunDir, TaskId};
 
 pub const HOOK_COMMAND: &str = "contest hook pre-tool-use";
+const MILLIS_PER_SECOND: i64 = 1000;
+
+#[derive(Deserialize)]
+struct CredentialsExpiry {
+	#[serde(rename = "claudeAiOauth")]
+	oauth: OauthExpiry,
+}
+
+#[derive(Deserialize)]
+struct OauthExpiry {
+	#[serde(rename = "expiresAt")]
+	expires_at_ms: Option<i64>,
+}
+
+pub fn credentials_expire_within(path: &Path, seconds: u64) -> Result<bool> {
+	let bytes = fs::read(path).with_context(|| format!("read {path:?}"))?;
+	let expiry: CredentialsExpiry = serde_json::from_slice(&bytes)
+		.map_err(|_| anyhow!("{path:?} has no numeric claudeAiOauth.expiresAt"))?;
+	let now_ms = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.map_or(0, |elapsed| elapsed.as_millis() as i64);
+	let horizon_ms = now_ms.saturating_add((seconds as i64).saturating_mul(MILLIS_PER_SECOND));
+	Ok(expiry
+		.oauth
+		.expires_at_ms
+		.is_some_and(|expires_at_ms| expires_at_ms <= horizon_ms))
+}
 
 pub fn write_claude_settings(run: &RunDir, config: &Config) -> Result<()> {
 	let dir = run.claude_config();

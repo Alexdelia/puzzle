@@ -623,3 +623,22 @@ fn job_ids_grow_past_four_digits() {
 		assert!(JobId::parse(id).is_err(), "{id}");
 	}
 }
+
+#[test]
+fn one_broken_task_dir_does_not_stop_serving_others() {
+	use std::os::unix::fs::PermissionsExt;
+	let (_dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let broken = make_task(&run);
+	let healthy = make_task(&run);
+	let finish = r#"{"TaskFinish":{"outcome":"Done","question":null}}"#;
+	write_request(&run.task_requests(&broken), "1-1.json", finish);
+	write_request(&run.task_requests(&healthy), "1-1.json", finish);
+	let broken_dir = run.task_requests(&broken);
+	fs::set_permissions(&broken_dir, fs::Permissions::from_mode(0o000)).unwrap();
+	let served = serve_pending(&run, &Config::default());
+	fs::set_permissions(&broken_dir, fs::Permissions::from_mode(0o755)).unwrap();
+	assert_eq!(served.unwrap(), 1);
+	assert_eq!(store.state(&healthy).unwrap(), TaskState::Done);
+	assert_eq!(store.state(&broken).unwrap(), TaskState::Running);
+}

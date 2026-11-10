@@ -13,7 +13,8 @@ const ISOLATION_FLAGS: [&str; 4] = [
 	"--unshare-pid",
 	"--unshare-ipc",
 ];
-const HIDDEN_ENV: [&str; 9] = [
+const HIDDEN_DIRS: [&str; 4] = ["/tmp", "/var/tmp", "/run/user", "/home"];
+const HIDDEN_ENV: [&str; 10] = [
 	"DBUS_SESSION_BUS_ADDRESS",
 	"SSH_AUTH_SOCK",
 	"GNOME_KEYRING_CONTROL",
@@ -23,11 +24,15 @@ const HIDDEN_ENV: [&str; 9] = [
 	"XAUTHORITY",
 	"SWAYSOCK",
 	"I3SOCK",
+	"XDG_RUNTIME_DIR",
 ];
-const HOST_SESSION_ENV_PREFIX: &str = "CLAUDE";
+const DROPPED_ENV_PREFIXES: [&str; 2] = ["CLAUDE", "ANTHROPIC"];
+const DROPPED_ENV_NAMES: [&str; 2] = ["GH_TOKEN", "GITHUB_TOKEN"];
 const KEPT_CLAUDE_ENV: &str = "CLAUDE_CONFIG_DIR";
-const SUPERVISOR_OWNED_TASK_FILES: [&str; 3] = ["spec.toml", "spec.md", "state"];
+const HOST_EXECUTED_CONTEST_DIRS: [&str; 2] = [".claude", ".direnv"];
+const HOST_EXECUTED_CONTEST_FILE: &str = ".envrc";
 const PLUGIN_READ_ONLY_DIRS: [&str; 3] = ["prompts", "skills", "kb"];
+const MANAGER_HOME_OWNER: &str = "manager";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SandboxSpec {
@@ -40,16 +45,26 @@ pub struct SandboxSpec {
 	pub sandbox_home: PathBuf,
 	pub home: PathBuf,
 	pub own_task: Option<TaskId>,
-	pub host_session_env: Vec<String>,
+	pub dropped_host_env: Vec<String>,
 }
 
-fn host_session_env() -> Vec<String> {
-	let mut names: Vec<String> = std::env::vars_os()
-		.filter_map(|(name, _)| name.into_string().ok())
-		.filter(|name| name.starts_with(HOST_SESSION_ENV_PREFIX) && name != KEPT_CLAUDE_ENV)
+pub fn dropped_env_names(names: impl IntoIterator<Item = String>) -> Vec<String> {
+	let mut dropped: Vec<String> = names
+		.into_iter()
+		.filter(|name| {
+			name != KEPT_CLAUDE_ENV
+				&& (DROPPED_ENV_PREFIXES
+					.iter()
+					.any(|prefix| name.starts_with(prefix))
+					|| DROPPED_ENV_NAMES.contains(&name.as_str()))
+		})
 		.collect();
-	names.sort();
-	names
+	dropped.sort();
+	dropped
+}
+
+pub fn dropped_host_env() -> Vec<String> {
+	dropped_env_names(std::env::vars_os().filter_map(|(name, _)| name.into_string().ok()))
 }
 
 pub fn contest_bin_dir() -> Result<PathBuf> {
@@ -57,6 +72,10 @@ pub fn contest_bin_dir() -> Result<PathBuf> {
 	exe.parent()
 		.map(Path::to_path_buf)
 		.context("contest binary has no parent dir")
+}
+
+fn create_dir(dir: &Path) -> Result<()> {
+	fs::create_dir_all(dir).with_context(|| format!("create {dir:?}"))
 }
 
 impl SandboxSpec {
@@ -69,9 +88,15 @@ impl SandboxSpec {
 		let contest_root = fs::canonicalize(&run.root)
 			.with_context(|| format!("resolve {root:?}", root = run.root))?;
 		let run = RunDir { root: contest_root };
+		for dir in HOST_EXECUTED_CONTEST_DIRS {
+			create_dir(&run.root.join(dir))?;
+		}
 		let home = PathBuf::from(std::env::var_os("HOME").context("HOME is not set")?);
-		let sandbox_home = run.agents().join("home");
-		fs::create_dir_all(&sandbox_home).with_context(|| format!("create {sandbox_home:?}"))?;
+		let home_owner = own_task
+			.as_ref()
+			.map_or(MANAGER_HOME_OWNER, |task| task.0.as_str());
+		let sandbox_home = run.agents().join(home_owner).join("home");
+		create_dir(&sandbox_home)?;
 		let mut plugin_ro = vec![contest_bin_dir()?];
 		plugin_ro.extend(
 			PLUGIN_READ_ONLY_DIRS
@@ -87,7 +112,7 @@ impl SandboxSpec {
 			sandbox_home,
 			home,
 			own_task,
-			host_session_env: host_session_env(),
+			dropped_host_env: dropped_host_env(),
 			contest_root: run.root,
 		})
 	}
@@ -120,12 +145,21 @@ impl Argv {
 	}
 }
 
-fn own_task_mounts(argv: &mut Argv, run: &RunDir, task: &TaskId) {
-	let task_dir = run.task_dir(task);
-	argv.same("--bind", &task_dir);
-	for file in SUPERVISOR_OWNED_TASK_FILES {
-		argv.same("--ro-bind", &task_dir.join(file));
+fn contest_mounts(argv: &mut Argv, contest_root: &Path) {
+	argv.same("--bind", contest_root);
+	for dir in HOST_EXECUTED_CONTEST_DIRS {
+		argv.same("--ro-bind", &contest_root.join(dir));
 	}
+	argv.same(
+		"--ro-bind-try",
+		&contest_root.join(HOST_EXECUTED_CONTEST_FILE),
+	);
+	argv.same("--ro-bind", &contest_root.join("run"));
+}
+
+fn own_task_mounts(argv: &mut Argv, run: &RunDir, task: &TaskId) {
+	argv.same("--bind", &run.task_dir(task));
+	argv.same("--ro-bind", &run.task_meta(task));
 	argv.same("--bind", &run.task_requests(task));
 }
 
@@ -149,19 +183,19 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
 	argv.same("--ro-bind", Path::new("/"));
 	argv.on("--dev", Path::new("/dev"));
 	argv.on("--proc", Path::new("/proc"));
-	argv.on("--tmpfs", Path::new("/tmp"));
-	argv.on("--tmpfs", Path::new("/home"));
+	for dir in HIDDEN_DIRS {
+		argv.on("--tmpfs", Path::new(dir));
+	}
 	argv.mount("--bind", &spec.sandbox_home, &spec.home);
 	argv.on("--tmpfs", &spec.repo_root);
 	for tool in &spec.toolbox {
 		argv.same("--ro-bind", tool);
 	}
-	let run = RunDir {
-		root: spec.contest_root.clone(),
-	};
-	argv.same("--bind", &spec.contest_root);
-	argv.same("--ro-bind", &spec.contest_root.join("run"));
+	contest_mounts(&mut argv, &spec.contest_root);
 	if let Some(task) = &spec.own_task {
+		let run = RunDir {
+			root: spec.contest_root.clone(),
+		};
 		own_task_mounts(&mut argv, &run, task);
 	}
 	for path in &spec.plugin_ro {
@@ -171,7 +205,7 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
 	let hidden = HIDDEN_ENV
 		.iter()
 		.copied()
-		.chain(spec.host_session_env.iter().map(String::as_str));
+		.chain(spec.dropped_host_env.iter().map(String::as_str));
 	for name in hidden {
 		argv.flag("--unsetenv");
 		argv.flag(name);

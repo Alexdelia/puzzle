@@ -44,14 +44,9 @@ impl Default for Config {
 			digest_max_bytes: 32000,
 			bash_timeout_ms: 120000,
 			ram_budget_mb: 13000,
-			blocked_url_substrings: [
-				"github.com/Alexdelia",
-				"githubusercontent.com/Alexdelia",
-				"discord.com",
-				"discord.gg",
-			]
-			.map(String::from)
-			.to_vec(),
+			blocked_url_substrings: ["alexdelia", "discord.com", "discord.gg"]
+				.map(String::from)
+				.to_vec(),
 			toolbox: Vec::new(),
 			plugin_dir: default_plugin_dir(),
 			manager_model: "opus".into(),

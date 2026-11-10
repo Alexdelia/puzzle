@@ -354,18 +354,27 @@ pub fn prepare_task_requests(run: &RunDir, task: &TaskId) -> Result<()> {
 	Ok(())
 }
 
+fn serve_task(run: &RunDir, config: &Config, task: &TaskId, dir: &Path) -> Result<usize> {
+	let mut answered = 0;
+	for stem in request_stems(dir)? {
+		let target = response_path(dir, &stem);
+		if target.exists() {
+			continue;
+		}
+		if let Some(response) = answer_one(run, config, task, &request_path(dir, &stem))? {
+			write_atomic(&target, &serde_json::to_vec(&response)?)?;
+			answered += 1;
+		}
+	}
+	Ok(answered)
+}
+
 pub fn serve_pending(run: &RunDir, config: &Config) -> Result<usize> {
 	let mut answered = 0;
 	for (task, dir) in running_task_dirs(run)? {
-		for stem in request_stems(&dir)? {
-			let target = response_path(&dir, &stem);
-			if target.exists() {
-				continue;
-			}
-			if let Some(response) = answer_one(run, config, &task, &request_path(&dir, &stem))? {
-				write_atomic(&target, &serde_json::to_vec(&response)?)?;
-				answered += 1;
-			}
+		match serve_task(run, config, &task, &dir) {
+			Ok(count) => answered += count,
+			Err(error) => eprintln!("spool: skipped task {task}: {error:#}"),
 		}
 	}
 	Ok(answered)

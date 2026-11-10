@@ -6,9 +6,12 @@ use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
 use crate::atomic::write_atomic;
-use crate::paths::{RunDir, TaskId};
+use crate::paths::{RunDir, TASK_META_DIR, TaskId};
 
 const REQUEUE_PRIORITY_BONUS: i32 = 1000;
+const SPEC_FILE: &str = "spec.toml";
+const BODY_FILE: &str = "spec.md";
+const STATE_FILE: &str = "state";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -96,11 +99,15 @@ impl TaskStore<'_> {
 	}
 
 	fn spec_path(&self, id: &TaskId) -> PathBuf {
-		self.run.task_dir(id).join("spec.toml")
+		self.run.task_meta(id).join(SPEC_FILE)
+	}
+
+	fn body_path(&self, id: &TaskId) -> PathBuf {
+		self.run.task_meta(id).join(BODY_FILE)
 	}
 
 	fn state_path(&self, id: &TaskId) -> PathBuf {
-		self.run.task_dir(id).join("state")
+		self.run.task_meta(id).join(STATE_FILE)
 	}
 
 	fn take_counter(&self) -> Result<u32> {
@@ -119,13 +126,14 @@ impl TaskStore<'_> {
 		let id = TaskId(format!("t{counter:04}-{kind}", kind = spec.kind));
 		let staging = self.run.tasks().join(format!(".tmp-{id}"));
 		let _ = fs::remove_dir_all(&staging);
-		fs::create_dir_all(&staging)?;
+		let staged = staging.join(TASK_META_DIR);
+		fs::create_dir_all(&staged)?;
+		write_atomic(&staged.join(SPEC_FILE), toml::to_string(&spec)?.as_bytes())?;
+		write_atomic(&staged.join(BODY_FILE), spec.body.as_bytes())?;
 		write_atomic(
-			&staging.join("spec.toml"),
-			toml::to_string(&spec)?.as_bytes(),
+			&staged.join(STATE_FILE),
+			TaskState::Queued.name().as_bytes(),
 		)?;
-		write_atomic(&staging.join("spec.md"), spec.body.as_bytes())?;
-		write_atomic(&staging.join("state"), TaskState::Queued.name().as_bytes())?;
 		fs::rename(&staging, self.run.task_dir(&id))?;
 		Ok(id)
 	}
@@ -134,7 +142,7 @@ impl TaskStore<'_> {
 		let text =
 			fs::read_to_string(self.spec_path(id)).with_context(|| format!("unknown task {id}"))?;
 		let mut spec: TaskSpec = toml::from_str(&text)?;
-		spec.body = fs::read_to_string(self.run.task_dir(id).join("spec.md")).unwrap_or_default();
+		spec.body = fs::read_to_string(self.body_path(id)).unwrap_or_default();
 		Ok(spec)
 	}
 
