@@ -4,6 +4,7 @@ pub mod broker;
 pub mod cli;
 pub mod config;
 pub mod events;
+pub mod job;
 pub mod journal;
 pub mod ledger;
 pub mod paths;
