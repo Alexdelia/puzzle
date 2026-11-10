@@ -1,14 +1,22 @@
 use std::fs;
-use std::path::Path;
-use std::process::Command;
+use std::net::TcpListener;
+use std::os::linux::net::SocketAddrExt;
+use std::os::unix::net::{SocketAddr, UnixListener, UnixStream};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::sync::OnceLock;
+use std::time::{Duration, Instant};
 
 use contest::atomic::write_atomic;
+use contest::broker::{Grant, JobClass, JobRequest};
 use contest::claude_config::{agent_env, credentials_expire_within, write_claude_settings};
 use contest::config::Config;
+use contest::job::{JobRecord, JobState, process_tree, repin, signal_job, spawn_job, try_reap};
 use contest::paths::{JobId, RunDir, TaskId};
 use contest::sandbox::{
-	SandboxSpec, bwrap_args, bwrap_command, contest_bin_dir, dropped_env_names,
+	SandboxSpec, bwrap_args, contest_bin_dir, dropped_env_names, sandbox_command,
 };
+use nix::sys::signal::Signal;
 use tempfile::TempDir;
 
 const HIDDEN_ENV: [&str; 10] = [
@@ -25,7 +33,67 @@ const HIDDEN_ENV: [&str; 10] = [
 ];
 
 const NIX_DAEMON_SOCKET_DIR: &str = "/nix/var/nix/daemon-socket";
-const READY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+const READY_TIMEOUT: Duration = Duration::from_secs(10);
+const PASTA_FLAGS: [&str; 11] = [
+	"--foreground",
+	"--config-net",
+	"--tcp-ports",
+	"none",
+	"--udp-ports",
+	"none",
+	"--tcp-ns",
+	"none",
+	"--udp-ns",
+	"none",
+	"--no-map-gw",
+];
+const WEB_PROBE_URL: &str = "https://www.codingame.com";
+const WEB_PROBE_HOST: &str = "www.codingame.com";
+const ABSTRACT_PROBE: &str = r#"import socket, sys
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+try:
+    s.connect('\0' + sys.argv[1])
+    print('connected')
+except OSError:
+    print('refused')
+"#;
+const LOOPBACK_PROBE: &str = r#"import socket, struct, sys
+port = int(sys.argv[1])
+def gateway4():
+    for line in open('/proc/net/route').read().splitlines()[1:]:
+        fields = line.split()
+        if fields[1] == '00000000' and int(fields[3], 16) & 2:
+            return [(socket.AF_INET, (socket.inet_ntoa(struct.pack('<I', int(fields[2], 16))), port))]
+    return []
+def gateway6():
+    for line in open('/proc/net/ipv6_route').read().splitlines():
+        fields = line.split()
+        if fields[0] == '0' * 32 and fields[1] == '00' and fields[4] != '0' * 32:
+            hop = socket.inet_ntop(socket.AF_INET6, bytes.fromhex(fields[4]))
+            return [(socket.AF_INET6, (hop, port, 0, socket.if_nametoindex(fields[9])))]
+    return []
+def primary4():
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect(('192.0.2.1', 9))
+        return [(socket.AF_INET, (probe.getsockname()[0], port))]
+    except OSError:
+        return []
+targets = [(socket.AF_INET, ('127.0.0.1', port)), (socket.AF_INET6, ('::1', port, 0, 0))]
+for family, address in targets + gateway4() + gateway6() + primary4():
+    s = socket.socket(family, socket.SOCK_STREAM)
+    s.settimeout(1)
+    try:
+        s.connect(address)
+        print('connected', address[0])
+    except OSError:
+        print('blocked', address[0])
+"#;
+const THREADED_PROGRAM: &str = "import subprocess, sys, threading, time\n\
+subprocess.Popen(['sleep', '30'])\n\
+for _ in range(3):\n    threading.Thread(target=time.sleep, args=(30,), daemon=True).start()\n\
+print('ready', flush=True)\n\
+time.sleep(30)\n";
 
 fn text(path: &Path) -> String {
 	path.to_string_lossy().into_owned()
@@ -55,6 +123,7 @@ fn spec_under(root: &Path, own_task: Option<TaskId>) -> SandboxSpec {
 		home: root.join("host-home"),
 		own_task,
 		dropped_host_env: vec!["CLAUDE_CODE_MESSAGING_TOKEN".into()],
+		pasta_bin: "/nix/passt/bin/pasta".into(),
 	}
 }
 
@@ -97,6 +166,15 @@ fn position(args: &[String], flag: &str, dest: &Path) -> usize {
 #[test]
 fn bwrap_starts_with_isolation_flags() {
 	let args = bwrap_args(&spec());
+	let identity = [
+		"--unshare-user".to_string(),
+		"--uid".to_string(),
+		uid().to_string(),
+		"--gid".to_string(),
+		gid().to_string(),
+	];
+	assert_eq!(args[..identity.len()], identity[..]);
+	let args = &args[identity.len()..];
 	let expected: Vec<String> = [
 		"--die-with-parent",
 		"--new-session",
@@ -149,11 +227,13 @@ fn bwrap_hides_nix_daemon_socket_after_every_bind() {
 
 #[test]
 fn real_bwrap_hides_nix_daemon_socket_under_nix_toolbox() {
-	if !bwrap_available() || !Path::new(NIX_DAEMON_SOCKET_DIR).is_dir() {
-		eprintln!("bwrap or nix daemon socket not found, skipped");
+	if !Path::new(NIX_DAEMON_SOCKET_DIR).is_dir() {
+		eprintln!("nix daemon socket not found, skipped");
 		return;
 	}
-	let Layout { _dir, mut spec, .. } = layout();
+	let Some(Layout { _dir, mut spec, .. }) = sandbox_layout() else {
+		return;
+	};
 	spec.toolbox.push("/nix/var/nix".into());
 	let socket = Path::new(NIX_DAEMON_SOCKET_DIR).join("socket");
 	assert_eq!(sandboxed_sh(&spec, &probe_line(&socket)).trim(), "absent");
@@ -288,13 +368,16 @@ fn hides_session_environment() {
 }
 
 #[test]
-fn bwrap_command_wraps_argv() {
+fn sandbox_command_runs_bwrap_inside_pasta() {
 	let spec = spec();
 	let argv = vec!["cargo".to_string(), "build".to_string()];
-	let command = bwrap_command(&spec, &argv);
-	assert_eq!(command[0], "bwrap");
-	assert_eq!(command[1..command.len() - 3], bwrap_args(&spec)[..]);
-	assert_eq!(command[command.len() - 3..], ["--", "cargo", "build"]);
+	let command = sandbox_command(&spec, &argv);
+	let mut expected = vec!["/nix/passt/bin/pasta".to_string()];
+	expected.extend(PASTA_FLAGS.map(String::from));
+	expected.extend(["--".to_string(), "bwrap".to_string()]);
+	expected.extend(bwrap_args(&spec));
+	expected.extend(["--", "cargo", "build"].map(String::from));
+	assert_eq!(command, expected);
 }
 
 struct Layout {
@@ -359,9 +442,49 @@ fn bwrap_available() -> bool {
 		.is_ok_and(|output| output.status.success())
 }
 
-fn sandboxed_sh(spec: &SandboxSpec, script: &str) -> String {
-	let argv = vec!["sh".to_string(), "-c".to_string(), script.to_string()];
-	let command = bwrap_command(spec, &argv);
+fn pasta_on_path() -> Option<PathBuf> {
+	std::env::split_paths(&std::env::var_os("PATH")?)
+		.map(|dir| dir.join("pasta"))
+		.find(|path| path.is_file())
+}
+
+fn pasta_from_nix() -> Option<PathBuf> {
+	let output = Command::new("nix")
+		.args(["build", "nixpkgs#passt", "--no-link", "--print-out-paths"])
+		.output()
+		.ok()
+		.filter(|output| output.status.success())?;
+	let store_path = String::from_utf8_lossy(&output.stdout)
+		.lines()
+		.next()?
+		.to_owned();
+	Some(PathBuf::from(store_path).join("bin/pasta")).filter(|path| path.is_file())
+}
+
+fn test_pasta() -> Option<&'static Path> {
+	static PASTA: OnceLock<Option<PathBuf>> = OnceLock::new();
+	PASTA
+		.get_or_init(|| pasta_on_path().or_else(pasta_from_nix))
+		.as_deref()
+}
+
+fn sandbox_layout() -> Option<Layout> {
+	if !bwrap_available() {
+		eprintln!("bwrap not found, skipped");
+		return None;
+	}
+	let Some(pasta) = test_pasta() else {
+		eprintln!("pasta not found on PATH nor via nix build nixpkgs#passt, skipped");
+		return None;
+	};
+	let mut layout = layout();
+	layout.spec.pasta_bin = pasta.to_path_buf();
+	Some(layout)
+}
+
+fn sandboxed(spec: &SandboxSpec, argv: &[&str]) -> String {
+	let argv: Vec<String> = argv.iter().map(|part| part.to_string()).collect();
+	let command = sandbox_command(spec, &argv);
 	let output = Command::new(&command[0])
 		.args(&command[1..])
 		.output()
@@ -372,6 +495,10 @@ fn sandboxed_sh(spec: &SandboxSpec, script: &str) -> String {
 		stderr = String::from_utf8_lossy(&output.stderr)
 	);
 	String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+fn sandboxed_sh(spec: &SandboxSpec, script: &str) -> String {
+	sandboxed(spec, &["sh", "-c", script])
 }
 
 fn probe_line(path: &Path) -> String {
@@ -395,17 +522,16 @@ fn probe_dir_line(path: &Path) -> String {
 
 #[test]
 fn real_bwrap_enforces_layout() {
-	if !bwrap_available() {
-		eprintln!("bwrap not found, skipped");
-		return;
-	}
-	let Layout {
+	let Some(Layout {
 		_dir,
 		spec,
 		run,
 		task,
 		other,
-	} = layout();
+	}) = sandbox_layout()
+	else {
+		return;
+	};
 	let checks: Vec<(&str, String, &str)> = vec![
 		(
 			"git",
@@ -544,19 +670,22 @@ fn uid() -> u32 {
 	unsafe { libc::getuid() }
 }
 
+fn gid() -> u32 {
+	unsafe { libc::getgid() }
+}
+
 #[test]
 fn real_bwrap_meta_stays_read_only_after_host_rewrite() {
-	if !bwrap_available() {
-		eprintln!("bwrap not found, skipped");
-		return;
-	}
-	let Layout {
+	let Some(Layout {
 		_dir,
 		spec,
 		run,
 		task,
 		..
-	} = layout();
+	}) = sandbox_layout()
+	else {
+		return;
+	};
 	let state = run.task_meta(&task).join("state");
 	let ready = run.task_dir(&task).join("ready");
 	let rewritten = run.task_dir(&task).join("rewritten");
@@ -568,15 +697,15 @@ fn real_bwrap_meta_stays_read_only_after_host_rewrite() {
 		probe = probe_line(&state),
 	);
 	let argv = vec!["sh".to_string(), "-c".to_string(), script];
-	let command = bwrap_command(&spec, &argv);
+	let command = sandbox_command(&spec, &argv);
 	let mut child = Command::new(&command[0])
 		.args(&command[1..])
-		.stdout(std::process::Stdio::piped())
+		.stdout(Stdio::piped())
 		.spawn()
 		.unwrap();
-	let deadline = std::time::Instant::now() + READY_TIMEOUT;
+	let deadline = Instant::now() + READY_TIMEOUT;
 	while !ready.exists() {
-		if std::time::Instant::now() >= deadline {
+		if Instant::now() >= deadline {
 			let _ = child.kill();
 			let _ = child.wait();
 			panic!(
@@ -584,7 +713,7 @@ fn real_bwrap_meta_stays_read_only_after_host_rewrite() {
 				seconds = READY_TIMEOUT.as_secs()
 			);
 		}
-		std::thread::sleep(std::time::Duration::from_millis(20));
+		std::thread::sleep(Duration::from_millis(20));
 	}
 	write_atomic(&state, b"running").unwrap();
 	fs::write(&rewritten, "").unwrap();
@@ -600,14 +729,12 @@ fn real_bwrap_meta_stays_read_only_after_host_rewrite() {
 
 #[test]
 fn real_bwrap_hides_host_environment() {
-	if !bwrap_available() {
-		eprintln!("bwrap not found, skipped");
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
 		return;
-	}
-	let Layout { _dir, spec, .. } = layout();
+	};
 	let script = "echo ${SSH_AUTH_SOCK:-unset} ${XDG_RUNTIME_DIR:-unset} ${CLAUDE_CODE_MESSAGING_TOKEN:-unset} $CLAUDE_CONFIG_DIR";
 	let argv = vec!["sh".to_string(), "-c".to_string(), script.to_string()];
-	let command = bwrap_command(&spec, &argv);
+	let command = sandbox_command(&spec, &argv);
 	let output = Command::new(&command[0])
 		.args(&command[1..])
 		.env("SSH_AUTH_SOCK", "/run/agent.sock")
@@ -687,9 +814,11 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 		repo_root: dir.path().join("repo"),
 		plugin_dir: dir.path().join("repo/plugin"),
 		toolbox: vec![dir.path().join("repo/bot-programming/c0")],
+		pasta_bin: "/nix/passt/bin/pasta".into(),
 		..Config::default()
 	};
 	let spec = SandboxSpec::for_run(&run, &config, Some(task())).unwrap();
+	assert_eq!(spec.pasta_bin, config.pasta_bin);
 	let contest_root = fs::canonicalize(&run.root).unwrap();
 	assert_eq!(spec.contest_root, contest_root);
 	assert_eq!(spec.repo_root, config.repo_root);
@@ -724,6 +853,12 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 	);
 	let unpinned = Config::default();
 	assert!(SandboxSpec::for_run(&run, &unpinned, None).is_err());
+	let pasta_unpinned = Config {
+		pasta_bin: "pasta".into(),
+		..config.clone()
+	};
+	let error = SandboxSpec::for_run(&run, &pasta_unpinned, None).unwrap_err();
+	assert!(format!("{error:#}").contains("pasta_bin"), "{error:#}");
 }
 
 #[test]
@@ -740,6 +875,7 @@ fn spec_for_run_refuses_symlinked_host_executed_dirs() {
 		let config = Config {
 			repo_root: dir.path().join("repo"),
 			plugin_dir: dir.path().join("repo/plugin"),
+			pasta_bin: "/nix/passt/bin/pasta".into(),
 			..Config::default()
 		};
 		let error = SandboxSpec::for_run(&run, &config, Some(task())).unwrap_err();
@@ -826,4 +962,274 @@ fn credentials_expiry_errors_never_echo_secrets() {
 		assert!(!format!("{error:#}").contains("sk-secret"), "{error:#}");
 	}
 	assert!(credentials_expire_within(&dir.path().join("missing"), 60).is_err());
+}
+
+fn unique_name(prefix: &str) -> String {
+	let nanos = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap()
+		.as_nanos();
+	format!("{prefix}-{pid}-{nanos}", pid = std::process::id())
+}
+
+fn host_python(program: &str, arg: &str) -> String {
+	let output = Command::new("python3")
+		.args(["-c", program, arg])
+		.output()
+		.unwrap();
+	String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+fn python_available() -> bool {
+	Command::new("python3")
+		.arg("--version")
+		.output()
+		.is_ok_and(|output| output.status.success())
+}
+
+#[test]
+fn real_sandbox_cannot_reach_host_abstract_socket() {
+	if !python_available() {
+		eprintln!("python3 not found, skipped");
+		return;
+	}
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	let name = unique_name("contest-sandbox-probe");
+	let address = SocketAddr::from_abstract_name(name.as_bytes()).unwrap();
+	let _listener = UnixListener::bind_addr(&address).unwrap();
+	UnixStream::connect_addr(&address).unwrap();
+	assert_eq!(host_python(ABSTRACT_PROBE, &name).trim(), "connected");
+	assert_eq!(
+		sandboxed(&spec, &["python3", "-c", ABSTRACT_PROBE, &name]).trim(),
+		"refused"
+	);
+}
+
+#[test]
+fn real_sandbox_cannot_reach_host_loopback_listener() {
+	if !python_available() {
+		eprintln!("python3 not found, skipped");
+		return;
+	}
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+	let port = listener.local_addr().unwrap().port().to_string();
+	let host_view = host_python(LOOPBACK_PROBE, &port);
+	assert!(
+		host_view.lines().next() == Some("connected 127.0.0.1"),
+		"{host_view}"
+	);
+	let inside = sandboxed(&spec, &["python3", "-c", LOOPBACK_PROBE, &port]);
+	let lines: Vec<&str> = inside.lines().collect();
+	assert!(lines.len() >= 2, "{inside}");
+	assert!(
+		lines.iter().all(|line| line.starts_with("blocked ")),
+		"{inside}"
+	);
+	let has_gateway = fs::read_to_string("/proc/net/route")
+		.unwrap()
+		.lines()
+		.skip(1)
+		.any(|line| line.split_whitespace().nth(1) == Some("00000000"));
+	if has_gateway {
+		assert!(lines.len() >= 3, "gateway not probed: {inside}");
+	}
+}
+
+fn host_reaches_web() -> bool {
+	Command::new("curl")
+		.args(["-sS", "-o", "/dev/null", "--max-time", "20", WEB_PROBE_URL])
+		.status()
+		.is_ok_and(|status| status.success())
+}
+
+#[test]
+fn real_sandbox_reaches_web() {
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	if !host_reaches_web() {
+		eprintln!("host cannot reach {WEB_PROBE_URL}, skipped");
+		return;
+	}
+	let script = format!(
+		"getent hosts {WEB_PROBE_HOST} >/dev/null && echo dns-ok; curl -sS -o /dev/null -w '%{{http_code}}\\n' --max-time 20 {WEB_PROBE_URL}"
+	);
+	let output = sandboxed_sh(&spec, &script);
+	let lines: Vec<&str> = output.lines().collect();
+	assert_eq!(lines.first(), Some(&"dns-ok"), "{output}");
+	let code: u16 = lines.get(1).and_then(|code| code.parse().ok()).unwrap_or(0);
+	assert!((200..400).contains(&code), "{output}");
+}
+
+fn wait_for(what: &str, mut condition: impl FnMut() -> bool) {
+	let deadline = Instant::now() + READY_TIMEOUT;
+	while !condition() {
+		assert!(Instant::now() < deadline, "timed out waiting for {what}");
+		std::thread::sleep(Duration::from_millis(20));
+	}
+}
+
+fn gone_or_zombie(pid: u32) -> bool {
+	fs::read_to_string(format!("/proc/{pid}/stat")).map_or(true, |stat| {
+		stat[stat.rfind(')').unwrap() + 1..]
+			.split_whitespace()
+			.next() == Some("Z")
+	})
+}
+
+#[test]
+fn real_sandbox_dies_with_outer_process() {
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	let ready = spec.contest_root.join("ready");
+	let script = format!(
+		"sleep 300 & setsid sleep 300 & (sleep 300 &); touch '{ready}'; wait",
+		ready = text(&ready)
+	);
+	let command = sandbox_command(&spec, &["sh".to_string(), "-c".to_string(), script]);
+	let mut child = Command::new(&command[0])
+		.args(&command[1..])
+		.spawn()
+		.unwrap();
+	let outer = child.id();
+	wait_for("ready", || ready.exists());
+	let mut inside = Vec::new();
+	wait_for("three sleepers", || {
+		inside = process_tree(outer);
+		inside.len() >= 7
+	});
+	child.kill().unwrap();
+	child.wait().unwrap();
+	wait_for("sandbox teardown", || {
+		inside[1..].iter().all(|&pid| gone_or_zombie(pid))
+	});
+}
+
+fn sandboxed_job(spec: &SandboxSpec, id: &str, class: JobClass, argv: &[String]) -> JobRecord {
+	JobRecord {
+		id: JobId(id.to_string()),
+		owner_task: task(),
+		cmd: sandbox_command(spec, argv),
+		cwd: spec.contest_root.clone(),
+		request: JobRequest {
+			id: JobId(id.to_string()),
+			class,
+			gpu: false,
+			ram_mb: 100,
+			priority: 0,
+		},
+		state: JobState::Running,
+		pid: None,
+		starttime: None,
+	}
+}
+
+fn job_grant(id: &str, cpus: &[usize]) -> Grant {
+	Grant {
+		id: JobId(id.to_string()),
+		cpus: cpus.to_vec(),
+		exclusive: true,
+		gpu: false,
+		contended: false,
+	}
+}
+
+fn writable_job_run(spec: &SandboxSpec) -> RunDir {
+	RunDir {
+		root: spec.contest_root.join("work"),
+	}
+}
+
+fn log_has(run: &RunDir, id: &JobId, needle: &str) -> bool {
+	fs::read_to_string(run.job_dir(id).join("log")).is_ok_and(|log| log.contains(needle))
+}
+
+#[test]
+fn real_sandbox_job_checkpoints_on_supervisor_sigterm() {
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	let fixture = concat!(
+		env!("CARGO_MANIFEST_DIR"),
+		"/tests/fixtures/checkpoint-job.sh"
+	);
+	let script = spec.contest_root.join("checkpoint-job.sh");
+	fs::copy(fixture, &script).unwrap();
+	let run = writable_job_run(&spec);
+	let job = sandboxed_job(&spec, "j0001", JobClass::Batch, &[text(&script)]);
+	let pid = spawn_job(&run, &job, &job_grant("j0001", &[0])).unwrap();
+	wait_for("ready", || log_has(&run, &job.id, "ready"));
+	signal_job(pid, Signal::SIGTERM).unwrap();
+	let mut state = None;
+	wait_for("exit", || {
+		state = try_reap(pid).unwrap();
+		state.is_some()
+	});
+	assert_eq!(state, Some(JobState::Done { code: 0 }));
+	assert_eq!(
+		fs::read_to_string(run.job_dir(&job.id).join("checkpoint")).unwrap(),
+		"saved\n"
+	);
+}
+
+fn machine_has_cpus(cpus: &[usize]) -> bool {
+	cpus.iter()
+		.all(|cpu| Path::new(&format!("/sys/devices/system/cpu/cpu{cpu}")).exists())
+}
+
+fn thread_cpus(pid: u32) -> Vec<String> {
+	fs::read_dir(format!("/proc/{pid}/task"))
+		.into_iter()
+		.flatten()
+		.flatten()
+		.filter_map(|thread| {
+			let status = fs::read_to_string(thread.path().join("status")).ok()?;
+			status
+				.lines()
+				.find_map(|line| line.strip_prefix("Cpus_allowed_list:"))
+				.map(|cpus| cpus.trim().to_string())
+		})
+		.collect()
+}
+
+#[test]
+fn real_sandbox_repin_reaches_workload_threads() {
+	if !machine_has_cpus(&[1, 5, 2, 6]) || !python_available() {
+		eprintln!("machine lacks cpus 1, 2, 5, 6 or python3, skipped");
+		return;
+	}
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	let run = writable_job_run(&spec);
+	let argv = ["python3", "-c", THREADED_PROGRAM].map(String::from);
+	let class = JobClass::Timed {
+		min_cores: 1,
+		max_cores: 2,
+	};
+	let job = sandboxed_job(&spec, "j0002", class, &argv);
+	let pid = spawn_job(&run, &job, &job_grant("j0002", &[1, 5])).unwrap();
+	wait_for("threads started", || log_has(&run, &job.id, "ready"));
+	let tree = process_tree(pid);
+	let threads: Vec<String> = tree
+		.iter()
+		.flat_map(|&process| thread_cpus(process))
+		.collect();
+	assert!(threads.len() >= 8, "{tree:?} {threads:?}");
+	assert!(threads.iter().all(|cpus| cpus == "1,5"), "{threads:?}");
+	repin(pid, &[2, 6]).unwrap();
+	let repinned: Vec<String> = process_tree(pid)
+		.iter()
+		.flat_map(|&process| thread_cpus(process))
+		.collect();
+	assert_eq!(repinned.len(), threads.len(), "{repinned:?}");
+	assert!(repinned.iter().all(|cpus| cpus == "2,6"), "{repinned:?}");
+	signal_job(pid, Signal::SIGKILL).unwrap();
+	wait_for("reap", || try_reap(pid).unwrap().is_some());
 }

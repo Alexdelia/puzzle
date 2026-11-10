@@ -15,7 +15,9 @@ use crate::paths::RunDir;
 use crate::run_info::{Mode, RunInfo};
 use crate::worker::{WorkerVerb, run_worker};
 
-const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\n";
+const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\n";
+const PASTA: &str = "pasta";
+const PASST_FLAKE: &str = "nixpkgs#passt";
 const SECONDS_PER_HOUR: u64 = 3600;
 
 #[derive(Debug, Parser)]
@@ -49,6 +51,8 @@ pub struct InitArgs {
 	pub deadline: Option<String>,
 	#[arg(long)]
 	pub plugin_dir: Option<PathBuf>,
+	#[arg(long)]
+	pub pasta_bin: Option<PathBuf>,
 }
 
 pub fn run(cli: Cli) -> anyhow::Result<ExitCode> {
@@ -82,6 +86,10 @@ fn init(args: InitArgs) -> anyhow::Result<()> {
 	let (repo_root, git_common_dir) = pinned_git_dirs(&run.root);
 	config.repo_root = repo_root;
 	config.git_common_dir = git_common_dir;
+	config.pasta_bin = match args.pasta_bin {
+		Some(pasta) => fs::canonicalize(&pasta).with_context(|| format!("resolve {pasta:?}"))?,
+		None => pinned_pasta_bin(&run)?,
+	};
 	write_atomic(&run.config(), toml::to_string(&config)?.as_bytes())?;
 
 	let deadline_unix = args
@@ -128,6 +136,41 @@ fn pinned_git_dirs(contest_dir: &Path) -> (PathBuf, PathBuf) {
 			&["rev-parse", "--path-format=absolute", "--git-common-dir"],
 		),
 	)
+}
+
+fn pasta_on_path() -> Option<PathBuf> {
+	std::env::split_paths(&std::env::var_os("PATH")?)
+		.filter(|dir| dir.is_absolute())
+		.map(|dir| dir.join(PASTA))
+		.find(|path| path.is_file())
+}
+
+fn pasta_from_nix(gc_root: &Path) -> Option<PathBuf> {
+	let output = Command::new("nix")
+		.args(["build", PASST_FLAKE, "--print-out-paths", "--out-link"])
+		.arg(gc_root)
+		.output()
+		.ok()
+		.filter(|output| output.status.success())?;
+	let store_path = String::from_utf8_lossy(&output.stdout)
+		.lines()
+		.next()?
+		.to_owned();
+	Some(PathBuf::from(store_path).join("bin").join(PASTA)).filter(|path| path.is_file())
+}
+
+fn pinned_pasta_bin(run: &RunDir) -> anyhow::Result<PathBuf> {
+	if let Some(pasta) = pasta_on_path() {
+		return Ok(pasta);
+	}
+	let gc_roots = run.gc_roots();
+	fs::create_dir_all(&gc_roots).with_context(|| format!("create {gc_roots:?}"))?;
+	Ok(pasta_from_nix(&gc_roots.join("passt")).unwrap_or_else(|| {
+		eprintln!(
+			"pasta not found on PATH nor via nix build {PASST_FLAKE}: sandboxed launches will fail"
+		);
+		PathBuf::new()
+	}))
 }
 
 fn plugin_commit(plugin_dir: &Path) -> String {

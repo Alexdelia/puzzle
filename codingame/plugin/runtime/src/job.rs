@@ -2,6 +2,7 @@ use std::fs::{self, File};
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
@@ -19,6 +20,10 @@ use crate::paths::{JobId, RunDir, TaskId};
 const BATCH_NICE: libc::c_int = 19;
 const SWAP_PAGES_THRESHOLD: u64 = 256;
 const VMSTAT_PATH: &str = "/proc/vmstat";
+const STAT_PARENT: usize = 1;
+const STAT_SESSION: usize = 3;
+const STAT_STARTTIME: usize = 19;
+const NAMESPACE_INIT_PID: &str = "1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum JobState {
@@ -163,10 +168,14 @@ pub fn try_reap(pid: u32) -> anyhow::Result<Option<JobState>> {
 	})
 }
 
-pub fn process_starttime(pid: u32) -> Option<u64> {
+fn stat_field<T: FromStr>(pid: u32, index: usize) -> Option<T> {
 	let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
 	let after_name = &stat[stat.rfind(')')? + 1..];
-	after_name.split_whitespace().nth(19)?.parse().ok()
+	after_name.split_whitespace().nth(index)?.parse().ok()
+}
+
+pub fn process_starttime(pid: u32) -> Option<u64> {
+	stat_field(pid, STAT_STARTTIME)
 }
 
 pub fn mark_spawned(record: &mut JobRecord, pid: u32) {
@@ -186,16 +195,32 @@ pub fn signal_if_same_process(record: &JobRecord, signal: Signal) -> anyhow::Res
 }
 
 pub fn signal_job(pid: u32, signal: Signal) -> anyhow::Result<()> {
-	match killpg(Pid::from_raw(pid as i32), signal) {
+	match killpg(Pid::from_raw(workload_group(pid) as i32), signal) {
 		Ok(()) | Err(Errno::ESRCH) => Ok(()),
 		Err(error) => Err(error.into()),
 	}
 }
 
+fn workload_group(leader: u32) -> u32 {
+	process_tree(leader)
+		.into_iter()
+		.skip(1)
+		.find(|&pid| session_of(pid) == Some(pid) && is_namespace_init(pid))
+		.unwrap_or(leader)
+}
+
+fn is_namespace_init(pid: u32) -> bool {
+	fs::read_to_string(format!("/proc/{pid}/status")).is_ok_and(|status| {
+		status
+			.lines()
+			.find_map(|line| line.strip_prefix("NSpid:"))
+			.and_then(|pids| pids.split_whitespace().last())
+			== Some(NAMESPACE_INIT_PID)
+	})
+}
+
 fn session_of(pid: u32) -> Option<u32> {
-	let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
-	let after_name = &stat[stat.rfind(')')? + 1..];
-	after_name.split_whitespace().nth(3)?.parse().ok()
+	stat_field(pid, STAT_SESSION)
 }
 
 fn all_pids() -> Vec<u32> {
@@ -216,13 +241,37 @@ fn thread_ids(pid: u32) -> Vec<u32> {
 		.collect()
 }
 
+pub fn process_tree(root: u32) -> Vec<u32> {
+	let parents: Vec<(u32, u32)> = all_pids()
+		.into_iter()
+		.filter_map(|pid| Some((pid, stat_field(pid, STAT_PARENT)?)))
+		.collect();
+	let mut tree = vec![root];
+	let mut next = 0;
+	while let Some(&parent) = tree.get(next) {
+		tree.extend(
+			parents
+				.iter()
+				.filter(|(_, of)| *of == parent)
+				.map(|(pid, _)| *pid),
+		);
+		next += 1;
+	}
+	tree
+}
+
 pub fn repin(pid: u32, cpus: &[usize]) -> anyhow::Result<()> {
-	let session = pid;
 	let set = cpu_set(cpus)?;
-	for process in all_pids() {
-		if session_of(process) != Some(session) {
-			continue;
-		}
+	let session_members = all_pids()
+		.into_iter()
+		.filter(|&process| session_of(process) == Some(pid));
+	let mut processes: Vec<u32> = process_tree(pid)
+		.into_iter()
+		.chain(session_members)
+		.collect();
+	processes.sort_unstable();
+	processes.dedup();
+	for process in processes {
 		for thread in thread_ids(process) {
 			match sched_setaffinity(Pid::from_raw(thread as i32), &set) {
 				Ok(()) | Err(Errno::ESRCH) => {}

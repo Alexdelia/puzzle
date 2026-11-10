@@ -154,6 +154,10 @@ impl RunDir {
 		self.run().join("jobs")
 	}
 
+	pub fn gc_roots(&self) -> PathBuf {
+		self.run().join("gcroots")
+	}
+
 	pub fn job_dir(&self, id: &JobId) -> PathBuf {
 		self.jobs().join(&id.0)
 	}

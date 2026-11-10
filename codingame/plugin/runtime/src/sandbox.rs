@@ -2,11 +2,25 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail, ensure};
+use nix::unistd::{getgid, getuid};
 
 use crate::config::Config;
 use crate::paths::{RunDir, TaskId};
 
 const BWRAP: &str = "bwrap";
+const PASTA_FLAGS: [&str; 11] = [
+	"--foreground",
+	"--config-net",
+	"--tcp-ports",
+	"none",
+	"--udp-ports",
+	"none",
+	"--tcp-ns",
+	"none",
+	"--udp-ns",
+	"none",
+	"--no-map-gw",
+];
 const ISOLATION_FLAGS: [&str; 4] = [
 	"--die-with-parent",
 	"--new-session",
@@ -47,6 +61,7 @@ pub struct SandboxSpec {
 	pub home: PathBuf,
 	pub own_task: Option<TaskId>,
 	pub dropped_host_env: Vec<String>,
+	pub pasta_bin: PathBuf,
 }
 
 pub fn dropped_env_names(names: impl IntoIterator<Item = String>) -> Vec<String> {
@@ -93,6 +108,11 @@ impl SandboxSpec {
 			"config repo_root {root:?} is not pinned",
 			root = config.repo_root
 		);
+		ensure!(
+			config.pasta_bin.is_absolute(),
+			"config pasta_bin {pasta:?} is not pinned",
+			pasta = config.pasta_bin
+		);
 		let contest_root = fs::canonicalize(&run.root)
 			.with_context(|| format!("resolve {root:?}", root = run.root))?;
 		let run = RunDir { root: contest_root };
@@ -121,6 +141,7 @@ impl SandboxSpec {
 			home,
 			own_task,
 			dropped_host_env: dropped_host_env(),
+			pasta_bin: config.pasta_bin.clone(),
 			contest_root: run.root,
 		})
 	}
@@ -183,8 +204,17 @@ fn claude_config_mounts(argv: &mut Argv, spec: &SandboxSpec) {
 	);
 }
 
+fn keep_host_identity(argv: &mut Argv) {
+	argv.flag("--unshare-user");
+	argv.flag("--uid");
+	argv.flag(&getuid().to_string());
+	argv.flag("--gid");
+	argv.flag(&getgid().to_string());
+}
+
 pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
 	let mut argv = Argv::default();
+	keep_host_identity(&mut argv);
 	for flag in ISOLATION_FLAGS {
 		argv.flag(flag);
 	}
@@ -225,8 +255,11 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
 	argv.0
 }
 
-pub fn bwrap_command(spec: &SandboxSpec, argv: &[String]) -> Vec<String> {
-	let mut command = vec![BWRAP.to_owned()];
+pub fn sandbox_command(spec: &SandboxSpec, argv: &[String]) -> Vec<String> {
+	let mut command = vec![text(&spec.pasta_bin)];
+	command.extend(PASTA_FLAGS.map(String::from));
+	command.push("--".to_owned());
+	command.push(BWRAP.to_owned());
 	command.extend(bwrap_args(spec));
 	command.push("--".to_owned());
 	command.extend(argv.iter().cloned());

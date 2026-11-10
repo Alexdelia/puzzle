@@ -1,5 +1,6 @@
 use std::fs;
-use std::path::Path;
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use contest::atomic::write_atomic;
@@ -38,13 +39,30 @@ fn git_repo_with_commit(dir: &Path) {
 	);
 }
 
-fn run_init(contest_dir: &Path, plugin_dir: &Path, extra: &[&str]) {
-	let status = Command::new(env!("CARGO_BIN_EXE_contest"))
+fn init_command(contest_dir: &Path, plugin_dir: &Path) -> Command {
+	let mut command = Command::new(env!("CARGO_BIN_EXE_contest"));
+	command
 		.arg("init")
 		.arg(contest_dir)
 		.args(["--puzzle", "seabed-security", "--mode", "contest-live"])
 		.arg("--plugin-dir")
-		.arg(plugin_dir)
+		.arg(plugin_dir);
+	command
+}
+
+fn fake_pasta(dir: &Path) -> PathBuf {
+	let bin = dir.join("fake-bin");
+	fs::create_dir_all(&bin).unwrap();
+	let pasta = bin.join("pasta");
+	fs::write(&pasta, "#!/bin/sh\n").unwrap();
+	fs::set_permissions(&pasta, fs::Permissions::from_mode(0o755)).unwrap();
+	pasta
+}
+
+fn run_init(contest_dir: &Path, plugin_dir: &Path, extra: &[&str]) {
+	let status = init_command(contest_dir, plugin_dir)
+		.arg("--pasta-bin")
+		.arg(fake_pasta(plugin_dir))
 		.args(extra)
 		.status()
 		.unwrap();
@@ -95,7 +113,14 @@ fn init_creates_layout() {
 		fs::canonicalize(repo.path().join(".git")).unwrap()
 	);
 	let ignore = fs::read_to_string(contest_dir.join("run/.gitignore")).unwrap();
-	assert_eq!(ignore, "agents/\nrequests/\nclaude-config/\njobs/*/log\n");
+	assert_eq!(
+		ignore,
+		"agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\n"
+	);
+	assert_eq!(
+		config.pasta_bin,
+		fs::canonicalize(repo.path().join("fake-bin/pasta")).unwrap()
+	);
 
 	let config = Config::load(&run.config()).unwrap();
 	assert_eq!(config.plugin_dir, repo.path());
@@ -195,4 +220,59 @@ fn write_atomic_concurrent_writers_leave_no_temp_files() {
 		.map(|entry| entry.unwrap().file_name())
 		.collect();
 	assert_eq!(names, vec![std::ffi::OsString::from("state.json")]);
+}
+
+fn path_with_first(dir: &Path) -> std::ffi::OsString {
+	let rest = std::env::var_os("PATH").unwrap_or_default();
+	std::env::join_paths(std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&rest)))
+		.unwrap()
+}
+
+#[test]
+fn init_pins_pasta_found_on_path() {
+	let plain = tempfile::tempdir().unwrap();
+	let contest_dir = plain.path().join("c");
+	let pasta = fake_pasta(plain.path());
+	let status = init_command(&contest_dir, plain.path())
+		.env("PATH", path_with_first(pasta.parent().unwrap()))
+		.status()
+		.unwrap();
+	assert!(status.success());
+	let config = Config::load(&RunDir { root: contest_dir }.config()).unwrap();
+	assert_eq!(config.pasta_bin, pasta);
+}
+
+fn path_without_pasta() -> std::ffi::OsString {
+	let rest = std::env::var_os("PATH").unwrap_or_default();
+	std::env::join_paths(std::env::split_paths(&rest).filter(|dir| !dir.join("pasta").exists()))
+		.unwrap()
+}
+
+fn nix_available() -> bool {
+	Command::new("nix")
+		.arg("--version")
+		.output()
+		.is_ok_and(|output| output.status.success())
+}
+
+#[test]
+fn init_pins_pasta_from_nix_with_gc_root() {
+	if !nix_available() {
+		eprintln!("nix not found, skipped");
+		return;
+	}
+	let plain = tempfile::tempdir().unwrap();
+	let contest_dir = plain.path().join("c");
+	let status = init_command(&contest_dir, plain.path())
+		.env("PATH", path_without_pasta())
+		.status()
+		.unwrap();
+	assert!(status.success());
+	let run = RunDir { root: contest_dir };
+	let config = Config::load(&run.config()).unwrap();
+	assert!(config.pasta_bin.starts_with("/nix/store"), "{config:?}");
+	assert!(config.pasta_bin.ends_with("bin/pasta"), "{config:?}");
+	assert!(config.pasta_bin.is_file());
+	let gc_root = fs::read_link(run.root.join("run/gcroots/passt")).unwrap();
+	assert_eq!(config.pasta_bin, gc_root.join("bin/pasta"));
 }

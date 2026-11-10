@@ -29,6 +29,7 @@ pub struct Config {
 	pub commit_trailer: String,
 	pub repo_root: PathBuf,
 	pub git_common_dir: PathBuf,
+	pub pasta_bin: PathBuf,
 }
 
 impl Default for Config {
@@ -58,6 +59,7 @@ impl Default for Config {
 			commit_trailer: "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>".into(),
 			repo_root: PathBuf::new(),
 			git_common_dir: PathBuf::new(),
+			pasta_bin: PathBuf::new(),
 		}
 	}
 }

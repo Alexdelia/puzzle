@@ -137,6 +137,53 @@ fn spawn_applies_wrapper_prefix_and_exec_hook() {
 	assert_eq!(std::fs::read_to_string(&marker).unwrap(), "1");
 }
 
+fn gone_or_zombie(pid: u32) -> bool {
+	std::fs::read_to_string(format!("/proc/{pid}/stat")).map_or(true, |stat| {
+		stat[stat.rfind(')').unwrap() + 1..]
+			.split_whitespace()
+			.next() == Some("Z")
+	})
+}
+
+#[test]
+fn spawned_agent_dies_with_spawning_thread() {
+	let dir = tempfile::tempdir().unwrap();
+	let config = Config {
+		claude_bin: fixture("fake-claude.sh"),
+		..Config::default()
+	};
+	let mut run = agent_run(dir.path().join("stream.jsonl"));
+	run.env = vec![
+		(
+			"FAKE_CLAUDE_SCRIPT".into(),
+			fixture("stream-success.jsonl")
+				.to_string_lossy()
+				.into_owned(),
+		),
+		("FAKE_CLAUDE_EXEC".into(), "exec sleep 30".into()),
+	];
+	let pid = std::thread::spawn(move || spawn_agent(&config, &run, None).unwrap().id())
+		.join()
+		.unwrap();
+	let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+	while !gone_or_zombie(pid) {
+		assert!(
+			std::time::Instant::now() < deadline,
+			"agent {pid} outlived its spawning thread"
+		);
+		std::thread::sleep(std::time::Duration::from_millis(20));
+	}
+	let status = nix::sys::wait::waitpid(nix::unistd::Pid::from_raw(pid as i32), None).unwrap();
+	assert_eq!(
+		status,
+		nix::sys::wait::WaitStatus::Signaled(
+			nix::unistd::Pid::from_raw(pid as i32),
+			nix::sys::signal::Signal::SIGKILL,
+			false
+		)
+	);
+}
+
 #[test]
 fn ledger_appends_tsv_line() {
 	let dir = tempfile::tempdir().unwrap();

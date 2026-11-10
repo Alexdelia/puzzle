@@ -1,8 +1,11 @@
 use std::fs::{self, File};
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
 use anyhow::{Context, bail};
+use nix::sys::prctl::set_pdeathsig;
+use nix::sys::signal::Signal;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -128,7 +131,9 @@ pub fn spawn_agent(
 		.with_context(|| format!("create {path:?}", path = run.stream_log))?;
 	let stderr_path = run.stream_log.with_extension("stderr.log");
 	let stderr = File::create(&stderr_path).with_context(|| format!("create {stderr_path:?}"))?;
-	Command::new(program)
+	let mut command = Command::new(program);
+	die_with_spawning_thread(&mut command);
+	command
 		.args(rest)
 		.current_dir(&run.cwd)
 		.envs(run.env.iter().map(|(key, value)| (key, value)))
@@ -137,6 +142,12 @@ pub fn spawn_agent(
 		.stderr(stderr)
 		.spawn()
 		.with_context(|| format!("spawn {program}"))
+}
+
+fn die_with_spawning_thread(command: &mut Command) {
+	unsafe {
+		command.pre_exec(|| set_pdeathsig(Signal::SIGKILL).map_err(std::io::Error::from));
+	}
 }
 
 pub fn parse_stream(path: &Path) -> StreamOutcome {
