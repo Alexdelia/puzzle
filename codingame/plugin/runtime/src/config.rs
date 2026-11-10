@@ -27,6 +27,8 @@ pub struct Config {
 	pub claude_bin: PathBuf,
 	pub sandbox: bool,
 	pub commit_trailer: String,
+	pub repo_root: PathBuf,
+	pub git_common_dir: PathBuf,
 }
 
 impl Default for Config {
@@ -59,6 +61,8 @@ impl Default for Config {
 			claude_bin: "claude".into(),
 			sandbox: true,
 			commit_trailer: "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>".into(),
+			repo_root: PathBuf::new(),
+			git_common_dir: PathBuf::new(),
 		}
 	}
 }

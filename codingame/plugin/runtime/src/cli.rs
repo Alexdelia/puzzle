@@ -75,6 +75,9 @@ fn init(args: InitArgs) -> anyhow::Result<()> {
 		config.plugin_dir =
 			fs::canonicalize(&plugin_dir).with_context(|| format!("resolve {plugin_dir:?}"))?;
 	}
+	let (repo_root, git_common_dir) = pinned_git_dirs(&run.root);
+	config.repo_root = repo_root;
+	config.git_common_dir = git_common_dir;
 	write_atomic(&run.config(), toml::to_string(&config)?.as_bytes())?;
 
 	let deadline_unix = args
@@ -99,6 +102,28 @@ fn init(args: InitArgs) -> anyhow::Result<()> {
 	};
 	write_atomic(&run.run_json(), &serde_json::to_vec_pretty(&info)?)?;
 	Ok(())
+}
+
+fn git_path(dir: &Path, args: &[&str]) -> PathBuf {
+	Command::new("git")
+		.arg("-C")
+		.arg(dir)
+		.args(args)
+		.output()
+		.ok()
+		.filter(|output| output.status.success())
+		.map(|output| PathBuf::from(String::from_utf8_lossy(&output.stdout).trim()))
+		.unwrap_or_default()
+}
+
+fn pinned_git_dirs(contest_dir: &Path) -> (PathBuf, PathBuf) {
+	(
+		git_path(contest_dir, &["rev-parse", "--show-toplevel"]),
+		git_path(
+			contest_dir,
+			&["rev-parse", "--path-format=absolute", "--git-common-dir"],
+		),
+	)
 }
 
 fn plugin_commit(plugin_dir: &Path) -> String {

@@ -6,7 +6,7 @@ use std::process::Command;
 use anyhow::{Context, Result, bail, ensure};
 
 use crate::config::Config;
-use crate::paths::{RunDir, TaskId};
+use crate::paths::{RunDir, TaskId, is_valid_kind};
 use crate::run_info::RunInfo;
 use crate::task::TaskStore;
 
@@ -16,15 +16,19 @@ const LOCK_FILE: &str = "contest-commit.lock";
 struct CommitLock(File);
 
 impl CommitLock {
-	fn acquire(repo: &Path) -> Result<Self> {
+	fn acquire(git_common_dir: &Path) -> Result<Self> {
 		let file = OpenOptions::new()
 			.create(true)
 			.write(true)
 			.truncate(false)
-			.open(repo.join(".git").join(LOCK_FILE))
+			.open(git_common_dir.join(LOCK_FILE))
 			.context("open commit lock")?;
 		let locked = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
-		ensure!(locked == 0, "flock: {}", std::io::Error::last_os_error());
+		ensure!(
+			locked == 0,
+			"flock: {error}",
+			error = std::io::Error::last_os_error()
+		);
 		Ok(Self(file))
 	}
 }
@@ -39,7 +43,11 @@ impl Drop for CommitLock {
 
 fn git(repo: &Path, args: &[&str], paths: &[PathBuf]) -> Result<std::process::Output> {
 	let mut command = Command::new("git");
-	command.arg("-C").arg(repo).args(args);
+	command
+		.arg("--literal-pathspecs")
+		.arg("-C")
+		.arg(repo)
+		.args(args);
 	if !paths.is_empty() {
 		command.arg("--").args(paths);
 	}
@@ -64,15 +72,22 @@ fn is_tracked(repo: &Path, path: &Path) -> Result<bool> {
 	Ok(!listed.is_empty())
 }
 
-fn declared_write(contest_dir: &Path, relative: &Path) -> Result<PathBuf> {
+fn declared_write(run: &RunDir, task: &TaskId, relative: &Path) -> Result<PathBuf> {
+	let components: Vec<Component> = relative.components().collect();
 	ensure!(
-		!relative.is_absolute()
-			&& !relative
-				.components()
-				.any(|part| part == Component::ParentDir),
-		"write path {relative:?} must be relative without .."
+		!components.is_empty()
+			&& components
+				.iter()
+				.all(|part| matches!(part, Component::Normal(name) if *name != ".git")),
+		"write path {relative:?} must be a plain relative path without . .. or .git"
 	);
-	Ok(contest_dir.join(relative))
+	let under_run = components[0] == Component::Normal("run".as_ref());
+	let own_task_dir = Path::new("run/tasks").join(&task.0);
+	ensure!(
+		!under_run || relative.starts_with(&own_task_dir),
+		"write path {relative:?} is inside run/ but not in {own_task_dir:?}"
+	);
+	Ok(run.root.join(relative))
 }
 
 fn milestone_line(milestone: &str) -> String {
@@ -96,12 +111,21 @@ pub fn commit_task(
 ) -> Result<Option<String>> {
 	let store = TaskStore { run };
 	let spec = store.spec(task)?;
+	ensure!(
+		is_valid_kind(&spec.kind),
+		"invalid task kind {kind:?}",
+		kind = spec.kind
+	);
+	ensure!(
+		!config.repo_root.as_os_str().is_empty() && !config.git_common_dir.as_os_str().is_empty(),
+		"config has no pinned repo_root and git_common_dir"
+	);
 	let info: RunInfo = serde_json::from_slice(&fs::read(run.run_json())?)?;
 	let mut candidates = vec![run.task_dir(task)];
 	for relative in &spec.writes {
-		candidates.push(declared_write(&run.root, relative)?);
+		candidates.push(declared_write(run, task, relative)?);
 	}
-	let repo = run.repo_root()?;
+	let repo = config.repo_root.clone();
 	let mut paths = Vec::new();
 	for candidate in candidates {
 		if candidate.exists() || is_tracked(&repo, &candidate)? {
@@ -116,7 +140,7 @@ pub fn commit_task(
 		trailer = config.commit_trailer
 	);
 
-	let _lock = CommitLock::acquire(&repo)?;
+	let _lock = CommitLock::acquire(&config.git_common_dir)?;
 	git_checked(&repo, &["add", "-A"], &paths)?;
 	let unchanged = git(&repo, &["diff", "--cached", "--quiet"], &paths)?;
 	match unchanged.status.code() {

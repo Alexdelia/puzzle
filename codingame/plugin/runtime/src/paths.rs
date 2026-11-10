@@ -13,6 +13,46 @@ pub struct TaskId(pub String);
 #[serde(transparent)]
 pub struct JobId(pub String);
 
+fn digits(text: &str, count: usize) -> bool {
+	text.len() == count && text.bytes().all(|b| b.is_ascii_digit())
+}
+
+impl TaskId {
+	pub fn parse(text: &str) -> Result<Self, String> {
+		let valid = text.strip_prefix('t').is_some_and(|rest| {
+			rest.split_once('-').is_some_and(|(number, kind)| {
+				digits(number, 4)
+					&& !kind.is_empty()
+					&& kind
+						.bytes()
+						.all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+			})
+		});
+		if valid {
+			Ok(Self(text.to_owned()))
+		} else {
+			Err(format!("invalid task id {text:?}"))
+		}
+	}
+}
+
+impl JobId {
+	pub fn parse(text: &str) -> Result<Self, String> {
+		if text.strip_prefix('j').is_some_and(|rest| digits(rest, 4)) {
+			Ok(Self(text.to_owned()))
+		} else {
+			Err(format!("invalid job id {text:?}"))
+		}
+	}
+}
+
+pub fn is_valid_kind(kind: &str) -> bool {
+	!kind.is_empty()
+		&& kind
+			.bytes()
+			.all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
 impl fmt::Display for TaskId {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		f.write_str(&self.0)
@@ -85,6 +125,10 @@ impl RunDir {
 
 	pub fn tasks(&self) -> PathBuf {
 		self.run().join("tasks")
+	}
+
+	pub fn task_requests(&self, id: &TaskId) -> PathBuf {
+		self.requests().join(&id.0)
 	}
 
 	pub fn task_dir(&self, id: &TaskId) -> PathBuf {

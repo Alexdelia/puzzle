@@ -88,6 +88,12 @@ fn init_creates_layout() {
 	assert_eq!(info.puzzle, "seabed-security");
 	assert_eq!(info.plugin_commit.len(), 40);
 
+	let config = Config::load(&run.config()).unwrap();
+	assert_eq!(config.repo_root, fs::canonicalize(repo.path()).unwrap());
+	assert_eq!(
+		config.git_common_dir,
+		fs::canonicalize(repo.path().join(".git")).unwrap()
+	);
 	let ignore = fs::read_to_string(contest_dir.join("run/.gitignore")).unwrap();
 	assert_eq!(ignore, "agents/\nrequests/\nclaude-config/\njobs/*/log\n");
 
@@ -108,6 +114,9 @@ fn init_outside_git_stores_empty_commit() {
 	let run = RunDir { root: contest_dir };
 	let info: RunInfo = serde_json::from_slice(&fs::read(run.run_json()).unwrap()).unwrap();
 	assert_eq!(info.plugin_commit, "");
+	let config = Config::load(&run.config()).unwrap();
+	assert!(config.repo_root.as_os_str().is_empty());
+	assert!(config.git_common_dir.as_os_str().is_empty());
 	assert_eq!(info.active_budget_seconds, None);
 	assert_eq!(info.deadline_unix, None);
 }

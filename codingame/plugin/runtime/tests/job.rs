@@ -50,6 +50,7 @@ fn record(id: &str, class: JobClass, cmd: &[&str]) -> JobRecord {
 		request: request(id, class),
 		state: JobState::Running,
 		pid: None,
+		starttime: None,
 	}
 }
 

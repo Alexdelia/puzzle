@@ -26,6 +26,7 @@ pub enum JobState {
 	Running,
 	Done { code: i32 },
 	Interrupted,
+	Cancelling,
 	Cancelled,
 }
 
@@ -38,6 +39,8 @@ pub struct JobRecord {
 	pub request: JobRequest,
 	pub state: JobState,
 	pub pid: Option<u32>,
+	#[serde(default)]
+	pub starttime: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -158,6 +161,28 @@ pub fn try_reap(pid: u32) -> anyhow::Result<Option<JobState>> {
 		}),
 		_ => None,
 	})
+}
+
+pub fn process_starttime(pid: u32) -> Option<u64> {
+	let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+	let after_name = &stat[stat.rfind(')')? + 1..];
+	after_name.split_whitespace().nth(19)?.parse().ok()
+}
+
+pub fn mark_spawned(record: &mut JobRecord, pid: u32) {
+	record.pid = Some(pid);
+	record.starttime = process_starttime(pid);
+}
+
+pub fn signal_if_same_process(record: &JobRecord, signal: Signal) -> anyhow::Result<bool> {
+	let (Some(pid), Some(starttime)) = (record.pid, record.starttime) else {
+		return Ok(false);
+	};
+	if pid <= 1 || process_starttime(pid) != Some(starttime) {
+		return Ok(false);
+	}
+	signal_job(pid, signal)?;
+	Ok(true)
 }
 
 pub fn signal_job(pid: u32, signal: Signal) -> anyhow::Result<()> {

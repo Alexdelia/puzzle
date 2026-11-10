@@ -12,12 +12,13 @@ use crate::atomic::write_atomic;
 use crate::broker::{JobClass, JobRequest};
 use crate::commit::commit_task;
 use crate::config::Config;
-use crate::job::{JobRecord, JobState, read_job_record, signal_job, write_job_record};
+use crate::job::{JobRecord, JobState, read_job_record, signal_if_same_process, write_job_record};
 use crate::paths::{JobId, RunDir, TaskId};
 use crate::task::{TaskState, TaskStore};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(200);
 const REQUEST_SUFFIX: &str = ".json";
+const MAX_WAIT_SECONDS: u64 = 100;
 const RESPONSE_SUFFIX: &str = ".response.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -57,12 +58,6 @@ pub enum Request {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Envelope {
-	task: TaskId,
-	request: Request,
-}
-
-#[derive(Serialize, Deserialize)]
 struct Response {
 	ok: bool,
 	value: Option<Value>,
@@ -74,6 +69,16 @@ fn is_ended(state: &JobState) -> bool {
 		state,
 		JobState::Done { .. } | JobState::Interrupted | JobState::Cancelled
 	)
+}
+
+fn owned_record(run: &RunDir, task: &TaskId, job: &JobId) -> Result<JobRecord> {
+	let job = JobId::parse(&job.0).map_err(|message| anyhow!(message))?;
+	let record = read_job_record(run, &job)?;
+	ensure!(
+		&record.owner_task == task,
+		"job {job} belongs to another task"
+	);
+	Ok(record)
 }
 
 fn job_status(record: &JobRecord) -> Value {
@@ -130,21 +135,25 @@ fn submit_job(
 		request: request(id),
 		state: JobState::Queued,
 		pid: None,
+		starttime: None,
 	};
 	validate_class(&record.request.class)?;
 	write_job_record(run, &record)?;
 	Ok(job_status(&record))
 }
 
-fn cancel_job(run: &RunDir, job: &JobId) -> Result<Value> {
-	let mut record = read_job_record(run, job)?;
-	if is_ended(&record.state) {
+fn cancel_job(run: &RunDir, task: &TaskId, job: &JobId) -> Result<Value> {
+	let mut record = owned_record(run, task, job)?;
+	if is_ended(&record.state) || record.state == JobState::Cancelling {
 		return Ok(job_status(&record));
 	}
-	if let (JobState::Running, Some(pid)) = (&record.state, record.pid) {
-		signal_job(pid, Signal::SIGTERM)?;
-	}
-	record.state = JobState::Cancelled;
+	let signalled =
+		record.state == JobState::Running && signal_if_same_process(&record, Signal::SIGTERM)?;
+	record.state = if signalled {
+		JobState::Cancelling
+	} else {
+		JobState::Cancelled
+	};
 	write_job_record(run, &record)?;
 	Ok(job_status(&record))
 }
@@ -192,23 +201,25 @@ pub fn handle(run: &RunDir, config: &Config, task: &TaskId, request: Request) ->
 			ram_mb,
 			priority,
 		}),
-		Request::JobStatus { job } => Ok(job_status(&read_job_record(run, &job)?)),
+		Request::JobStatus { job } => Ok(job_status(&owned_record(run, task, &job)?)),
 		Request::JobWait { job, .. } => {
-			let record = read_job_record(run, &job)?;
+			let record = owned_record(run, task, &job)?;
 			let mut status = job_status(&record);
 			status["pending"] = json!(!is_ended(&record.state));
 			Ok(status)
 		}
-		Request::JobCancel { job } => cancel_job(run, &job),
+		Request::JobCancel { job } => cancel_job(run, task, &job),
 		Request::TaskFinish { outcome, question } => finish_task(run, task, outcome, question),
 	}
 }
 
-fn request_stems(run: &RunDir) -> Result<Vec<String>> {
+fn request_stems(dir: &Path) -> Result<Vec<String>> {
 	let mut stems = Vec::new();
-	for entry in fs::read_dir(run.requests())? {
-		let name = entry?.file_name().to_string_lossy().into_owned();
-		if name.starts_with('.') || name.ends_with(RESPONSE_SUFFIX) {
+	for entry in fs::read_dir(dir)? {
+		let entry = entry?;
+		let name = entry.file_name().to_string_lossy().into_owned();
+		if name.starts_with('.') || name.ends_with(RESPONSE_SUFFIX) || !entry.file_type()?.is_file()
+		{
 			continue;
 		}
 		if let Some(stem) = name.strip_suffix(REQUEST_SUFFIX) {
@@ -219,12 +230,12 @@ fn request_stems(run: &RunDir) -> Result<Vec<String>> {
 	Ok(stems)
 }
 
-fn request_path(run: &RunDir, stem: &str) -> PathBuf {
-	run.requests().join(format!("{stem}{REQUEST_SUFFIX}"))
+fn request_path(dir: &Path, stem: &str) -> PathBuf {
+	dir.join(format!("{stem}{REQUEST_SUFFIX}"))
 }
 
-fn response_path(run: &RunDir, stem: &str) -> PathBuf {
-	run.requests().join(format!("{stem}{RESPONSE_SUFFIX}"))
+fn response_path(dir: &Path, stem: &str) -> PathBuf {
+	dir.join(format!("{stem}{RESPONSE_SUFFIX}"))
 }
 
 fn deadline_passed(path: &Path, timeout_seconds: u64) -> bool {
@@ -234,29 +245,33 @@ fn deadline_passed(path: &Path, timeout_seconds: u64) -> bool {
 	SystemTime::now() >= received + Duration::from_secs(timeout_seconds)
 }
 
-fn answer_one(run: &RunDir, config: &Config, stem: &str) -> Result<Option<Response>> {
-	let path = request_path(run, stem);
-	let envelope: Envelope = match fs::read(&path)
+fn answer_one(
+	run: &RunDir,
+	config: &Config,
+	task: &TaskId,
+	path: &Path,
+) -> Result<Option<Response>> {
+	let request: Request = match fs::read(path)
 		.map_err(anyhow::Error::from)
 		.and_then(|bytes| Ok(serde_json::from_slice(&bytes)?))
 	{
-		Ok(envelope) => envelope,
+		Ok(request) => request,
 		Err(error) => return Ok(Some(failure(&error))),
 	};
-	let waiting_timeout = match &envelope.request {
+	let waiting_timeout = match &request {
 		Request::JobWait {
 			timeout_seconds, ..
-		} => Some(*timeout_seconds),
+		} => Some((*timeout_seconds).min(MAX_WAIT_SECONDS)),
 		_ => None,
 	};
-	let mut value = match handle(run, config, &envelope.task, envelope.request) {
+	let mut value = match handle(run, config, task, request) {
 		Ok(value) => value,
 		Err(error) => return Ok(Some(failure(&error))),
 	};
 	if let Some(timeout_seconds) = waiting_timeout
 		&& value["pending"] == json!(true)
 	{
-		if !deadline_passed(&path, timeout_seconds) {
+		if !deadline_passed(path, timeout_seconds) {
 			return Ok(None);
 		}
 		value["timed_out"] = json!(true);
@@ -276,16 +291,40 @@ fn failure(error: &anyhow::Error) -> Response {
 	}
 }
 
-pub fn serve_pending(run: &RunDir, config: &Config) -> Result<usize> {
-	let mut answered = 0;
-	for stem in request_stems(run)? {
-		let target = response_path(run, &stem);
-		if target.exists() {
+fn running_task_dirs(run: &RunDir) -> Result<Vec<(TaskId, PathBuf)>> {
+	let store = TaskStore { run };
+	let mut dirs = Vec::new();
+	for entry in fs::read_dir(run.requests())? {
+		let entry = entry?;
+		let Ok(task) = TaskId::parse(&entry.file_name().to_string_lossy()) else {
+			continue;
+		};
+		if !entry.file_type()?.is_dir() || store.state(&task).ok() != Some(TaskState::Running) {
 			continue;
 		}
-		if let Some(response) = answer_one(run, config, &stem)? {
-			write_atomic(&target, &serde_json::to_vec(&response)?)?;
-			answered += 1;
+		dirs.push((task, entry.path()));
+	}
+	dirs.sort_by(|a, b| a.0.0.cmp(&b.0.0));
+	Ok(dirs)
+}
+
+pub fn prepare_task_requests(run: &RunDir, task: &TaskId) -> Result<()> {
+	fs::create_dir_all(run.task_requests(task))?;
+	Ok(())
+}
+
+pub fn serve_pending(run: &RunDir, config: &Config) -> Result<usize> {
+	let mut answered = 0;
+	for (task, dir) in running_task_dirs(run)? {
+		for stem in request_stems(&dir)? {
+			let target = response_path(&dir, &stem);
+			if target.exists() {
+				continue;
+			}
+			if let Some(response) = answer_one(run, config, &task, &request_path(&dir, &stem))? {
+				write_atomic(&target, &serde_json::to_vec(&response)?)?;
+				answered += 1;
+			}
 		}
 	}
 	Ok(answered)
@@ -304,19 +343,17 @@ pub fn send_request(
 	request: &Request,
 	timeout: Duration,
 ) -> Result<Value> {
-	fs::create_dir_all(run.requests())?;
+	let task = TaskId::parse(&task.0).map_err(|message| anyhow!(message))?;
+	let dir = run.task_requests(&task);
+	ensure!(dir.is_dir(), "no request directory for task {task}");
 	let stem = client_stem();
-	let envelope = Envelope {
-		task: task.clone(),
-		request: request.clone(),
-	};
-	write_atomic(&request_path(run, &stem), &serde_json::to_vec(&envelope)?)?;
+	write_atomic(&request_path(&dir, &stem), &serde_json::to_vec(request)?)?;
 	let started = Instant::now();
 	loop {
-		if let Ok(bytes) = fs::read(response_path(run, &stem)) {
+		if let Ok(bytes) = fs::read(response_path(&dir, &stem)) {
 			let response: Response = serde_json::from_slice(&bytes)?;
-			let _ = fs::remove_file(response_path(run, &stem));
-			let _ = fs::remove_file(request_path(run, &stem));
+			let _ = fs::remove_file(response_path(&dir, &stem));
+			let _ = fs::remove_file(request_path(&dir, &stem));
 			return if response.ok {
 				Ok(response.value.unwrap_or(Value::Null))
 			} else {
@@ -324,7 +361,7 @@ pub fn send_request(
 			};
 		}
 		if started.elapsed() >= timeout {
-			let _ = fs::remove_file(request_path(run, &stem));
+			let _ = fs::remove_file(request_path(&dir, &stem));
 			bail!(
 				"no supervisor answer within {seconds} s",
 				seconds = timeout.as_secs()
