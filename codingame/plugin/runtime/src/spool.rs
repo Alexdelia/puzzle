@@ -1,4 +1,6 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::{self, Read};
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -20,6 +22,7 @@ const POLL_INTERVAL: Duration = Duration::from_millis(200);
 const REQUEST_SUFFIX: &str = ".json";
 const MAX_WAIT_SECONDS: u64 = 100;
 const RESPONSE_SUFFIX: &str = ".response.json";
+const MAX_REQUEST_BYTES: u64 = 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Outcome {
@@ -218,8 +221,7 @@ fn request_stems(dir: &Path) -> Result<Vec<String>> {
 	for entry in fs::read_dir(dir)? {
 		let entry = entry?;
 		let name = entry.file_name().to_string_lossy().into_owned();
-		if name.starts_with('.') || name.ends_with(RESPONSE_SUFFIX) || !entry.file_type()?.is_file()
-		{
+		if name.starts_with('.') || name.ends_with(RESPONSE_SUFFIX) || entry.file_type()?.is_dir() {
 			continue;
 		}
 		if let Some(stem) = name.strip_suffix(REQUEST_SUFFIX) {
@@ -239,10 +241,38 @@ fn response_path(dir: &Path, stem: &str) -> PathBuf {
 }
 
 fn deadline_passed(path: &Path, timeout_seconds: u64) -> bool {
-	let received = fs::metadata(path)
+	let received = fs::symlink_metadata(path)
 		.and_then(|meta| meta.modified())
 		.unwrap_or_else(|_| SystemTime::now());
 	SystemTime::now() >= received + Duration::from_secs(timeout_seconds)
+}
+
+fn read_request_file(path: &Path) -> Result<Vec<u8>> {
+	let file = OpenOptions::new()
+		.read(true)
+		.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+		.open(path)
+		.context("open request")?;
+	let meta = file.metadata()?;
+	ensure!(meta.is_file(), "request is not a regular file");
+	ensure!(
+		meta.len() <= MAX_REQUEST_BYTES,
+		"request larger than {MAX_REQUEST_BYTES} bytes"
+	);
+	let mut bytes = Vec::new();
+	file.take(MAX_REQUEST_BYTES + 1).read_to_end(&mut bytes)?;
+	ensure!(
+		bytes.len() as u64 <= MAX_REQUEST_BYTES,
+		"request larger than {MAX_REQUEST_BYTES} bytes"
+	);
+	Ok(bytes)
+}
+
+fn remove_refused(path: &Path) -> io::Result<()> {
+	match fs::remove_file(path) {
+		Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error),
+		_ => Ok(()),
+	}
 }
 
 fn answer_one(
@@ -251,12 +281,16 @@ fn answer_one(
 	task: &TaskId,
 	path: &Path,
 ) -> Result<Option<Response>> {
-	let request: Request = match fs::read(path)
-		.map_err(anyhow::Error::from)
-		.and_then(|bytes| Ok(serde_json::from_slice(&bytes)?))
-	{
+	let bytes = match read_request_file(path) {
+		Ok(bytes) => bytes,
+		Err(error) => {
+			remove_refused(path)?;
+			return Ok(Some(failure(&error)));
+		}
+	};
+	let request: Request = match serde_json::from_slice(&bytes) {
 		Ok(request) => request,
-		Err(error) => return Ok(Some(failure(&error))),
+		Err(error) => return Ok(Some(failure(&error.into()))),
 	};
 	let waiting_timeout = match &request {
 		Request::JobWait {
@@ -309,7 +343,14 @@ fn running_task_dirs(run: &RunDir) -> Result<Vec<(TaskId, PathBuf)>> {
 }
 
 pub fn prepare_task_requests(run: &RunDir, task: &TaskId) -> Result<()> {
-	fs::create_dir_all(run.task_requests(task))?;
+	let dir = run.task_requests(task);
+	match fs::remove_dir_all(&dir) {
+		Err(error) if error.kind() != io::ErrorKind::NotFound => {
+			return Err(error).with_context(|| format!("empty {dir:?}"));
+		}
+		_ => {}
+	}
+	fs::create_dir_all(&dir).with_context(|| format!("create {dir:?}"))?;
 	Ok(())
 }
 

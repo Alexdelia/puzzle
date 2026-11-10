@@ -13,9 +13,15 @@ pub struct TaskId(pub String);
 #[serde(transparent)]
 pub struct JobId(pub String);
 
-fn digits(text: &str, count: usize) -> bool {
-	text.len() == count && text.bytes().all(|b| b.is_ascii_digit())
+fn all_digits(text: &str) -> bool {
+	text.bytes().all(|b| b.is_ascii_digit())
 }
+
+fn digits(text: &str, count: usize) -> bool {
+	text.len() == count && all_digits(text)
+}
+
+const JOB_ID_MIN_DIGITS: usize = 4;
 
 impl TaskId {
 	pub fn parse(text: &str) -> Result<Self, String> {
@@ -38,7 +44,10 @@ impl TaskId {
 
 impl JobId {
 	pub fn parse(text: &str) -> Result<Self, String> {
-		if text.strip_prefix('j').is_some_and(|rest| digits(rest, 4)) {
+		if text
+			.strip_prefix('j')
+			.is_some_and(|rest| rest.len() >= JOB_ID_MIN_DIGITS && all_digits(rest))
+		{
 			Ok(Self(text.to_owned()))
 		} else {
 			Err(format!("invalid job id {text:?}"))

@@ -439,7 +439,7 @@ fn job_verbs_refuse_another_tasks_job() {
 fn malformed_job_ids_are_rejected() {
 	let (_dir, run) = run_dir();
 	let task = make_task(&run);
-	for id in ["../x", "j1", "j00001", "J0001", ""] {
+	for id in ["../x", "j1", "j123", "J0001", ""] {
 		let request = Request::JobCancel {
 			job: JobId(id.into()),
 		};
@@ -545,4 +545,81 @@ fn job_wait_timeout_is_clamped_server_side() {
 	let dir = run.task_requests(&task);
 	write_request(&dir, "1-1.json", &serde_json::to_string(&waiting).unwrap());
 	assert_eq!(serve_pending(&run, &Config::default()).unwrap(), 0);
+}
+
+fn make_fifo(path: &std::path::Path) {
+	let name = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
+	assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+}
+
+fn assert_rejected_and_removed(dir: &std::path::Path, name: &str) {
+	let response = read_response(dir, &name.replace(".json", ".response.json"));
+	assert_eq!(response["ok"], false, "{response}");
+	assert!(fs::symlink_metadata(dir.join(name)).is_err());
+}
+
+#[test]
+fn fifo_request_is_refused_and_removed() {
+	let (_dir, run) = run_dir();
+	let task = make_task(&run);
+	let dir = run.task_requests(&task);
+	make_fifo(&dir.join("1-1.json"));
+	assert_eq!(serve_pending(&run, &Config::default()).unwrap(), 1);
+	assert_rejected_and_removed(&dir, "1-1.json");
+}
+
+#[test]
+fn symlinked_request_is_refused_and_removed() {
+	let (dir, run) = run_dir();
+	let task = make_task(&run);
+	let outside = dir.path().join("outside.json");
+	fs::write(
+		&outside,
+		r#"{"TaskFinish":{"outcome":"Done","question":null}}"#,
+	)
+	.unwrap();
+	let requests = run.task_requests(&task);
+	std::os::unix::fs::symlink(&outside, requests.join("1-1.json")).unwrap();
+	assert_eq!(serve_pending(&run, &Config::default()).unwrap(), 1);
+	assert_rejected_and_removed(&requests, "1-1.json");
+	assert!(outside.exists());
+	assert_eq!(
+		TaskStore { run: &run }.state(&task).unwrap(),
+		TaskState::Running
+	);
+}
+
+#[test]
+fn oversized_request_is_refused_and_removed() {
+	let (_dir, run) = run_dir();
+	let task = make_task(&run);
+	let requests = run.task_requests(&task);
+	let padding = " ".repeat(1024 * 1024);
+	let body = format!(r#"{{"JobStatus":{{"job":"j0001"}}}}{padding}"#);
+	write_request(&requests, "1-1.json", &body);
+	assert_eq!(serve_pending(&run, &Config::default()).unwrap(), 1);
+	assert_rejected_and_removed(&requests, "1-1.json");
+}
+
+#[test]
+fn prepare_task_requests_empties_the_dir() {
+	let (_dir, run) = run_dir();
+	let task = make_task(&run);
+	let requests = run.task_requests(&task);
+	write_request(&requests, "1-1.json", "{}");
+	write_request(&requests, "1-1.response.json", "{}");
+	fs::create_dir(requests.join("nested")).unwrap();
+	std::os::unix::fs::symlink("/", requests.join("root")).unwrap();
+	prepare_task_requests(&run, &task).unwrap();
+	assert!(requests.is_dir());
+	assert_eq!(fs::read_dir(&requests).unwrap().count(), 0);
+}
+
+#[test]
+fn job_ids_grow_past_four_digits() {
+	assert!(JobId::parse("j10000").is_ok());
+	assert!(JobId::parse("j0001").is_ok());
+	for id in ["j123", "j", "j1000a", "k10000", "j-1000"] {
+		assert!(JobId::parse(id).is_err(), "{id}");
+	}
 }
