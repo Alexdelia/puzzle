@@ -1,0 +1,5 @@
+{"type":"system","subtype":"init","model":"opus"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"working"}]}}
+{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1792972200,"rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":0.13,"resetsAt":1792972200},"seven_day":{"utilization":0.59,"resetsAt":1793224800}}}}
+not json at all
+{"type":"result","subtype":"success","is_error":false,"result":"done","total_cost_usd":0.05,"usage":{"input_tokens":1200,"output_tokens":300,"cache_read_input_tokens":4000,"cache_creation_input_tokens":500}}
