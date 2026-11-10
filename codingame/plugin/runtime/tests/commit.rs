@@ -262,7 +262,8 @@ fn embedded_repo_in_own_task_dir_aborts() {
 	let (repo, run, id) = setup(&[]);
 	let planted = plant_repo(&run.task_dir(&id).join("sub"));
 	let before = git(repo.path(), &["rev-parse", "HEAD"]);
-	assert!(commit_task(&run, &config(&run), &id, "m").is_err());
+	let error = commit_task(&run, &config(&run), &id, "m").unwrap_err();
+	assert!(format!("{error:#}").contains("embedded"), "{error:#}");
 	assert_eq!(git(repo.path(), &["rev-parse", "HEAD"]), before);
 	assert_eq!(staged(&repo), "");
 	assert!(!planted.marker.exists());

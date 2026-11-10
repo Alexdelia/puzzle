@@ -129,16 +129,34 @@ fn bwrap_starts_with_isolation_flags() {
 }
 
 #[test]
-fn bwrap_hides_nix_daemon_socket() {
-	let args = bwrap_args(&spec());
-	let hidden = mounts(&args)
+fn bwrap_hides_nix_daemon_socket_after_every_bind() {
+	let mut spec = spec();
+	spec.toolbox.push("/nix".into());
+	let args = bwrap_args(&spec);
+	let mounts: Vec<_> = mounts(&args)
+		.into_iter()
+		.filter(|(flag, _, _)| flag != "--unsetenv")
+		.collect();
+	let hidden = mounts
 		.iter()
-		.any(|(flag, _, target)| flag == "--tmpfs" && target == NIX_DAEMON_SOCKET_DIR);
-	assert_eq!(
-		hidden,
-		Path::new(NIX_DAEMON_SOCKET_DIR).is_dir(),
-		"{args:?}"
-	);
+		.position(|(flag, _, target)| flag == "--tmpfs" && target == NIX_DAEMON_SOCKET_DIR);
+	if !Path::new(NIX_DAEMON_SOCKET_DIR).is_dir() {
+		assert_eq!(hidden, None, "{args:?}");
+		return;
+	}
+	assert_eq!(hidden, Some(mounts.len() - 1), "{args:?}");
+}
+
+#[test]
+fn real_bwrap_hides_nix_daemon_socket_under_nix_toolbox() {
+	if !bwrap_available() || !Path::new(NIX_DAEMON_SOCKET_DIR).is_dir() {
+		eprintln!("bwrap or nix daemon socket not found, skipped");
+		return;
+	}
+	let Layout { _dir, mut spec, .. } = layout();
+	spec.toolbox.push("/nix/var/nix".into());
+	let socket = Path::new(NIX_DAEMON_SOCKET_DIR).join("socket");
+	assert_eq!(sandboxed_sh(&spec, &probe_line(&socket)).trim(), "absent");
 }
 
 #[test]
@@ -551,18 +569,21 @@ fn real_bwrap_meta_stays_read_only_after_host_rewrite() {
 	);
 	let argv = vec!["sh".to_string(), "-c".to_string(), script];
 	let command = bwrap_command(&spec, &argv);
-	let child = Command::new(&command[0])
+	let mut child = Command::new(&command[0])
 		.args(&command[1..])
 		.stdout(std::process::Stdio::piped())
 		.spawn()
 		.unwrap();
 	let deadline = std::time::Instant::now() + READY_TIMEOUT;
 	while !ready.exists() {
-		assert!(
-			std::time::Instant::now() < deadline,
-			"sandboxed shell never wrote {ready:?} within {seconds} s",
-			seconds = READY_TIMEOUT.as_secs()
-		);
+		if std::time::Instant::now() >= deadline {
+			let _ = child.kill();
+			let _ = child.wait();
+			panic!(
+				"sandboxed shell never wrote {ready:?} within {seconds} s",
+				seconds = READY_TIMEOUT.as_secs()
+			);
+		}
 		std::thread::sleep(std::time::Duration::from_millis(20));
 	}
 	write_atomic(&state, b"running").unwrap();

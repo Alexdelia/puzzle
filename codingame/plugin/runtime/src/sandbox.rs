@@ -196,10 +196,6 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
 	}
 	argv.mount("--bind", &spec.sandbox_home, &spec.home);
 	argv.on("--tmpfs", &spec.repo_root);
-	let nix_daemon_socket = Path::new(NIX_DAEMON_SOCKET_DIR);
-	if nix_daemon_socket.is_dir() {
-		argv.on("--tmpfs", nix_daemon_socket);
-	}
 	for tool in &spec.toolbox {
 		argv.same("--ro-bind", tool);
 	}
@@ -214,6 +210,10 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
 		argv.same("--ro-bind-try", path);
 	}
 	claude_config_mounts(&mut argv, spec);
+	let nix_daemon_socket = Path::new(NIX_DAEMON_SOCKET_DIR);
+	if nix_daemon_socket.is_dir() {
+		argv.on("--tmpfs", nix_daemon_socket);
+	}
 	let hidden = HIDDEN_ENV
 		.iter()
 		.copied()
