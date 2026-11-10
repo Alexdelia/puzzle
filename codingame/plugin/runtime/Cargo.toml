@@ -1,0 +1,23 @@
+[package]
+name = "contest"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "contest"
+path = "src/lib.rs"
+
+[[bin]]
+name = "contest"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+time = { version = "0.3.55", features = ["parsing"] }
+toml = "1.2.1"
+
+[dev-dependencies]
+tempfile = "3.27.0"
