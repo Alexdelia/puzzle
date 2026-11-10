@@ -131,10 +131,8 @@ pub fn spawn_job(run: &RunDir, record: &JobRecord, grant: &Grant) -> anyhow::Res
 		command.pre_exec(move || {
 			setsid().map_err(std::io::Error::from)?;
 			sched_setaffinity(Pid::from_raw(0), &set).map_err(std::io::Error::from)?;
-			if batch {
-				if libc::setpriority(libc::PRIO_PROCESS, 0, BATCH_NICE) != 0 {
-					return Err(std::io::Error::last_os_error());
-				}
+			if batch && libc::setpriority(libc::PRIO_PROCESS, 0, BATCH_NICE) != 0 {
+				return Err(std::io::Error::last_os_error());
 			}
 			Ok(())
 		});
