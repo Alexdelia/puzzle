@@ -11,6 +11,7 @@ use serde_json::json;
 use crate::atomic::write_atomic;
 use crate::config::Config;
 use crate::paths::{RunDir, TaskId};
+use crate::taint::read_worker_file;
 
 pub const HOOK_COMMAND: &str = "contest hook pre-tool-use";
 const MILLIS_PER_SECOND: i64 = 1000;
@@ -28,7 +29,7 @@ struct OauthExpiry {
 }
 
 pub fn credentials_expire_within(path: &Path, seconds: u64) -> Result<bool> {
-	let bytes = fs::read(path).with_context(|| format!("read {path:?}"))?;
+	let bytes = read_worker_file(path)?;
 	let expiry: CredentialsExpiry = serde_json::from_slice(&bytes)
 		.map_err(|_| anyhow!("{path:?} has no numeric claudeAiOauth.expiresAt"))?;
 	let now_ms = SystemTime::now()

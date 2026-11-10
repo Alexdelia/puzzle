@@ -215,3 +215,60 @@ fn supervisor_files_live_in_meta_dir() {
 	store.append_notes(&id, "n").unwrap();
 	assert!(run.task_dir(&id).join("notes.md").is_file());
 }
+
+fn victim(dir: &std::path::Path) -> std::path::PathBuf {
+	let path = dir.join("victim");
+	std::fs::write(&path, "secret\n").unwrap();
+	path
+}
+
+#[test]
+fn notes_symlink_is_refused_and_victim_unchanged() {
+	let (dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let id = store.create(spec("a", 3)).unwrap();
+	let victim = victim(dir.path());
+	std::os::unix::fs::symlink(&victim, run.task_dir(&id).join("notes.md")).unwrap();
+	assert!(store.append_notes(&id, "planted\n").is_err());
+	assert_eq!(std::fs::read_to_string(&victim).unwrap(), "secret\n");
+}
+
+#[test]
+fn notes_fifo_is_refused() {
+	let (_dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let id = store.create(spec("a", 3)).unwrap();
+	make_fifo(&run.task_dir(&id).join("notes.md"));
+	assert!(store.append_notes(&id, "x\n").is_err());
+}
+
+fn make_fifo(path: &std::path::Path) {
+	let name = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
+	assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+}
+
+#[test]
+fn result_symlink_is_never_read() {
+	let (dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let id = store.create(spec("a", 3)).unwrap();
+	let victim = victim(dir.path());
+	std::os::unix::fs::symlink(&victim, run.task_dir(&id).join("result.md")).unwrap();
+	assert_eq!(store.result_summary(&id), None);
+}
+
+#[test]
+fn result_fifo_and_oversize_are_refused() {
+	let (_dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let id = store.create(spec("a", 3)).unwrap();
+	let result = run.task_dir(&id).join("result.md");
+	make_fifo(&result);
+	assert_eq!(store.result_summary(&id), None);
+	std::fs::remove_file(&result).unwrap();
+	let oversize = format!("first\n{tail}", tail = "z".repeat(1024 * 1024));
+	std::fs::write(&result, oversize).unwrap();
+	assert_eq!(store.result_summary(&id), None);
+	std::fs::write(&result, "first\n").unwrap();
+	assert_eq!(store.result_summary(&id), Some("first".to_owned()));
+}

@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, bail, ensure};
 
 use crate::config::Config;
 use crate::paths::{RunDir, TaskId};
@@ -14,6 +14,7 @@ const ISOLATION_FLAGS: [&str; 4] = [
 	"--unshare-ipc",
 ];
 const HIDDEN_DIRS: [&str; 4] = ["/tmp", "/var/tmp", "/run/user", "/home"];
+const NIX_DAEMON_SOCKET_DIR: &str = "/nix/var/nix/daemon-socket";
 const HIDDEN_ENV: [&str; 10] = [
 	"DBUS_SESSION_BUS_ADDRESS",
 	"SSH_AUTH_SOCK",
@@ -78,6 +79,13 @@ fn create_dir(dir: &Path) -> Result<()> {
 	fs::create_dir_all(dir).with_context(|| format!("create {dir:?}"))
 }
 
+fn create_host_executed_dir(dir: &Path) -> Result<()> {
+	if fs::symlink_metadata(dir).is_ok_and(|meta| meta.is_symlink()) {
+		bail!("{dir:?} is a symlink, refusing to follow it");
+	}
+	create_dir(dir)
+}
+
 impl SandboxSpec {
 	pub fn for_run(run: &RunDir, config: &Config, own_task: Option<TaskId>) -> Result<Self> {
 		ensure!(
@@ -89,7 +97,7 @@ impl SandboxSpec {
 			.with_context(|| format!("resolve {root:?}", root = run.root))?;
 		let run = RunDir { root: contest_root };
 		for dir in HOST_EXECUTED_CONTEST_DIRS {
-			create_dir(&run.root.join(dir))?;
+			create_host_executed_dir(&run.root.join(dir))?;
 		}
 		let home = PathBuf::from(std::env::var_os("HOME").context("HOME is not set")?);
 		let home_owner = own_task
@@ -188,6 +196,10 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
 	}
 	argv.mount("--bind", &spec.sandbox_home, &spec.home);
 	argv.on("--tmpfs", &spec.repo_root);
+	let nix_daemon_socket = Path::new(NIX_DAEMON_SOCKET_DIR);
+	if nix_daemon_socket.is_dir() {
+		argv.on("--tmpfs", nix_daemon_socket);
+	}
 	for tool in &spec.toolbox {
 		argv.same("--ro-bind", tool);
 	}

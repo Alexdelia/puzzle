@@ -1,5 +1,4 @@
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
@@ -7,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::atomic::write_atomic;
 use crate::paths::{RunDir, TASK_META_DIR, TaskId};
+use crate::taint::{append_worker_file, read_worker_file};
 
 const REQUEUE_PRIORITY_BONUS: i32 = 1000;
 const SPEC_FILE: &str = "spec.toml";
@@ -173,17 +173,15 @@ impl TaskStore<'_> {
 	}
 
 	pub fn append_notes(&self, id: &TaskId, text: &str) -> Result<()> {
-		let mut file = OpenOptions::new()
-			.create(true)
-			.append(true)
-			.open(self.run.task_dir(id).join("notes.md"))?;
-		file.write_all(text.as_bytes())?;
-		Ok(())
+		append_worker_file(&self.run.task_dir(id).join("notes.md"), text.as_bytes())
 	}
 
 	pub fn result_summary(&self, id: &TaskId) -> Option<String> {
-		let text = fs::read_to_string(self.run.task_dir(id).join("result.md")).ok()?;
-		text.lines().next().map(str::to_owned)
+		let bytes = read_worker_file(&self.run.task_dir(id).join("result.md")).ok()?;
+		String::from_utf8_lossy(&bytes)
+			.lines()
+			.next()
+			.map(str::to_owned)
 	}
 
 	pub fn list(&self) -> Result<Vec<TaskSummary>> {

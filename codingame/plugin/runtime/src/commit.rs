@@ -12,6 +12,8 @@ use crate::task::TaskStore;
 
 const MILESTONE_MAX_CHARS: usize = 72;
 const LOCK_FILE: &str = "contest-commit.lock";
+const GIT_DIR_NAME: &str = ".git";
+const GITLINK_MODE: &str = "160000";
 
 struct CommitLock(File);
 
@@ -78,7 +80,7 @@ fn declared_write(run: &RunDir, task: &TaskId, relative: &Path) -> Result<PathBu
 		!components.is_empty()
 			&& components
 				.iter()
-				.all(|part| matches!(part, Component::Normal(name) if *name != ".git")),
+				.all(|part| matches!(part, Component::Normal(name) if *name != GIT_DIR_NAME)),
 		"write path {relative:?} must be a plain relative path without . .. or .git"
 	);
 	let under_run = components[0] == Component::Normal("run".as_ref());
@@ -88,6 +90,48 @@ fn declared_write(run: &RunDir, task: &TaskId, relative: &Path) -> Result<PathBu
 		"write path {relative:?} is inside run/ but not in {own_task_dir:?}"
 	);
 	Ok(run.root.join(relative))
+}
+
+fn has_git_component(path: &Path) -> bool {
+	path.components()
+		.any(|part| part == Component::Normal(GIT_DIR_NAME.as_ref()))
+}
+
+fn ensure_outside_git_dirs(repo: &Path, path: &Path) -> Result<()> {
+	let relative = path.strip_prefix(repo).unwrap_or(path);
+	ensure!(
+		!has_git_component(relative),
+		"refusing to stage {path:?}: it is inside a .git directory"
+	);
+	Ok(())
+}
+
+fn ensure_plain_index_entries(repo: &Path, paths: &[PathBuf]) -> Result<()> {
+	let listed = git_checked(repo, &["ls-files", "--stage", "-z"], paths)?;
+	for entry in listed.split('\0').filter(|entry| !entry.is_empty()) {
+		let (mode_and_object, path) = entry.split_once('\t').unwrap_or((entry, ""));
+		ensure!(
+			!mode_and_object.starts_with(GITLINK_MODE),
+			"refusing to stage embedded repository {path:?}"
+		);
+		ensure!(
+			!has_git_component(Path::new(path)),
+			"refusing to stage {path:?}: it is inside a .git directory"
+		);
+	}
+	Ok(())
+}
+
+fn stage(repo: &Path, paths: &[PathBuf]) -> Result<()> {
+	let staged = git_checked(repo, &["add", "-A"], paths)
+		.and_then(|_| ensure_plain_index_entries(repo, paths));
+	if let Err(error) = staged {
+		if let Err(unstage_error) = git_checked(repo, &["reset", "-q"], paths) {
+			return Err(error.context(format!("unstage failed: {unstage_error:#}")));
+		}
+		return Err(error);
+	}
+	Ok(())
 }
 
 fn milestone_line(milestone: &str) -> String {
@@ -128,6 +172,7 @@ pub fn commit_task(
 	let repo = config.repo_root.clone();
 	let mut paths = Vec::new();
 	for candidate in candidates {
+		ensure_outside_git_dirs(&repo, &candidate)?;
 		if candidate.exists() || is_tracked(&repo, &candidate)? {
 			paths.push(candidate);
 		}
@@ -141,7 +186,7 @@ pub fn commit_task(
 	);
 
 	let _lock = CommitLock::acquire(&config.git_common_dir)?;
-	git_checked(&repo, &["add", "-A"], &paths)?;
+	stage(&repo, &paths)?;
 	let unchanged = git(&repo, &["diff", "--cached", "--quiet"], &paths)?;
 	match unchanged.status.code() {
 		Some(0) => return Ok(None),

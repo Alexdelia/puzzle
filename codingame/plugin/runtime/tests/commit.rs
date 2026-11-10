@@ -203,3 +203,67 @@ fn unpinned_repo_is_an_error() {
 	let (_repo, run, id) = setup(&["referee/a.rs"]);
 	assert!(commit_task(&run, &Config::default(), &id, "m").is_err());
 }
+
+struct PlantedRepo {
+	marker: PathBuf,
+	_hooks: TempDir,
+}
+
+fn plant_repo(dir: &Path) -> PlantedRepo {
+	fs::create_dir_all(dir).unwrap();
+	git(dir, &["init", "-q"]);
+	git(dir, &["config", "user.name", "t"]);
+	git(dir, &["config", "user.email", "t@t"]);
+	git(dir, &["config", "commit.gpgsign", "false"]);
+	fs::write(dir.join("inner.rs"), "inner").unwrap();
+	git(dir, &["add", "inner.rs"]);
+	git(dir, &["commit", "-q", "--no-verify", "-m", "inner"]);
+	let hooks = TempDir::new().unwrap();
+	let marker = hooks.path().join("fsmonitor-ran");
+	let hook = hooks.path().join("fsmonitor.sh");
+	fs::write(
+		&hook,
+		format!("#!/bin/sh\ntouch '{marker}'\n", marker = marker.display()),
+	)
+	.unwrap();
+	fs::set_permissions(&hook, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+	let config = dir.join(".git/config");
+	let mut text = fs::read_to_string(&config).unwrap();
+	text.push_str(&format!(
+		"[core]\n\tfsmonitor = {hook}\n",
+		hook = hook.display()
+	));
+	fs::write(&config, text).unwrap();
+	PlantedRepo {
+		marker,
+		_hooks: hooks,
+	}
+}
+
+fn staged(repo: &TempDir) -> String {
+	git(repo.path(), &["diff", "--cached", "--name-only"])
+}
+
+#[test]
+fn embedded_repo_in_declared_write_aborts() {
+	let (repo, run, id) = setup(&["bot"]);
+	write(&run, "bot/main.rs");
+	let planted = plant_repo(&run.root.join("bot/sub"));
+	let before = git(repo.path(), &["rev-parse", "HEAD"]);
+	let error = commit_task(&run, &config(&run), &id, "m").unwrap_err();
+	assert!(format!("{error:#}").contains("embedded"), "{error:#}");
+	assert_eq!(git(repo.path(), &["rev-parse", "HEAD"]), before);
+	assert_eq!(staged(&repo), "");
+	assert!(!planted.marker.exists());
+}
+
+#[test]
+fn embedded_repo_in_own_task_dir_aborts() {
+	let (repo, run, id) = setup(&[]);
+	let planted = plant_repo(&run.task_dir(&id).join("sub"));
+	let before = git(repo.path(), &["rev-parse", "HEAD"]);
+	assert!(commit_task(&run, &config(&run), &id, "m").is_err());
+	assert_eq!(git(repo.path(), &["rev-parse", "HEAD"]), before);
+	assert_eq!(staged(&repo), "");
+	assert!(!planted.marker.exists());
+}

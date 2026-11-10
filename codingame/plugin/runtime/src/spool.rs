@@ -1,6 +1,5 @@
-use std::fs::{self, OpenOptions};
-use std::io::{self, Read};
-use std::os::unix::fs::OpenOptionsExt;
+use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -16,13 +15,13 @@ use crate::commit::commit_task;
 use crate::config::Config;
 use crate::job::{JobRecord, JobState, read_job_record, signal_if_same_process, write_job_record};
 use crate::paths::{JobId, RunDir, TaskId};
+use crate::taint::read_worker_file;
 use crate::task::{TaskState, TaskStore};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(200);
 const REQUEST_SUFFIX: &str = ".json";
 const MAX_WAIT_SECONDS: u64 = 100;
 const RESPONSE_SUFFIX: &str = ".response.json";
-const MAX_REQUEST_BYTES: u64 = 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Outcome {
@@ -247,27 +246,6 @@ fn deadline_passed(path: &Path, timeout_seconds: u64) -> bool {
 	SystemTime::now() >= received + Duration::from_secs(timeout_seconds)
 }
 
-fn read_request_file(path: &Path) -> Result<Vec<u8>> {
-	let file = OpenOptions::new()
-		.read(true)
-		.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-		.open(path)
-		.context("open request")?;
-	let meta = file.metadata()?;
-	ensure!(meta.is_file(), "request is not a regular file");
-	ensure!(
-		meta.len() <= MAX_REQUEST_BYTES,
-		"request larger than {MAX_REQUEST_BYTES} bytes"
-	);
-	let mut bytes = Vec::new();
-	file.take(MAX_REQUEST_BYTES + 1).read_to_end(&mut bytes)?;
-	ensure!(
-		bytes.len() as u64 <= MAX_REQUEST_BYTES,
-		"request larger than {MAX_REQUEST_BYTES} bytes"
-	);
-	Ok(bytes)
-}
-
 fn remove_refused(path: &Path) -> io::Result<()> {
 	match fs::remove_file(path) {
 		Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error),
@@ -281,7 +259,7 @@ fn answer_one(
 	task: &TaskId,
 	path: &Path,
 ) -> Result<Option<Response>> {
-	let bytes = match read_request_file(path) {
+	let bytes = match read_worker_file(path) {
 		Ok(bytes) => bytes,
 		Err(error) => {
 			remove_refused(path)?;

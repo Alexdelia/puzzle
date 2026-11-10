@@ -24,6 +24,9 @@ const HIDDEN_ENV: [&str; 10] = [
 	"XDG_RUNTIME_DIR",
 ];
 
+const NIX_DAEMON_SOCKET_DIR: &str = "/nix/var/nix/daemon-socket";
+const READY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
 fn text(path: &Path) -> String {
 	path.to_string_lossy().into_owned()
 }
@@ -123,6 +126,19 @@ fn bwrap_starts_with_isolation_flags() {
 	.map(String::from)
 	.to_vec();
 	assert_eq!(args[..expected.len()], expected[..]);
+}
+
+#[test]
+fn bwrap_hides_nix_daemon_socket() {
+	let args = bwrap_args(&spec());
+	let hidden = mounts(&args)
+		.iter()
+		.any(|(flag, _, target)| flag == "--tmpfs" && target == NIX_DAEMON_SOCKET_DIR);
+	assert_eq!(
+		hidden,
+		Path::new(NIX_DAEMON_SOCKET_DIR).is_dir(),
+		"{args:?}"
+	);
 }
 
 #[test]
@@ -478,6 +494,11 @@ fn real_bwrap_enforces_layout() {
 			"rw",
 		),
 		("home", probe_dir_line(&spec.home), "rw"),
+		(
+			"nix daemon socket",
+			probe_line(&Path::new(NIX_DAEMON_SOCKET_DIR).join("socket")),
+			"absent",
+		),
 	];
 	let script = checks
 		.iter()
@@ -535,7 +556,13 @@ fn real_bwrap_meta_stays_read_only_after_host_rewrite() {
 		.stdout(std::process::Stdio::piped())
 		.spawn()
 		.unwrap();
+	let deadline = std::time::Instant::now() + READY_TIMEOUT;
 	while !ready.exists() {
+		assert!(
+			std::time::Instant::now() < deadline,
+			"sandboxed shell never wrote {ready:?} within {seconds} s",
+			seconds = READY_TIMEOUT.as_secs()
+		);
 		std::thread::sleep(std::time::Duration::from_millis(20));
 	}
 	write_atomic(&state, b"running").unwrap();
@@ -676,6 +703,30 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 	);
 	let unpinned = Config::default();
 	assert!(SandboxSpec::for_run(&run, &unpinned, None).is_err());
+}
+
+#[test]
+fn spec_for_run_refuses_symlinked_host_executed_dirs() {
+	for name in [".claude", ".direnv"] {
+		let dir = TempDir::new().unwrap();
+		let run = RunDir {
+			root: dir.path().join("repo/bot-programming/c1"),
+		};
+		fs::create_dir_all(&run.root).unwrap();
+		let target = dir.path().join("elsewhere");
+		fs::create_dir_all(&target).unwrap();
+		std::os::unix::fs::symlink(&target, run.root.join(name)).unwrap();
+		let config = Config {
+			repo_root: dir.path().join("repo"),
+			plugin_dir: dir.path().join("repo/plugin"),
+			..Config::default()
+		};
+		let error = SandboxSpec::for_run(&run, &config, Some(task())).unwrap_err();
+		assert!(
+			format!("{error:#}").contains("symlink"),
+			"{name}: {error:#}"
+		);
+	}
 }
 
 #[test]
