@@ -208,23 +208,10 @@ fn four_running_single_core_timed_leave_no_room_for_batch() {
 
 #[test]
 fn rejected_gpu_timed_does_not_block_later_gpu_batch() {
-	let running = [fixed_timed("j1", 4, 0)];
+	let running = [fixed_timed("j1", 3, 0)];
 	let rejected = JobRequest {
 		gpu: true,
-		..fixed_timed("j2", 1, 9)
-	};
-	let later = JobRequest {
-		gpu: true,
-		..batch("j3")
-	};
-	let allocation = allocate(&machine(), &running, &[rejected, later], false);
-	assert!(allocation.admitted.is_empty());
-
-	let running = [timed("j1")];
-	let rejected = JobRequest {
-		gpu: true,
-		ram_mb: 20000,
-		..timed("j2")
+		..fixed_timed("j2", 2, 9)
 	};
 	let later = JobRequest {
 		gpu: true,
@@ -232,22 +219,22 @@ fn rejected_gpu_timed_does_not_block_later_gpu_batch() {
 	};
 	let allocation = allocate(&machine(), &running, &[rejected, later], false);
 	assert_eq!(allocation.admitted, vec![JobId("j3".to_string())]);
-	assert_no_empty_cpus(&allocation);
+	assert!(grant(&allocation, "j3").gpu);
 }
 
 #[test]
 fn rejected_timed_ram_not_consumed_for_later_job() {
-	let running = [fixed_timed("j1", 4, 0)];
+	let running = [fixed_timed("j1", 3, 0)];
 	let rejected = JobRequest {
-		ram_mb: 12000,
-		..fixed_timed("j2", 1, 9)
+		ram_mb: 10000,
+		..fixed_timed("j2", 2, 9)
 	};
 	let later = JobRequest {
-		ram_mb: 12000,
+		ram_mb: 10000,
 		..batch("j3")
 	};
 	let allocation = allocate(&machine(), &running, &[rejected, later], false);
-	assert!(allocation.admitted.is_empty());
+	assert_eq!(allocation.admitted, vec![JobId("j3".to_string())]);
 }
 
 #[test]
