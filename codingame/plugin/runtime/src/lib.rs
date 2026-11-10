@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod atomic;
+pub mod broker;
 pub mod cli;
 pub mod config;
 pub mod events;
