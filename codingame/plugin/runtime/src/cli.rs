@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, ExitCode};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
@@ -10,6 +10,7 @@ use time::format_description::well_known::Rfc3339;
 
 use crate::atomic::write_atomic;
 use crate::config::Config;
+use crate::hook::{HookVerb, run_hook};
 use crate::paths::RunDir;
 use crate::run_info::{Mode, RunInfo};
 use crate::worker::{WorkerVerb, run_worker};
@@ -29,6 +30,8 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Verb {
 	Init(InitArgs),
+	#[command(subcommand)]
+	Hook(HookVerb),
 	#[command(flatten)]
 	Worker(WorkerVerb),
 }
@@ -48,10 +51,11 @@ pub struct InitArgs {
 	pub plugin_dir: Option<PathBuf>,
 }
 
-pub fn run(cli: Cli) -> anyhow::Result<()> {
+pub fn run(cli: Cli) -> anyhow::Result<ExitCode> {
 	match cli.command {
-		Verb::Init(args) => init(args),
-		Verb::Worker(verb) => run_worker(verb, cli.timeout),
+		Verb::Init(args) => init(args).map(|()| ExitCode::SUCCESS),
+		Verb::Hook(verb) => Ok(run_hook(verb)),
+		Verb::Worker(verb) => run_worker(verb, cli.timeout).map(|()| ExitCode::SUCCESS),
 	}
 }
 

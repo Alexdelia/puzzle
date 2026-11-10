@@ -77,6 +77,7 @@ fn args_contain_budget_and_model() {
 	assert_eq!(args[position("--permission-mode") + 1], "bypassPermissions");
 	assert!(args.contains(&"--verbose".to_owned()));
 	assert!(args.contains(&"--no-session-persistence".to_owned()));
+	assert_eq!(args[position("--setting-sources") + 1], "user");
 	assert!(!args.contains(&"--allowedTools".to_owned()));
 
 	run.allowed_tools = Some(vec!["Read".into(), "Bash".into()]);

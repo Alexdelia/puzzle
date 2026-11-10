@@ -100,6 +100,8 @@ pub fn claude_args(run: &AgentRun) -> Vec<String> {
 		"--max-budget-usd".to_owned(),
 		run.budget_usd.to_string(),
 		"--no-session-persistence".to_owned(),
+		"--setting-sources".to_owned(),
+		"user".to_owned(),
 	];
 	if let Some(tools) = &run.allowed_tools {
 		args.push("--allowedTools".to_owned());
