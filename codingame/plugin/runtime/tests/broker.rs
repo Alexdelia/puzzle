@@ -159,3 +159,128 @@ fn detect_finds_cores() {
 	let machine = Machine::detect(13000);
 	assert!(!machine.physical.is_empty());
 }
+
+fn fixed_timed(id: &str, cores: usize, priority: i32) -> JobRequest {
+	JobRequest {
+		priority,
+		..job(
+			id,
+			JobClass::Timed {
+				min_cores: cores,
+				max_cores: cores,
+			},
+		)
+	}
+}
+
+fn assert_no_empty_cpus(allocation: &Allocation) {
+	assert!(allocation.grants.iter().all(|grant| !grant.cpus.is_empty()));
+}
+
+#[test]
+fn high_priority_timed_beats_low_priority_batch() {
+	let queued = [batch("j2"), fixed_timed("j1", 4, 10)];
+	let allocation = allocate(&machine(), &[], &queued, false);
+	assert_eq!(allocation.admitted, vec![JobId("j1".to_string())]);
+	assert_eq!(grant(&allocation, "j1").cpus.len(), 8);
+	assert_no_empty_cpus(&allocation);
+}
+
+#[test]
+fn running_timed_keeps_min_cores_against_queued_batch() {
+	let running = [fixed_timed("j1", 4, 0)];
+	let allocation = allocate(&machine(), &running, &[batch("j2")], false);
+	assert!(allocation.admitted.is_empty());
+	assert_eq!(grant(&allocation, "j1").cpus.len(), 8);
+	assert_no_empty_cpus(&allocation);
+}
+
+#[test]
+fn four_running_single_core_timed_leave_no_room_for_batch() {
+	let running: Vec<JobRequest> = (1..=4)
+		.map(|n| fixed_timed(&format!("j{n}"), 1, 0))
+		.collect();
+	let allocation = allocate(&machine(), &running, &[batch("j9")], false);
+	assert!(allocation.admitted.is_empty());
+	assert_eq!(allocation.grants.len(), 4);
+	assert_no_empty_cpus(&allocation);
+}
+
+#[test]
+fn rejected_gpu_timed_does_not_block_later_gpu_batch() {
+	let running = [fixed_timed("j1", 4, 0)];
+	let rejected = JobRequest {
+		gpu: true,
+		..fixed_timed("j2", 1, 9)
+	};
+	let later = JobRequest {
+		gpu: true,
+		..batch("j3")
+	};
+	let allocation = allocate(&machine(), &running, &[rejected, later], false);
+	assert!(allocation.admitted.is_empty());
+
+	let running = [timed("j1")];
+	let rejected = JobRequest {
+		gpu: true,
+		ram_mb: 20000,
+		..timed("j2")
+	};
+	let later = JobRequest {
+		gpu: true,
+		..batch("j3")
+	};
+	let allocation = allocate(&machine(), &running, &[rejected, later], false);
+	assert_eq!(allocation.admitted, vec![JobId("j3".to_string())]);
+	assert_no_empty_cpus(&allocation);
+}
+
+#[test]
+fn rejected_timed_ram_not_consumed_for_later_job() {
+	let running = [fixed_timed("j1", 4, 0)];
+	let rejected = JobRequest {
+		ram_mb: 12000,
+		..fixed_timed("j2", 1, 9)
+	};
+	let later = JobRequest {
+		ram_mb: 12000,
+		..batch("j3")
+	};
+	let allocation = allocate(&machine(), &running, &[rejected, later], false);
+	assert!(allocation.admitted.is_empty());
+}
+
+#[test]
+fn invalid_timed_never_admitted() {
+	let zero_min = job(
+		"j1",
+		JobClass::Timed {
+			min_cores: 0,
+			max_cores: 2,
+		},
+	);
+	let inverted = job(
+		"j2",
+		JobClass::Timed {
+			min_cores: 3,
+			max_cores: 2,
+		},
+	);
+	let allocation = allocate(&machine(), &[], &[zero_min, inverted], false);
+	assert!(allocation.admitted.is_empty());
+	assert!(allocation.grants.is_empty());
+}
+
+#[test]
+fn mixed_scenario_never_emits_empty_cpus() {
+	let running = [timed("j1"), batch("j2")];
+	let queued = [fixed_timed("j3", 3, 5), timed("j4"), batch("j5")];
+	let allocation = allocate(&machine(), &running, &queued, false);
+	assert_no_empty_cpus(&allocation);
+}
+
+#[test]
+fn malformed_cpu_list_parts_are_dropped() {
+	use contest::broker::parse_cpu_list;
+	assert_eq!(parse_cpu_list("0,x,2-y,3"), vec![0, 3]);
+}
