@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 
 use contest::broker::{Grant, JobClass, JobRequest};
 use contest::job::{
-	JobRecord, JobState, VmStat, read_job_record, repin, signal_job, spawn_job, swap_delta_exceeds,
-	try_reap, write_job_record,
+	JobRecord, JobState, VmStat, parse_vmstat, read_job_record, read_vmstat, repin, signal_job,
+	spawn_job, swap_delta_exceeds, try_reap, write_job_record,
 };
 use contest::paths::{JobId, RunDir, TaskId};
 use nix::sys::signal::Signal;
@@ -284,11 +284,51 @@ fn swap_delta_counts_in_and_out_pages_above_threshold() {
 	assert!(!swap_delta_exceeds(&prev, &prev));
 }
 
+fn vmstat_counter(text: &str, name: &str) -> u64 {
+	text.lines()
+		.find_map(|line| line.strip_prefix(name)?.strip_prefix(' ')?.parse().ok())
+		.unwrap()
+}
+
 #[test]
-fn swapping_now_reads_current_counters() {
-	let (swapping, sample) = contest::job::swapping_now(&VmStat::default()).unwrap();
-	let (again, _) = contest::job::swapping_now(&sample).unwrap();
-	assert!(!again || swapping);
+fn read_vmstat_matches_proc_counters() {
+	let before = fs::read_to_string("/proc/vmstat").unwrap();
+	let sample = read_vmstat().unwrap();
+	let after = fs::read_to_string("/proc/vmstat").unwrap();
+	assert!(sample.pswpin >= vmstat_counter(&before, "pswpin"));
+	assert!(sample.pswpin <= vmstat_counter(&after, "pswpin"));
+	assert!(sample.pswpout >= vmstat_counter(&before, "pswpout"));
+	assert!(sample.pswpout <= vmstat_counter(&after, "pswpout"));
+}
+
+#[test]
+fn parse_vmstat_reads_both_counters() {
+	let parsed = parse_vmstat("nr_free_pages 5\npswpin 12\npswpout 34\n").unwrap();
+	assert_eq!(
+		parsed,
+		VmStat {
+			pswpin: 12,
+			pswpout: 34
+		}
+	);
+}
+
+#[test]
+fn parse_vmstat_missing_counter_is_error() {
+	let error = parse_vmstat("pswpin 12\npgfault 9\n").unwrap_err();
+	assert!(error.to_string().contains("pswpout"), "{error}");
+}
+
+#[test]
+fn spawn_rejects_grant_of_other_job() {
+	let (_dir, run) = run_dir();
+	let job = record("a", JobClass::Batch, &["true"]);
+	assert!(spawn_job(&run, &job, &grant("b", &[0])).is_err());
+}
+
+#[test]
+fn repin_of_gone_leader_is_not_an_error() {
+	repin(u32::MAX - 1, &[0]).unwrap();
 }
 
 #[test]

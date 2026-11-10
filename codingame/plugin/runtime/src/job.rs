@@ -110,6 +110,12 @@ fn cpu_set(cpus: &[usize]) -> nix::Result<CpuSet> {
 }
 
 pub fn spawn_job(run: &RunDir, record: &JobRecord, grant: &Grant) -> anyhow::Result<u32> {
+	anyhow::ensure!(
+		grant.id == record.id,
+		"grant {grant_id} does not belong to job {job_id}",
+		grant_id = grant.id,
+		job_id = record.id
+	);
 	let (program, args) = record.cmd.split_first().context("job command is empty")?;
 	let job_dir = run.job_dir(&record.id);
 	fs::create_dir_all(&job_dir)?;
@@ -186,7 +192,7 @@ fn thread_ids(pid: u32) -> Vec<u32> {
 }
 
 pub fn repin(pid: u32, cpus: &[usize]) -> anyhow::Result<()> {
-	let session = session_of(pid).with_context(|| format!("job process {pid} is gone"))?;
+	let session = pid;
 	let set = cpu_set(cpus)?;
 	for process in all_pids() {
 		if session_of(process) != Some(session) {
@@ -202,17 +208,26 @@ pub fn repin(pid: u32, cpus: &[usize]) -> anyhow::Result<()> {
 	Ok(())
 }
 
-pub fn read_vmstat() -> anyhow::Result<VmStat> {
-	let text = fs::read_to_string(VMSTAT_PATH)?;
-	let counter = |name: &str| -> u64 {
+pub fn parse_vmstat(text: &str) -> anyhow::Result<VmStat> {
+	let counter = |name: &str| -> anyhow::Result<u64> {
 		text.lines()
-			.find_map(|line| line.strip_prefix(name)?.trim().parse().ok())
-			.unwrap_or(0)
+			.find_map(|line| {
+				line.strip_prefix(name)?
+					.strip_prefix(' ')?
+					.trim()
+					.parse()
+					.ok()
+			})
+			.with_context(|| format!("counter {name} missing or unparseable in {VMSTAT_PATH}"))
 	};
 	Ok(VmStat {
-		pswpin: counter("pswpin "),
-		pswpout: counter("pswpout "),
+		pswpin: counter("pswpin")?,
+		pswpout: counter("pswpout")?,
 	})
+}
+
+pub fn read_vmstat() -> anyhow::Result<VmStat> {
+	parse_vmstat(&fs::read_to_string(VMSTAT_PATH)?)
 }
 
 pub fn swap_delta_exceeds(prev: &VmStat, now: &VmStat) -> bool {
