@@ -26,18 +26,18 @@ fn now_unix() -> u64 {
 		.map_or(0, |elapsed| elapsed.as_secs())
 }
 
-pub fn emit(run: &RunDir, event: Event) {
-	let Ok(Value::Object(mut fields)) = serde_json::to_value(&event) else {
-		return;
+pub fn emit(run: &RunDir, event: Event) -> anyhow::Result<()> {
+	let Value::Object(mut fields) = serde_json::to_value(&event)? else {
+		anyhow::bail!("event is not a json object");
 	};
 	fields.insert("at".to_owned(), Value::from(now_unix()));
 	let path = run.events();
 	if let Some(dir) = path.parent() {
-		let _ = fs::create_dir_all(dir);
+		fs::create_dir_all(dir)?;
 	}
-	if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
-		let _ = file.write_all(format!("{line}\n", line = Value::Object(fields)).as_bytes());
-	}
+	let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+	file.write_all(format!("{line}\n", line = Value::Object(fields)).as_bytes())?;
+	Ok(())
 }
 
 pub fn events_since(run: &RunDir, cursor: u64) -> (Vec<Event>, u64) {

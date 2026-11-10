@@ -118,13 +118,14 @@ fn events_since_cursor_returns_only_new() {
 	let (_dir, run) = run_dir();
 	let (none, cursor) = events_since(&run, 0);
 	assert!(none.is_empty());
-	emit(&run, Event::BudgetExhausted);
+	emit(&run, Event::BudgetExhausted).unwrap();
 	emit(
 		&run,
 		Event::UserMessage {
 			text: "hi".to_owned(),
 		},
-	);
+	)
+	.unwrap();
 	let (events, cursor) = events_since(&run, cursor);
 	assert_eq!(
 		events,
@@ -144,7 +145,8 @@ fn events_since_cursor_returns_only_new() {
 			task: TaskId("t0001-a".to_owned()),
 			state: TaskState::NeedsAnswer,
 		},
-	);
+	)
+	.unwrap();
 	let (fresh, _) = events_since(&run, cursor);
 	assert_eq!(fresh.len(), 1);
 	let raw = std::fs::read_to_string(run.events()).unwrap();
@@ -158,7 +160,7 @@ fn journal_tail_last_n() {
 	let (_dir, run) = run_dir();
 	assert!(journal_tail(&run, 3).is_empty());
 	for index in 0..5 {
-		journal_append(&run, &format!("line {index}"));
+		journal_append(&run, &format!("line {index}")).unwrap();
 	}
 	let tail = journal_tail(&run, 2);
 	assert_eq!(tail.len(), 2);

@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use contest::agent::{AgentRun, RateLimitInfo, claude_args, parse_stream, spawn_agent};
 use contest::config::Config;
@@ -124,15 +123,17 @@ fn spawn_applies_wrapper_prefix_and_exec_hook() {
 		),
 		(
 			"FAKE_CLAUDE_EXEC".into(),
-			format!("touch {marker}", marker = marker.display()),
+			format!(
+				"printf %s \"$WRAPPED\" > {marker}",
+				marker = marker.display()
+			),
 		),
 		("FAKE_CLAUDE_SLEEP".into(), "0.1".into()),
 	];
 	let wrapper = Some(vec!["env".to_owned(), "WRAPPED=1".to_owned()]);
 	let mut child = spawn_agent(&config, &run, wrapper).unwrap();
-	std::thread::sleep(Duration::from_millis(10));
 	assert!(child.wait().unwrap().success());
-	assert!(marker.exists());
+	assert_eq!(std::fs::read_to_string(&marker).unwrap(), "1");
 }
 
 #[test]
@@ -142,8 +143,8 @@ fn ledger_appends_tsv_line() {
 		root: dir.path().to_path_buf(),
 	};
 	let outcome = parse_stream(&fixture("stream-success.jsonl"));
-	ledger_append(&run, "task-1", &outcome, 42);
-	ledger_append(&run, "manager", &outcome, 7);
+	ledger_append(&run, "task-1", "opus", &outcome, 42).unwrap();
+	ledger_append(&run, "manager", "opus", &outcome, 7).unwrap();
 	let text = std::fs::read_to_string(run.ledger()).unwrap();
 	let lines: Vec<Vec<&str>> = text
 		.lines()
@@ -152,6 +153,7 @@ fn ledger_appends_tsv_line() {
 	assert_eq!(lines.len(), 2);
 	assert_eq!(lines[0].len(), 9);
 	assert_eq!(lines[0][1], "task-1");
+	assert_eq!(lines[0][2], "opus");
 	assert_eq!(lines[0][3..], ["1200", "300", "4000", "500", "0.05", "42"]);
 	assert_eq!(lines[1][1], "manager");
 }

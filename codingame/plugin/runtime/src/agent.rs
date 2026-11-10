@@ -124,13 +124,15 @@ pub fn spawn_agent(
 	}
 	let stream = File::create(&run.stream_log)
 		.with_context(|| format!("create {path:?}", path = run.stream_log))?;
+	let stderr_path = run.stream_log.with_extension("stderr.log");
+	let stderr = File::create(&stderr_path).with_context(|| format!("create {stderr_path:?}"))?;
 	Command::new(program)
 		.args(rest)
 		.current_dir(&run.cwd)
 		.envs(run.env.iter().map(|(key, value)| (key, value)))
 		.stdin(Stdio::null())
 		.stdout(stream)
-		.stderr(Stdio::null())
+		.stderr(stderr)
 		.spawn()
 		.with_context(|| format!("spawn {program}"))
 }

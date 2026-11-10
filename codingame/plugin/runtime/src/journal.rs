@@ -8,20 +8,16 @@ use crate::paths::RunDir;
 
 const TIMESTAMP_FORMAT: &str = "[year]-[month]-[day] [hour]:[minute]:[second]";
 
-pub fn journal_append(run: &RunDir, line: &str) {
-	let Ok(format) = parse_borrowed::<2>(TIMESTAMP_FORMAT) else {
-		return;
-	};
-	let Ok(stamp) = OffsetDateTime::now_utc().format(&format) else {
-		return;
-	};
+pub fn journal_append(run: &RunDir, line: &str) -> anyhow::Result<()> {
+	let format = parse_borrowed::<2>(TIMESTAMP_FORMAT)?;
+	let stamp = OffsetDateTime::now_utc().format(&format)?;
 	let path = run.journal();
 	if let Some(dir) = path.parent() {
-		let _ = fs::create_dir_all(dir);
+		fs::create_dir_all(dir)?;
 	}
-	if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
-		let _ = file.write_all(format!("{stamp} {line}\n").as_bytes());
-	}
+	let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+	file.write_all(format!("{stamp} {line}\n").as_bytes())?;
+	Ok(())
 }
 
 pub fn journal_tail(run: &RunDir, n: usize) -> Vec<String> {

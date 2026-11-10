@@ -60,7 +60,7 @@ impl RunDir {
 	}
 
 	pub fn ledger(&self) -> PathBuf {
-		self.run().join("ledger.jsonl")
+		self.run().join("ledger.tsv")
 	}
 
 	pub fn status(&self) -> PathBuf {
