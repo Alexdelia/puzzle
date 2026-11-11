@@ -56,7 +56,7 @@ impl Default for Config {
 			worker_budget_usd: 10.0,
 			claude_bin: "claude".into(),
 			sandbox: true,
-			commit_trailer: "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>".into(),
+			commit_trailer: String::new(),
 			repo_root: PathBuf::new(),
 			git_common_dir: PathBuf::new(),
 			pasta_bin: PathBuf::new(),

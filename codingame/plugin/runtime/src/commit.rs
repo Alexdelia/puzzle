@@ -1,4 +1,4 @@
-use std::fs::{self, File, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::os::fd::AsRawFd;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
@@ -7,7 +7,6 @@ use anyhow::{Context, Result, bail, ensure};
 
 use crate::config::Config;
 use crate::paths::{RunDir, TaskId, is_valid_kind};
-use crate::run_info::RunInfo;
 use crate::task::TaskStore;
 
 const MILESTONE_MAX_CHARS: usize = 72;
@@ -164,7 +163,6 @@ pub fn commit_task(
 		!config.repo_root.as_os_str().is_empty() && !config.git_common_dir.as_os_str().is_empty(),
 		"config has no pinned repo_root and git_common_dir"
 	);
-	let info: RunInfo = serde_json::from_slice(&fs::read(run.run_json())?)?;
 	let mut candidates = vec![run.task_dir(task)];
 	for relative in &spec.writes {
 		candidates.push(declared_write(run, task, relative)?);
@@ -177,13 +175,14 @@ pub fn commit_task(
 			paths.push(candidate);
 		}
 	}
-	let message = format!(
-		"{kind}({puzzle}): {task} {milestone}\n\n{trailer}",
+	let mut message = format!(
+		"{kind}: {task} {milestone}",
 		kind = spec.kind,
-		puzzle = info.puzzle,
-		milestone = milestone_line(milestone),
-		trailer = config.commit_trailer
+		milestone = milestone_line(milestone)
 	);
+	if !config.commit_trailer.is_empty() {
+		message.push_str(&format!("\n\n{trailer}", trailer = config.commit_trailer));
+	}
 
 	let _lock = CommitLock::acquire(&config.git_common_dir)?;
 	stage(&repo, &paths)?;

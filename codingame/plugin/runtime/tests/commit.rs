@@ -2,11 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use contest::atomic::write_atomic;
 use contest::commit::commit_task;
 use contest::config::Config;
 use contest::paths::{RunDir, TaskId};
-use contest::run_info::{Mode, RunInfo};
 use contest::task::{TaskSpec, TaskStore};
 use tempfile::TempDir;
 
@@ -34,17 +32,6 @@ fn setup(writes: &[&str]) -> (TempDir, RunDir, TaskId) {
 		root: repo.path().to_path_buf(),
 	};
 	fs::create_dir_all(run.tasks()).unwrap();
-	let info = RunInfo {
-		puzzle: "seabed-security".into(),
-		mode: Mode::ContestLive,
-		deadline_unix: None,
-		active_budget_seconds: None,
-		active_seconds: 0,
-		phase: "start".into(),
-		plugin_commit: String::new(),
-		started_at: 0,
-	};
-	write_atomic(&run.run_json(), &serde_json::to_vec(&info).unwrap()).unwrap();
 	let id = TaskStore { run: &run }
 		.create(TaskSpec {
 			kind: "referee-port".into(),
@@ -96,11 +83,24 @@ fn commit_message_template() {
 	commit_task(&run, &config(&run), &id, "fix sim\nrm -rf").unwrap();
 	let message = git(repo.path(), &["log", "-1", "--format=%B"]);
 	let subject = message.lines().next().unwrap();
+	assert_eq!(subject, format!("referee-port: {id} fix sim"));
+	assert_eq!(message.trim_end(), subject);
+}
+
+#[test]
+fn non_empty_trailer_is_appended_after_blank_line() {
+	let (repo, run, id) = setup(&["referee/a.rs"]);
+	write(&run, "referee/a.rs");
+	let config = Config {
+		commit_trailer: "Trailer: yes".to_owned(),
+		..config(&run)
+	};
+	commit_task(&run, &config, &id, "m").unwrap();
+	let message = git(repo.path(), &["log", "-1", "--format=%B"]);
 	assert_eq!(
-		subject,
-		format!("referee-port(seabed-security): {id} fix sim")
+		message.trim_end(),
+		format!("referee-port: {id} m\n\nTrailer: yes")
 	);
-	assert!(message.contains(&config(&run).commit_trailer));
 }
 
 #[test]
