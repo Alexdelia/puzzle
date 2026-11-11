@@ -1540,3 +1540,57 @@ fn file_planted_after_scan_is_refused_at_staging() {
 	assert_eq!(git(&repo, &["log", "--format=%s"]).trim(), "init");
 	assert_eq!(git(&repo, &["diff", "--cached", "--name-only"]), "");
 }
+
+fn open_fifo_writer(path: &Path) -> fs::File {
+	let deadline = Instant::now() + Duration::from_secs(10);
+	loop {
+		match fs::OpenOptions::new()
+			.write(true)
+			.custom_flags(libc::O_NONBLOCK)
+			.open(path)
+		{
+			Ok(fifo) => return fifo,
+			Err(_) if Instant::now() < deadline => sleep(Duration::from_millis(50)),
+			Err(error) => panic!("nobody read {path:?}: {error}"),
+		}
+	}
+}
+
+#[test]
+fn background_start_reports_started_only_after_announce() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let info = fs::read(run.run_json()).unwrap();
+	fs::remove_file(run.run_json()).unwrap();
+	let made = Command::new("mkfifo").arg(run.run_json()).status().unwrap();
+	assert!(made.success());
+	let mut starter = Command::new(BIN)
+		.arg("start")
+		.arg(&run.root)
+		.env("HOME", &contest.home)
+		.env("FAKE_CLAUDE_SCRIPT", &contest.manager_stream)
+		.stdout(Stdio::piped())
+		.stderr(Stdio::piped())
+		.spawn()
+		.unwrap();
+	let mut fifo = open_fifo_writer(&run.run_json());
+	sleep(Duration::from_secs(1));
+	assert!(
+		starter.try_wait().unwrap().is_none(),
+		"start returned before startup finished"
+	);
+	assert_eq!(fs::read_to_string(run.supervisor_pid()).unwrap(), "");
+	std::io::Write::write_all(&mut fifo, &info).unwrap();
+	drop(fifo);
+	write_atomic(&run.run_json(), &info).unwrap();
+	let output = starter.wait_with_output().unwrap();
+	let stdout = String::from_utf8_lossy(&output.stdout);
+	assert!(output.status.success(), "{stdout}");
+	let pid = fs::read_to_string(run.supervisor_pid()).unwrap();
+	assert!(!pid.is_empty());
+	assert!(stdout.contains(&format!("started: pid {pid}")), "{stdout}");
+	fs::write(run.stop_file(), "test").unwrap();
+	wait_until(10, "supervisor stopped", || {
+		contest_status(run).contains("supervisor: stopped")
+	});
+}
