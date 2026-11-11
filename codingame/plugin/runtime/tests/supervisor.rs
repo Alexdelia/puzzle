@@ -1511,3 +1511,32 @@ fn concurrent_commits_get_their_own_sha() {
 		assert!(!answer.contains("null"), "{milestone}: {answer}");
 	}
 }
+
+#[test]
+fn file_planted_after_scan_is_refused_at_staging() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let repo = pin_repo(&contest);
+	let id = create_task(run, "sim-bench", 0);
+	let answer = contest.home.join("answer");
+	let action = format!(
+		"echo hi > \"$CONTEST_RUN/run/tasks/$CONTEST_TASK/out.txt\"; contest commit --milestone m > {answer} 2>&1; exec sleep 60",
+		answer = answer.display()
+	);
+	let lock = hold_commit_lock(&repo);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "commit requested", || {
+		fs::read_dir(run.task_requests(&id)).is_ok_and(|mut entries| entries.next().is_some())
+	});
+	sleep(Duration::from_secs(1));
+	let planted = run.task_dir(&id).join("sub/.envrc");
+	fs::create_dir_all(planted.parent().unwrap()).unwrap();
+	fs::write(&planted, "echo planted").unwrap();
+	drop(lock);
+	wait_until(10, "commit answered", || {
+		fs::read_to_string(&answer).is_ok_and(|text| text.contains("planted"))
+	});
+	supervisor.stop(run);
+	assert_eq!(git(&repo, &["log", "--format=%s"]).trim(), "init");
+	assert_eq!(git(&repo, &["diff", "--cached", "--name-only"]), "");
+}

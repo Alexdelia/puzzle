@@ -13,6 +13,8 @@ const MILESTONE_MAX_CHARS: usize = 72;
 const LOCK_FILE: &str = "contest-commit.lock";
 const GIT_DIR_NAME: &str = ".git";
 const GITLINK_MODE: &str = "160000";
+const PLANTED_ANYWHERE: [&str; 4] = [GIT_DIR_NAME, ".envrc", ".direnv", ".claude"];
+const PLANTED_BELOW_TOP: &str = ".mcp.json";
 
 struct CommitLock(File);
 
@@ -109,7 +111,20 @@ fn ensure_outside_git_dirs(repo: &Path, path: &Path) -> Result<()> {
 	Ok(())
 }
 
-fn ensure_plain_index_entries(repo: &Path, paths: &[PathBuf]) -> Result<()> {
+fn is_planted(contest_relative: &Path) -> bool {
+	contest_relative
+		.components()
+		.enumerate()
+		.any(|(depth, part)| match part {
+			Component::Normal(name) => {
+				PLANTED_ANYWHERE.iter().any(|planted| name == *planted)
+					|| (depth > 0 && name == PLANTED_BELOW_TOP)
+			}
+			_ => false,
+		})
+}
+
+fn ensure_plain_index_entries(repo: &Path, contest: &Path, paths: &[PathBuf]) -> Result<()> {
 	let listed = git_checked(repo, &["ls-files", "--stage", "-z"], paths)?;
 	for entry in listed.split('\0').filter(|entry| !entry.is_empty()) {
 		let (mode_and_object, path) = entry.split_once('\t').unwrap_or((entry, ""));
@@ -117,17 +132,18 @@ fn ensure_plain_index_entries(repo: &Path, paths: &[PathBuf]) -> Result<()> {
 			!mode_and_object.starts_with(GITLINK_MODE),
 			"refusing to stage embedded repository {path:?}"
 		);
+		let path = Path::new(path);
 		ensure!(
-			!has_git_component(Path::new(path)),
-			"refusing to stage {path:?}: it is inside a .git directory"
+			!is_planted(path.strip_prefix(contest).unwrap_or(path)),
+			"refusing to stage planted path {path:?}"
 		);
 	}
 	Ok(())
 }
 
-fn stage(repo: &Path, paths: &[PathBuf]) -> Result<()> {
+fn stage(repo: &Path, contest: &Path, paths: &[PathBuf]) -> Result<()> {
 	let staged = git_checked(repo, &["add", "-A"], paths)
-		.and_then(|_| ensure_plain_index_entries(repo, paths));
+		.and_then(|_| ensure_plain_index_entries(repo, contest, paths));
 	if let Err(error) = staged {
 		if let Err(unstage_error) = git_checked(repo, &["reset", "-q"], paths) {
 			return Err(error.context(format!("unstage failed: {unstage_error:#}")));
@@ -188,8 +204,9 @@ pub fn commit_task(
 		message.push_str(&format!("\n\n{trailer}", trailer = config.commit_trailer));
 	}
 
+	let contest = run.root.strip_prefix(&repo).unwrap_or(Path::new(""));
 	let _lock = CommitLock::acquire(&config.git_common_dir)?;
-	stage(&repo, &paths)?;
+	stage(&repo, contest, &paths)?;
 	let unchanged = git(&repo, &["diff", "--cached", "--quiet"], &paths)?;
 	match unchanged.status.code() {
 		Some(0) => return Ok(None),

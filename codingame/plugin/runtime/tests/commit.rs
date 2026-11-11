@@ -268,3 +268,38 @@ fn embedded_repo_in_own_task_dir_aborts() {
 	assert_eq!(staged(&repo), "");
 	assert!(!planted.marker.exists());
 }
+
+#[test]
+fn planted_names_refused_at_staging() {
+	for planted in [
+		"sub/.envrc",
+		"sub/.claude/settings.json",
+		"sub/.direnv/env",
+		"sub/.mcp.json",
+	] {
+		let (repo, run, id) = setup(&[]);
+		write(&run, &format!("run/tasks/{id}/out.txt"));
+		write(&run, &format!("run/tasks/{id}/{planted}"));
+		let before = git(repo.path(), &["rev-parse", "HEAD"]);
+		let error = commit_task(&run, &config(&run), &id, "m").unwrap_err();
+		assert!(
+			format!("{error:#}").contains("planted"),
+			"{planted}: {error:#}"
+		);
+		assert_eq!(git(repo.path(), &["rev-parse", "HEAD"]), before);
+		assert_eq!(git(repo.path(), &["diff", "--cached", "--name-only"]), "");
+	}
+}
+
+#[test]
+fn top_level_mcp_json_write_allowed() {
+	let (repo, run, id) = setup(&[".mcp.json"]);
+	write(&run, ".mcp.json");
+	assert!(
+		commit_task(&run, &config(&run), &id, "m")
+			.unwrap()
+			.is_some()
+	);
+	let files = git(repo.path(), &["show", "--name-only", "--format=", "HEAD"]);
+	assert!(files.contains(".mcp.json"));
+}
