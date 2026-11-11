@@ -8,11 +8,11 @@ use crate::broker::{Grant, JobRequest, allocate};
 use crate::events::{Event, emit};
 use crate::job::{
 	JobRecord, JobState, list_job_records, mark_spawned, process_starttime, read_vmstat, repin,
-	sandbox_job, signal_if_same_process, spawn_job, spawn_job_scrubbed, swapping_now, try_reap,
-	write_job_record, write_lease,
+	sandbox_job, signal_if_same_process, signal_job, spawn_job, spawn_job_scrubbed, swapping_now,
+	try_reap, write_job_record, write_lease,
 };
 use crate::journal::journal_append;
-use crate::paths::RunDir;
+use crate::paths::{JobId, RunDir};
 use crate::sandbox::{SandboxSpec, dropped_host_env};
 use crate::spool::cancel_job;
 use crate::task::{TaskState, TaskStore};
@@ -71,19 +71,23 @@ pub(super) fn reconcile_jobs(run: &RunDir) -> Result<()> {
 	Ok(())
 }
 
+fn ended_task(store: &TaskStore, record: &JobRecord) -> bool {
+	matches!(
+		store.state(&record.owner_task),
+		Ok(TaskState::Done | TaskState::Failed | TaskState::Cancelled)
+	)
+}
+
 impl Supervisor {
-	pub(super) fn cancel_jobs_of_ended_tasks(&self) -> Result<()> {
+	pub(super) fn cancel_jobs_of_ended_tasks(&mut self) {
 		let store = TaskStore { run: &self.run };
-		for record in list_job_records(&self.run) {
-			if !matches!(record.state, JobState::Queued | JobState::Running) {
-				continue;
-			}
-			let ended = matches!(
-				store.state(&record.owner_task),
-				Ok(TaskState::Done | TaskState::Failed | TaskState::Cancelled)
-			);
-			if ended {
-				cancel_job(&self.run, &record.owner_task, &record.id)?;
+		let orphaned: Vec<JobRecord> = list_job_records(&self.run)
+			.into_iter()
+			.filter(|record| matches!(record.state, JobState::Queued | JobState::Running))
+			.filter(|record| ended_task(&store, record))
+			.collect();
+		for record in orphaned {
+			let cancelled = cancel_job(&self.run, &record.owner_task, &record.id).and_then(|_| {
 				journal_append(
 					&self.run,
 					&format!(
@@ -91,41 +95,66 @@ impl Supervisor {
 						id = record.id,
 						owner = record.owner_task
 					),
-				)?;
+				)
+			});
+			match cancelled {
+				Ok(()) => {
+					self.cancel_failures.remove(&record.id);
+				}
+				Err(error) => self.cancel_failed(&record.id, &error),
 			}
 		}
-		Ok(())
 	}
 
-	pub(super) fn reap_jobs(&mut self) -> Result<()> {
+	fn cancel_failed(&mut self, job: &JobId, error: &anyhow::Error) {
+		if self.cancel_failures.insert(job.clone()) {
+			let journaled =
+				journal_append(&self.run, &format!("job {job} cancel failed: {error:#}"));
+			report("cancel job", journaled);
+		}
+	}
+
+	pub(super) fn has_live_jobs(&self) -> bool {
+		list_job_records(&self.run)
+			.iter()
+			.any(|record| is_live_job(&record.state))
+	}
+
+	pub(super) fn reap_jobs(&mut self) {
 		for record in list_job_records(&self.run) {
 			if !is_live_job(&record.state) {
 				continue;
 			}
-			match job_end(&record) {
-				Some(end) => self.finish_job(record, end)?,
-				None if record.state == JobState::Cancelling => self.escalate_cancel(&record)?,
-				None => {}
-			}
+			let reaped = match job_end(&record) {
+				Some(end) => self.finish_job(record, end),
+				None if record.state == JobState::Cancelling => self.escalate_cancel(&record),
+				None => Ok(()),
+			};
+			report("reap job", reaped);
 		}
-		Ok(())
+	}
+
+	fn forget_job(&mut self, job: &JobId) {
+		self.grants.remove(job);
+		self.spawned_jobs.remove(job);
+		self.cancelling_since.remove(job);
 	}
 
 	fn finish_job(&mut self, mut record: JobRecord, end: JobEnd) -> Result<()> {
+		self.forget_job(&record.id);
 		record.state = match (&record.state, &end) {
 			(JobState::Cancelling, _) => JobState::Cancelled,
+			_ if self.stopping => JobState::Interrupted,
 			(_, JobEnd::Exited(code)) => JobState::Done { code: *code },
 			(_, JobEnd::Vanished) => JobState::Interrupted,
 		};
 		write_job_record(&self.run, &record)?;
-		self.grants.remove(&record.id);
-		self.cancelling_since.remove(&record.id);
 		let job = record.id.clone();
 		emit(
 			&self.run,
-			match end {
-				JobEnd::Exited(code) => Event::JobFinished { job, code },
-				JobEnd::Vanished => Event::JobInterrupted { job },
+			match (&record.state, end) {
+				(JobState::Interrupted, _) | (_, JobEnd::Vanished) => Event::JobInterrupted { job },
+				(_, JobEnd::Exited(code)) => Event::JobFinished { job, code },
 			},
 		)?;
 		journal_append(
@@ -134,15 +163,75 @@ impl Supervisor {
 		)
 	}
 
+	fn signal_job_of(&self, record: &JobRecord, signal: Signal) -> Result<bool> {
+		match self.spawned_jobs.get(&record.id) {
+			Some(&pid) => signal_job(pid, record.sandboxed, signal).map(|()| true),
+			None => signal_if_same_process(record, signal),
+		}
+	}
+
 	fn escalate_cancel(&mut self, record: &JobRecord) -> Result<()> {
 		let since = *self
 			.cancelling_since
 			.entry(record.id.clone())
 			.or_insert_with(Instant::now);
 		if since.elapsed() >= Duration::from_secs(self.cfg.grace_seconds) {
-			signal_if_same_process(record, Signal::SIGKILL)?;
+			self.signal_job_of(record, Signal::SIGKILL)?;
 		}
 		Ok(())
+	}
+
+	pub(super) fn terminate_jobs(&mut self) {
+		for record in list_job_records(&self.run) {
+			match record.state {
+				JobState::Running => {
+					let signalled = self.signal_job_of(&record, Signal::SIGTERM);
+					report("stop job", signalled.map(drop));
+				}
+				JobState::Queued => self.interrupt_job(record),
+				_ => {}
+			}
+		}
+	}
+
+	pub(super) fn kill_live_jobs(&self) {
+		for record in list_job_records(&self.run) {
+			if is_live_job(&record.state) {
+				let killed = self.signal_job_of(&record, Signal::SIGKILL);
+				report("kill job", killed.map(drop));
+			}
+		}
+	}
+
+	pub(super) fn interrupt_remaining_jobs(&mut self) {
+		for record in list_job_records(&self.run) {
+			if record.state == JobState::Queued || is_live_job(&record.state) {
+				self.interrupt_job(record);
+			}
+		}
+	}
+
+	fn interrupt_job(&mut self, mut record: JobRecord) {
+		self.forget_job(&record.id);
+		record.state = match record.state {
+			JobState::Cancelling => JobState::Cancelled,
+			_ => JobState::Interrupted,
+		};
+		let job = record.id.clone();
+		let interrupted = write_job_record(&self.run, &record)
+			.and_then(|()| match record.state {
+				JobState::Interrupted => {
+					emit(&self.run, Event::JobInterrupted { job: job.clone() })
+				}
+				_ => Ok(()),
+			})
+			.and_then(|()| {
+				journal_append(
+					&self.run,
+					&format!("job {job} {state:?} at stop", state = record.state),
+				)
+			});
+		report("stop job", interrupted);
 	}
 
 	fn swapping(&mut self) -> bool {
@@ -217,6 +306,7 @@ impl Supervisor {
 			Ok(pid) => {
 				mark_spawned(&mut record, pid);
 				record.state = JobState::Running;
+				self.spawned_jobs.insert(record.id.clone(), pid);
 				write_job_record(&self.run, &record)?;
 				journal_append(
 					&self.run,

@@ -12,6 +12,7 @@ use crate::atomic::write_atomic;
 use crate::claude_config::agent_env;
 use crate::digest::{ack_inbox, build_digest};
 use crate::events::{Event, emit};
+use crate::journal::journal_append;
 use crate::paths::RunDir;
 
 const MANAGER_TOOLS: [&str; 3] = ["Read", "Glob", "Grep"];
@@ -102,6 +103,21 @@ impl Supervisor {
 			self.manager_failed(&format!("manager launch failed: {error:#}"));
 		}
 		Ok(())
+	}
+
+	pub(super) fn discard_manager(&mut self, now: i64) {
+		let Some(mut manager) = self.manager.take() else {
+			return;
+		};
+		report("manager", manager.child.kill().map_err(Into::into));
+		report(
+			"manager",
+			manager.child.wait().map(drop).map_err(Into::into),
+		);
+		let outcome = parse_stream(&manager.stream_log);
+		self.record_agent(MANAGER_WHO, &manager.model, &outcome, manager.started, now);
+		let journaled = journal_append(&self.run, "manager tick discarded at stop");
+		report("manager", journaled);
 	}
 
 	fn launch_manager(&mut self, now: i64) -> Result<()> {

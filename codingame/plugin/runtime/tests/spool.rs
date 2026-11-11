@@ -1,11 +1,11 @@
 use std::fs;
 use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::process::Command;
+use std::task::Poll;
 use std::thread;
 use std::time::Duration;
 
 use contest::broker::{JobClass, JobRequest};
-use contest::config::Config;
 use contest::job::{
 	JobRecord, JobState, mark_spawned, process_starttime, read_job_record, write_job_record,
 };
@@ -16,8 +16,8 @@ use contest::spool::{
 use contest::task::{TaskSpec, TaskState, TaskStore};
 use tempfile::TempDir;
 
-fn no_scan(_: &TaskId) -> anyhow::Result<()> {
-	Ok(())
+fn no_commit(_: &TaskId, _: &str) -> Poll<anyhow::Result<Option<String>>> {
+	Poll::Ready(Ok(None))
 }
 
 fn run_dir() -> (TempDir, RunDir) {
@@ -94,9 +94,8 @@ fn spool_round_trip() {
 	let job = queued_job(&run, &task, "j0001");
 	let server_run = run.clone();
 	let server = thread::spawn(move || {
-		let config = Config::default();
 		for _ in 0..100 {
-			if serve_pending(&server_run, &config, &no_scan).unwrap() > 0 {
+			if serve_pending(&server_run, &no_commit).unwrap() > 0 {
 				return;
 			}
 			thread::sleep(Duration::from_millis(20));
@@ -135,8 +134,7 @@ fn handler_error_reaches_client() {
 	let task = make_task(&run);
 	let server_run = run.clone();
 	let server = thread::spawn(move || {
-		let config = Config::default();
-		while serve_pending(&server_run, &config, &no_scan).unwrap() == 0 {
+		while serve_pending(&server_run, &no_commit).unwrap() == 0 {
 			thread::sleep(Duration::from_millis(20));
 		}
 	});
@@ -159,27 +157,13 @@ fn job_submit_creates_queued_record() {
 		min_cores: 1,
 		max_cores: 2,
 	};
-	let value = handle(
-		&run,
-		&Config::default(),
-		&task,
-		submit_request(class),
-		&no_scan,
-	)
-	.unwrap();
+	let value = handle(&run, &task, submit_request(class), &no_commit).unwrap();
 	let id = JobId(value["job"].as_str().unwrap().into());
 	let record = read_job_record(&run, &id).unwrap();
 	assert_eq!(record.state, JobState::Queued);
 	assert_eq!(record.owner_task, task);
 	assert_eq!(record.request.class, class);
-	let second = handle(
-		&run,
-		&Config::default(),
-		&task,
-		submit_request(JobClass::Batch),
-		&no_scan,
-	)
-	.unwrap();
+	let second = handle(&run, &task, submit_request(JobClass::Batch), &no_commit).unwrap();
 	assert_ne!(second["job"], value["job"]);
 }
 
@@ -192,16 +176,7 @@ fn job_submit_rejects_bad_core_counts() {
 			min_cores,
 			max_cores,
 		};
-		assert!(
-			handle(
-				&run,
-				&Config::default(),
-				&task,
-				submit_request(class),
-				&no_scan
-			)
-			.is_err()
-		);
+		assert!(handle(&run, &task, submit_request(class), &no_commit).is_err());
 	}
 }
 
@@ -212,10 +187,9 @@ fn job_cancel_marks_queued_job_cancelled() {
 	let job = queued_job(&run, &task, "j0001");
 	handle(
 		&run,
-		&Config::default(),
 		&task,
 		Request::JobCancel { job: job.clone() },
-		&no_scan,
+		&no_commit,
 	)
 	.unwrap();
 	assert_eq!(
@@ -233,7 +207,7 @@ fn task_finish_transitions() {
 		outcome: Outcome::Done,
 		question: None,
 	};
-	handle(&run, &Config::default(), &done, request, &no_scan).unwrap();
+	handle(&run, &done, request, &no_commit).unwrap();
 	assert_eq!(store.state(&done).unwrap(), TaskState::Done);
 
 	let asking = make_task(&run);
@@ -241,7 +215,7 @@ fn task_finish_transitions() {
 		outcome: Outcome::NeedsAnswer,
 		question: Some("which cap?".into()),
 	};
-	handle(&run, &Config::default(), &asking, request, &no_scan).unwrap();
+	handle(&run, &asking, request, &no_commit).unwrap();
 	assert_eq!(store.state(&asking).unwrap(), TaskState::NeedsAnswer);
 	let notes = fs::read_to_string(run.task_dir(&asking).join("notes.md")).unwrap();
 	assert!(notes.contains("which cap?"));
@@ -251,16 +225,7 @@ fn task_finish_transitions() {
 		outcome: Outcome::NeedsAnswer,
 		question: None,
 	};
-	assert!(
-		handle(
-			&run,
-			&Config::default(),
-			&missing_question,
-			request,
-			&no_scan
-		)
-		.is_err()
-	);
+	assert!(handle(&run, &missing_question, request, &no_commit).is_err());
 }
 
 #[test]
@@ -268,7 +233,6 @@ fn job_wait_stays_pending_until_job_ends_or_deadline() {
 	let (_dir, run) = run_dir();
 	let task = make_task(&run);
 	let job = queued_job(&run, &task, "j0001");
-	let config = Config::default();
 	let waiting = Request::JobWait {
 		job: job.clone(),
 		timeout_seconds: 1,
@@ -279,13 +243,13 @@ fn job_wait_stays_pending_until_job_ends_or_deadline() {
 		serde_json::to_string(&waiting).unwrap(),
 	)
 	.unwrap();
-	assert_eq!(serve_pending(&run, &config, &no_scan).unwrap(), 0);
+	assert_eq!(serve_pending(&run, &no_commit).unwrap(), 0);
 	assert!(!run.task_requests(&task).join("1-1.response.json").exists());
 
 	let mut record = read_job_record(&run, &job).unwrap();
 	record.state = JobState::Done { code: 0 };
 	write_job_record(&run, &record).unwrap();
-	assert_eq!(serve_pending(&run, &config, &no_scan).unwrap(), 1);
+	assert_eq!(serve_pending(&run, &no_commit).unwrap(), 1);
 	assert!(run.task_requests(&task).join("1-1.response.json").exists());
 }
 
@@ -304,10 +268,9 @@ fn job_wait_answers_after_deadline() {
 		serde_json::to_string(&waiting).unwrap(),
 	)
 	.unwrap();
-	let config = Config::default();
-	assert_eq!(serve_pending(&run, &config, &no_scan).unwrap(), 0);
+	assert_eq!(serve_pending(&run, &no_commit).unwrap(), 0);
 	thread::sleep(Duration::from_millis(1200));
-	assert_eq!(serve_pending(&run, &config, &no_scan).unwrap(), 1);
+	assert_eq!(serve_pending(&run, &no_commit).unwrap(), 1);
 	let answer = fs::read_to_string(run.task_requests(&task).join("1-1.response.json")).unwrap();
 	assert!(answer.contains("Queued"));
 }
@@ -329,8 +292,7 @@ fn cli_job_submit_prints_job_id() {
 	let task = make_task(&run);
 	let server_run = run.clone();
 	let server = thread::spawn(move || {
-		let config = Config::default();
-		while serve_pending(&server_run, &config, &no_scan).unwrap() == 0 {
+		while serve_pending(&server_run, &no_commit).unwrap() == 0 {
 			thread::sleep(Duration::from_millis(20));
 		}
 	});
@@ -388,13 +350,13 @@ fn envelope_naming_another_task_is_ignored() {
 		r#"{{"task":"{victim}","request":{{"TaskFinish":{{"outcome":"Done","question":null}}}}}}"#
 	);
 	write_request(&run.task_requests(&mine), "1-1.json", &body);
-	serve_pending(&run, &Config::default(), &no_scan).unwrap();
+	serve_pending(&run, &no_commit).unwrap();
 	assert_eq!(store.state(&victim).unwrap(), TaskState::Running);
 	assert_eq!(store.state(&mine).unwrap(), TaskState::Running);
 
 	let finish = r#"{"TaskFinish":{"outcome":"Done","question":null}}"#;
 	write_request(&run.task_requests(&mine), "2-1.json", finish);
-	serve_pending(&run, &Config::default(), &no_scan).unwrap();
+	serve_pending(&run, &no_commit).unwrap();
 	assert_eq!(store.state(&mine).unwrap(), TaskState::Done);
 	assert_eq!(store.state(&victim).unwrap(), TaskState::Running);
 }
@@ -413,10 +375,7 @@ fn symlinked_or_unknown_request_dirs_are_not_served() {
 	write_request(&run.requests().join("t0098-ghost"), "1-1.json", finish);
 	fs::create_dir_all(run.requests().join("not-a-task")).unwrap();
 	write_request(&run.requests().join("not-a-task"), "1-1.json", finish);
-	assert_eq!(
-		serve_pending(&run, &Config::default(), &no_scan).unwrap(),
-		0
-	);
+	assert_eq!(serve_pending(&run, &no_commit).unwrap(), 0);
 	assert_eq!(store.state(&target).unwrap(), TaskState::Running);
 	assert!(!outside.join("1-1.response.json").exists());
 }
@@ -432,7 +391,7 @@ fn symlinked_task_dir_pointing_at_other_task_is_not_served() {
 	let finish = r#"{"TaskFinish":{"outcome":"Done","question":null}}"#;
 	write_request(&run.task_requests(&victim), "1-1.json", finish);
 	let dir = run.task_requests(&victim);
-	serve_pending(&run, &Config::default(), &no_scan).unwrap();
+	serve_pending(&run, &no_commit).unwrap();
 	assert_eq!(store.state(&victim).unwrap(), TaskState::Done);
 	assert_eq!(store.state(&attacker).unwrap(), TaskState::Running);
 	assert_eq!(read_response(&dir, "1-1.response.json")["ok"], true);
@@ -447,10 +406,7 @@ fn only_running_tasks_are_served() {
 		.unwrap();
 	let status = r#"{"JobStatus":{"job":"j0001"}}"#;
 	write_request(&run.task_requests(&task), "1-1.json", status);
-	assert_eq!(
-		serve_pending(&run, &Config::default(), &no_scan).unwrap(),
-		0
-	);
+	assert_eq!(serve_pending(&run, &no_commit).unwrap(), 0);
 }
 
 #[test]
@@ -459,7 +415,6 @@ fn job_verbs_refuse_another_tasks_job() {
 	let owner = make_task(&run);
 	let intruder = make_task(&run);
 	let job = queued_job(&run, &owner, "j0001");
-	let config = Config::default();
 	for request in [
 		Request::JobStatus { job: job.clone() },
 		Request::JobWait {
@@ -468,7 +423,7 @@ fn job_verbs_refuse_another_tasks_job() {
 		},
 		Request::JobCancel { job: job.clone() },
 	] {
-		assert!(handle(&run, &config, &intruder, request, &no_scan).is_err());
+		assert!(handle(&run, &intruder, request, &no_commit).is_err());
 	}
 	assert_eq!(read_job_record(&run, &job).unwrap().state, JobState::Queued);
 }
@@ -481,10 +436,7 @@ fn malformed_job_ids_are_rejected() {
 		let request = Request::JobCancel {
 			job: JobId(id.into()),
 		};
-		assert!(
-			handle(&run, &Config::default(), &task, request, &no_scan).is_err(),
-			"{id}"
-		);
+		assert!(handle(&run, &task, request, &no_commit).is_err(), "{id}");
 	}
 }
 
@@ -520,17 +472,32 @@ fn forged_starttime_is_never_signalled() {
 	let real = process_starttime(child.id()).unwrap();
 	for forged in [Some(real + 1), None] {
 		let job = running_job_of(&run, &task, child.id(), forged);
-		handle(
-			&run,
-			&Config::default(),
-			&task,
-			Request::JobCancel { job },
-			&no_scan,
-		)
-		.unwrap();
+		handle(&run, &task, Request::JobCancel { job }, &no_commit).unwrap();
 		thread::sleep(Duration::from_millis(200));
 		assert!(alive(child.id()));
 	}
+	child.kill().unwrap();
+	child.wait().unwrap();
+}
+
+#[test]
+fn unsignalled_running_job_stays_live_until_reaped() {
+	let (_dir, run) = run_dir();
+	let task = make_task(&run);
+	let mut child = spawn_sleeper();
+	let job = running_job_of(&run, &task, child.id(), None);
+	let value = handle(
+		&run,
+		&task,
+		Request::JobCancel { job: job.clone() },
+		&no_commit,
+	)
+	.unwrap();
+	assert_eq!(value["state"], "Cancelling");
+	assert_eq!(
+		read_job_record(&run, &job).unwrap().state,
+		JobState::Cancelling
+	);
 	child.kill().unwrap();
 	child.wait().unwrap();
 }
@@ -544,10 +511,9 @@ fn matching_starttime_is_signalled_and_job_is_cancelling() {
 	let job = running_job_of(&run, &task, child.id(), real);
 	let value = handle(
 		&run,
-		&Config::default(),
 		&task,
 		Request::JobCancel { job: job.clone() },
-		&no_scan,
+		&no_commit,
 	)
 	.unwrap();
 	assert_eq!(value["state"], "Cancelling");
@@ -568,13 +534,12 @@ fn job_wait_does_not_return_ended_while_cancelling() {
 	write_job_record(&run, &record).unwrap();
 	let value = handle(
 		&run,
-		&Config::default(),
 		&task,
 		Request::JobWait {
 			job,
 			timeout_seconds: 5,
 		},
-		&no_scan,
+		&no_commit,
 	)
 	.unwrap();
 	assert_eq!(value["pending"], true);
@@ -591,10 +556,7 @@ fn job_wait_timeout_is_clamped_server_side() {
 	};
 	let dir = run.task_requests(&task);
 	write_request(&dir, "1-1.json", &serde_json::to_string(&waiting).unwrap());
-	assert_eq!(
-		serve_pending(&run, &Config::default(), &no_scan).unwrap(),
-		0
-	);
+	assert_eq!(serve_pending(&run, &no_commit).unwrap(), 0);
 }
 
 fn make_fifo(path: &std::path::Path) {
@@ -614,10 +576,7 @@ fn fifo_request_is_refused_and_removed() {
 	let task = make_task(&run);
 	let dir = run.task_requests(&task);
 	make_fifo(&dir.join("1-1.json"));
-	assert_eq!(
-		serve_pending(&run, &Config::default(), &no_scan).unwrap(),
-		1
-	);
+	assert_eq!(serve_pending(&run, &no_commit).unwrap(), 1);
 	assert_rejected_and_removed(&dir, "1-1.json");
 }
 
@@ -633,10 +592,7 @@ fn symlinked_request_is_refused_and_removed() {
 	.unwrap();
 	let requests = run.task_requests(&task);
 	std::os::unix::fs::symlink(&outside, requests.join("1-1.json")).unwrap();
-	assert_eq!(
-		serve_pending(&run, &Config::default(), &no_scan).unwrap(),
-		1
-	);
+	assert_eq!(serve_pending(&run, &no_commit).unwrap(), 1);
 	assert_rejected_and_removed(&requests, "1-1.json");
 	assert!(outside.exists());
 	assert_eq!(
@@ -653,10 +609,7 @@ fn oversized_request_is_refused_and_removed() {
 	let padding = " ".repeat(1024 * 1024);
 	let body = format!(r#"{{"JobStatus":{{"job":"j0001"}}}}{padding}"#);
 	write_request(&requests, "1-1.json", &body);
-	assert_eq!(
-		serve_pending(&run, &Config::default(), &no_scan).unwrap(),
-		1
-	);
+	assert_eq!(serve_pending(&run, &no_commit).unwrap(), 1);
 	assert_rejected_and_removed(&requests, "1-1.json");
 }
 
@@ -695,7 +648,7 @@ fn one_broken_task_dir_does_not_stop_serving_others() {
 	write_request(&run.task_requests(&healthy), "1-1.json", finish);
 	let broken_dir = run.task_requests(&broken);
 	fs::set_permissions(&broken_dir, fs::Permissions::from_mode(0o000)).unwrap();
-	let served = serve_pending(&run, &Config::default(), &no_scan);
+	let served = serve_pending(&run, &no_commit);
 	fs::set_permissions(&broken_dir, fs::Permissions::from_mode(0o755)).unwrap();
 	assert_eq!(served.unwrap(), 1);
 	assert_eq!(store.state(&healthy).unwrap(), TaskState::Done);

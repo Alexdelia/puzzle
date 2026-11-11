@@ -1,4 +1,4 @@
-use std::fs::{self, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::CommandExt;
@@ -9,6 +9,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, bail, ensure};
 use clap::{Parser, Subcommand};
+use nix::fcntl::{Flock, FlockArg};
 use nix::unistd::setsid;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
@@ -20,7 +21,7 @@ use crate::hook::{HookVerb, run_hook};
 use crate::paths::RunDir;
 use crate::run_info::{Mode, RunInfo};
 use crate::status::{running_supervisor, status_text};
-use crate::supervisor::run_supervisor;
+use crate::supervisor::{DEFAULT_STOP_REASON, STOP_SETTLE_SECONDS, run_supervisor};
 use crate::taint::ensure_no_top_level_git;
 use crate::worker::{WorkerVerb, run_worker};
 
@@ -28,7 +29,7 @@ const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\ngcr
 const PASTA: &str = "pasta";
 const PASST_FLAKE: &str = "nixpkgs#passt";
 const SECONDS_PER_HOUR: u64 = 3600;
-const START_CONFIRM_TIMEOUT: Duration = Duration::from_secs(2);
+const START_CONFIRM_TIMEOUT: Duration = Duration::from_secs(30);
 const START_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 #[derive(Debug, Parser)]
@@ -44,6 +45,7 @@ pub struct Cli {
 pub enum Verb {
 	Init(InitArgs),
 	Start(StartArgs),
+	Stop(StopArgs),
 	Status(StatusArgs),
 	Say(SayArgs),
 	#[command(subcommand)]
@@ -77,6 +79,15 @@ pub struct StartArgs {
 }
 
 #[derive(Debug, clap::Args)]
+pub struct StopArgs {
+	pub contest_dir: PathBuf,
+	#[arg(long, default_value = DEFAULT_STOP_REASON)]
+	pub reason: String,
+	#[arg(long)]
+	pub wait: bool,
+}
+
+#[derive(Debug, clap::Args)]
 pub struct StatusArgs {
 	pub contest_dir: PathBuf,
 }
@@ -91,6 +102,7 @@ pub fn run(cli: Cli) -> anyhow::Result<ExitCode> {
 	match cli.command {
 		Verb::Init(args) => init(args).map(|()| ExitCode::SUCCESS),
 		Verb::Start(args) => start(args).map(|()| ExitCode::SUCCESS),
+		Verb::Stop(args) => stop(args).map(|()| ExitCode::SUCCESS),
 		Verb::Status(args) => status(args).map(|()| ExitCode::SUCCESS),
 		Verb::Say(args) => say(args).map(|()| ExitCode::SUCCESS),
 		Verb::Hook(verb) => Ok(run_hook(verb)),
@@ -164,6 +176,11 @@ fn start(args: StartArgs) -> anyhow::Result<()> {
 		return run_supervisor(run, config);
 	}
 	if let Some(pid) = running_supervisor(&run) {
+		if run.stop_file().exists() {
+			bail!(
+				"supervisor pid {pid} is stopping: wait with `contest stop --wait`, then start again"
+			);
+		}
 		bail!("supervisor already running (pid {pid})");
 	}
 	let log_path = run.supervisor_log();
@@ -184,24 +201,70 @@ fn start(args: StartArgs) -> anyhow::Result<()> {
 		command.pre_exec(|| setsid().map(drop).map_err(io::Error::from));
 	}
 	let mut child = command.spawn().context("spawn supervisor")?;
+	let pid = child.id().to_string();
+	let log = log_path.display();
 	let deadline = Instant::now() + START_CONFIRM_TIMEOUT;
-	while Instant::now() < deadline {
+	loop {
 		if let Some(status) = child.try_wait()? {
-			bail!(
-				"supervisor exited at start ({status}), see {log}",
-				log = log_path.display()
-			);
+			bail!("supervisor exited at start ({status}), see {log} and run/journal.md");
 		}
-		if running_supervisor(&run).is_some() {
-			break;
+		if announced_pid(&run).as_deref() == Some(pid.as_str()) {
+			println!("supervisor started: pid {pid}, log {log}");
+			return Ok(());
+		}
+		if Instant::now() >= deadline {
+			println!("supervisor pid {pid} still starting, log {log}");
+			return Ok(());
 		}
 		sleep(START_POLL_INTERVAL);
 	}
+}
+
+fn announced_pid(run: &RunDir) -> Option<String> {
+	fs::read_to_string(run.supervisor_pid())
+		.ok()
+		.map(|text| text.trim().to_owned())
+}
+
+fn stop(args: StopArgs) -> anyhow::Result<()> {
+	let run = contest_run(&args.contest_dir)?;
+	if !run.stop_file().exists() {
+		write_atomic(&run.stop_file(), args.reason.as_bytes())?;
+	}
+	let Some(pid) = running_supervisor(&run) else {
+		println!("no supervisor running: STOP stays until the next contest start");
+		return Ok(());
+	};
 	println!(
-		"supervisor started: pid {pid}, log {log}",
-		pid = child.id(),
-		log = log_path.display()
+		"stop requested: supervisor pid {pid} stops within {seconds} s",
+		seconds = seconds_until_stopped(&run)
 	);
+	if args.wait {
+		wait_for_supervisor_exit(&run)?;
+		println!("supervisor stopped");
+	}
+	Ok(())
+}
+
+fn seconds_until_stopped(run: &RunDir) -> u64 {
+	let grace = Config::load(&run.config())
+		.unwrap_or_default()
+		.grace_seconds;
+	let requested_ago = fs::metadata(run.stop_file())
+		.and_then(|meta| meta.modified())
+		.ok()
+		.and_then(|modified| modified.elapsed().ok())
+		.map_or(0, |elapsed| elapsed.as_secs());
+	(grace + STOP_SETTLE_SECONDS).saturating_sub(requested_ago)
+}
+
+fn wait_for_supervisor_exit(run: &RunDir) -> anyhow::Result<()> {
+	let path = run.supervisor_pid();
+	let file = File::open(&path).with_context(|| format!("open {path:?}"))?;
+	let lock = Flock::lock(file, FlockArg::LockShared)
+		.map_err(|(_, errno)| errno)
+		.with_context(|| format!("wait for lock on {path:?}"))?;
+	drop(lock);
 	Ok(())
 }
 

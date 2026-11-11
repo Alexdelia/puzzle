@@ -31,6 +31,7 @@ pub struct Config {
 	pub git_common_dir: PathBuf,
 	pub pasta_bin: PathBuf,
 	pub probe_timeout_seconds: u64,
+	pub probe_retry_seconds: u64,
 	pub manager_timeout_seconds: u64,
 }
 
@@ -63,6 +64,7 @@ impl Default for Config {
 			git_common_dir: PathBuf::new(),
 			pasta_bin: PathBuf::new(),
 			probe_timeout_seconds: 120,
+			probe_retry_seconds: 60,
 			manager_timeout_seconds: 900,
 		}
 	}

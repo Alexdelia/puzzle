@@ -1,7 +1,8 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use std::io;
+use std::os::unix::fs::FileExt;
 use std::path::PathBuf;
 use std::process::Child;
 use std::thread::sleep;
@@ -11,11 +12,16 @@ use anyhow::{Context, Result, bail};
 use nix::errno::Errno;
 use nix::fcntl::{Flock, FlockArg};
 
+mod commits;
 mod jobs;
 mod manager;
 mod probe;
+mod stop;
 mod workers;
 
+pub use stop::STOP_SETTLE_SECONDS;
+
+use commits::{CommitThread, Commits, spawn_commit};
 use jobs::reconcile_jobs;
 use manager::ManagerProcess;
 use probe::RunningProbe;
@@ -47,7 +53,9 @@ const SECONDS_PER_MINUTE: u64 = 60;
 const STREAM_FILE: &str = "stream.jsonl";
 const CREDENTIALS_FILE: &str = ".claude/.credentials.json";
 const BUDGET_STOP_REASON: &str = "budget";
-const DEFAULT_STOP_REASON: &str = "requested";
+const PID_LOCK_RETRY: Duration = Duration::from_secs(1);
+const PID_LOCK_POLL: Duration = Duration::from_millis(20);
+pub const DEFAULT_STOP_REASON: &str = "requested";
 
 pub fn active_increment(elapsed: Duration) -> Duration {
 	elapsed.min(MAX_ACTIVE_STEP)
@@ -79,25 +87,56 @@ fn read_run_info(run: &RunDir) -> Result<RunInfo> {
 
 fn lock_pid_file(run: &RunDir) -> Result<Flock<File>> {
 	let path = run.supervisor_pid();
-	let file = OpenOptions::new()
+	let mut file = OpenOptions::new()
 		.read(true)
 		.write(true)
 		.create(true)
 		.truncate(false)
 		.open(&path)
 		.with_context(|| format!("open {path:?}"))?;
-	let lock = match Flock::lock(file, FlockArg::LockExclusiveNonblock) {
-		Ok(lock) => lock,
-		Err((_, Errno::EWOULDBLOCK)) => bail!(
-			"supervisor already running for {root:?} (pid {pid})",
-			root = run.root,
-			pid = fs::read_to_string(&path).unwrap_or_default().trim()
-		),
-		Err((_, errno)) => return Err(errno).with_context(|| format!("lock {path:?}")),
+	let deadline = Instant::now() + PID_LOCK_RETRY;
+	loop {
+		match Flock::lock(file, FlockArg::LockExclusiveNonblock) {
+			Ok(lock) => {
+				lock.set_len(0)?;
+				return Ok(lock);
+			}
+			Err((returned, Errno::EWOULDBLOCK)) if Instant::now() < deadline => {
+				file = returned;
+				sleep(PID_LOCK_POLL);
+			}
+			Err((_, Errno::EWOULDBLOCK)) => bail!(
+				"supervisor already running for {root:?} (pid {pid})",
+				root = run.root,
+				pid = fs::read_to_string(&path).unwrap_or_default().trim()
+			),
+			Err((_, errno)) => return Err(errno).with_context(|| format!("lock {path:?}")),
+		}
+	}
+}
+
+fn read_stop_reason(run: &RunDir) -> Option<String> {
+	let reason = fs::read_to_string(run.stop_file()).ok()?;
+	let reason = reason.trim();
+	Some(if reason.is_empty() {
+		DEFAULT_STOP_REASON.to_owned()
+	} else {
+		reason.to_owned()
+	})
+}
+
+fn resume_after_stop(run: &RunDir) -> Result<()> {
+	let Some(reason) = read_stop_reason(run) else {
+		return Ok(());
 	};
-	lock.set_len(0)?;
-	(&*lock).write_all(std::process::id().to_string().as_bytes())?;
-	Ok(lock)
+	let path = run.stop_file();
+	match fs::remove_file(&path) {
+		Err(error) if error.kind() != io::ErrorKind::NotFound => {
+			return Err(error).with_context(|| format!("remove {path:?}"));
+		}
+		_ => {}
+	}
+	journal_append(run, &format!("resumed after stop: {reason}"))
 }
 
 fn remove_planted(run: &RunDir, exempt: TopLevelExempt) -> Result<ScanReport> {
@@ -144,10 +183,14 @@ struct Supervisor {
 	exempt: TopLevelExempt,
 	machine: Machine,
 	limits: RunLimits,
+	stopping: bool,
 	workers: Vec<WorkerProcess>,
 	manager: Option<ManagerProcess>,
+	commits: Commits,
 	grants: HashMap<JobId, Grant>,
+	spawned_jobs: HashMap<JobId, u32>,
 	cancelling_since: HashMap<JobId, Instant>,
+	cancel_failures: HashSet<JobId>,
 	vmstat: Option<VmStat>,
 	active: Duration,
 	last_iteration: Instant,
@@ -169,8 +212,10 @@ pub fn run_supervisor(run: RunDir, cfg: Config) -> Result<()> {
 	let mut supervisor = Supervisor::start(run, cfg)?;
 	loop {
 		let began = Instant::now();
-		if let Some(reason) = supervisor.stop_reason() {
-			return supervisor.shut_down(&reason);
+		let accounted = supervisor.account_time(unix_now());
+		report("time", accounted);
+		if let Some(reason) = read_stop_reason(&supervisor.run) {
+			return supervisor.stop(&reason);
 		}
 		supervisor.iterate();
 		sleep(LOOP_INTERVAL.saturating_sub(began.elapsed()));
@@ -193,6 +238,7 @@ impl Supervisor {
 			fs::create_dir_all(&dir).with_context(|| format!("create {dir:?}"))?;
 		}
 		let pid_lock = lock_pid_file(&run)?;
+		resume_after_stop(&run)?;
 		let exempt = TopLevelExempt::observe(&run.root);
 		for id in (TaskStore { run: &run }).reconcile_after_restart()? {
 			journal_append(&run, &format!("requeued {id} after restart"))?;
@@ -202,7 +248,7 @@ impl Supervisor {
 		write_claude_settings(&run, &cfg)?;
 		let info = read_run_info(&run)?;
 		let now = Instant::now();
-		Ok(Self {
+		let supervisor = Self {
 			bin_dir: contest_bin_dir()?,
 			credentials: std::env::var_os("HOME")
 				.map(|home| PathBuf::from(home).join(CREDENTIALS_FILE)),
@@ -212,10 +258,14 @@ impl Supervisor {
 				active_budget_seconds: info.active_budget_seconds,
 				deadline_unix: info.deadline_unix,
 			},
+			stopping: false,
 			workers: Vec::new(),
 			manager: None,
+			commits: Commits::default(),
 			grants: HashMap::new(),
+			spawned_jobs: HashMap::new(),
 			cancelling_since: HashMap::new(),
+			cancel_failures: HashSet::new(),
 			vmstat: None,
 			active: Duration::from_secs(info.active_seconds),
 			last_iteration: now,
@@ -233,24 +283,19 @@ impl Supervisor {
 			pid_lock,
 			run,
 			cfg,
-		})
-	}
-
-	fn stop_reason(&self) -> Option<String> {
-		let reason = fs::read_to_string(self.run.stop_file()).ok()?;
-		let reason = reason.trim();
-		Some(if reason.is_empty() {
-			DEFAULT_STOP_REASON.to_owned()
-		} else {
-			reason.to_owned()
-		})
+		};
+		supervisor
+			.pid_lock
+			.write_all_at(std::process::id().to_string().as_bytes(), 0)
+			.context("announce supervisor pid")?;
+		Ok(supervisor)
 	}
 
 	fn shut_down(mut self, reason: &str) -> Result<()> {
 		let persisted = self.persist();
 		let journaled = journal_append(&self.run, &format!("stopped: {reason}"));
 		let cleared = self.pid_lock.set_len(0).map_err(anyhow::Error::from);
-		let status = write_status(&self.run, unix_now());
+		let status = write_status(&self.run, unix_now(), None);
 		let errors: Vec<String> = [persisted, journaled, cleared, status]
 			.into_iter()
 			.filter_map(Result::err)
@@ -271,33 +316,49 @@ impl Supervisor {
 		report("spool", served);
 		let reaped = self.reap_workers(now);
 		report("reap workers", reaped);
-		let jobs = self
-			.cancel_jobs_of_ended_tasks()
-			.and_then(|()| self.reap_jobs())
-			.and_then(|()| self.schedule_jobs());
-		report("jobs", jobs);
+		self.cancel_jobs_of_ended_tasks();
+		self.reap_jobs();
+		let scheduled = self.schedule_jobs();
+		report("schedule jobs", scheduled);
 		let manager = self.manager_step(now);
 		report("manager", manager);
 		let launched = self.launch_workers(now);
 		report("launch", launched);
-		let accounted = self.account_time(now);
-		report("time", accounted);
 		let status = self.refresh_status(now);
 		report("status", status);
 	}
 
+	fn start_commit(
+		&self,
+		task: &TaskId,
+		milestone: &str,
+		tainted: &RefCell<Vec<(TaskId, String)>>,
+	) -> Result<CommitThread> {
+		if let Some(failure) = taint_failure(remove_planted(&self.run, self.exempt)) {
+			tainted.borrow_mut().push((task.clone(), failure.clone()));
+			bail!("commit refused, taint scan failed: {failure}");
+		}
+		spawn_commit(
+			self.run.clone(),
+			self.cfg.clone(),
+			task.clone(),
+			milestone.to_owned(),
+		)
+	}
+
 	fn serve_requests(&mut self) -> Result<()> {
 		let tainted = RefCell::new(Vec::new());
-		let run = &self.run;
-		let exempt = self.exempt;
-		let guard = |task: &TaskId| -> Result<()> {
-			if let Some(failure) = taint_failure(remove_planted(run, exempt)) {
-				tainted.borrow_mut().push((task.clone(), failure.clone()));
-				bail!("commit refused, taint scan failed: {failure}");
-			}
-			Ok(())
+		let commits = RefCell::new(std::mem::take(&mut self.commits));
+		let committer = |task: &TaskId, milestone: &str| {
+			commits.borrow_mut().poll(task, milestone, || {
+				self.start_commit(task, milestone, &tainted)
+			})
 		};
-		let served = serve_pending(run, &self.cfg, &guard);
+		let served = serve_pending(&self.run, &committer);
+		self.commits = commits.into_inner();
+		let store = TaskStore { run: &self.run };
+		self.commits
+			.forget_finished_unless(|task| store.state(task).ok() == Some(TaskState::Running));
 		for (task, failure) in tainted.into_inner() {
 			self.flag_tainted(&task, TaskState::Running, &failure);
 			self.kill_worker(&task);
@@ -367,7 +428,11 @@ impl Supervisor {
 		{
 			return Ok(());
 		}
+		self.write_status_now(now)
+	}
+
+	fn write_status_now(&mut self, now: i64) -> Result<()> {
 		self.last_status = Some(Instant::now());
-		write_status(&self.run, now)
+		write_status(&self.run, now, Some(std::process::id()))
 	}
 }

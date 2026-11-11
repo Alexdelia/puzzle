@@ -168,12 +168,24 @@ fn last_reply(run: &RunDir) -> Vec<String> {
 		.unwrap_or_default()
 }
 
-pub fn status_text(run: &RunDir, now: i64) -> String {
-	let mut lines = vec!["# contest status".to_owned()];
-	lines.push(match running_supervisor(run) {
+fn supervisor_line(run: &RunDir, pid: Option<String>) -> String {
+	let stop_requested = run.stop_file().exists();
+	match pid {
+		Some(pid) if pid.is_empty() => "supervisor: starting".to_owned(),
+		Some(pid) if stop_requested => format!("supervisor: stopping, pid {pid}"),
 		Some(pid) => format!("supervisor: running, pid {pid}"),
+		None if stop_requested => "supervisor: stopped".to_owned(),
 		None => "supervisor: not running".to_owned(),
-	});
+	}
+}
+
+pub fn status_text(run: &RunDir, now: i64) -> String {
+	status_text_for(run, now, running_supervisor(run))
+}
+
+fn status_text_for(run: &RunDir, now: i64, supervisor_pid: Option<String>) -> String {
+	let mut lines = vec!["# contest status".to_owned()];
+	lines.push(supervisor_line(run, supervisor_pid));
 	if let Ok(reason) = fs::read_to_string(run.stop_file()) {
 		lines.push(format!("stop requested: {reason}", reason = reason.trim()));
 	}
@@ -190,7 +202,8 @@ pub fn status_text(run: &RunDir, now: i64) -> String {
 		.collect()
 }
 
-pub fn write_status(run: &RunDir, now: i64) -> anyhow::Result<()> {
-	write_atomic(&run.status(), status_text(run, now).as_bytes())?;
+pub fn write_status(run: &RunDir, now: i64, supervisor_pid: Option<u32>) -> anyhow::Result<()> {
+	let text = status_text_for(run, now, supervisor_pid.map(|pid| pid.to_string()));
+	write_atomic(&run.status(), text.as_bytes())?;
 	Ok(())
 }

@@ -1,4 +1,5 @@
 use std::fs;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::thread::sleep;
@@ -6,7 +7,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use contest::agent::{RateLimitInfo, Window};
 use contest::atomic::write_atomic;
-use contest::broker::{JobClass, JobRequest};
+use contest::broker::{JobClass, JobRequest, Machine};
 use contest::config::Config;
 use contest::job::{JobRecord, JobState, read_job_record, write_job_record};
 use contest::paths::{JobId, RunDir, TaskId};
@@ -14,6 +15,7 @@ use contest::run_info::{Mode, RunInfo};
 use contest::supervisor::active_increment;
 use contest::task::{TaskSpec, TaskState, TaskStore};
 use contest::usage::record_usage;
+use nix::fcntl::{Flock, FlockArg};
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 use serde_json::{Value, json};
@@ -93,6 +95,7 @@ fn contest(workers: usize) -> Contest {
 	}
 	let config = Config {
 		workers,
+		grace_seconds: 2,
 		sandbox: false,
 		claude_bin: fixture("fake-claude.sh"),
 		plugin_dir: plugin_dir(),
@@ -729,7 +732,7 @@ fn restart_requeues_interrupted() {
 	supervisor.stop(run);
 	let store = TaskStore { run };
 	assert!(store.spec(&first).unwrap().priority >= 1000);
-	assert_eq!(store.state(&first).unwrap(), TaskState::Running);
+	assert_eq!(store.state(&first).unwrap(), TaskState::Interrupted);
 	assert_eq!(store.state(&second).unwrap(), TaskState::Queued);
 }
 
@@ -1127,7 +1130,7 @@ fn background_start_runs_supervisor() {
 	assert!(contest_status(run).contains("supervisor: running"));
 	fs::write(run.stop_file(), "test").unwrap();
 	wait_until(10, "supervisor gone", || {
-		contest_status(run).contains("supervisor: not running")
+		contest_status(run).contains("supervisor: stopped")
 	});
 }
 
@@ -1194,4 +1197,207 @@ fn commit_refused_when_scan_fails() {
 	assert_eq!(log.trim(), "init");
 	let notes = fs::read_to_string(task_dir.join("notes.md")).unwrap();
 	assert!(notes.contains("taint scan failed"));
+}
+
+#[test]
+fn final_status_says_stopped() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let supervisor = start(&contest, "true");
+	wait_until(10, "status file", || run.status().is_file());
+	supervisor.stop(run);
+	let status = fs::read_to_string(run.status()).unwrap();
+	assert!(status.contains("supervisor: stopped"), "{status}");
+	assert!(!status.contains("running, pid"), "{status}");
+}
+
+fn queued_job_record(run: &RunDir, id: &str, owner: &TaskId, cmd: &[&str]) -> JobId {
+	let job = JobId(id.into());
+	write_job_record(
+		run,
+		&JobRecord {
+			id: job.clone(),
+			owner_task: owner.clone(),
+			cmd: cmd.iter().map(|part| part.to_string()).collect(),
+			cwd: run.root.clone(),
+			request: JobRequest {
+				id: job.clone(),
+				class: JobClass::Batch,
+				gpu: false,
+				ram_mb: 1,
+				priority: 0,
+			},
+			state: JobState::Queued,
+			pid: None,
+			starttime: None,
+			sandboxed: false,
+		},
+	)
+	.unwrap();
+	job
+}
+
+#[test]
+fn failing_cancel_does_not_stall_jobs() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let ended = create_task(run, "ended", 0);
+	let store = TaskStore { run };
+	store.transition(&ended, TaskState::Running).unwrap();
+	store.transition(&ended, TaskState::Done).unwrap();
+	let waiting = create_task(run, "waiting", 0);
+	let stuck = queued_job_record(run, "j0001", &ended, &["true"]);
+	queued_job_record(run, "j0002", &waiting, &["true"]);
+	let stuck_dir = run.job_dir(&stuck);
+	fs::set_permissions(&stuck_dir, fs::Permissions::from_mode(0o555)).unwrap();
+	let supervisor = start(&contest, "true");
+	wait_until(10, "second job finished", || {
+		has_event(run, json!({"event": "job_finished", "job": "j0002"}))
+	});
+	sleep(Duration::from_secs(2));
+	fs::set_permissions(&stuck_dir, fs::Permissions::from_mode(0o755)).unwrap();
+	supervisor.stop(run);
+	assert_eq!(journal_lines(run, "job j0001 cancel failed"), 1);
+}
+
+#[test]
+fn cancelled_job_cores_go_to_next_job_after_reap() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	let cores = Machine::detect(13000).physical.len();
+	let first_pid = contest.home.join("first-pid");
+	let overlap = contest.home.join("overlap");
+	let script = contest.home.join("worker.sh");
+	fs::write(
+		&script,
+		format!(
+			"contest job submit --class timed --min-cores {cores} --max-cores {cores} --ram-mb 10 -- sleep 60\n\
+			until [ -e {first_pid} ]; do sleep 0.1; done\n\
+			contest job submit --class timed --min-cores {cores} --max-cores {cores} --ram-mb 10 -- sh -c \"kill -0 $(cat {first_pid}) 2>/dev/null && touch {overlap}; true\"\n\
+			contest job cancel j0001\n\
+			contest job wait j0002\n\
+			contest task done\n",
+			first_pid = first_pid.display(),
+			overlap = overlap.display()
+		),
+	)
+	.unwrap();
+	let supervisor = start(
+		&contest,
+		&format!("exec bash {script}", script = script.display()),
+	);
+	let first = JobId("j0001".into());
+	wait_until(20, "first job running", || {
+		read_job_record(run, &first).is_ok_and(|record| record.state == JobState::Running)
+	});
+	let mut record = read_job_record(run, &first).unwrap();
+	let pid = record.pid.unwrap();
+	record.starttime = None;
+	write_job_record(run, &record).unwrap();
+	fs::write(&first_pid, pid.to_string()).unwrap();
+	wait_until(20, "task done", || state(run, &id) == TaskState::Done);
+	supervisor.stop(run);
+	assert!(!overlap.exists(), "second job ran beside the cancelled one");
+	assert!(!Path::new(&format!("/proc/{pid}")).exists());
+	assert_eq!(
+		read_job_record(run, &first).unwrap().state,
+		JobState::Cancelled
+	);
+	assert_eq!(
+		read_job_record(run, &JobId("j0002".into())).unwrap().state,
+		JobState::Done { code: 0 }
+	);
+}
+
+#[test]
+fn background_start_waits_for_startup() {
+	let contest = contest(0);
+	let run = &contest.run;
+	fs::remove_file(run.run_json()).unwrap();
+	let made = Command::new("mkfifo").arg(run.run_json()).status().unwrap();
+	assert!(made.success());
+	let starter = Command::new(BIN)
+		.arg("start")
+		.arg(&run.root)
+		.env("HOME", &contest.home)
+		.stdout(Stdio::piped())
+		.stderr(Stdio::piped())
+		.spawn()
+		.unwrap();
+	sleep(Duration::from_millis(500));
+	let deadline = Instant::now() + Duration::from_secs(10);
+	let mut fifo = loop {
+		match fs::OpenOptions::new()
+			.write(true)
+			.custom_flags(libc::O_NONBLOCK)
+			.open(run.run_json())
+		{
+			Ok(fifo) => break fifo,
+			Err(_) if Instant::now() < deadline => sleep(Duration::from_millis(50)),
+			Err(error) => panic!("supervisor never read run.json: {error}"),
+		}
+	};
+	std::io::Write::write_all(&mut fifo, b"not json").unwrap();
+	drop(fifo);
+	let output = starter.wait_with_output().unwrap();
+	assert!(!output.status.success());
+	assert!(String::from_utf8_lossy(&output.stderr).contains("supervisor.log"));
+}
+
+#[test]
+fn start_tolerates_momentary_status_lock() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let pid_file = fs::OpenOptions::new()
+		.create(true)
+		.write(true)
+		.truncate(false)
+		.open(run.supervisor_pid())
+		.unwrap();
+	let reader = Flock::lock(pid_file, FlockArg::LockShared).unwrap();
+	let mut supervisor = start(&contest, "true");
+	sleep(Duration::from_millis(300));
+	drop(reader);
+	wait_until(10, "status file", || run.status().is_file());
+	assert!(supervisor.0.try_wait().unwrap().is_none());
+	supervisor.stop(run);
+}
+
+#[test]
+fn post_spawn_journal_error_keeps_worker() {
+	let contest = contest(1);
+	let run = &contest.run;
+	fs::create_dir_all(run.journal()).unwrap();
+	let id = create_task(run, "sim-bench", 0);
+	let supervisor = start(&contest, "exec sleep 60");
+	wait_until(20, "task running", || state(run, &id) == TaskState::Running);
+	sleep(Duration::from_secs(2));
+	let launched = state(run, &id);
+	supervisor.stop(run);
+	assert_eq!(launched, TaskState::Running);
+	assert_eq!(event_count(run, "launch_failed"), 0);
+}
+
+#[test]
+fn usage_refresh_rearms_unknown_report() {
+	let contest = contest(1);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.probe_retry_seconds = 1);
+	fs::remove_file(run.usage()).unwrap();
+	let id = create_task(run, "sim-bench", 0);
+	let supervisor = start_with_probe(&contest, "contest task done", "exit 0");
+	wait_until(10, "first usage unknown", || {
+		event_count(run, "usage_unknown") == 1
+	});
+	record_usage(run, &usage_at(0.1), now()).unwrap();
+	wait_until(20, "task finished", || {
+		has_event(run, json!({"event": "task_finished", "task": id.0}))
+	});
+	fs::remove_file(run.usage()).unwrap();
+	create_task(run, "second", 0);
+	wait_until(10, "second usage unknown", || {
+		event_count(run, "usage_unknown") == 2
+	});
+	supervisor.stop(run);
 }

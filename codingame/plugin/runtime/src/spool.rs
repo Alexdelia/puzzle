@@ -1,6 +1,7 @@
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::task::Poll;
 use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -11,8 +12,6 @@ use serde_json::{Value, json};
 
 use crate::atomic::write_atomic;
 use crate::broker::{JobClass, JobRequest};
-use crate::commit::commit_task;
-use crate::config::Config;
 use crate::job::{JobRecord, JobState, read_job_record, signal_if_same_process, write_job_record};
 use crate::paths::{JobId, RunDir, TaskId};
 use crate::taint::read_worker_file;
@@ -150,12 +149,12 @@ pub fn cancel_job(run: &RunDir, task: &TaskId, job: &JobId) -> Result<Value> {
 	if is_ended(&record.state) || record.state == JobState::Cancelling {
 		return Ok(job_status(&record));
 	}
-	let signalled =
-		record.state == JobState::Running && signal_if_same_process(&record, Signal::SIGTERM)?;
-	record.state = if signalled {
-		JobState::Cancelling
-	} else {
-		JobState::Cancelled
+	record.state = match record.state {
+		JobState::Running => {
+			signal_if_same_process(&record, Signal::SIGTERM)?;
+			JobState::Cancelling
+		}
+		_ => JobState::Cancelled,
 	};
 	write_job_record(run, &record)?;
 	Ok(job_status(&record))
@@ -184,21 +183,18 @@ fn finish_task(
 	Ok(json!({ "task": task, "state": next }))
 }
 
-pub type BeforeCommit<'a> = &'a dyn Fn(&TaskId) -> Result<()>;
+pub type Committer<'a> = &'a dyn Fn(&TaskId, &str) -> Poll<Result<Option<String>>>;
 
-pub fn handle(
-	run: &RunDir,
-	config: &Config,
-	task: &TaskId,
-	request: Request,
-	before_commit: BeforeCommit,
-) -> Result<Value> {
+fn is_pending(value: &Value) -> bool {
+	value["pending"] == json!(true)
+}
+
+pub fn handle(run: &RunDir, task: &TaskId, request: Request, commit: Committer) -> Result<Value> {
 	match request {
-		Request::Commit { milestone } => {
-			before_commit(task)?;
-			let sha = commit_task(run, config, task, &milestone)?;
-			Ok(json!({ "sha": sha }))
-		}
+		Request::Commit { milestone } => match commit(task, &milestone) {
+			Poll::Pending => Ok(json!({ "pending": true })),
+			Poll::Ready(sha) => Ok(json!({ "sha": sha? })),
+		},
 		Request::JobSubmit {
 			cmd,
 			cwd,
@@ -265,10 +261,9 @@ fn remove_refused(path: &Path) -> io::Result<()> {
 
 fn answer_one(
 	run: &RunDir,
-	config: &Config,
 	task: &TaskId,
 	path: &Path,
-	before_commit: BeforeCommit,
+	commit: Committer,
 ) -> Result<Option<Response>> {
 	let bytes = match read_worker_file(path) {
 		Ok(bytes) => bytes,
@@ -287,12 +282,16 @@ fn answer_one(
 		} => Some((*timeout_seconds).min(MAX_WAIT_SECONDS)),
 		_ => None,
 	};
-	let mut value = match handle(run, config, task, request, before_commit) {
+	let is_commit = matches!(request, Request::Commit { .. });
+	let mut value = match handle(run, task, request, commit) {
 		Ok(value) => value,
 		Err(error) => return Ok(Some(failure(&error))),
 	};
+	if is_commit && is_pending(&value) {
+		return Ok(None);
+	}
 	if let Some(timeout_seconds) = waiting_timeout
-		&& value["pending"] == json!(true)
+		&& is_pending(&value)
 	{
 		if !deadline_passed(path, timeout_seconds) {
 			return Ok(None);
@@ -343,22 +342,14 @@ pub fn prepare_task_requests(run: &RunDir, task: &TaskId) -> Result<()> {
 	Ok(())
 }
 
-fn serve_task(
-	run: &RunDir,
-	config: &Config,
-	task: &TaskId,
-	dir: &Path,
-	before_commit: BeforeCommit,
-) -> Result<usize> {
+fn serve_task(run: &RunDir, task: &TaskId, dir: &Path, commit: Committer) -> Result<usize> {
 	let mut answered = 0;
 	for stem in request_stems(dir)? {
 		let target = response_path(dir, &stem);
 		if target.exists() {
 			continue;
 		}
-		if let Some(response) =
-			answer_one(run, config, task, &request_path(dir, &stem), before_commit)?
-		{
+		if let Some(response) = answer_one(run, task, &request_path(dir, &stem), commit)? {
 			write_atomic(&target, &serde_json::to_vec(&response)?)?;
 			answered += 1;
 		}
@@ -366,10 +357,10 @@ fn serve_task(
 	Ok(answered)
 }
 
-pub fn serve_pending(run: &RunDir, config: &Config, before_commit: BeforeCommit) -> Result<usize> {
+pub fn serve_pending(run: &RunDir, commit: Committer) -> Result<usize> {
 	let mut answered = 0;
 	for (task, dir) in running_task_dirs(run)? {
-		match serve_task(run, config, &task, &dir, before_commit) {
+		match serve_task(run, &task, &dir, commit) {
 			Ok(count) => answered += count,
 			Err(error) => eprintln!("spool: skipped task {task}: {error:#}"),
 		}

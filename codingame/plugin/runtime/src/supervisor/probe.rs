@@ -11,7 +11,6 @@ use crate::usage::{
 	Probe, five_hour_full, fresh_usage, over_weekly_pace, record_usage, rejected_until, spawn_probe,
 };
 
-const PROBE_RETRY: Duration = Duration::from_secs(60);
 const CREDENTIALS_HORIZON_SECONDS: u64 = 15 * 60;
 const PROBE_WHO: &str = "probe";
 
@@ -22,10 +21,28 @@ pub(super) struct RunningProbe {
 
 impl Supervisor {
 	fn probe_allowed(&self) -> bool {
+		let retry = Duration::from_secs(self.cfg.probe_retry_seconds);
 		self.probe.is_none()
 			&& self
 				.last_probe
-				.is_none_or(|probed| probed.elapsed() >= PROBE_RETRY)
+				.is_none_or(|probed| probed.elapsed() >= retry)
+	}
+
+	pub(super) fn discard_probe(&mut self) {
+		let Some(mut running) = self.probe.take() else {
+			return;
+		};
+		report(
+			"usage probe",
+			running.probe.child.kill().map_err(Into::into),
+		);
+		report(
+			"usage probe",
+			running.probe.child.wait().map(drop).map_err(Into::into),
+		);
+		drop(running.probe.finish());
+		let journaled = journal_append(&self.run, "usage probe discarded at stop");
+		report("usage probe", journaled);
 	}
 
 	fn start_probe(&mut self) {

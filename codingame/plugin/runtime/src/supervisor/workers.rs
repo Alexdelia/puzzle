@@ -98,7 +98,7 @@ fn notes_text(run: &RunDir, id: &TaskId) -> String {
 
 pub(super) struct WorkerProcess {
 	task: TaskId,
-	child: Child,
+	pub(super) child: Child,
 	model: String,
 	started: Instant,
 	stream_log: PathBuf,
@@ -145,7 +145,7 @@ impl Supervisor {
 	}
 
 	pub(super) fn record_agent(
-		&self,
+		&mut self,
 		who: &str,
 		model: &str,
 		outcome: &StreamOutcome,
@@ -158,38 +158,55 @@ impl Supervisor {
 			ledger_append(&self.run, who, model, outcome, wall_seconds),
 		);
 		if let Some(info) = &outcome.rate_limit {
-			report("usage", record_usage(&self.run, info, now));
+			let recorded = record_usage(&self.run, info, now);
+			if recorded.is_ok() {
+				self.usage_unknown_reported = false;
+			}
+			report("usage", recorded);
 		}
 	}
 
-	fn finish_worker(&mut self, worker: WorkerProcess, now: i64) -> Result<()> {
+	fn settle_unfinished(&self, id: &TaskId) -> Result<TaskState> {
 		let store = TaskStore { run: &self.run };
-		let id = &worker.task;
-		let mut state = store.state(id)?;
-		if state == TaskState::Running {
-			store.transition(id, TaskState::Failed)?;
-			report(
-				"notes",
-				store.append_notes(id, &format!("\n{EXITED_WITHOUT_OUTCOME}\n")),
-			);
-			state = TaskState::Failed;
+		if self.stopping {
+			store.transition(id, TaskState::Interrupted)?;
+			return Ok(TaskState::Interrupted);
 		}
+		store.transition(id, TaskState::Failed)?;
+		report(
+			"notes",
+			store.append_notes(id, &format!("\n{EXITED_WITHOUT_OUTCOME}\n")),
+		);
+		Ok(TaskState::Failed)
+	}
+
+	pub(super) fn finish_worker(&mut self, worker: WorkerProcess, now: i64) -> Result<()> {
+		let id = &worker.task;
 		let outcome = parse_stream(&worker.stream_log);
 		self.record_agent(&id.0, &worker.model, &outcome, worker.started, now);
+		let mut state = TaskStore { run: &self.run }.state(id)?;
 		if let Some(failure) = taint_failure(remove_planted(&self.run, self.exempt)) {
 			state = self.flag_tainted(id, state, &failure);
 		}
-		if state == TaskState::Queued {
-			return Ok(());
+		if state == TaskState::Running {
+			state = self.settle_unfinished(id)?;
 		}
-		emit(
-			&self.run,
-			Event::TaskFinished {
-				task: id.clone(),
-				state,
-			},
-		)?;
-		journal_append(&self.run, &format!("finished {id} {state:?}"))
+		match state {
+			TaskState::Queued => Ok(()),
+			TaskState::Interrupted => {
+				journal_append(&self.run, &format!("interrupted {id} at stop"))
+			}
+			_ => {
+				emit(
+					&self.run,
+					Event::TaskFinished {
+						task: id.clone(),
+						state,
+					},
+				)?;
+				journal_append(&self.run, &format!("finished {id} {state:?}"))
+			}
+		}
 	}
 
 	pub(super) fn launch_workers(&mut self, now: i64) -> Result<()> {
@@ -214,9 +231,11 @@ impl Supervisor {
 			}
 			TaskStore { run: &self.run }.transition(&id, TaskState::Running)?;
 			match self.launch_worker(&id) {
-				Ok(()) => {
+				Ok(model) => {
 					self.launch_failures = 0;
 					self.launch_retry_at = None;
+					let journaled = journal_append(&self.run, &format!("launched {id} on {model}"));
+					report("journal", journaled);
 				}
 				Err(error) => {
 					self.launch_failed(&id, &error)?;
@@ -227,7 +246,7 @@ impl Supervisor {
 		Ok(())
 	}
 
-	fn launch_worker(&mut self, id: &TaskId) -> Result<()> {
+	fn launch_worker(&mut self, id: &TaskId) -> Result<String> {
 		prepare_task_requests(&self.run, id)?;
 		let spec = TaskStore { run: &self.run }.spec(id)?;
 		let template_path = self.cfg.plugin_dir.join(WORKER_PROMPT);
@@ -260,10 +279,7 @@ impl Supervisor {
 			started: Instant::now(),
 			stream_log: agent.stream_log,
 		});
-		journal_append(
-			&self.run,
-			&format!("launched {id} on {model}", model = agent.model),
-		)
+		Ok(agent.model)
 	}
 
 	fn launch_failed(&mut self, id: &TaskId, error: &anyhow::Error) -> Result<()> {
