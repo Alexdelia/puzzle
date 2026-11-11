@@ -113,7 +113,10 @@ pub struct StatusArgs {
 #[derive(Debug, clap::Args)]
 pub struct ExtendArgs {
 	pub contest_dir: PathBuf,
-	#[arg(long)]
+	#[arg(
+		long,
+		help = "new TOTAL active budget in hours, counted from the run start; must exceed the hours already used"
+	)]
 	pub active_budget_hours: Option<u64>,
 	#[arg(long)]
 	pub deadline: Option<String>,
@@ -364,7 +367,13 @@ fn extend(args: ExtendArgs) -> anyhow::Result<()> {
 	let info = update_run_info(&run, |info| {
 		let mut info = info?;
 		if let Some(hours) = args.active_budget_hours {
-			info.active_budget_seconds = Some(hours * SECONDS_PER_HOUR);
+			let budget_seconds = hours * SECONDS_PER_HOUR;
+			let used_hours = info.active_seconds as f64 / SECONDS_PER_HOUR as f64;
+			ensure!(
+				budget_seconds > info.active_seconds,
+				"--active-budget-hours {hours} is the total budget and the run already used {used_hours:.1} h of active time: pass more than that"
+			);
+			info.active_budget_seconds = Some(budget_seconds);
 		}
 		if deadline_unix.is_some() {
 			info.deadline_unix = deadline_unix;

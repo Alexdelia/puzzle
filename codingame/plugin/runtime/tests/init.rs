@@ -583,3 +583,34 @@ fn init_refuses_relative_path_entries() {
 	assert!(stderr.contains("relative"), "{stderr}");
 	assert!(!contest_dir.join("run/run.json").exists());
 }
+
+#[test]
+fn extend_refuses_a_total_budget_already_used() {
+	let repo = tempfile::tempdir().unwrap();
+	git_repo_with_commit(repo.path());
+	let contest_dir = repo.path().join("contest");
+	run_init(&contest_dir, repo.path(), &["--active-budget-hours", "2"]);
+	let run = RunDir {
+		root: fs::canonicalize(&contest_dir).unwrap(),
+	};
+	let mut info: RunInfo = serde_json::from_slice(&fs::read(run.run_json()).unwrap()).unwrap();
+	info.active_seconds = 3 * 3600 + 1800;
+	write_atomic(&run.run_json(), &serde_json::to_vec(&info).unwrap()).unwrap();
+	let before = fs::read(run.run_json()).unwrap();
+	let output = Command::new(env!("CARGO_BIN_EXE_contest"))
+		.arg("extend")
+		.arg(&contest_dir)
+		.args(["--active-budget-hours", "3"])
+		.output()
+		.unwrap();
+	assert!(!output.status.success());
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(stderr.contains("3.5 h"), "{stderr}");
+	assert!(stderr.contains("total"), "{stderr}");
+	assert_eq!(fs::read(run.run_json()).unwrap(), before);
+	let help = Command::new(env!("CARGO_BIN_EXE_contest"))
+		.args(["extend", "--help"])
+		.output()
+		.unwrap();
+	assert!(String::from_utf8_lossy(&help.stdout).contains("TOTAL"));
+}
