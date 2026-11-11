@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Write;
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
@@ -1824,4 +1825,316 @@ fn background_start_reports_started_only_after_announce() {
 	wait_until(10, "supervisor stopped", || {
 		contest_status(run).contains("supervisor: stopped")
 	});
+}
+
+fn rate_limit_line(status: &str, five_hour: f64) -> Value {
+	let reset = now() + 3600;
+	json!({
+		"type": "rate_limit_event",
+		"rate_limit_info": {
+			"status": status,
+			"resetsAt": reset,
+			"rateLimitType": "five_hour",
+			"unifiedWindows": {
+				"five_hour": {"utilization": five_hour, "resetsAt": reset},
+				"seven_day": {"utilization": 0.2, "resetsAt": now() + WEEK_SECONDS / 2},
+			},
+		},
+	})
+}
+
+fn limit_stream(path: &Path, status: &str, five_hour: f64) {
+	let result = json!({
+		"type": "result",
+		"subtype": "success",
+		"is_error": true,
+		"result": "usage limit reached",
+		"total_cost_usd": 0.0,
+		"usage": {"input_tokens": 0, "output_tokens": 0},
+	});
+	let event = rate_limit_line(status, five_hour);
+	fs::write(path, format!("{event}\n{result}\n")).unwrap();
+}
+
+#[test]
+fn usage_limit_hit_requeues_and_blocks_launches() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let stream = contest.home.join("limit-stream.jsonl");
+	limit_stream(&stream, "rejected", 1.0);
+	let id = create_task(run, "sim-bench", 7);
+	let action = format!("FAKE_CLAUDE_SCRIPT={stream}", stream = stream.display());
+	let supervisor = start(&contest, &action);
+	wait_until(20, "usage limit journaled", || {
+		journal_lines(run, "hit the usage limit") >= 1
+	});
+	sleep(Duration::from_secs(3));
+	let status = contest_status(run);
+	supervisor.stop(run);
+	assert_eq!(state(run, &id), TaskState::Queued);
+	assert_eq!(TaskStore { run }.spec(&id).unwrap().priority, 7);
+	assert_eq!(journal_lines(run, &format!("launched {id}")), 1);
+	assert_eq!(event_count(run, "launch_failed"), 0);
+	assert_eq!(event_count(run, "task_finished"), 0);
+	assert!(event_count(run, "usage_blocked") >= 1);
+	assert!(status.contains("blocked: usage"), "{status}");
+}
+
+fn hook_blocks_bash(run: &RunDir, task: &TaskId) -> bool {
+	let mut child = Command::new(BIN)
+		.args(["hook", "pre-tool-use"])
+		.env("CONTEST_RUN", &run.root)
+		.env("CONTEST_TASK", &task.0)
+		.stdin(Stdio::piped())
+		.stdout(Stdio::null())
+		.stderr(Stdio::null())
+		.spawn()
+		.unwrap();
+	let payload = json!({"tool_name": "Bash", "tool_input": {"command": "ls"}});
+	child
+		.stdin
+		.take()
+		.unwrap()
+		.write_all(payload.to_string().as_bytes())
+		.unwrap();
+	child.wait().unwrap().code() == Some(2)
+}
+
+#[test]
+fn utilization_at_cap_writes_stop_marker_and_hook_blocks() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	let marker = run.task_meta(&id).join("STOP");
+	let go = contest.home.join("go");
+	let flag = contest.home.join("stopped-once");
+	let action = format!(
+		"if [ -e {flag} ]; then exec sleep 60; fi; echo '{event}'; while [ ! -e {go} ]; do sleep 0.1; done; touch {flag}",
+		flag = flag.display(),
+		event = rate_limit_line("allowed_warning", 0.98),
+		go = go.display()
+	);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "stop marker", || marker.is_file());
+	assert!(hook_blocks_bash(run, &id));
+	fs::write(&go, "").unwrap();
+	wait_until(20, "requeued near the cap", || {
+		journal_lines(run, &format!("requeued {id}")) >= 1
+	});
+	wait_until(20, "relaunched", || flag.is_file() && !marker.exists());
+	supervisor.stop(run);
+	assert_eq!(event_count(run, "task_finished"), 0);
+	assert_eq!(event_count(run, "launch_failed"), 0);
+}
+
+#[test]
+fn fast_exit_is_a_launch_failure() {
+	let contest = contest(3);
+	let run = &contest.run;
+	let tasks: Vec<TaskId> = ["a", "b", "c"]
+		.into_iter()
+		.map(|kind| create_task(run, kind, 0))
+		.collect();
+	let supervisor = start(
+		&contest,
+		"echo claude is broken >&2; FAKE_CLAUDE_SCRIPT=/dev/null",
+	);
+	wait_until(20, "launch failures", || {
+		event_count(run, "launch_failed") >= 3
+	});
+	sleep(Duration::from_secs(3));
+	supervisor.stop(run);
+	for id in &tasks {
+		assert_eq!(state(run, id), TaskState::Queued);
+	}
+	assert_eq!(journal_lines(run, "launched "), 3);
+	assert_eq!(event_count(run, "task_finished"), 0);
+	assert!(
+		events(run)
+			.iter()
+			.filter(|event| event["event"] == "launch_failed")
+			.all(|event| event["error"]
+				.as_str()
+				.unwrap()
+				.contains("claude is broken"))
+	);
+}
+
+#[test]
+fn task_failing_launch_three_times_fails() {
+	let contest = contest(1);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.retry_base_seconds = 1);
+	let id = create_task(run, "sim-bench", 0);
+	let supervisor = start(&contest, "FAKE_CLAUDE_SCRIPT=/dev/null");
+	wait_until(30, "task failed", || state(run, &id) == TaskState::Failed);
+	supervisor.stop(run);
+	assert_eq!(event_count(run, "launch_failed"), 3);
+	assert!(has_event(
+		run,
+		json!({"event": "task_finished", "task": id.0, "state": "failed"})
+	));
+	let notes = fs::read_to_string(run.task_dir(&id).join("notes.md")).unwrap();
+	assert!(notes.contains("launch failed 3 times"), "{notes}");
+}
+
+fn pid_in(path: &Path) -> i32 {
+	fs::read_to_string(path).unwrap().trim().parse().unwrap()
+}
+
+#[test]
+fn idle_worker_is_killed_and_requeued() {
+	let contest = contest(1);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.worker_idle_minutes = 1);
+	let id = create_task(run, "sim-bench", 0);
+	let stream = run.agents().join(&id.0).join("stream.jsonl");
+	let flag = contest.home.join("hung-once");
+	let pid_file = contest.home.join("hung-pid");
+	let action = format!(
+		"if [ -e {flag} ]; then contest task done; else touch {flag}; echo $$ > {pid}; touch -d '2 hours ago' {stream}; exec sleep 60; fi",
+		flag = flag.display(),
+		pid = pid_file.display(),
+		stream = stream.display()
+	);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "idle kill", || {
+		journal_lines(run, "no stream output") >= 1
+	});
+	wait_until(20, "done after relaunch", || {
+		state(run, &id) == TaskState::Done
+	});
+	supervisor.stop(run);
+	let pid = pid_in(&pid_file);
+	assert!(!Path::new(&format!("/proc/{pid}")).exists());
+	assert_eq!(journal_lines(run, &format!("requeued {id}")), 1);
+}
+
+#[test]
+fn worker_alive_after_result_is_killed_and_requeued() {
+	let contest = contest(1);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.result_grace_seconds = 1);
+	let id = create_task(run, "sim-bench", 0);
+	let flag = contest.home.join("lingered-once");
+	let pid_file = contest.home.join("lingering-pid");
+	let action = format!(
+		"if [ -e {flag} ]; then contest task done; else touch {flag}; echo $$ > {pid}; cat \"$FAKE_CLAUDE_SCRIPT\"; exec sleep 60; fi",
+		flag = flag.display(),
+		pid = pid_file.display()
+	);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "result grace kill", || {
+		journal_lines(run, "after its result") >= 1
+	});
+	wait_until(20, "done after relaunch", || {
+		state(run, &id) == TaskState::Done
+	});
+	supervisor.stop(run);
+	let pid = pid_in(&pid_file);
+	assert!(!Path::new(&format!("/proc/{pid}")).exists());
+}
+
+#[test]
+fn running_task_without_worker_is_requeued() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	let supervisor = start(&contest, "true");
+	wait_until(10, "status file", || run.status().is_file());
+	TaskStore { run }
+		.transition(&id, TaskState::Running)
+		.unwrap();
+	wait_until(10, "requeued", || state(run, &id) == TaskState::Queued);
+	supervisor.stop(run);
+	assert_eq!(journal_lines(run, &format!("requeued {id}")), 1);
+}
+
+#[test]
+fn manager_failures_are_journaled_on_change_and_shown() {
+	let contest = contest(0);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.retry_base_seconds = 1);
+	result_stream(&contest.manager_stream, "no json here");
+	let supervisor = start(&contest, "true");
+	wait_until(20, "manager failure journaled", || {
+		journal_lines(run, "manager failed") >= 1
+	});
+	let status = contest_status(run);
+	assert!(status.contains("blocked: manager"), "{status}");
+	wait_until(20, "repeated manager errors", || {
+		event_count(run, "manager_error") >= 3
+	});
+	assert_eq!(journal_lines(run, "manager failed"), 1);
+	let actions = json!([{"action": "cancel", "task": "t0099-missing"}]);
+	result_stream(
+		&contest.manager_stream,
+		&format!("plan\n```json\n{actions}\n```"),
+	);
+	wait_until(20, "changed failure journaled", || {
+		journal_lines(run, "manager failed") >= 2
+	});
+	supervisor.stop(run);
+	let journal = fs::read_to_string(run.journal()).unwrap();
+	let first = journal
+		.lines()
+		.find(|line| line.contains("manager failed"))
+		.unwrap();
+	assert!(first.contains("no fenced json block"), "{first}");
+	assert!(first.contains("retry in 1 s"), "{first}");
+}
+
+#[test]
+fn usage_block_is_journaled_and_shown() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let until = now() + 3600;
+	let blocked = RateLimitInfo {
+		status: "rejected".into(),
+		resets_at: until,
+		..usage_at(0.5)
+	};
+	record_usage(run, &blocked, now()).unwrap();
+	create_task(run, "sim-bench", 0);
+	let supervisor = start(&contest, "contest task done");
+	wait_until(20, "usage block journaled", || {
+		journal_lines(run, "launches blocked") >= 1
+	});
+	let status = contest_status(run);
+	supervisor.stop(run);
+	assert!(status.contains("blocked: usage"), "{status}");
+	assert!(journal_lines(run, &contest::journal::utc_time(until)) >= 1);
+}
+
+#[test]
+fn taint_over_budget_pauses_without_failing() {
+	let contest = contest(1);
+	let run = &contest.run;
+	edit_config(&contest, |config| {
+		config.taint_scan_max_entries = 200;
+		config.retry_base_seconds = 1;
+	});
+	let first = create_task(run, "first", 1);
+	let second = create_task(run, "second", 0);
+	let bulk = run.task_dir(&first).join("bulk");
+	let action = format!(
+		"if [[ $CONTEST_TASK == {first} ]]; then mkdir -p {bulk}; for i in $(seq 300); do : > {bulk}/f$i; done; fi; contest task done",
+		bulk = bulk.display()
+	);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "over budget event", || {
+		event_count(run, "taint_over_budget") >= 1
+	});
+	sleep(Duration::from_secs(2));
+	let status = contest_status(run);
+	assert_eq!(state(run, &second), TaskState::Queued);
+	fs::remove_dir_all(&bulk).unwrap();
+	wait_until(20, "second runs after cleanup", || {
+		state(run, &second) == TaskState::Done
+	});
+	supervisor.stop(run);
+	assert_eq!(state(run, &first), TaskState::Done);
+	assert!(status.contains("blocked: taint"), "{status}");
+	assert_eq!(journal_lines(run, "taint scan failed"), 0);
+	assert!(journal_lines(run, "over its entry budget") >= 1);
 }

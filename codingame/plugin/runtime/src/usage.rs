@@ -81,8 +81,41 @@ pub fn over_weekly_pace(info: &RateLimitInfo, now: i64, config: &Config) -> bool
 	percent(&info.seven_day) + i64::from(config.weekly_pace_margin_percent) >= elapsed_percent
 }
 
+const ALLOWED_STATUS_PREFIX: &str = "allowed";
+const FULL_UTILIZATION: f64 = 1.0;
+
+pub fn is_limited_status(status: &str) -> bool {
+	!status.starts_with(ALLOWED_STATUS_PREFIX)
+}
+
 pub fn rejected_until(info: &RateLimitInfo, now: i64) -> Option<i64> {
-	(info.status == "rejected" && info.resets_at > now).then_some(info.resets_at)
+	(is_limited_status(&info.status) && info.resets_at > now).then_some(info.resets_at)
+}
+
+fn exhausted_windows(info: &RateLimitInfo, now: i64) -> impl Iterator<Item = &Window> {
+	[&info.five_hour, &info.seven_day]
+		.into_iter()
+		.filter(move |window| window.resets_at > now && window.utilization >= FULL_UTILIZATION)
+}
+
+pub fn limit_hit(
+	outcome: &StreamOutcome,
+	last_known: Option<&RateLimitInfo>,
+	now: i64,
+) -> Option<i64> {
+	let info = outcome.rate_limit.as_ref().or(last_known)?;
+	let rejected = is_limited_status(&info.status);
+	let exhausted = outcome.is_error && exhausted_windows(info, now).next().is_some();
+	if !rejected && !exhausted {
+		return None;
+	}
+	let status_reset = rejected.then_some(info.resets_at);
+	let reset = exhausted_windows(info, now)
+		.map(|window| window.resets_at)
+		.chain(status_reset)
+		.filter(|reset| *reset > now)
+		.max();
+	Some(reset.unwrap_or(now))
 }
 
 pub struct Probe {

@@ -155,6 +155,14 @@ impl RunDir {
 		self.task_dir(id).join(TASK_META_DIR)
 	}
 
+	pub fn task_stop_marker(&self, id: &TaskId) -> PathBuf {
+		self.task_meta(id).join("STOP")
+	}
+
+	pub fn blocks(&self) -> PathBuf {
+		self.run().join("blocks")
+	}
+
 	pub fn jobs(&self) -> PathBuf {
 		self.run().join("jobs")
 	}

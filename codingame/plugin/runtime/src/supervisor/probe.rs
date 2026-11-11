@@ -2,11 +2,11 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 
-use super::{STREAM_FILE, Supervisor, report};
+use super::{STREAM_FILE, Supervisor, USAGE_BLOCK, report};
 use crate::agent::RateLimitInfo;
 use crate::claude_config::credentials_expire_within;
 use crate::events::{Event, emit};
-use crate::journal::journal_append;
+use crate::journal::{journal_append, utc_time};
 use crate::usage::{
 	PROBE_MODEL, Probe, five_hour_full, fresh_usage, over_weekly_pace, rejected_until, spawn_probe,
 };
@@ -118,15 +118,51 @@ impl Supervisor {
 		info
 	}
 
-	pub(super) fn usage_allows(&mut self, info: &RateLimitInfo, now: i64) -> bool {
-		if let Some(until) = rejected_until(info, now) {
+	fn usage_block_reason(&mut self, now: i64) -> Option<String> {
+		if let Some(until) = self.limit_until.filter(|until| *until > now) {
+			return Some(format!(
+				"a worker hit the usage limit, until {time}",
+				time = utc_time(until)
+			));
+		}
+		let Some(info) = self.fresh_usage(now) else {
+			return Some("no fresh usage sample, probing".to_owned());
+		};
+		if let Some(until) = rejected_until(&info, now) {
 			if self.blocked_until != Some(until) {
 				self.blocked_until = Some(until);
 				report("usage", emit(&self.run, Event::UsageBlocked { until }));
 			}
-			return false;
+			return Some(format!(
+				"usage {status} until {time}",
+				status = info.status,
+				time = utc_time(until)
+			));
 		}
-		!five_hour_full(info, now, self.workers.len(), &self.cfg)
-			&& !over_weekly_pace(info, now, &self.cfg)
+		if five_hour_full(&info, now, self.workers.len(), &self.cfg) {
+			return Some(format!(
+				"5h usage at the {limit}% cap with the per-task reserve",
+				limit = self.cfg.five_hour_limit_percent
+			));
+		}
+		over_weekly_pace(&info, now, &self.cfg)
+			.then(|| "7d usage ahead of the weekly pace".to_owned())
+	}
+
+	pub(super) fn usage_gate(&mut self, now: i64) -> bool {
+		let reason = self.usage_block_reason(now);
+		let allowed = reason.is_none();
+		let previous = self.blocks.get(USAGE_BLOCK).cloned();
+		if self.set_block(USAGE_BLOCK, reason.clone()) {
+			let line = match (reason, previous) {
+				(Some(reason), _) => Some(format!("launches blocked: {reason}")),
+				(None, Some(previous)) => Some(format!("launches unblocked, was: {previous}")),
+				(None, None) => None,
+			};
+			if let Some(line) = line {
+				report("usage", journal_append(&self.run, &line));
+			}
+		}
+		allowed
 	}
 }

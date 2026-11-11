@@ -1,27 +1,39 @@
-use std::fs;
-use std::path::PathBuf;
+use std::fs::{self, File};
+use std::io::{self, Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
 use std::process::Child;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use serde_json::Value;
 
-use super::{STREAM_FILE, Supervisor, remove_planted, report, retry_backoff, taint_failure};
-use crate::agent::{AgentRun, StreamOutcome, kill_agent_group, parse_stream};
+use super::{
+	LAUNCH_BLOCK, SECONDS_PER_MINUTE, STREAM_FILE, Supervisor, remove_if_exists, report,
+	retry_backoff, unix_now,
+};
+use crate::agent::{AgentRun, RateLimitInfo, StreamOutcome, kill_agent_group, parse_stream};
+use crate::atomic::write_atomic;
 use crate::claude_config::agent_env;
 use crate::events::{Event, emit};
-use crate::journal::journal_append;
+use crate::journal::{journal_append, utc_time};
 use crate::ledger::ledger_append;
 use crate::paths::{RunDir, TaskId};
 use crate::spool::prepare_task_requests;
 use crate::taint::read_worker_file;
 use crate::task::{TaskSpec, TaskState, TaskStore};
-use crate::usage::record_usage;
+use crate::usage::{five_hour_used_percent, limit_hit, load_usage, record_usage};
 
 const NOTES_PROMPT_MAX_BYTES: usize = 16 * 1024;
 const WORKER_PROMPT: &str = "prompts/worker.md";
 const EXITED_WITHOUT_OUTCOME: &str = "exited without outcome";
 const NONE_TEXT: &str = "(none)";
 const NOTES_UNREADABLE: &str = "notes.md unreadable or too large";
+const MAX_TASK_LAUNCH_FAILURES: u32 = 3;
+const STDERR_TAIL_BYTES: u64 = 400;
+const STREAM_TAIL_CHUNK: usize = 1024 * 1024;
+const RATE_LIMIT_TYPE: &str = "rate_limit_event";
+const RESULT_TYPE: &str = "result";
+const SOFT_STOP_REASON: &str = "stopped near the usage cap";
 
 fn fill(template: &str, values: &[(&str, &str)]) -> String {
 	let mut filled = String::with_capacity(template.len());
@@ -96,12 +108,110 @@ fn notes_text(run: &RunDir, id: &TaskId) -> String {
 	)
 }
 
+fn stderr_tail(stream_log: &Path) -> String {
+	let path = stream_log.with_extension("stderr.log");
+	let Ok(mut file) = File::open(&path) else {
+		return String::new();
+	};
+	let length = file.metadata().map_or(0, |meta| meta.len());
+	let mut bytes = Vec::new();
+	let read = file
+		.seek(SeekFrom::Start(length.saturating_sub(STDERR_TAIL_BYTES)))
+		.and_then(|_| file.take(STDERR_TAIL_BYTES).read_to_end(&mut bytes));
+	if read.is_err() {
+		return String::new();
+	}
+	String::from_utf8_lossy(&bytes).trim().to_owned()
+}
+
+fn idle_for(path: &Path) -> Duration {
+	fs::metadata(path)
+		.and_then(|meta| meta.modified())
+		.ok()
+		.and_then(|modified| modified.elapsed().ok())
+		.unwrap_or_default()
+}
+
+enum StreamLine {
+	RateLimit(RateLimitInfo),
+	Result,
+}
+
+fn classify_line(line: &str) -> Option<StreamLine> {
+	if !line.contains(RATE_LIMIT_TYPE) && !line.contains(RESULT_TYPE) {
+		return None;
+	}
+	let value: Value = serde_json::from_str(line).ok()?;
+	match value["type"].as_str()? {
+		RATE_LIMIT_TYPE => serde_json::from_value(value["rate_limit_info"].clone())
+			.ok()
+			.map(StreamLine::RateLimit),
+		RESULT_TYPE => Some(StreamLine::Result),
+		_ => None,
+	}
+}
+
+fn read_new_lines(path: &Path, offset: &mut u64) -> io::Result<Vec<StreamLine>> {
+	let mut file = File::open(path)?;
+	file.seek(SeekFrom::Start(*offset))?;
+	let mut bytes = Vec::new();
+	file.take(STREAM_TAIL_CHUNK as u64)
+		.read_to_end(&mut bytes)?;
+	let complete = match bytes.iter().rposition(|&byte| byte == b'\n') {
+		Some(last) => last + 1,
+		None if bytes.len() == STREAM_TAIL_CHUNK => bytes.len(),
+		None => 0,
+	};
+	*offset += complete as u64;
+	Ok(String::from_utf8_lossy(&bytes[..complete])
+		.lines()
+		.filter_map(classify_line)
+		.collect())
+}
+
 pub(super) struct WorkerProcess {
 	task: TaskId,
 	pub(super) child: Child,
 	model: String,
 	started: Instant,
 	stream_log: PathBuf,
+	stream_offset: u64,
+	result_at: Option<Instant>,
+	kill_reason: Option<String>,
+}
+
+impl WorkerProcess {
+	fn take_new_rate_limits(&mut self) -> Vec<RateLimitInfo> {
+		let lines = read_new_lines(&self.stream_log, &mut self.stream_offset).unwrap_or_default();
+		let mut limits = Vec::new();
+		for line in lines {
+			match line {
+				StreamLine::RateLimit(info) => limits.push(info),
+				StreamLine::Result => {
+					self.result_at.get_or_insert_with(Instant::now);
+				}
+			}
+		}
+		limits
+	}
+
+	fn overdue(&self, idle: Duration, result_grace: Duration) -> Option<String> {
+		if self
+			.result_at
+			.is_some_and(|result_at| result_at.elapsed() >= result_grace)
+		{
+			return Some(format!(
+				"still alive {seconds} s after its result",
+				seconds = result_grace.as_secs()
+			));
+		}
+		(idle_for(&self.stream_log) >= idle).then(|| {
+			format!(
+				"no stream output for {minutes} min",
+				minutes = idle.as_secs() / SECONDS_PER_MINUTE
+			)
+		})
+	}
 }
 
 impl Supervisor {
@@ -124,6 +234,63 @@ impl Supervisor {
 		}
 	}
 
+	pub(super) fn watch_workers(&mut self, now: i64) {
+		let idle = Duration::from_secs(self.cfg.worker_idle_minutes * SECONDS_PER_MINUTE);
+		let result_grace = Duration::from_secs(self.cfg.result_grace_seconds);
+		let mut fullest: Option<RateLimitInfo> = None;
+		for worker in &mut self.workers {
+			for info in worker.take_new_rate_limits() {
+				let used = five_hour_used_percent(&info, now);
+				if fullest
+					.as_ref()
+					.is_none_or(|kept| five_hour_used_percent(kept, now) <= used)
+				{
+					fullest = Some(info);
+				}
+			}
+			if worker.kill_reason.is_some() {
+				continue;
+			}
+			if let Some(reason) = worker.overdue(idle, result_grace) {
+				report("kill worker", kill_agent_group(&worker.child));
+				worker.kill_reason = Some(reason);
+			}
+		}
+		let Some(info) = fullest else {
+			return;
+		};
+		let recorded = record_usage(&self.run, &info, now);
+		if recorded.is_ok() {
+			self.usage_unknown_reported = false;
+		}
+		report("usage", recorded);
+		let used = five_hour_used_percent(&info, now);
+		if used >= self.cfg.five_hour_limit_percent {
+			self.soft_stop_workers(used);
+		}
+	}
+
+	fn soft_stop_workers(&self, used_percent: u8) {
+		for worker in &self.workers {
+			let marker = self.run.task_stop_marker(&worker.task);
+			if marker.exists() {
+				continue;
+			}
+			let stopped = write_atomic(&marker, b"usage cap")
+				.map_err(anyhow::Error::from)
+				.and_then(|()| {
+					journal_append(
+						&self.run,
+						&format!(
+							"asked {id} to wrap up: 5h usage at {used_percent}%",
+							id = worker.task
+						),
+					)
+				});
+			report("soft stop", stopped);
+		}
+	}
+
 	pub(super) fn reap_workers(&mut self, now: i64) -> Result<()> {
 		self.kill_cancelled_workers();
 		let mut index = 0;
@@ -140,6 +307,20 @@ impl Supervisor {
 					index += 1;
 				}
 			}
+		}
+		Ok(())
+	}
+
+	pub(super) fn requeue_orphaned_running(&mut self) -> Result<()> {
+		let orphaned: Vec<TaskId> = TaskStore { run: &self.run }
+			.list()?
+			.into_iter()
+			.filter(|task| task.state == TaskState::Running)
+			.map(|task| task.id)
+			.filter(|id| !self.workers.iter().any(|worker| &worker.task == id))
+			.collect();
+		for id in orphaned {
+			self.requeue(&id, "running without a worker process")?;
 		}
 		Ok(())
 	}
@@ -166,12 +347,77 @@ impl Supervisor {
 		}
 	}
 
-	fn settle_unfinished(&self, id: &TaskId) -> Result<TaskState> {
+	fn requeue(&self, id: &TaskId, reason: &str) -> Result<TaskState> {
 		let store = TaskStore { run: &self.run };
+		store.transition(id, TaskState::Interrupted)?;
+		store.transition(id, TaskState::Queued)?;
+		journal_append(&self.run, &format!("requeued {id}: {reason}"))?;
+		Ok(TaskState::Queued)
+	}
+
+	fn usage_limit_hit(&mut self, until: i64, now: i64) {
+		if until <= now {
+			return;
+		}
+		self.limit_until = Some(self.limit_until.map_or(until, |known| known.max(until)));
+		if self.blocked_until != Some(until) {
+			self.blocked_until = Some(until);
+			report("usage", emit(&self.run, Event::UsageBlocked { until }));
+		}
+	}
+
+	fn is_fast_exit(&self, worker: &WorkerProcess, outcome: &StreamOutcome) -> bool {
+		worker.started.elapsed() < Duration::from_secs(self.cfg.fast_exit_seconds)
+			&& (outcome.result_text.is_none() || outcome.output_tokens == 0)
+	}
+
+	fn fast_exit_error(worker: &WorkerProcess, outcome: &StreamOutcome) -> String {
+		let seconds = worker.started.elapsed().as_secs();
+		let what = if outcome.result_text.is_none() {
+			"without a result"
+		} else {
+			"with 0 output tokens"
+		};
+		let tail = stderr_tail(&worker.stream_log);
+		if tail.is_empty() {
+			format!("worker exited after {seconds} s {what}")
+		} else {
+			format!("worker exited after {seconds} s {what}, stderr: {tail}")
+		}
+	}
+
+	fn settle_unfinished(
+		&mut self,
+		worker: &WorkerProcess,
+		outcome: &StreamOutcome,
+		last_known: Option<&RateLimitInfo>,
+		now: i64,
+	) -> Result<TaskState> {
+		let id = &worker.task;
 		if self.stopping {
-			store.transition(id, TaskState::Interrupted)?;
+			TaskStore { run: &self.run }.transition(id, TaskState::Interrupted)?;
 			return Ok(TaskState::Interrupted);
 		}
+		if let Some(until) = limit_hit(outcome, last_known, now) {
+			self.usage_limit_hit(until, now);
+			let reason = format!(
+				"hit the usage limit, launches blocked until {time}",
+				time = utc_time(until)
+			);
+			return self.requeue(id, &reason);
+		}
+		if let Some(reason) = &worker.kill_reason {
+			return self.requeue(id, &format!("killed, {reason}"));
+		}
+		if self.run.task_stop_marker(id).exists() {
+			self.launch_succeeded(id);
+			return self.requeue(id, SOFT_STOP_REASON);
+		}
+		if self.is_fast_exit(worker, outcome) {
+			return self.launch_failed(id, &Self::fast_exit_error(worker, outcome));
+		}
+		self.launch_succeeded(id);
+		let store = TaskStore { run: &self.run };
 		store.transition(id, TaskState::Failed)?;
 		report(
 			"notes",
@@ -180,17 +426,7 @@ impl Supervisor {
 		Ok(TaskState::Failed)
 	}
 
-	pub(super) fn finish_worker(&mut self, worker: WorkerProcess, now: i64) -> Result<()> {
-		let id = &worker.task;
-		let outcome = parse_stream(&worker.stream_log);
-		self.record_agent(&id.0, &worker.model, &outcome, worker.started, now);
-		let mut state = TaskStore { run: &self.run }.state(id)?;
-		if let Some(failure) = taint_failure(remove_planted(&self.run, self.exempt)) {
-			state = self.flag_tainted(id, state, &failure);
-		}
-		if state == TaskState::Running {
-			state = self.settle_unfinished(id)?;
-		}
+	pub(super) fn announce_end(&self, id: &TaskId, state: TaskState) -> Result<()> {
 		match state {
 			TaskState::Queued => Ok(()),
 			TaskState::Interrupted => {
@@ -209,11 +445,39 @@ impl Supervisor {
 		}
 	}
 
+	pub(super) fn finish_worker(&mut self, worker: WorkerProcess, now: i64) -> Result<()> {
+		let id = worker.task.clone();
+		let outcome = parse_stream(&worker.stream_log);
+		let last_known = load_usage(&self.run).map(|(info, _)| info);
+		self.record_agent(&id.0, &worker.model, &outcome, worker.started, now);
+		let mut state = TaskStore { run: &self.run }.state(&id)?;
+		if let Some(failure) = self.scan_taint_now().failure {
+			state = self.flag_tainted(&id, state, &failure);
+		}
+		if state == TaskState::Running {
+			state = self.settle_unfinished(&worker, &outcome, last_known.as_ref(), now)?;
+		} else {
+			self.launch_succeeded(&id);
+		}
+		self.announce_end(&id, state)
+	}
+
+	fn launch_succeeded(&mut self, id: &TaskId) {
+		self.launch_failures = 0;
+		self.launch_streak.clear();
+		self.task_launch_failures.remove(id);
+	}
+
 	pub(super) fn launch_workers(&mut self, now: i64) -> Result<()> {
 		if self
 			.launch_retry_at
 			.is_some_and(|retry_at| Instant::now() < retry_at)
 		{
+			return Ok(());
+		}
+		self.launch_retry_at = None;
+		self.set_block(LAUNCH_BLOCK, None);
+		if self.taint_over_budget {
 			return Ok(());
 		}
 		for id in (TaskStore { run: &self.run }).queued()? {
@@ -223,22 +487,18 @@ impl Supervisor {
 			if self.workers.iter().any(|worker| worker.task == id) {
 				continue;
 			}
-			let Some(info) = self.fresh_usage(now) else {
-				break;
-			};
-			if !self.usage_allows(&info, now) {
+			if !self.usage_gate(now) {
 				break;
 			}
 			TaskStore { run: &self.run }.transition(&id, TaskState::Running)?;
 			match self.launch_worker(&id) {
 				Ok(model) => {
-					self.launch_failures = 0;
-					self.launch_retry_at = None;
 					let journaled = journal_append(&self.run, &format!("launched {id} on {model}"));
 					report("journal", journaled);
 				}
 				Err(error) => {
-					self.launch_failed(&id, &error)?;
+					let state = self.launch_failed(&id, &format!("{error:#}"))?;
+					self.announce_end(&id, state)?;
 					break;
 				}
 			}
@@ -248,6 +508,7 @@ impl Supervisor {
 
 	fn launch_worker(&mut self, id: &TaskId) -> Result<String> {
 		prepare_task_requests(&self.run, id)?;
+		remove_if_exists(&self.run.task_stop_marker(id))?;
 		let spec = TaskStore { run: &self.run }.spec(id)?;
 		let template_path = self.cfg.plugin_dir.join(WORKER_PROMPT);
 		let template = fs::read_to_string(&template_path)
@@ -278,30 +539,52 @@ impl Supervisor {
 			model: agent.model.clone(),
 			started: Instant::now(),
 			stream_log: agent.stream_log,
+			stream_offset: 0,
+			result_at: None,
+			kill_reason: None,
 		});
 		Ok(agent.model)
 	}
 
-	fn launch_failed(&mut self, id: &TaskId, error: &anyhow::Error) -> Result<()> {
+	fn launch_failed(&mut self, id: &TaskId, error: &str) -> Result<TaskState> {
 		self.launch_failures += 1;
-		let backoff = retry_backoff(self.launch_failures, self.cfg.heartbeat_minutes);
+		let backoff = retry_backoff(self.launch_failures, &self.cfg);
 		self.launch_retry_at = Some(Instant::now() + backoff);
-		let store = TaskStore { run: &self.run };
-		store.transition(id, TaskState::Interrupted)?;
-		store.transition(id, TaskState::Queued)?;
+		let task_failures = {
+			let count = self.task_launch_failures.entry(id.clone()).or_default();
+			*count += 1;
+			*count
+		};
+		self.launch_streak.insert(id.clone());
+		let systemic = self.launch_streak.len() > 1;
 		emit(
 			&self.run,
 			Event::LaunchFailed {
 				task: id.clone(),
-				error: format!("{error:#}"),
+				error: error.to_owned(),
 			},
 		)?;
+		let seconds = backoff.as_secs();
+		let block = format!(
+			"launches paused until {time} after {count} failed launches",
+			time = utc_time(unix_now() + seconds as i64),
+			count = self.launch_failures
+		);
+		self.set_block(LAUNCH_BLOCK, Some(block));
 		journal_append(
 			&self.run,
-			&format!(
-				"launch of {id} failed, launches paused {seconds} s: {error:#}",
-				seconds = backoff.as_secs()
-			),
-		)
+			&format!("launch of {id} failed, launches paused {seconds} s: {error}"),
+		)?;
+		let store = TaskStore { run: &self.run };
+		if task_failures >= MAX_TASK_LAUNCH_FAILURES && !systemic {
+			self.task_launch_failures.remove(id);
+			store.transition(id, TaskState::Failed)?;
+			let note = format!("launch failed {task_failures} times, last error: {error}");
+			report("notes", store.append_notes(id, &format!("\n{note}\n")));
+			return Ok(TaskState::Failed);
+		}
+		store.transition(id, TaskState::Interrupted)?;
+		store.transition(id, TaskState::Queued)?;
+		Ok(TaskState::Queued)
 	}
 }

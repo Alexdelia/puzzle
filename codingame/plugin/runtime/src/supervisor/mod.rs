@@ -1,9 +1,9 @@
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::cell::{Cell, RefCell};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::os::unix::fs::FileExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Child;
 use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -43,14 +43,15 @@ use crate::run_info::RunInfo;
 use crate::sandbox::{SandboxSpec, contest_bin_dir, dropped_host_env, sandbox_command};
 use crate::spool::{CommitRequest, request_pending, serve_pending};
 use crate::status::write_status;
-use crate::taint::{ScanReport, TopLevelExempt, ensure_no_top_level_git, remove_planted_files};
+use crate::taint::{
+	ScanReport, TopLevelExempt, ensure_no_top_level_git, remove_planted_files_within,
+};
 use crate::task::{TaskState, TaskStore};
 
 const LOOP_INTERVAL: Duration = Duration::from_secs(1);
 const MAX_ACTIVE_STEP: Duration = Duration::from_secs(5);
 const PERSIST_INTERVAL: Duration = Duration::from_secs(30);
 const STATUS_INTERVAL: Duration = Duration::from_secs(30);
-const RETRY_BASE: Duration = Duration::from_secs(60);
 const RETRY_MAX_DOUBLINGS: u32 = 10;
 const SECONDS_PER_MINUTE: u64 = 60;
 const STREAM_FILE: &str = "stream.jsonl";
@@ -62,6 +63,12 @@ const PID_LOCK_POLL: Duration = Duration::from_millis(20);
 const STOPPED: &str = "stopped: ";
 const SIGNAL_STOP_REASON: &str = "signal";
 pub const DEFAULT_STOP_REASON: &str = "requested";
+const USAGE_BLOCK: &str = "usage";
+const LAUNCH_BLOCK: &str = "launch";
+const MANAGER_BLOCK: &str = "manager";
+const TAINT_BLOCK: &str = "taint";
+const COMMITS_PAUSED: &str =
+	"commit refused: the taint scan is over its entry budget, commits are paused";
 
 pub fn active_increment(elapsed: Duration) -> Duration {
 	elapsed.min(MAX_ACTIVE_STEP)
@@ -73,10 +80,19 @@ fn unix_now() -> i64 {
 		.map_or(0, |elapsed| elapsed.as_secs() as i64)
 }
 
-fn retry_backoff(failures: u32, heartbeat_minutes: u64) -> Duration {
+fn retry_backoff(failures: u32, cfg: &Config) -> Duration {
 	let doublings = failures.saturating_sub(1).min(RETRY_MAX_DOUBLINGS);
-	let heartbeat = Duration::from_secs(heartbeat_minutes * SECONDS_PER_MINUTE);
-	(RETRY_BASE * 2u32.pow(doublings)).min(heartbeat)
+	let heartbeat = Duration::from_secs(cfg.heartbeat_minutes * SECONDS_PER_MINUTE);
+	(Duration::from_secs(cfg.retry_base_seconds) * 2u32.pow(doublings)).min(heartbeat)
+}
+
+fn remove_if_exists(path: &Path) -> Result<()> {
+	match fs::remove_file(path) {
+		Err(error) if error.kind() != io::ErrorKind::NotFound => {
+			Err(error).with_context(|| format!("remove {path:?}"))
+		}
+		_ => Ok(()),
+	}
 }
 
 fn report(step: &str, result: Result<()>) {
@@ -173,16 +189,11 @@ fn unstage_abandoned_commits(run: &RunDir, cfg: &Config) -> Result<()> {
 			.collect();
 		return Ok(write_atomic(&path, lines.as_bytes())?);
 	}
-	match fs::remove_file(&path) {
-		Err(error) if error.kind() != io::ErrorKind::NotFound => {
-			Err(error).with_context(|| format!("remove {path:?}"))
-		}
-		_ => Ok(()),
-	}
+	remove_if_exists(&path)
 }
 
-fn remove_planted(run: &RunDir, exempt: TopLevelExempt) -> Result<ScanReport> {
-	let report = remove_planted_files(&run.root, exempt)?;
+fn remove_planted(run: &RunDir, exempt: TopLevelExempt, max_entries: usize) -> Result<ScanReport> {
+	let report = remove_planted_files_within(&run.root, exempt, max_entries)?;
 	for path in &report.removed {
 		journal_append(run, &format!("taint: removed {path:?}"))?;
 	}
@@ -192,14 +203,26 @@ fn remove_planted(run: &RunDir, exempt: TopLevelExempt) -> Result<ScanReport> {
 	Ok(report)
 }
 
-fn taint_failure(report: Result<ScanReport>) -> Option<String> {
-	match report {
-		Ok(report) if !report.must_fail_closed() => None,
-		Ok(report) => Some(format!(
-			"{count} planted paths could not be removed",
-			count = report.failures.len()
-		)),
-		Err(error) => Some(format!("{error:#}")),
+struct TaintScan {
+	failure: Option<String>,
+	over_budget: Option<bool>,
+}
+
+fn scan_taint(run: &RunDir, exempt: TopLevelExempt, max_entries: usize) -> TaintScan {
+	match remove_planted(run, exempt, max_entries) {
+		Ok(report) => TaintScan {
+			failure: report.must_fail_closed().then(|| {
+				format!(
+					"{count} planted paths could not be removed",
+					count = report.failures.len()
+				)
+			}),
+			over_budget: Some(report.over_budget),
+		},
+		Err(error) => TaintScan {
+			failure: Some(format!("{error:#}")),
+			over_budget: None,
+		},
 	}
 }
 
@@ -242,7 +265,15 @@ struct Supervisor {
 	usage_unknown_reported: bool,
 	launch_retry_at: Option<Instant>,
 	launch_failures: u32,
+	launch_streak: HashSet<TaskId>,
+	task_launch_failures: HashMap<TaskId, u32>,
 	blocked_until: Option<i64>,
+	limit_until: Option<i64>,
+	manager_last_error: Option<String>,
+	blocks: BTreeMap<&'static str, String>,
+	taint_over_budget: bool,
+	last_taint_scan: Instant,
+	taint_rescans: u32,
 	pid_lock: Flock<File>,
 }
 
@@ -286,11 +317,12 @@ impl Supervisor {
 			journal_append(&run, &format!("requeued {id} after restart"))?;
 		}
 		reconcile_jobs(&run)?;
-		remove_planted(&run, exempt)?;
+		remove_if_exists(&run.blocks())?;
+		let over_budget = remove_planted(&run, exempt, cfg.taint_scan_max_entries)?.over_budget;
 		write_claude_settings(&run, &cfg)?;
 		let info = read_run_info(&run)?;
 		let now = Instant::now();
-		let supervisor = Self {
+		let mut supervisor = Self {
 			bin_dir: contest_bin_dir()?,
 			credentials: std::env::var_os("HOME")
 				.map(|home| PathBuf::from(home).join(CREDENTIALS_FILE)),
@@ -321,7 +353,15 @@ impl Supervisor {
 			usage_unknown_reported: false,
 			launch_retry_at: None,
 			launch_failures: 0,
+			launch_streak: HashSet::new(),
+			task_launch_failures: HashMap::new(),
 			blocked_until: None,
+			limit_until: None,
+			manager_last_error: None,
+			blocks: BTreeMap::new(),
+			taint_over_budget: false,
+			last_taint_scan: now,
+			taint_rescans: 0,
 			pid_lock,
 			run,
 			cfg,
@@ -330,6 +370,7 @@ impl Supervisor {
 			.pid_lock
 			.write_all_at(std::process::id().to_string().as_bytes(), 0)
 			.context("announce supervisor pid")?;
+		supervisor.note_taint_budget(over_budget);
 		Ok(supervisor)
 	}
 
@@ -355,8 +396,9 @@ impl Supervisor {
 		let persisted = self.persist();
 		let journaled = journal_append(&self.run, &format!("{STOPPED}{reason}"));
 		let cleared = self.pid_lock.set_len(0).map_err(anyhow::Error::from);
+		let unblocked = remove_if_exists(&self.run.blocks());
 		let status = write_status(&self.run, unix_now(), None);
-		let errors: Vec<String> = [persisted, journaled, cleared, status]
+		let errors: Vec<String> = [persisted, journaled, cleared, unblocked, status]
 			.into_iter()
 			.filter_map(Result::err)
 			.map(|error| format!("{error:#}"))
@@ -372,10 +414,14 @@ impl Supervisor {
 		let probed = self.poll_probe(now);
 		report("usage probe", probed);
 		self.refresh_credentials();
+		self.rescan_taint_if_over_budget();
 		let served = self.serve_requests();
 		report("spool", served);
+		self.watch_workers(now);
 		let reaped = self.reap_workers(now);
 		report("reap workers", reaped);
+		let requeued = self.requeue_orphaned_running();
+		report("requeue", requeued);
 		self.cancel_jobs_of_ended_tasks();
 		self.reap_jobs();
 		let scheduled = self.schedule_jobs();
@@ -392,12 +438,23 @@ impl Supervisor {
 		&self,
 		request: &CommitRequest,
 		tainted: &RefCell<Vec<(TaskId, String)>>,
+		over_budget: &Cell<Option<bool>>,
 	) -> Result<CommitThread> {
-		if let Some(failure) = taint_failure(remove_planted(&self.run, self.exempt)) {
+		if self.taint_over_budget {
+			bail!("{COMMITS_PAUSED}");
+		}
+		let scan = scan_taint(&self.run, self.exempt, self.cfg.taint_scan_max_entries);
+		if scan.over_budget.is_some() {
+			over_budget.set(scan.over_budget);
+		}
+		if let Some(failure) = scan.failure {
 			tainted
 				.borrow_mut()
 				.push((request.task.clone(), failure.clone()));
 			bail!("commit refused, taint scan failed: {failure}");
+		}
+		if scan.over_budget == Some(true) {
+			bail!("{COMMITS_PAUSED}");
 		}
 		spawn_commit(
 			self.run.clone(),
@@ -409,14 +466,18 @@ impl Supervisor {
 
 	fn serve_requests(&mut self) -> Result<()> {
 		let tainted = RefCell::new(Vec::new());
+		let over_budget = Cell::new(None);
 		let commits = RefCell::new(std::mem::take(&mut self.commits));
 		let committer = |request: &CommitRequest| {
-			commits
-				.borrow_mut()
-				.poll(request, || self.start_commit(request, &tainted))
+			commits.borrow_mut().poll(request, || {
+				self.start_commit(request, &tainted, &over_budget)
+			})
 		};
 		let served = serve_pending(&self.run, &committer);
 		self.commits = commits.into_inner();
+		if let Some(over) = over_budget.get() {
+			self.note_taint_budget(over);
+		}
 		let store = TaskStore { run: &self.run };
 		self.commits.forget_finished_unless(|key| {
 			store.state(&key.task).ok() == Some(TaskState::Running)
@@ -441,6 +502,80 @@ impl Supervisor {
 			.and_then(|()| store.append_notes(id, &format!("\n{note}\n")));
 		report("taint", flagged);
 		store.state(id).unwrap_or(TaskState::Failed)
+	}
+
+	fn scan_taint_now(&mut self) -> TaintScan {
+		let scan = scan_taint(&self.run, self.exempt, self.cfg.taint_scan_max_entries);
+		self.last_taint_scan = Instant::now();
+		if let Some(over) = scan.over_budget {
+			self.note_taint_budget(over);
+		}
+		scan
+	}
+
+	fn rescan_taint_if_over_budget(&mut self) {
+		if !self.taint_over_budget
+			|| self.last_taint_scan.elapsed() < retry_backoff(self.taint_rescans + 1, &self.cfg)
+		{
+			return;
+		}
+		self.taint_rescans += 1;
+		self.scan_taint_now();
+	}
+
+	fn note_taint_budget(&mut self, over_budget: bool) {
+		if over_budget == self.taint_over_budget {
+			return;
+		}
+		self.taint_over_budget = over_budget;
+		let max_entries = self.cfg.taint_scan_max_entries;
+		if over_budget {
+			report(
+				"taint",
+				emit(&self.run, Event::TaintOverBudget { max_entries }),
+			);
+			let reason = format!(
+				"taint scan over its entry budget of {max_entries}: launches and commits paused until the contest dir shrinks"
+			);
+			self.set_block(TAINT_BLOCK, Some(reason.clone()));
+			report("taint", journal_append(&self.run, &reason));
+		} else {
+			self.taint_rescans = 0;
+			let journaled = journal_append(
+				&self.run,
+				"taint scan back under its entry budget: launches and commits resume",
+			);
+			report("taint", journaled);
+			self.set_block(TAINT_BLOCK, None);
+		}
+	}
+
+	fn set_block(&mut self, slot: &'static str, reason: Option<String>) -> bool {
+		let changed = match &reason {
+			Some(reason) => self.blocks.get(slot) != Some(reason),
+			None => self.blocks.contains_key(slot),
+		};
+		if !changed {
+			return false;
+		}
+		match reason {
+			Some(reason) => self.blocks.insert(slot, reason),
+			None => self.blocks.remove(slot),
+		};
+		report("blocks", self.write_blocks());
+		true
+	}
+
+	fn write_blocks(&self) -> Result<()> {
+		if self.blocks.is_empty() {
+			return remove_if_exists(&self.run.blocks());
+		}
+		let lines: String = self
+			.blocks
+			.iter()
+			.map(|(slot, reason)| format!("{slot}: {reason}\n"))
+			.collect();
+		Ok(write_atomic(&self.run.blocks(), lines.as_bytes())?)
 	}
 
 	fn kill_and_reap(&self, child: &mut Child, who: &str) {

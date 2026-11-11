@@ -3,6 +3,7 @@ use std::io::Write;
 
 use time::OffsetDateTime;
 use time::format_description::parse_borrowed;
+use time::format_description::well_known::Rfc3339;
 
 use crate::paths::RunDir;
 
@@ -31,6 +32,20 @@ pub fn journal_append(run: &RunDir, line: &str) -> anyhow::Result<()> {
 	let line = single_line(line);
 	file.write_all(format!("{stamp} {line}\n").as_bytes())?;
 	Ok(())
+}
+
+pub fn clip_chars(text: &str, max_chars: usize) -> String {
+	match text.char_indices().nth(max_chars) {
+		Some((end, _)) => text[..end].to_owned(),
+		None => text.to_owned(),
+	}
+}
+
+pub fn utc_time(unix: i64) -> String {
+	OffsetDateTime::from_unix_timestamp(unix)
+		.ok()
+		.and_then(|time| time.format(&Rfc3339).ok())
+		.unwrap_or_else(|| format!("unix {unix}"))
 }
 
 pub fn journal_tail(run: &RunDir, n: usize) -> Vec<String> {

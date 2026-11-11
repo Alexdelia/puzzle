@@ -5,19 +5,22 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, ensure};
 
-use super::{SECONDS_PER_MINUTE, STREAM_FILE, Supervisor, report, retry_backoff};
+use super::{
+	MANAGER_BLOCK, SECONDS_PER_MINUTE, STREAM_FILE, Supervisor, report, retry_backoff, unix_now,
+};
 use crate::action::{Action, apply_actions, parse_actions};
 use crate::agent::{AgentRun, StreamOutcome, parse_stream};
 use crate::atomic::write_atomic;
 use crate::claude_config::agent_env;
 use crate::digest::{ack_inbox, build_digest};
 use crate::events::{Event, emit, has_complete_event_after};
-use crate::journal::journal_append;
+use crate::journal::{clip_chars, journal_append, utc_time};
 use crate::paths::RunDir;
 
 const MANAGER_TOOLS: [&str; 3] = ["Read", "Glob", "Grep"];
 const MANAGER_WHO: &str = "manager";
 const MANAGER_PROMPT: &str = "prompts/manager.md";
+const MANAGER_ERROR_JOURNAL_CHARS: usize = 500;
 
 fn has_inbox(run: &RunDir) -> bool {
 	fs::read_dir(run.inbox()).is_ok_and(|entries| {
@@ -92,10 +95,7 @@ impl Supervisor {
 		if !self.tick_due() {
 			return Ok(());
 		}
-		let Some(info) = self.fresh_usage(now) else {
-			return Ok(());
-		};
-		if !self.usage_allows(&info, now) {
+		if !self.usage_gate(now) {
 			return Ok(());
 		}
 		if let Err(error) = self.launch_manager(now) {
@@ -172,17 +172,47 @@ impl Supervisor {
 		}
 		self.kill_cancelled_workers();
 		if errors.is_empty() {
-			self.manager_failures = 0;
-			self.manager_retry_at = None;
+			self.manager_recovered();
 			return;
 		}
 		self.manager_failed(&errors.join("; "));
 	}
 
+	fn manager_recovered(&mut self) {
+		if self.manager_failures > 0 {
+			let journaled = journal_append(
+				&self.run,
+				&format!(
+					"manager recovered after {count} failed ticks",
+					count = self.manager_failures
+				),
+			);
+			report("manager", journaled);
+		}
+		self.manager_failures = 0;
+		self.manager_retry_at = None;
+		self.manager_last_error = None;
+		self.set_block(MANAGER_BLOCK, None);
+	}
+
 	fn manager_failed(&mut self, error: &str) {
 		self.manager_failures += 1;
-		let backoff = retry_backoff(self.manager_failures, self.cfg.heartbeat_minutes);
+		let backoff = retry_backoff(self.manager_failures, &self.cfg);
 		self.manager_retry_at = Some(Instant::now() + backoff);
+		let (count, seconds) = (self.manager_failures, backoff.as_secs());
+		let block = format!(
+			"manager failed {count} ticks in a row, next try at {time}",
+			time = utc_time(unix_now() + seconds as i64)
+		);
+		self.set_block(MANAGER_BLOCK, Some(block));
+		if self.manager_last_error.as_deref() != Some(error) {
+			let line = format!(
+				"manager failed ({count} in a row), retry in {seconds} s: {error}",
+				error = clip_chars(error, MANAGER_ERROR_JOURNAL_CHARS)
+			);
+			report("manager", journal_append(&self.run, &line));
+			self.manager_last_error = Some(error.to_owned());
+		}
 		report(
 			"manager error",
 			emit(

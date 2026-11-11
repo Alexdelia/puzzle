@@ -6,7 +6,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
-use contest::taint::{MAX_SCAN_DEPTH, ScanReport, TopLevelExempt, remove_planted_files};
+use contest::taint::{
+	MAX_SCAN_DEPTH, MAX_SCANNED_ENTRIES, ScanReport, TopLevelExempt, remove_planted_files,
+	remove_planted_files_within,
+};
 use tempfile::TempDir;
 
 fn touch(path: &Path) {
@@ -346,4 +349,23 @@ fn concurrent_writes_into_planted_dir_are_tolerated() {
 	let planted_failed = failed_paths(&report) == [planted.clone()];
 	assert!(planted_removed != planted_failed, "{report:?}");
 	assert_eq!(planted_removed, absent(&planted));
+}
+
+#[test]
+fn over_budget_scan_is_its_own_state_not_a_failure() {
+	let (_dir, root) = contest();
+	for index in 0..50 {
+		touch(&root.join(format!("run/tasks/t0001-x/f{index}")));
+	}
+	let report = remove_planted_files_within(&root, TopLevelExempt::default(), 10).unwrap();
+	assert!(report.over_budget);
+	assert!(
+		report.failures.is_empty(),
+		"{failures:?}",
+		failures = report.failures
+	);
+	assert!(!report.must_fail_closed());
+	let roomy = remove_planted_files_within(&root, TopLevelExempt::default(), 1000).unwrap();
+	assert!(!roomy.over_budget);
+	assert_eq!(MAX_SCANNED_ENTRIES, 5_000_000);
 }

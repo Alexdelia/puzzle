@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::journal::clip_chars;
 use crate::paths::{JobId, RunDir, TaskId};
 use crate::task::TaskState;
 
@@ -20,31 +21,25 @@ pub enum Event {
 	UsageBlocked { until: i64 },
 	UsageUnknown,
 	LaunchFailed { task: TaskId, error: String },
+	TaintOverBudget { max_entries: usize },
 }
 
 const USER_TEXT_MAX_CHARS: usize = 200;
 const ERROR_MAX_CHARS: usize = 500;
 const SCAN_CHUNK_BYTES: usize = 64 * 1024;
 
-fn clipped(text: String, max_chars: usize) -> String {
-	match text.char_indices().nth(max_chars) {
-		Some((end, _)) => text[..end].to_owned(),
-		None => text,
-	}
-}
-
 impl Event {
 	fn bounded(self) -> Self {
 		match self {
 			Self::UserMessage { text } => Self::UserMessage {
-				text: clipped(text, USER_TEXT_MAX_CHARS),
+				text: clip_chars(&text, USER_TEXT_MAX_CHARS),
 			},
 			Self::ManagerError { error } => Self::ManagerError {
-				error: clipped(error, ERROR_MAX_CHARS),
+				error: clip_chars(&error, ERROR_MAX_CHARS),
 			},
 			Self::LaunchFailed { task, error } => Self::LaunchFailed {
 				task,
-				error: clipped(error, ERROR_MAX_CHARS),
+				error: clip_chars(&error, ERROR_MAX_CHARS),
 			},
 			other => other,
 		}

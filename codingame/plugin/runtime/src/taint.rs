@@ -17,7 +17,7 @@ use crate::paths::TASK_META_DIR;
 
 pub const MAX_WORKER_FILE_BYTES: u64 = 1024 * 1024;
 pub const MAX_SCAN_DEPTH: usize = 64;
-pub const MAX_SCANNED_ENTRIES: usize = 1_000_000;
+pub const MAX_SCANNED_ENTRIES: usize = 5_000_000;
 const MAX_REMOVE_ATTEMPTS: usize = 3;
 const PLANTED_NAMES: [&str; 5] = [".git", ".envrc", ".direnv", ".claude", ".mcp.json"];
 const GIT_DIR_NAME: &str = ".git";
@@ -83,6 +83,7 @@ impl TopLevelExempt {
 pub struct ScanReport {
 	pub removed: Vec<PathBuf>,
 	pub failures: Vec<(PathBuf, String)>,
+	pub over_budget: bool,
 }
 
 impl ScanReport {
@@ -182,6 +183,7 @@ fn os_name(name: &CStr) -> &OsStr {
 
 struct Scanner {
 	entries_left: usize,
+	max_entries: usize,
 	over_budget: bool,
 	listing_only: bool,
 	report: ScanReport,
@@ -189,6 +191,9 @@ struct Scanner {
 
 impl Scanner {
 	fn fail(&mut self, path: &Path, error: impl Display) {
+		if self.over_budget {
+			return;
+		}
 		self.report
 			.failures
 			.push((path.to_path_buf(), error.to_string()));
@@ -204,7 +209,10 @@ impl Scanner {
 			}
 			if self.entries_left == 0 {
 				self.over_budget = true;
-				return Err(format!("scan stopped after {MAX_SCANNED_ENTRIES} entries"));
+				return Err(format!(
+					"scan stopped after {max} entries",
+					max = self.max_entries
+				));
 			}
 			self.entries_left -= 1;
 			found.push((name.to_owned(), entry.file_type()));
@@ -393,26 +401,44 @@ pub fn ensure_no_top_level_git(contest_root: &Path) -> Result<()> {
 	Ok(())
 }
 
-fn scan(contest_root: &Path, exempt: TopLevelExempt, listing_only: bool) -> Result<ScanReport> {
+fn scan(
+	contest_root: &Path,
+	exempt: TopLevelExempt,
+	listing_only: bool,
+	max_entries: usize,
+) -> Result<ScanReport> {
 	let root = Dir::open(contest_root, directory_flags(), Mode::empty())
 		.with_context(|| format!("open contest root {contest_root:?}"))?;
 	let mut scanner = Scanner {
-		entries_left: MAX_SCANNED_ENTRIES,
+		entries_left: max_entries,
+		max_entries,
 		over_budget: false,
 		listing_only,
 		report: ScanReport::default(),
 	};
 	scanner.walk_worker_run_dirs(&root, contest_root);
 	scanner.walk(root, contest_root.to_path_buf(), Level::ContestTop(exempt));
+	scanner.report.over_budget = scanner.over_budget;
 	Ok(scanner.report)
 }
 
 pub fn remove_planted_files(contest_root: &Path, exempt: TopLevelExempt) -> Result<ScanReport> {
-	scan(contest_root, exempt, false)
+	remove_planted_files_within(contest_root, exempt, MAX_SCANNED_ENTRIES)
+}
+
+pub fn remove_planted_files_within(
+	contest_root: &Path,
+	exempt: TopLevelExempt,
+	max_entries: usize,
+) -> Result<ScanReport> {
+	scan(contest_root, exempt, false, max_entries)
 }
 
 pub fn find_planted_files(contest_root: &Path, exempt: TopLevelExempt) -> Result<Vec<PathBuf>> {
-	let report = scan(contest_root, exempt, true)?;
+	let report = scan(contest_root, exempt, true, MAX_SCANNED_ENTRIES)?;
+	if report.over_budget {
+		bail!("contest dir {contest_root:?} holds more than {MAX_SCANNED_ENTRIES} entries");
+	}
 	if let Some((path, error)) = report.failures.first() {
 		bail!("cannot scan {path:?} for planted files: {error}");
 	}

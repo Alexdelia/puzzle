@@ -4,7 +4,7 @@ use std::process::{Command, Output, Stdio};
 
 use contest::config::Config;
 use contest::hook::{HookDecision, pre_tool_use};
-use contest::paths::RunDir;
+use contest::paths::{RunDir, TaskId};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
@@ -212,7 +212,16 @@ fn run_dir() -> (TempDir, RunDir) {
 }
 
 fn run_hook(run: &RunDir, payload: &Value) -> Output {
-	let mut child = Command::new(env!("CARGO_BIN_EXE_contest"))
+	run_hook_as(run, None, payload)
+}
+
+fn run_hook_as(run: &RunDir, task: Option<&TaskId>, payload: &Value) -> Output {
+	let mut command = Command::new(env!("CARGO_BIN_EXE_contest"));
+	command.env_remove("CONTEST_TASK");
+	if let Some(task) = task {
+		command.env("CONTEST_TASK", &task.0);
+	}
+	let mut child = command
 		.args(["hook", "pre-tool-use"])
 		.env("CONTEST_RUN", &run.root)
 		.stdin(Stdio::piped())
@@ -312,4 +321,39 @@ fn cli_blocks_unparseable_input() {
 		.unwrap();
 	child.stdin.take().unwrap().write_all(b"not json").unwrap();
 	assert_eq!(child.wait_with_output().unwrap().status.code(), Some(2));
+}
+
+#[test]
+fn cli_reads_own_task_stop_marker() {
+	let (_dir, run) = run_dir();
+	let stopped = TaskId("t0001-sim".into());
+	let other = TaskId("t0002-sim".into());
+	for task in [&stopped, &other] {
+		fs::create_dir_all(run.task_meta(task)).unwrap();
+	}
+	let bash = hook_payload("Bash", json!({"command": "ls"}));
+	assert_eq!(
+		run_hook_as(&run, Some(&stopped), &bash).status.code(),
+		Some(0)
+	);
+	fs::write(run.task_stop_marker(&stopped), "").unwrap();
+	let output = run_hook_as(&run, Some(&stopped), &bash);
+	assert_eq!(output.status.code(), Some(2));
+	assert_eq!(
+		String::from_utf8_lossy(&output.stderr).trim(),
+		stop_message()
+	);
+	assert_eq!(
+		run_hook_as(&run, Some(&other), &bash).status.code(),
+		Some(0)
+	);
+	assert_eq!(run_hook_as(&run, None, &bash).status.code(), Some(0));
+	let notes = hook_payload(
+		"Write",
+		json!({"file_path": run.task_dir(&stopped).join("notes.md")}),
+	);
+	assert_eq!(
+		run_hook_as(&run, Some(&stopped), &notes).status.code(),
+		Some(0)
+	);
 }

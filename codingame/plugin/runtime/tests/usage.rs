@@ -2,11 +2,12 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
+use contest::agent::StreamOutcome;
 use contest::agent::{RateLimitInfo, Window};
 use contest::config::Config;
 use contest::paths::RunDir;
 use contest::usage::{
-	five_hour_full, five_hour_used_percent, load_usage, over_weekly_pace, record_usage,
+	five_hour_full, five_hour_used_percent, limit_hit, load_usage, over_weekly_pace, record_usage,
 	rejected_until, spawn_probe,
 };
 
@@ -149,4 +150,58 @@ fn probe_runs_without_tools() {
 		.unwrap_or_else(|| panic!("no --tools in {argv:?}"));
 	assert_eq!(argv[tools_at + 1], "");
 	assert_eq!(argv.iter().filter(|arg| **arg == "--tools").count(), 1);
+}
+
+fn limited(status: &str, five_used: f64) -> RateLimitInfo {
+	RateLimitInfo {
+		status: status.into(),
+		..info(five_used, 0.1)
+	}
+}
+
+fn outcome(rate_limit: Option<RateLimitInfo>, is_error: bool) -> StreamOutcome {
+	StreamOutcome {
+		is_error,
+		rate_limit,
+		..StreamOutcome::default()
+	}
+}
+
+#[test]
+fn limit_hit_on_limited_status_or_exhausted_window_with_error() {
+	for status in ["rejected", "blocked", "limited"] {
+		let stream = outcome(Some(limited(status, 0.5)), false);
+		assert_eq!(limit_hit(&stream, None, NOW), Some(NOW + 1000), "{status}");
+	}
+	for status in ["allowed", "allowed_warning"] {
+		let stream = outcome(Some(limited(status, 0.5)), true);
+		assert_eq!(limit_hit(&stream, None, NOW), None, "{status}");
+	}
+	let exhausted = limited("allowed_warning", 1.0);
+	assert_eq!(
+		limit_hit(&outcome(Some(exhausted.clone()), true), None, NOW),
+		Some(NOW + 1000)
+	);
+	assert_eq!(
+		limit_hit(&outcome(Some(exhausted.clone()), false), None, NOW),
+		None
+	);
+	assert_eq!(
+		limit_hit(&outcome(None, true), Some(&exhausted), NOW),
+		Some(NOW + 1000)
+	);
+	assert_eq!(limit_hit(&outcome(None, true), None, NOW), None);
+	let mut past = limited("rejected", 0.5);
+	past.resets_at = NOW - 10;
+	past.five_hour.resets_at = NOW - 10;
+	assert_eq!(limit_hit(&outcome(Some(past), false), None, NOW), Some(NOW));
+}
+
+#[test]
+fn rejected_until_matches_any_limited_status() {
+	assert_eq!(
+		rejected_until(&limited("blocked", 0.5), NOW),
+		Some(NOW + 1000)
+	);
+	assert_eq!(rejected_until(&limited("allowed_warning", 0.5), NOW), None);
 }

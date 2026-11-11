@@ -35,6 +35,11 @@ pub struct Config {
 	pub probe_retry_seconds: u64,
 	pub pid_lock_retry_ms: u64,
 	pub manager_timeout_seconds: u64,
+	pub retry_base_seconds: u64,
+	pub fast_exit_seconds: u64,
+	pub worker_idle_minutes: u64,
+	pub result_grace_seconds: u64,
+	pub taint_scan_max_entries: usize,
 }
 
 impl Default for Config {
@@ -77,6 +82,11 @@ impl Default for Config {
 			probe_retry_seconds: 60,
 			pid_lock_retry_ms: 1000,
 			manager_timeout_seconds: 900,
+			retry_base_seconds: 60,
+			fast_exit_seconds: 90,
+			worker_idle_minutes: 30,
+			result_grace_seconds: 60,
+			taint_scan_max_entries: 5_000_000,
 		}
 	}
 }

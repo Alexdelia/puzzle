@@ -183,9 +183,22 @@ pub fn status_text(run: &RunDir, now: i64) -> String {
 	status_text_for(run, now, running_supervisor(run))
 }
 
+fn block_lines(run: &RunDir) -> Vec<String> {
+	fs::read_to_string(run.blocks())
+		.unwrap_or_default()
+		.lines()
+		.filter(|line| !line.trim().is_empty())
+		.map(|line| format!("blocked: {line}"))
+		.collect()
+}
+
 fn status_text_for(run: &RunDir, now: i64, supervisor_pid: Option<String>) -> String {
 	let mut lines = vec!["# contest status".to_owned()];
+	let supervised = supervisor_pid.is_some();
 	lines.push(supervisor_line(run, supervisor_pid));
+	if supervised {
+		lines.extend(block_lines(run));
+	}
 	if let Ok(reason) = fs::read_to_string(run.stop_file()) {
 		lines.push(format!("stop requested: {reason}", reason = reason.trim()));
 	}

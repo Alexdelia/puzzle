@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::config::Config;
-use crate::paths::RunDir;
+use crate::paths::{RunDir, TaskId};
 
 const STOP_MESSAGE: &str = "stop requested: update notes.md and result.md, run contest commit --milestone stop, then end your turn";
 const STOP_WRITABLE_SUFFIXES: [&str; 2] = ["/notes.md", "/result.md"];
@@ -110,7 +110,13 @@ fn decide_from_stdin() -> HookDecision {
 		.as_ref()
 		.and_then(|run| Config::load(&run.config()).ok())
 		.unwrap_or_default();
-	let stop_requested = run.is_some_and(|run| run.stop_file().exists());
+	let own_task = std::env::var("CONTEST_TASK")
+		.ok()
+		.and_then(|task| TaskId::parse(&task).ok());
+	let stop_requested = run.is_some_and(|run| {
+		run.stop_file().exists()
+			|| own_task.is_some_and(|task| run.task_stop_marker(&task).exists())
+	});
 	pre_tool_use(&input.tool_name, &input.tool_input, stop_requested, &config)
 }
 
