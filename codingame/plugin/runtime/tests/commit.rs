@@ -1,4 +1,5 @@
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -74,6 +75,35 @@ fn commit_only_task_paths() {
 	assert!(!files.contains("other/b.rs"));
 	let status = git(repo.path(), &["status", "--porcelain"]);
 	assert!(status.contains("?? other/"));
+}
+
+#[test]
+fn commit_ignores_signing_and_never_prompts() {
+	let (repo, run, id) = setup(&["referee/a.rs"]);
+	let hooks = TempDir::new().unwrap();
+	let prompt_dump = hooks.path().join("terminal-prompt");
+	let monitor = hooks.path().join("fsmonitor.sh");
+	fs::write(
+		&monitor,
+		format!(
+			"#!/bin/sh\nprintf '%s\\n' \"${{GIT_TERMINAL_PROMPT-unset}}\" >> {dump}\nexit 1\n",
+			dump = prompt_dump.display()
+		),
+	)
+	.unwrap();
+	fs::set_permissions(&monitor, fs::Permissions::from_mode(0o755)).unwrap();
+	git(
+		repo.path(),
+		&["config", "core.fsmonitor", &monitor.to_string_lossy()],
+	);
+	git(repo.path(), &["config", "commit.gpgsign", "true"]);
+	git(repo.path(), &["config", "gpg.program", "false"]);
+	write(&run, "referee/a.rs");
+	let sha = commit_task(&run, &config(&run), &id, "m").unwrap();
+	assert!(sha.is_some());
+	let prompts = fs::read_to_string(&prompt_dump).unwrap();
+	assert!(!prompts.is_empty());
+	assert!(prompts.lines().all(|line| line == "0"), "{prompts}");
 }
 
 #[test]

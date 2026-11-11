@@ -52,6 +52,8 @@ fn git(repo: &Path, args: &[&str], paths: &[PathBuf]) -> Result<std::process::Ou
 	die_with_commit_thread(&mut command);
 	command
 		.process_group(0)
+		.env("GIT_TERMINAL_PROMPT", "0")
+		.args(["-c", "commit.gpgsign=false"])
 		.arg("--literal-pathspecs")
 		.arg("-C")
 		.arg(repo)
