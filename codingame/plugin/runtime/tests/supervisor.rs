@@ -1989,7 +1989,7 @@ fn task_failing_launch_three_times_fails_once_another_task_ran() {
 	});
 	supervisor.stop(run);
 	assert_eq!(state(run, &good), TaskState::Done);
-	assert_eq!(event_count(run, "launch_failed"), 3);
+	assert_eq!(event_count(run, "launch_failed"), 4);
 	assert!(has_event(
 		run,
 		json!({"event": "task_finished", "task": bad.0, "state": "failed"})
@@ -2431,4 +2431,71 @@ fn stop_sweep_scans_once_for_all_workers() {
 	assert_eq!(journal_lines(run, "deeper than"), 1);
 	supervisor.stop(run);
 	assert_eq!(journal_lines(run, "deeper than"), 2);
+}
+
+fn launch_order(run: &RunDir) -> Vec<String> {
+	fs::read_to_string(run.journal())
+		.unwrap_or_default()
+		.lines()
+		.filter_map(|line| {
+			line.split_once("launched ")
+				.map(|(_, rest)| rest.to_owned())
+		})
+		.filter_map(|rest| rest.split_whitespace().next().map(str::to_owned))
+		.collect()
+}
+
+#[test]
+fn launch_failure_records_reset_once_another_task_ran() {
+	let contest = contest(1);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.retry_base_seconds = 1);
+	let blocked = create_task(run, "blocked", 0);
+	let blocker = run.task_stop_marker(&blocked).join("blocker");
+	fs::create_dir_all(&blocker).unwrap();
+	let supervisor = start(&contest, "contest task done");
+	wait_until(30, "three failed launches", || {
+		event_count(run, "launch_failed") >= 3
+	});
+	let good = create_task(run, "good", 5);
+	wait_until(30, "good task done", || {
+		state(run, &good) == TaskState::Done
+	});
+	let failures_before_blip = event_count(run, "launch_failed");
+	wait_until(30, "one more failed launch", || {
+		event_count(run, "launch_failed") > failures_before_blip
+	});
+	fs::remove_dir_all(run.task_stop_marker(&blocked)).unwrap();
+	wait_until(30, "blocked task done", || {
+		state(run, &blocked) == TaskState::Done
+	});
+	supervisor.stop(run);
+	assert!(!has_event(
+		run,
+		json!({"event": "task_finished", "task": blocked.0, "state": "failed"})
+	));
+}
+
+#[test]
+fn task_sorts_last_only_until_another_task_ran() {
+	let contest = contest(1);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.retry_base_seconds = 1);
+	let failed_once = create_task(run, "failed-once", 0);
+	let blocker = run.task_stop_marker(&failed_once).join("blocker");
+	fs::create_dir_all(&blocker).unwrap();
+	let supervisor = start(&contest, "contest task done");
+	wait_until(30, "one failed launch", || {
+		event_count(run, "launch_failed") >= 1
+	});
+	fs::remove_dir_all(run.task_stop_marker(&failed_once)).unwrap();
+	let first = create_task(run, "first", 5);
+	let later = create_task(run, "later", 0);
+	wait_until(30, "all tasks done", || {
+		[&failed_once, &first, &later]
+			.iter()
+			.all(|id| state(run, id) == TaskState::Done)
+	});
+	supervisor.stop(run);
+	assert_eq!(launch_order(run), [first.0, failed_once.0, later.0]);
 }

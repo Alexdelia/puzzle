@@ -194,6 +194,13 @@ pub(super) struct WorkerProcess {
 pub(super) struct TaskLaunchFailures {
 	count: u32,
 	another_task_ran: bool,
+	ran_since_last_failure: bool,
+}
+
+impl TaskLaunchFailures {
+	fn sorts_last(&self) -> bool {
+		!self.ran_since_last_failure
+	}
 }
 
 impl WorkerProcess {
@@ -555,7 +562,9 @@ impl Supervisor {
 		self.launch_failures = 0;
 		self.task_launch_failures.remove(id);
 		for failures in self.task_launch_failures.values_mut() {
+			failures.count = 0;
 			failures.another_task_ran = true;
+			failures.ran_since_last_failure = true;
 		}
 	}
 
@@ -572,7 +581,11 @@ impl Supervisor {
 			return Ok(());
 		}
 		let mut queued = (TaskStore { run: &self.run }).queued()?;
-		queued.sort_by_key(|id| self.task_launch_failures.contains_key(id));
+		queued.sort_by_key(|id| {
+			self.task_launch_failures
+				.get(id)
+				.is_some_and(TaskLaunchFailures::sorts_last)
+		});
 		for id in queued {
 			if self.workers.len() >= self.cfg.workers {
 				break;
@@ -648,6 +661,7 @@ impl Supervisor {
 		let (task_failures, another_task_ran) = {
 			let failures = self.task_launch_failures.entry(id.clone()).or_default();
 			failures.count += 1;
+			failures.ran_since_last_failure = false;
 			(failures.count, failures.another_task_ran)
 		};
 		emit(
