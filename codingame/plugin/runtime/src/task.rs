@@ -212,17 +212,22 @@ impl TaskStore<'_> {
 		Ok(summaries)
 	}
 
-	pub fn next_queued(&self) -> Result<Option<TaskId>> {
-		Ok(self
+	pub fn queued(&self) -> Result<Vec<TaskId>> {
+		let mut queued: Vec<TaskSummary> = self
 			.list()?
 			.into_iter()
 			.filter(|task| task.state == TaskState::Queued)
-			.min_by(|a, b| {
-				b.priority
-					.cmp(&a.priority)
-					.then_with(|| a.id.0.cmp(&b.id.0))
-			})
-			.map(|task| task.id))
+			.collect();
+		queued.sort_by(|a, b| {
+			b.priority
+				.cmp(&a.priority)
+				.then_with(|| a.id.0.cmp(&b.id.0))
+		});
+		Ok(queued.into_iter().map(|task| task.id).collect())
+	}
+
+	pub fn next_queued(&self) -> Result<Option<TaskId>> {
+		Ok(self.queued()?.into_iter().next())
 	}
 
 	pub fn reconcile_after_restart(&self) -> Result<Vec<TaskId>> {

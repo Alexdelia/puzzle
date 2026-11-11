@@ -4,7 +4,8 @@ use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread::sleep;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, bail, ensure};
 use clap::{Parser, Subcommand};
@@ -20,12 +21,15 @@ use crate::paths::RunDir;
 use crate::run_info::{Mode, RunInfo};
 use crate::status::{running_supervisor, status_text};
 use crate::supervisor::run_supervisor;
+use crate::taint::ensure_no_top_level_git;
 use crate::worker::{WorkerVerb, run_worker};
 
 const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\ntasks/*/work/\nsupervisor.log\nsupervisor.pid\n";
 const PASTA: &str = "pasta";
 const PASST_FLAKE: &str = "nixpkgs#passt";
 const SECONDS_PER_HOUR: u64 = 3600;
+const START_CONFIRM_TIMEOUT: Duration = Duration::from_secs(2);
+const START_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 #[derive(Debug, Parser)]
 #[command(name = "contest")]
@@ -98,6 +102,7 @@ fn init(args: InitArgs) -> anyhow::Result<()> {
 	let run = RunDir {
 		root: args.contest_dir,
 	};
+	ensure_no_top_level_git(&run.root)?;
 	for dir in [
 		run.tasks(),
 		run.jobs(),
@@ -178,7 +183,20 @@ fn start(args: StartArgs) -> anyhow::Result<()> {
 	unsafe {
 		command.pre_exec(|| setsid().map(drop).map_err(io::Error::from));
 	}
-	let child = command.spawn().context("spawn supervisor")?;
+	let mut child = command.spawn().context("spawn supervisor")?;
+	let deadline = Instant::now() + START_CONFIRM_TIMEOUT;
+	while Instant::now() < deadline {
+		if let Some(status) = child.try_wait()? {
+			bail!(
+				"supervisor exited at start ({status}), see {log}",
+				log = log_path.display()
+			);
+		}
+		if running_supervisor(&run).is_some() {
+			break;
+		}
+		sleep(START_POLL_INTERVAL);
+	}
 	println!(
 		"supervisor started: pid {pid}, log {log}",
 		pid = child.id(),

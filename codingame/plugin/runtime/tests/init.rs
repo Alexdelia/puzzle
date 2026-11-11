@@ -340,3 +340,13 @@ fn init_skips_pasta_on_path_inside_repo() {
 	let config = Config::load(&RunDir { root: contest_dir }.config()).unwrap();
 	assert_eq!(config.pasta_bin, trusted);
 }
+
+#[test]
+fn init_refuses_contest_dir_holding_git() {
+	let repo = tempfile::tempdir().unwrap();
+	git_repo_with_commit(repo.path());
+	let output = init_command(repo.path(), repo.path()).output().unwrap();
+	assert!(!output.status.success());
+	assert!(String::from_utf8_lossy(&output.stderr).contains(".git"));
+	assert!(!repo.path().join("run").exists());
+}

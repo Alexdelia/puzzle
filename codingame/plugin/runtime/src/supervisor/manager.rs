@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, ensure};
 
-use super::{SECONDS_PER_MINUTE, STREAM_FILE, Supervisor, report};
+use super::{SECONDS_PER_MINUTE, STREAM_FILE, Supervisor, report, retry_backoff};
 use crate::action::{Action, apply_actions, parse_actions};
 use crate::agent::{AgentRun, StreamOutcome, parse_stream};
 use crate::atomic::write_atomic;
@@ -14,8 +14,6 @@ use crate::digest::{ack_inbox, build_digest};
 use crate::events::{Event, emit};
 use crate::paths::RunDir;
 
-const MANAGER_RETRY_BASE: Duration = Duration::from_secs(60);
-const MANAGER_RETRY_MAX_DOUBLINGS: u32 = 10;
 const MANAGER_TOOLS: [&str; 3] = ["Read", "Glob", "Grep"];
 const MANAGER_WHO: &str = "manager";
 const MANAGER_PROMPT: &str = "prompts/manager.md";
@@ -73,8 +71,18 @@ impl Supervisor {
 
 	pub(super) fn manager_step(&mut self, now: i64) -> Result<()> {
 		if let Some(manager) = self.manager.as_mut() {
-			let Some(status) = manager.child.try_wait()? else {
-				return Ok(());
+			let timeout = Duration::from_secs(self.cfg.manager_timeout_seconds);
+			let status = match manager.child.try_wait()? {
+				Some(status) => Ok(status),
+				None if manager.started.elapsed() < timeout => return Ok(()),
+				None => {
+					manager.child.kill()?;
+					manager.child.wait()?;
+					Err(format!(
+						"manager timed out after {seconds} s",
+						seconds = timeout.as_secs()
+					))
+				}
 			};
 			if let Some(manager) = self.manager.take() {
 				self.finish_manager(manager, status, now);
@@ -123,10 +131,18 @@ impl Supervisor {
 		Ok(())
 	}
 
-	fn finish_manager(&mut self, manager: ManagerProcess, status: ExitStatus, now: i64) {
+	fn finish_manager(
+		&mut self,
+		manager: ManagerProcess,
+		status: Result<ExitStatus, String>,
+		now: i64,
+	) {
 		let outcome = parse_stream(&manager.stream_log);
 		self.record_agent(MANAGER_WHO, &manager.model, &outcome, manager.started, now);
-		match manager_actions(status, &outcome) {
+		let actions = status
+			.map_err(anyhow::Error::msg)
+			.and_then(|status| manager_actions(status, &outcome));
+		match actions {
 			Ok(actions) => self.apply_manager(actions, &manager),
 			Err(error) => self.manager_failed(&format!("{error:#}")),
 		}
@@ -147,16 +163,12 @@ impl Supervisor {
 			self.manager_retry_at = None;
 			return;
 		}
-		for error in errors {
-			self.manager_failed(&error);
-		}
+		self.manager_failed(&errors.join("; "));
 	}
 
 	fn manager_failed(&mut self, error: &str) {
 		self.manager_failures += 1;
-		let doublings = (self.manager_failures - 1).min(MANAGER_RETRY_MAX_DOUBLINGS);
-		let heartbeat = Duration::from_secs(self.cfg.heartbeat_minutes * SECONDS_PER_MINUTE);
-		let backoff = (MANAGER_RETRY_BASE * 2u32.pow(doublings)).min(heartbeat);
+		let backoff = retry_backoff(self.manager_failures, self.cfg.heartbeat_minutes);
 		self.manager_retry_at = Some(Instant::now() + backoff);
 		report(
 			"manager error",

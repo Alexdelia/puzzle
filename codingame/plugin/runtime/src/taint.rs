@@ -371,6 +371,15 @@ impl Scanner {
 	}
 }
 
+pub fn ensure_no_top_level_git(contest_root: &Path) -> Result<()> {
+	let git = contest_root.join(GIT_DIR_NAME);
+	ensure!(
+		fs::symlink_metadata(&git).is_err(),
+		"contest dir holds {git:?}: the taint scan removes a top-level .git, use a subdir of the repo"
+	);
+	Ok(())
+}
+
 pub fn remove_planted_files(contest_root: &Path, exempt: TopLevelExempt) -> Result<ScanReport> {
 	let root = Dir::open(contest_root, directory_flags(), Mode::empty())
 		.with_context(|| format!("open contest root {contest_root:?}"))?;

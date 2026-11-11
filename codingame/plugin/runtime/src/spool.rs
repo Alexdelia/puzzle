@@ -145,7 +145,7 @@ fn submit_job(
 	Ok(job_status(&record))
 }
 
-fn cancel_job(run: &RunDir, task: &TaskId, job: &JobId) -> Result<Value> {
+pub fn cancel_job(run: &RunDir, task: &TaskId, job: &JobId) -> Result<Value> {
 	let mut record = owned_record(run, task, job)?;
 	if is_ended(&record.state) || record.state == JobState::Cancelling {
 		return Ok(job_status(&record));
@@ -186,15 +186,7 @@ fn finish_task(
 
 pub type BeforeCommit<'a> = &'a dyn Fn(&TaskId) -> Result<()>;
 
-fn commit_unguarded(_: &TaskId) -> Result<()> {
-	Ok(())
-}
-
-pub fn handle(run: &RunDir, config: &Config, task: &TaskId, request: Request) -> Result<Value> {
-	handle_guarded(run, config, task, request, &commit_unguarded)
-}
-
-pub fn handle_guarded(
+pub fn handle(
 	run: &RunDir,
 	config: &Config,
 	task: &TaskId,
@@ -295,7 +287,7 @@ fn answer_one(
 		} => Some((*timeout_seconds).min(MAX_WAIT_SECONDS)),
 		_ => None,
 	};
-	let mut value = match handle_guarded(run, config, task, request, before_commit) {
+	let mut value = match handle(run, config, task, request, before_commit) {
 		Ok(value) => value,
 		Err(error) => return Ok(Some(failure(&error))),
 	};
@@ -374,15 +366,7 @@ fn serve_task(
 	Ok(answered)
 }
 
-pub fn serve_pending(run: &RunDir, config: &Config) -> Result<usize> {
-	serve_pending_guarded(run, config, &commit_unguarded)
-}
-
-pub fn serve_pending_guarded(
-	run: &RunDir,
-	config: &Config,
-	before_commit: BeforeCommit,
-) -> Result<usize> {
+pub fn serve_pending(run: &RunDir, config: &Config, before_commit: BeforeCommit) -> Result<usize> {
 	let mut answered = 0;
 	for (task, dir) in running_task_dirs(run)? {
 		match serve_task(run, config, &task, &dir, before_commit) {

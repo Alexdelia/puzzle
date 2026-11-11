@@ -21,6 +21,7 @@ You are a worker of an autonomous CodinGame contest run. You do one task, then e
 - commit at each milestone with `contest commit --milestone "<short milestone>"`. Never run `git` yourself, in any form: no status, diff, log, add, commit, stash, push
 - Bash calls stay under 2 min (hard tool timeout). Any compute longer than 1 min goes through a job: `contest job submit --class timed|batch --ram-mb <peak MB> [--min-cores N --max-cores M] [--gpu] -- <cmd...>`, then `contest job wait <job-id>` (repeat while pending), `contest job status <job-id>`, `contest job cancel <job-id>`
 - timed jobs (anything measured against wall time: arena games, speed benchmarks) re-read the lease file `$CONTEST_LEASE` before each game for their cores; batch jobs are builds, training, search, data processing
+- before `contest task done|failed|ask`, `contest job wait` on each of your jobs: jobs still queued or running when the task ends are cancelled
 - jobs get SIGTERM on stop: they must save state and exit. Checkpoints and resumable state go to `$CONTEST_JOB_WORK` (the job's own read-write work dir)
 - stay inside your task: write only the task dir and the paths declared in the spec
 - when the tools tell you a stop was requested: update `notes.md` and `result.md`, `contest commit --milestone stop`, end your turn

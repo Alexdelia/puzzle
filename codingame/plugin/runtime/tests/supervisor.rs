@@ -168,9 +168,24 @@ impl Supervisor {
 	}
 }
 
+fn edit_config(contest: &Contest, edit: impl FnOnce(&mut Config)) {
+	let mut config = Config::load(&contest.run.config()).unwrap();
+	edit(&mut config);
+	write_atomic(
+		&contest.run.config(),
+		toml::to_string(&config).unwrap().as_bytes(),
+	)
+	.unwrap();
+}
+
 fn start(contest: &Contest, worker_action: &str) -> Supervisor {
-	let exec =
-		format!("if [[ -n ${{CONTEST_TASK:-}} ]]; then {worker_action}; else {MANAGER_BRANCH}; fi");
+	start_with_probe(contest, worker_action, ":")
+}
+
+fn start_with_probe(contest: &Contest, worker_action: &str, probe_action: &str) -> Supervisor {
+	let exec = format!(
+		"if [[ $2 == ok ]]; then {probe_action}; elif [[ -n ${{CONTEST_TASK:-}} ]]; then {worker_action}; else {MANAGER_BRANCH}; fi"
+	);
 	let log = fs::File::create(contest.home.join("supervisor.log")).unwrap();
 	let child = Command::new(BIN)
 		.arg("start")
@@ -329,14 +344,10 @@ fn pin_repo(contest: &Contest) -> PathBuf {
 	git(&repo, &["config", "user.email", "t@t"]);
 	git(&repo, &["config", "commit.gpgsign", "false"]);
 	git(&repo, &["commit", "-q", "--allow-empty", "-m", "init"]);
-	let mut config = Config::load(&contest.run.config()).unwrap();
-	config.repo_root = repo.clone();
-	config.git_common_dir = repo.join(".git");
-	write_atomic(
-		&contest.run.config(),
-		toml::to_string(&config).unwrap().as_bytes(),
-	)
-	.unwrap();
+	edit_config(contest, |config| {
+		config.repo_root = repo.clone();
+		config.git_common_dir = repo.join(".git");
+	});
 	repo
 }
 
@@ -565,14 +576,14 @@ fn active_time_capped_after_pause() {
 	wait_until(10, "status file", || run.status().is_file());
 	let paused_at = Instant::now();
 	kill(supervisor.pid(), Signal::SIGSTOP).unwrap();
-	sleep(Duration::from_secs(12));
+	sleep(Duration::from_secs(20));
 	kill(supervisor.pid(), Signal::SIGCONT).unwrap();
 	sleep(Duration::from_secs(2));
 	supervisor.stop(run);
 	let wall = paused_at.elapsed().as_secs();
 	let info: RunInfo = serde_json::from_slice(&fs::read(run.run_json()).unwrap()).unwrap();
 	assert!(
-		info.active_seconds + 6 <= wall,
+		info.active_seconds + 12 <= wall,
 		"active {active} of {wall} wall seconds",
 		active = info.active_seconds
 	);
@@ -622,7 +633,7 @@ fn worker_job_runs_to_finish() {
 	let id = create_task(run, "sim-bench", 0);
 	let supervisor = start(
 		&contest,
-		"contest job submit --class batch --ram-mb 10 -- sh -c 'exit 3' && contest task done",
+		"contest job submit --class batch --ram-mb 10 -- sh -c 'exit 3' && contest job wait j0001; contest task done",
 	);
 	wait_until(20, "job finished event", || {
 		has_event(
@@ -754,6 +765,7 @@ fn worker_prompt_carries_rules() {
 		"{notes}",
 		"contest commit --milestone",
 		"contest job submit",
+		"contest job wait",
 		"CONTEST_JOB_WORK",
 		"notes.md",
 		"result.md",
@@ -782,4 +794,404 @@ fn worker_prompt_carries_rules() {
 	] {
 		assert!(manager.contains(action), "manager.md lacks {action:?}");
 	}
+}
+
+fn journal_lines(run: &RunDir, needle: &str) -> usize {
+	fs::read_to_string(run.journal())
+		.unwrap_or_default()
+		.lines()
+		.filter(|line| line.contains(needle))
+		.count()
+}
+
+fn event_count(run: &RunDir, name: &str) -> usize {
+	events(run)
+		.iter()
+		.filter(|event| event["event"] == name)
+		.count()
+}
+
+fn plugin_without_worker_prompt(contest: &Contest) -> PathBuf {
+	let plugin = contest.home.join("plugin");
+	fs::create_dir_all(plugin.join("prompts")).unwrap();
+	fs::copy(
+		plugin_dir().join("prompts/manager.md"),
+		plugin.join("prompts/manager.md"),
+	)
+	.unwrap();
+	plugin
+}
+
+fn stop_within(supervisor: Supervisor, run: &RunDir, seconds: u64) {
+	let stopped_at = Instant::now();
+	supervisor.stop(run);
+	assert!(
+		stopped_at.elapsed() < Duration::from_secs(seconds),
+		"STOP took {elapsed:?}",
+		elapsed = stopped_at.elapsed()
+	);
+}
+
+fn contest_status(run: &RunDir) -> String {
+	let output = Command::new(BIN)
+		.arg("status")
+		.arg(&run.root)
+		.output()
+		.unwrap();
+	assert!(output.status.success());
+	String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+#[test]
+fn launch_error_requeues_and_backs_off() {
+	let contest = contest(3);
+	let run = &contest.run;
+	let plugin = plugin_without_worker_prompt(&contest);
+	edit_config(&contest, |config| config.plugin_dir = plugin);
+	let tasks: Vec<TaskId> = ["a", "b", "c"]
+		.into_iter()
+		.map(|kind| create_task(run, kind, 0))
+		.collect();
+	let supervisor = start(&contest, "contest task done");
+	wait_until(10, "launch failed event", || {
+		event_count(run, "launch_failed") >= 1
+	});
+	sleep(Duration::from_secs(3));
+	supervisor.stop(run);
+	assert_eq!(event_count(run, "launch_failed"), 1);
+	assert_eq!(journal_lines(run, "launch of"), 1);
+	for id in &tasks {
+		assert_eq!(state(run, id), TaskState::Queued);
+	}
+}
+
+#[test]
+fn probe_does_not_block_loop() {
+	let contest = contest(1);
+	let run = &contest.run;
+	fs::remove_file(run.usage()).unwrap();
+	create_task(run, "sim-bench", 0);
+	let supervisor = start_with_probe(&contest, "contest task done", "exec sleep 60");
+	wait_until(10, "probe started", || {
+		run.agents().join("probe/stream.jsonl").is_file()
+	});
+	sleep(Duration::from_secs(1));
+	stop_within(supervisor, run, 4);
+}
+
+#[test]
+fn probe_killed_at_timeout() {
+	let contest = contest(1);
+	let run = &contest.run;
+	fs::remove_file(run.usage()).unwrap();
+	edit_config(&contest, |config| config.probe_timeout_seconds = 2);
+	let id = create_task(run, "sim-bench", 0);
+	let pid_file = contest.home.join("probe-pid");
+	let probe = format!("echo $$ > {pid}; exec sleep 60", pid = pid_file.display());
+	let supervisor = start_with_probe(&contest, "contest task done", &probe);
+	wait_until(10, "probe timeout", || {
+		journal_lines(run, "usage probe timed out") >= 1
+	});
+	let pid: i32 = fs::read_to_string(&pid_file)
+		.unwrap()
+		.trim()
+		.parse()
+		.unwrap();
+	wait_until(5, "probe killed", || {
+		!Path::new(&format!("/proc/{pid}")).exists()
+	});
+	wait_until(5, "usage unknown event", || {
+		event_count(run, "usage_unknown") >= 1
+	});
+	let status = contest_status(run);
+	supervisor.stop(run);
+	assert_eq!(event_count(run, "usage_unknown"), 1);
+	assert!(status.contains("no launches"), "{status}");
+	assert_eq!(state(run, &id), TaskState::Queued);
+}
+
+#[test]
+fn stale_usage_triggers_probe() {
+	let contest = contest(0);
+	let run = &contest.run;
+	record_usage(run, &usage_at(0.1), now() - 7200).unwrap();
+	let supervisor = start(&contest, "true");
+	wait_until(10, "fresh usage", || {
+		let usage: Value = serde_json::from_slice(&fs::read(run.usage()).unwrap()).unwrap();
+		usage["recorded_at"].as_i64().unwrap() > now() - 60
+	});
+	supervisor.stop(run);
+}
+
+#[test]
+fn expiring_credentials_trigger_one_probe() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let credentials = contest.home.join(".claude/.credentials.json");
+	fs::create_dir_all(credentials.parent().unwrap()).unwrap();
+	let expires_at_ms = (now() + 60) * 1000;
+	fs::write(
+		&credentials,
+		json!({"claudeAiOauth": {"expiresAt": expires_at_ms}}).to_string(),
+	)
+	.unwrap();
+	let probes = contest.home.join("probes");
+	let probe = format!("echo probe >> {probes}", probes = probes.display());
+	let supervisor = start_with_probe(&contest, "true", &probe);
+	wait_until(10, "first probe", || probes.is_file());
+	sleep(Duration::from_secs(4));
+	supervisor.stop(run);
+	assert_eq!(fs::read_to_string(&probes).unwrap().lines().count(), 1);
+}
+
+#[test]
+fn manager_timeout_kills_manager() {
+	let contest = contest(0);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.manager_timeout_seconds = 2);
+	let pid_file = contest.home.join("manager-pid");
+	let exec = format!(
+		"if [[ $2 != ok ]]; then echo $$ > {pid}; exec sleep 60; fi",
+		pid = pid_file.display()
+	);
+	let log = fs::File::create(contest.home.join("supervisor.log")).unwrap();
+	let child = Command::new(BIN)
+		.arg("start")
+		.arg(&run.root)
+		.arg("--foreground")
+		.env("HOME", &contest.home)
+		.env("FAKE_CLAUDE_SCRIPT", fixture("stream-success.jsonl"))
+		.env("FAKE_CLAUDE_EXEC", exec)
+		.stdout(log.try_clone().unwrap())
+		.stderr(log)
+		.spawn()
+		.unwrap();
+	let supervisor = Supervisor(child);
+	wait_until(10, "manager timeout error", || {
+		events(run).iter().any(|event| {
+			event["event"] == "manager_error"
+				&& event["error"].as_str().unwrap().contains("timed out")
+		})
+	});
+	let pid: i32 = fs::read_to_string(&pid_file)
+		.unwrap()
+		.trim()
+		.parse()
+		.unwrap();
+	assert!(!Path::new(&format!("/proc/{pid}")).exists());
+	stop_within(supervisor, run, 4);
+}
+
+#[test]
+fn manager_partial_apply_saves_cursor() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let actions = json!([
+		{"action": "create-task", "kind": "study-rules", "title": "read the rules", "priority": 5, "body": "read"},
+		{"action": "cancel", "task": "t0099-missing"},
+		{"action": "reprioritize", "task": "t0098-missing", "priority": 1},
+	]);
+	result_stream(
+		&contest.manager_stream,
+		&format!("plan\n```json\n{actions}\n```"),
+	);
+	assert!(contest_say(run, "go").status.success());
+	let supervisor = start(&contest, "true");
+	wait_until(10, "manager error", || {
+		event_count(run, "manager_error") >= 1
+	});
+	sleep(Duration::from_secs(1));
+	supervisor.stop(run);
+	assert_eq!(TaskStore { run }.list().unwrap().len(), 1);
+	assert!(run.manager_cursor().is_file());
+	assert!(run.inbox().join("read").is_dir());
+	let errors: Vec<Value> = events(run)
+		.into_iter()
+		.filter(|event| event["event"] == "manager_error")
+		.collect();
+	assert_eq!(errors.len(), 1);
+	let error = errors[0]["error"].as_str().unwrap();
+	assert!(
+		error.contains("action 1") && error.contains("action 2"),
+		"{error}"
+	);
+}
+
+#[test]
+fn requeued_task_with_live_old_process_is_skipped() {
+	let contest = contest(2);
+	let run = &contest.run;
+	let asker = create_task(run, "asker", 10);
+	let action = "case $CONTEST_TASK in *-asker) if [ -e \"$HOME/asked\" ]; then exec sleep 60; fi; touch \"$HOME/asked\"; contest task ask why; exec sleep 4;; *) exec sleep 60;; esac";
+	let supervisor = start(&contest, action);
+	wait_until(10, "question", || {
+		state(run, &asker) == TaskState::NeedsAnswer
+	});
+	let other = create_task(run, "other", 0);
+	TaskStore { run }
+		.transition(&asker, TaskState::Queued)
+		.unwrap();
+	wait_until(5, "other launched", || {
+		state(run, &other) == TaskState::Running
+	});
+	assert_eq!(state(run, &asker), TaskState::Queued);
+	wait_until(15, "asker relaunched", || {
+		state(run, &asker) == TaskState::Running
+	});
+	supervisor.stop(run);
+	assert!(!has_event(
+		run,
+		json!({"event": "task_finished", "task": asker.0})
+	));
+	assert_eq!(journal_lines(run, &format!("finished {asker}")), 0);
+}
+
+#[test]
+fn oversized_notes_are_flagged_in_prompt() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	fs::write(
+		run.task_dir(&id).join("notes.md"),
+		"x".repeat(2 * 1024 * 1024),
+	)
+	.unwrap();
+	let prompt_dump = contest.home.join("worker-prompt");
+	let action = format!(
+		"printf %s \"$2\" > {prompt}; contest task done",
+		prompt = prompt_dump.display()
+	);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "prompt dumped", || prompt_dump.is_file());
+	supervisor.stop(run);
+	let prompt = fs::read_to_string(&prompt_dump).unwrap();
+	assert!(prompt.contains("notes.md unreadable or too large"));
+}
+
+#[test]
+fn shutdown_finishes_after_persist_failure() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let mut supervisor = start(&contest, "true");
+	wait_until(10, "status file", || run.status().is_file());
+	fs::remove_file(run.run_json()).unwrap();
+	fs::write(run.stop_file(), "test").unwrap();
+	let deadline = Instant::now() + Duration::from_secs(10);
+	let status = loop {
+		if let Some(status) = supervisor.0.try_wait().unwrap() {
+			break status;
+		}
+		assert!(Instant::now() < deadline, "supervisor ignored STOP");
+		sleep(Duration::from_millis(50));
+	};
+	assert!(!status.success());
+	assert_eq!(journal_lines(run, "stopped: test"), 1);
+	assert_eq!(fs::read_to_string(run.supervisor_pid()).unwrap(), "");
+}
+
+#[test]
+fn status_ignores_stale_pid_file() {
+	let contest = contest(0);
+	let run = &contest.run;
+	fs::write(run.supervisor_pid(), std::process::id().to_string()).unwrap();
+	assert!(contest_status(run).contains("supervisor: not running"));
+}
+
+#[test]
+fn background_start_reports_early_exit() {
+	let contest = contest(0);
+	let run = &contest.run;
+	fs::create_dir_all(run.root.join(".git")).unwrap();
+	let output = Command::new(BIN)
+		.arg("start")
+		.arg(&run.root)
+		.env("HOME", &contest.home)
+		.output()
+		.unwrap();
+	assert!(!output.status.success());
+	assert!(String::from_utf8_lossy(&output.stderr).contains("supervisor.log"));
+}
+
+#[test]
+fn background_start_runs_supervisor() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let output = Command::new(BIN)
+		.arg("start")
+		.arg(&run.root)
+		.env("HOME", &contest.home)
+		.env("FAKE_CLAUDE_SCRIPT", &contest.manager_stream)
+		.output()
+		.unwrap();
+	assert!(output.status.success());
+	assert!(contest_status(run).contains("supervisor: running"));
+	fs::write(run.stop_file(), "test").unwrap();
+	wait_until(10, "supervisor gone", || {
+		contest_status(run).contains("supervisor: not running")
+	});
+}
+
+#[test]
+fn task_end_cancels_live_jobs() {
+	let contest = contest(1);
+	let run = &contest.run;
+	create_task(run, "sim-bench", 0);
+	let supervisor = start(
+		&contest,
+		"contest job submit --class batch --ram-mb 10 -- sleep 60 && sleep 2 && contest task done",
+	);
+	let job = JobId("j0001".into());
+	wait_until(20, "job cancelled", || {
+		read_job_record(run, &job).is_ok_and(|record| record.state == JobState::Cancelled)
+	});
+	supervisor.stop(run);
+}
+
+#[test]
+fn unsandboxed_job_env_is_scrubbed() {
+	let contest = contest(1);
+	let run = &contest.run;
+	create_task(run, "sim-bench", 0);
+	let env_dump = contest.home.join("job-env");
+	let action = format!(
+		"contest job submit --class batch --ram-mb 10 -- sh -c 'env > {dump}' && contest job wait j0001 && contest task done",
+		dump = env_dump.display()
+	);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "job finished", || {
+		has_event(run, json!({"event": "job_finished", "job": "j0001"}))
+	});
+	supervisor.stop(run);
+	let env = fs::read_to_string(&env_dump).unwrap();
+	assert!(env.contains("CONTEST_JOB_WORK="));
+	assert!(!env.contains("ANTHROPIC_TEST_SECRET"));
+	assert!(!env.contains("CLAUDE_TEST_SECRET"));
+}
+
+#[test]
+fn commit_refused_when_scan_fails() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let repo = pin_repo(&contest);
+	let id = create_task(run, "sim-bench", 0);
+	let task_dir = run.task_dir(&id);
+	let deep = task_dir.join(vec!["d"; 70].join("/"));
+	let action = format!(
+		"mkdir -p {deep}; echo hi > {out}; contest commit --milestone first; exec sleep 60",
+		deep = deep.display(),
+		out = task_dir.join("out.txt").display()
+	);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "task failed", || state(run, &id) == TaskState::Failed);
+	wait_until(10, "task finished event", || {
+		has_event(
+			run,
+			json!({"event": "task_finished", "task": id.0, "state": "failed"}),
+		)
+	});
+	supervisor.stop(run);
+	let log = git(&repo, &["log", "--format=%s"]);
+	assert_eq!(log.trim(), "init");
+	let notes = fs::read_to_string(task_dir.join("notes.md")).unwrap();
+	assert!(notes.contains("taint scan failed"));
 }

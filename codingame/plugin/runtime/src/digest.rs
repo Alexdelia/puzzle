@@ -11,7 +11,9 @@ use crate::paths::RunDir;
 use crate::run_info::RunInfo;
 use crate::taint::read_worker_file;
 use crate::task::{TaskState, TaskStore, TaskSummary};
-use crate::usage::{five_hour_used_percent, load_usage, seven_day_used_percent};
+use crate::usage::{
+	NO_LAUNCHES_NOTE, five_hour_used_percent, is_fresh_sample, load_usage, seven_day_used_percent,
+};
 
 const QUEUED_SHOWN: usize = 20;
 const RECENT_SHOWN: usize = 15;
@@ -82,14 +84,20 @@ fn run_section(run: &RunDir, now: i64) -> Vec<String> {
 	]
 }
 
-fn usage_section(run: &RunDir, now: i64) -> Vec<String> {
+fn usage_section(run: &RunDir, config: &Config, now: i64) -> Vec<String> {
 	match load_usage(run) {
-		Some((info, recorded_at)) => vec![
-			format!("5h: {used}%", used = five_hour_used_percent(&info, now)),
-			format!("7d: {used}%", used = seven_day_used_percent(&info, now)),
-			format!("sampled {age}s ago", age = now - recorded_at),
-		],
-		None => vec!["no usage sample".to_owned()],
+		Some((info, recorded_at)) => {
+			let mut lines = vec![
+				format!("5h: {used}%", used = five_hour_used_percent(&info, now)),
+				format!("7d: {used}%", used = seven_day_used_percent(&info, now)),
+				format!("sampled {age}s ago", age = now - recorded_at),
+			];
+			if !is_fresh_sample(recorded_at, now, config) {
+				lines.push(format!("sample stale: {NO_LAUNCHES_NOTE}"));
+			}
+			lines
+		}
+		None => vec![format!("no usage sample: {NO_LAUNCHES_NOTE}")],
 	}
 }
 
@@ -298,7 +306,7 @@ pub fn build_digest(run: &RunDir, config: &Config, now: i64) -> Digest {
 			.into_iter()
 			.chain(tasks_error)
 			.collect(),
-		usage: usage_section(run, now),
+		usage: usage_section(run, config, now),
 		running: state_section(&tasks, &[TaskState::Running, TaskState::Interrupted]),
 		needs_answer: needs_answer_section(run, &tasks),
 		queued: queued_section(&tasks),

@@ -1,4 +1,6 @@
 use std::fs;
+use std::path::PathBuf;
+use std::process::Child;
 
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
@@ -32,6 +34,19 @@ pub fn load_usage(run: &RunDir) -> Option<(RateLimitInfo, i64)> {
 	let text = fs::read_to_string(run.usage()).ok()?;
 	let record: UsageRecord = serde_json::from_str(&text).ok()?;
 	Some((record.info, record.recorded_at))
+}
+
+pub const NO_LAUNCHES_NOTE: &str = "no launches until a usage probe succeeds";
+const SECONDS_PER_MINUTE: i64 = 60;
+
+pub fn is_fresh_sample(recorded_at: i64, now: i64, config: &Config) -> bool {
+	now - recorded_at <= config.usage_max_age_minutes as i64 * SECONDS_PER_MINUTE
+}
+
+pub fn fresh_usage(run: &RunDir, config: &Config, now: i64) -> Option<RateLimitInfo> {
+	load_usage(run)
+		.filter(|(_, recorded_at)| is_fresh_sample(*recorded_at, now, config))
+		.map(|(info, _)| info)
 }
 
 fn percent(window: &Window) -> i64 {
@@ -69,25 +84,33 @@ pub fn rejected_until(info: &RateLimitInfo, now: i64) -> Option<i64> {
 	(info.status == "rejected" && info.resets_at > now).then_some(info.resets_at)
 }
 
-pub fn probe_usage(config: &Config) -> Option<RateLimitInfo> {
-	let stream_log = std::env::temp_dir().join(format!(
-		"contest-usage-probe-{pid}.jsonl",
-		pid = std::process::id()
-	));
+pub struct Probe {
+	pub child: Child,
+	stream_log: PathBuf,
+}
+
+impl Probe {
+	pub fn finish(self) -> Option<RateLimitInfo> {
+		let info = parse_stream(&self.stream_log).rate_limit;
+		let _ = fs::remove_file(&self.stream_log);
+		let _ = fs::remove_file(self.stream_log.with_extension("stderr.log"));
+		info
+	}
+}
+
+pub fn spawn_probe(config: &Config, stream_log: PathBuf) -> anyhow::Result<Probe> {
 	let run = AgentRun {
 		prompt: "ok".into(),
 		model: PROBE_MODEL.into(),
 		budget_usd: PROBE_BUDGET_USD,
 		cwd: std::env::temp_dir(),
 		allowed_tools: None,
-		stream_log: stream_log.clone(),
+		stream_log,
 		env: Vec::new(),
 	};
-	let finished = spawn_agent(config, &run, None).ok()?.wait().is_ok();
-	let info = finished
-		.then(|| parse_stream(&stream_log).rate_limit)
-		.flatten();
-	let _ = fs::remove_file(&stream_log);
-	let _ = fs::remove_file(stream_log.with_extension("stderr.log"));
-	info
+	let child = spawn_agent(config, &run, None)?;
+	Ok(Probe {
+		child,
+		stream_log: run.stream_log,
+	})
 }

@@ -18,6 +18,8 @@ pub enum Event {
 	ManagerError { error: String },
 	BudgetExhausted,
 	UsageBlocked { until: i64 },
+	UsageUnknown,
+	LaunchFailed { task: TaskId, error: String },
 }
 
 fn now_unix() -> u64 {

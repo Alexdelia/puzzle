@@ -30,6 +30,8 @@ pub struct Config {
 	pub repo_root: PathBuf,
 	pub git_common_dir: PathBuf,
 	pub pasta_bin: PathBuf,
+	pub probe_timeout_seconds: u64,
+	pub manager_timeout_seconds: u64,
 }
 
 impl Default for Config {
@@ -60,6 +62,8 @@ impl Default for Config {
 			repo_root: PathBuf::new(),
 			git_common_dir: PathBuf::new(),
 			pasta_bin: PathBuf::new(),
+			probe_timeout_seconds: 120,
+			manager_timeout_seconds: 900,
 		}
 	}
 }

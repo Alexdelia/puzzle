@@ -8,12 +8,14 @@ use crate::broker::{Grant, JobRequest, allocate};
 use crate::events::{Event, emit};
 use crate::job::{
 	JobRecord, JobState, list_job_records, mark_spawned, process_starttime, read_vmstat, repin,
-	sandbox_job, signal_if_same_process, spawn_job, swapping_now, try_reap, write_job_record,
-	write_lease,
+	sandbox_job, signal_if_same_process, spawn_job, spawn_job_scrubbed, swapping_now, try_reap,
+	write_job_record, write_lease,
 };
 use crate::journal::journal_append;
 use crate::paths::RunDir;
-use crate::sandbox::SandboxSpec;
+use crate::sandbox::{SandboxSpec, dropped_host_env};
+use crate::spool::cancel_job;
+use crate::task::{TaskState, TaskStore};
 
 const JOB_SPAWN_FAILED_CODE: i32 = 127;
 
@@ -70,6 +72,31 @@ pub(super) fn reconcile_jobs(run: &RunDir) -> Result<()> {
 }
 
 impl Supervisor {
+	pub(super) fn cancel_jobs_of_ended_tasks(&self) -> Result<()> {
+		let store = TaskStore { run: &self.run };
+		for record in list_job_records(&self.run) {
+			if !matches!(record.state, JobState::Queued | JobState::Running) {
+				continue;
+			}
+			let ended = matches!(
+				store.state(&record.owner_task),
+				Ok(TaskState::Done | TaskState::Failed | TaskState::Cancelled)
+			);
+			if ended {
+				cancel_job(&self.run, &record.owner_task, &record.id)?;
+				journal_append(
+					&self.run,
+					&format!(
+						"job {id} cancelled: {owner} ended",
+						id = record.id,
+						owner = record.owner_task
+					),
+				)?;
+			}
+		}
+		Ok(())
+	}
+
 	pub(super) fn reap_jobs(&mut self) -> Result<()> {
 		for record in list_job_records(&self.run) {
 			if !is_live_job(&record.state) {
@@ -180,8 +207,9 @@ impl Supervisor {
 		if self.cfg.sandbox {
 			let spec = SandboxSpec::for_run(&self.run, &self.cfg, Some(record.owner_task.clone()))?;
 			sandbox_job(record, &spec);
+			return spawn_job(&self.run, record, grant);
 		}
-		spawn_job(&self.run, record, grant)
+		spawn_job_scrubbed(&self.run, record, grant, &dropped_host_env())
 	}
 
 	fn launch_job(&mut self, mut record: JobRecord, grant: Grant) -> Result<()> {

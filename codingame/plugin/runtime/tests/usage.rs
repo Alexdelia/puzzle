@@ -6,8 +6,8 @@ use contest::agent::{RateLimitInfo, Window};
 use contest::config::Config;
 use contest::paths::RunDir;
 use contest::usage::{
-	five_hour_full, five_hour_used_percent, load_usage, over_weekly_pace, probe_usage,
-	record_usage, rejected_until,
+	five_hour_full, five_hour_used_percent, load_usage, over_weekly_pace, record_usage,
+	rejected_until, spawn_probe,
 };
 
 const NOW: i64 = 1_000_000;
@@ -84,6 +84,9 @@ fn probe_reads_rate_limit_from_fake_claude() {
 		claude_bin: script,
 		..Config::default()
 	};
-	let probed = probe_usage(&config).unwrap();
+	let mut probe = spawn_probe(&config, dir.path().join("probe/stream.jsonl")).unwrap();
+	probe.child.wait().unwrap();
+	let probed = probe.finish().unwrap();
+	assert!(!dir.path().join("probe/stream.jsonl").exists());
 	assert_eq!(probed.five_hour.utilization, 0.13);
 }

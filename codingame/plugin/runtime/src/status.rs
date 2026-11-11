@@ -2,13 +2,19 @@ use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
+use nix::errno::Errno;
+use nix::fcntl::{Flock, FlockArg};
+
 use crate::atomic::write_atomic;
+use crate::config::Config;
 use crate::job::{JobState, list_job_records};
 use crate::journal::journal_tail;
 use crate::paths::RunDir;
 use crate::run_info::RunInfo;
 use crate::task::{TaskState, TaskStore};
-use crate::usage::{five_hour_used_percent, load_usage, seven_day_used_percent};
+use crate::usage::{
+	NO_LAUNCHES_NOTE, five_hour_used_percent, is_fresh_sample, load_usage, seven_day_used_percent,
+};
 
 pub const MAX_STATUS_LINES: usize = 40;
 const TASKS_SHOWN: usize = 8;
@@ -34,13 +40,15 @@ fn clipped(line: &str) -> String {
 		.collect()
 }
 
-pub fn running_supervisor(run: &RunDir) -> Option<u32> {
-	let pid: u32 = fs::read_to_string(run.supervisor_pid())
-		.ok()?
-		.trim()
-		.parse()
-		.ok()?;
-	Path::new(&format!("/proc/{pid}")).exists().then_some(pid)
+pub fn running_supervisor(run: &RunDir) -> Option<String> {
+	let file = File::open(run.supervisor_pid()).ok()?;
+	match Flock::lock(file, FlockArg::LockSharedNonblock) {
+		Err((_, Errno::EWOULDBLOCK)) => {
+			let pid = fs::read_to_string(run.supervisor_pid()).unwrap_or_default();
+			Some(pid.trim().to_owned())
+		}
+		_ => None,
+	}
 }
 
 fn run_lines(run: &RunDir, now: i64) -> Vec<String> {
@@ -72,15 +80,22 @@ fn run_lines(run: &RunDir, now: i64) -> Vec<String> {
 	]
 }
 
-fn usage_line(run: &RunDir, now: i64) -> String {
+fn usage_lines(run: &RunDir, now: i64) -> Vec<String> {
+	let config = Config::load(&run.config()).unwrap_or_default();
 	match load_usage(run) {
-		Some((info, recorded_at)) => format!(
-			"usage: 5h {five}%, 7d {seven}%, sampled {age}s ago",
-			five = five_hour_used_percent(&info, now),
-			seven = seven_day_used_percent(&info, now),
-			age = now - recorded_at
-		),
-		None => "usage: no sample".to_owned(),
+		Some((info, recorded_at)) => {
+			let mut lines = vec![format!(
+				"usage: 5h {five}%, 7d {seven}%, sampled {age}s ago",
+				five = five_hour_used_percent(&info, now),
+				seven = seven_day_used_percent(&info, now),
+				age = now - recorded_at
+			)];
+			if !is_fresh_sample(recorded_at, now, &config) {
+				lines.push(format!("usage sample stale: {NO_LAUNCHES_NOTE}"));
+			}
+			lines
+		}
+		None => vec![format!("usage: no sample, {NO_LAUNCHES_NOTE}")],
 	}
 }
 
@@ -163,7 +178,7 @@ pub fn status_text(run: &RunDir, now: i64) -> String {
 		lines.push(format!("stop requested: {reason}", reason = reason.trim()));
 	}
 	lines.extend(run_lines(run, now));
-	lines.push(usage_line(run, now));
+	lines.extend(usage_lines(run, now));
 	lines.extend(section("running tasks", running_tasks(run)));
 	lines.extend(section("jobs", active_jobs(run)));
 	lines.extend(section("journal", journal_tail(run, JOURNAL_SHOWN)));

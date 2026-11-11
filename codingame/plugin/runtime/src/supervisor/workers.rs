@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use anyhow::{Context, Result};
 
-use super::{STREAM_FILE, Supervisor, remove_planted, report, taint_failure};
+use super::{STREAM_FILE, Supervisor, remove_planted, report, retry_backoff, taint_failure};
 use crate::agent::{AgentRun, StreamOutcome, parse_stream};
 use crate::claude_config::agent_env;
 use crate::events::{Event, emit};
@@ -21,6 +21,7 @@ const NOTES_PROMPT_MAX_BYTES: usize = 16 * 1024;
 const WORKER_PROMPT: &str = "prompts/worker.md";
 const EXITED_WITHOUT_OUTCOME: &str = "exited without outcome";
 const NONE_TEXT: &str = "(none)";
+const NOTES_UNREADABLE: &str = "notes.md unreadable or too large";
 
 fn fill(template: &str, values: &[(&str, &str)]) -> String {
 	let mut filled = String::with_capacity(template.len());
@@ -70,8 +71,12 @@ fn spec_text(spec: &TaskSpec) -> String {
 }
 
 fn notes_text(run: &RunDir, id: &TaskId) -> String {
-	let Ok(bytes) = read_worker_file(&run.task_dir(id).join("notes.md")) else {
+	let path = run.task_dir(id).join("notes.md");
+	if fs::symlink_metadata(&path).is_err() {
 		return NONE_TEXT.to_owned();
+	}
+	let Ok(bytes) = read_worker_file(&path) else {
+		return NOTES_UNREADABLE.to_owned();
 	};
 	let notes = String::from_utf8_lossy(&bytes);
 	let notes = notes.trim();
@@ -174,6 +179,9 @@ impl Supervisor {
 		if let Some(failure) = taint_failure(remove_planted(&self.run, self.exempt)) {
 			state = self.flag_tainted(id, state, &failure);
 		}
+		if state == TaskState::Queued {
+			return Ok(());
+		}
 		emit(
 			&self.run,
 			Event::TaskFinished {
@@ -185,12 +193,18 @@ impl Supervisor {
 	}
 
 	pub(super) fn launch_workers(&mut self, now: i64) -> Result<()> {
-		while self.workers.len() < self.cfg.workers {
-			let Some(id) = (TaskStore { run: &self.run }).next_queued()? else {
+		if self
+			.launch_retry_at
+			.is_some_and(|retry_at| Instant::now() < retry_at)
+		{
+			return Ok(());
+		}
+		for id in (TaskStore { run: &self.run }).queued()? {
+			if self.workers.len() >= self.cfg.workers {
 				break;
-			};
+			}
 			if self.workers.iter().any(|worker| worker.task == id) {
-				break;
+				continue;
 			}
 			let Some(info) = self.fresh_usage(now) else {
 				break;
@@ -199,8 +213,15 @@ impl Supervisor {
 				break;
 			}
 			TaskStore { run: &self.run }.transition(&id, TaskState::Running)?;
-			if let Err(error) = self.launch_worker(&id) {
-				self.fail_launch(&id, &error)?;
+			match self.launch_worker(&id) {
+				Ok(()) => {
+					self.launch_failures = 0;
+					self.launch_retry_at = None;
+				}
+				Err(error) => {
+					self.launch_failed(&id, &error)?;
+					break;
+				}
 			}
 		}
 		Ok(())
@@ -245,20 +266,26 @@ impl Supervisor {
 		)
 	}
 
-	fn fail_launch(&self, id: &TaskId, error: &anyhow::Error) -> Result<()> {
+	fn launch_failed(&mut self, id: &TaskId, error: &anyhow::Error) -> Result<()> {
+		self.launch_failures += 1;
+		let backoff = retry_backoff(self.launch_failures, self.cfg.heartbeat_minutes);
+		self.launch_retry_at = Some(Instant::now() + backoff);
 		let store = TaskStore { run: &self.run };
-		store.transition(id, TaskState::Failed)?;
-		report(
-			"notes",
-			store.append_notes(id, &format!("\nlaunch failed: {error:#}\n")),
-		);
+		store.transition(id, TaskState::Interrupted)?;
+		store.transition(id, TaskState::Queued)?;
 		emit(
 			&self.run,
-			Event::TaskFinished {
+			Event::LaunchFailed {
 				task: id.clone(),
-				state: TaskState::Failed,
+				error: format!("{error:#}"),
 			},
 		)?;
-		journal_append(&self.run, &format!("launch of {id} failed: {error:#}"))
+		journal_append(
+			&self.run,
+			&format!(
+				"launch of {id} failed, launches paused {seconds} s: {error:#}",
+				seconds = backoff.as_secs()
+			),
+		)
 	}
 }

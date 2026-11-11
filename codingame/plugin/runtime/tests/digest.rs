@@ -263,3 +263,29 @@ fn cursor_file_limits_events() {
 	assert!(digest.contains("usage_blocked"));
 	assert!(!digest.contains("budget_exhausted"));
 }
+
+#[test]
+fn missing_or_stale_usage_says_no_launches() {
+	let (_dir, run) = run_dir();
+	let config = Config::default();
+	let missing = build_digest(&run, &config, NOW).text;
+	assert!(missing.contains("no launches until a usage probe succeeds"));
+	let info = contest::agent::RateLimitInfo {
+		status: "allowed".into(),
+		resets_at: NOW + 3600,
+		five_hour: contest::agent::Window {
+			utilization: 0.1,
+			resets_at: NOW + 3600,
+		},
+		seven_day: contest::agent::Window {
+			utilization: 0.1,
+			resets_at: NOW + 3600,
+		},
+	};
+	contest::usage::record_usage(&run, &info, NOW - 7200).unwrap();
+	let stale = build_digest(&run, &config, NOW).text;
+	assert!(stale.contains("no launches until a usage probe succeeds"));
+	contest::usage::record_usage(&run, &info, NOW - 60).unwrap();
+	let fresh = build_digest(&run, &config, NOW).text;
+	assert!(!fresh.contains("no launches"));
+}

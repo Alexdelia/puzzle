@@ -7,22 +7,24 @@ use std::process::Child;
 use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, bail};
 use nix::errno::Errno;
 use nix::fcntl::{Flock, FlockArg};
 
 mod jobs;
 mod manager;
+mod probe;
 mod workers;
 
 use jobs::reconcile_jobs;
 use manager::ManagerProcess;
+use probe::RunningProbe;
 use workers::WorkerProcess;
 
-use crate::agent::{AgentRun, RateLimitInfo, spawn_agent, spawn_agent_scrubbed};
+use crate::agent::{AgentRun, spawn_agent, spawn_agent_scrubbed};
 use crate::atomic::write_atomic;
 use crate::broker::{Grant, Machine};
-use crate::claude_config::{credentials_expire_within, write_claude_settings};
+use crate::claude_config::write_claude_settings;
 use crate::config::Config;
 use crate::events::{Event, emit};
 use crate::job::VmStat;
@@ -30,26 +32,22 @@ use crate::journal::journal_append;
 use crate::paths::{JobId, RunDir, TaskId};
 use crate::run_info::RunInfo;
 use crate::sandbox::{SandboxSpec, contest_bin_dir, dropped_host_env, sandbox_command};
-use crate::spool::serve_pending_guarded;
+use crate::spool::serve_pending;
 use crate::status::write_status;
-use crate::taint::{ScanReport, TopLevelExempt, remove_planted_files};
+use crate::taint::{ScanReport, TopLevelExempt, ensure_no_top_level_git, remove_planted_files};
 use crate::task::{TaskState, TaskStore};
-use crate::usage::{
-	five_hour_full, load_usage, over_weekly_pace, probe_usage, record_usage, rejected_until,
-};
 
 const LOOP_INTERVAL: Duration = Duration::from_secs(1);
 const MAX_ACTIVE_STEP: Duration = Duration::from_secs(5);
 const PERSIST_INTERVAL: Duration = Duration::from_secs(30);
 const STATUS_INTERVAL: Duration = Duration::from_secs(30);
-const PROBE_RETRY: Duration = Duration::from_secs(60);
-const CREDENTIALS_HORIZON_SECONDS: u64 = 15 * 60;
+const RETRY_BASE: Duration = Duration::from_secs(60);
+const RETRY_MAX_DOUBLINGS: u32 = 10;
 const SECONDS_PER_MINUTE: u64 = 60;
 const STREAM_FILE: &str = "stream.jsonl";
 const CREDENTIALS_FILE: &str = ".claude/.credentials.json";
 const BUDGET_STOP_REASON: &str = "budget";
 const DEFAULT_STOP_REASON: &str = "requested";
-const GIT_DIR_NAME: &str = ".git";
 
 pub fn active_increment(elapsed: Duration) -> Duration {
 	elapsed.min(MAX_ACTIVE_STEP)
@@ -59,6 +57,12 @@ fn unix_now() -> i64 {
 	SystemTime::now()
 		.duration_since(UNIX_EPOCH)
 		.map_or(0, |elapsed| elapsed.as_secs() as i64)
+}
+
+fn retry_backoff(failures: u32, heartbeat_minutes: u64) -> Duration {
+	let doublings = failures.saturating_sub(1).min(RETRY_MAX_DOUBLINGS);
+	let heartbeat = Duration::from_secs(heartbeat_minutes * SECONDS_PER_MINUTE);
+	(RETRY_BASE * 2u32.pow(doublings)).min(heartbeat)
 }
 
 fn report(step: &str, result: Result<()>) {
@@ -153,6 +157,10 @@ struct Supervisor {
 	manager_retry_at: Option<Instant>,
 	manager_failures: u32,
 	last_probe: Option<Instant>,
+	probe: Option<RunningProbe>,
+	usage_unknown_reported: bool,
+	launch_retry_at: Option<Instant>,
+	launch_failures: u32,
 	blocked_until: Option<i64>,
 	pid_lock: Flock<File>,
 }
@@ -174,11 +182,7 @@ impl Supervisor {
 		let root = fs::canonicalize(&run.root)
 			.with_context(|| format!("resolve {root:?}", root = run.root))?;
 		let run = RunDir { root };
-		let git = run.root.join(GIT_DIR_NAME);
-		ensure!(
-			fs::symlink_metadata(&git).is_err(),
-			"contest dir holds {git:?}: the taint scan removes a top-level .git, use a subdir of the repo"
-		);
+		ensure_no_top_level_git(&run.root)?;
 		for dir in [
 			run.tasks(),
 			run.jobs(),
@@ -221,6 +225,10 @@ impl Supervisor {
 			manager_retry_at: None,
 			manager_failures: 0,
 			last_probe: None,
+			probe: None,
+			usage_unknown_reported: false,
+			launch_retry_at: None,
+			launch_failures: 0,
 			blocked_until: None,
 			pid_lock,
 			run,
@@ -239,20 +247,34 @@ impl Supervisor {
 	}
 
 	fn shut_down(mut self, reason: &str) -> Result<()> {
-		self.persist()?;
-		journal_append(&self.run, &format!("stopped: {reason}"))?;
-		self.pid_lock.set_len(0)?;
-		write_status(&self.run, unix_now())
+		let persisted = self.persist();
+		let journaled = journal_append(&self.run, &format!("stopped: {reason}"));
+		let cleared = self.pid_lock.set_len(0).map_err(anyhow::Error::from);
+		let status = write_status(&self.run, unix_now());
+		let errors: Vec<String> = [persisted, journaled, cleared, status]
+			.into_iter()
+			.filter_map(Result::err)
+			.map(|error| format!("{error:#}"))
+			.collect();
+		if !errors.is_empty() {
+			bail!("shutdown incomplete: {errors}", errors = errors.join("; "));
+		}
+		Ok(())
 	}
 
 	fn iterate(&mut self) {
 		let now = unix_now();
-		self.refresh_credentials(now);
+		let probed = self.poll_probe(now);
+		report("usage probe", probed);
+		self.refresh_credentials();
 		let served = self.serve_requests();
 		report("spool", served);
 		let reaped = self.reap_workers(now);
 		report("reap workers", reaped);
-		let jobs = self.reap_jobs().and_then(|()| self.schedule_jobs());
+		let jobs = self
+			.cancel_jobs_of_ended_tasks()
+			.and_then(|()| self.reap_jobs())
+			.and_then(|()| self.schedule_jobs());
 		report("jobs", jobs);
 		let manager = self.manager_step(now);
 		report("manager", manager);
@@ -262,58 +284,6 @@ impl Supervisor {
 		report("time", accounted);
 		let status = self.refresh_status(now);
 		report("status", status);
-	}
-
-	fn probe_allowed(&self) -> bool {
-		self.last_probe
-			.is_none_or(|probed| probed.elapsed() >= PROBE_RETRY)
-	}
-
-	fn probe(&mut self, now: i64) {
-		self.last_probe = Some(Instant::now());
-		let recorded = match probe_usage(&self.cfg) {
-			Some(info) => record_usage(&self.run, &info, now),
-			None => journal_append(&self.run, "usage probe failed"),
-		};
-		report("usage probe", recorded);
-	}
-
-	fn refresh_credentials(&mut self, now: i64) {
-		let expiring = self.credentials.as_ref().is_some_and(|path| {
-			credentials_expire_within(path, CREDENTIALS_HORIZON_SECONDS).unwrap_or(false)
-		});
-		if expiring && self.probe_allowed() {
-			self.probe(now);
-		}
-	}
-
-	fn fresh_usage(&mut self, now: i64) -> Option<RateLimitInfo> {
-		let max_age = (self.cfg.usage_max_age_minutes * SECONDS_PER_MINUTE) as i64;
-		let fresh = |run: &RunDir| {
-			load_usage(run)
-				.filter(|(_, recorded_at)| now - recorded_at <= max_age)
-				.map(|(info, _)| info)
-		};
-		if let Some(info) = fresh(&self.run) {
-			return Some(info);
-		}
-		if !self.probe_allowed() {
-			return None;
-		}
-		self.probe(now);
-		fresh(&self.run)
-	}
-
-	fn usage_allows(&mut self, info: &RateLimitInfo, now: i64) -> bool {
-		if let Some(until) = rejected_until(info, now) {
-			if self.blocked_until != Some(until) {
-				self.blocked_until = Some(until);
-				report("usage", emit(&self.run, Event::UsageBlocked { until }));
-			}
-			return false;
-		}
-		!five_hour_full(info, now, self.workers.len(), &self.cfg)
-			&& !over_weekly_pace(info, now, &self.cfg)
 	}
 
 	fn serve_requests(&mut self) -> Result<()> {
@@ -327,7 +297,7 @@ impl Supervisor {
 			}
 			Ok(())
 		};
-		let served = serve_pending_guarded(run, &self.cfg, &guard);
+		let served = serve_pending(run, &self.cfg, &guard);
 		for (task, failure) in tainted.into_inner() {
 			self.flag_tainted(&task, TaskState::Running, &failure);
 			self.kill_worker(&task);

@@ -163,6 +163,15 @@ fn create_job_work_dir(run: &RunDir, record: &JobRecord) -> anyhow::Result<PathB
 }
 
 pub fn spawn_job(run: &RunDir, record: &JobRecord, grant: &Grant) -> anyhow::Result<u32> {
+	spawn_job_scrubbed(run, record, grant, &[])
+}
+
+pub fn spawn_job_scrubbed(
+	run: &RunDir,
+	record: &JobRecord,
+	grant: &Grant,
+	removed_env: &[String],
+) -> anyhow::Result<u32> {
 	anyhow::ensure!(
 		grant.id == record.id,
 		"grant {grant_id} does not belong to job {job_id}",
@@ -178,6 +187,9 @@ pub fn spawn_job(run: &RunDir, record: &JobRecord, grant: &Grant) -> anyhow::Res
 	let set = cpu_set(&grant.cpus)?;
 	let batch = matches!(record.request.class, JobClass::Batch);
 	let mut command = Command::new(program);
+	for name in removed_env {
+		command.env_remove(name);
+	}
 	command
 		.args(args)
 		.current_dir(&record.cwd)
