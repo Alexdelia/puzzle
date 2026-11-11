@@ -15,15 +15,19 @@ User-facing control of a run. The run works alone: a supervisor launches a manag
 - neither: ask the user for the dir, do nothing else
 - every command below takes it as `<dir>`
 
+## First call
+
+The first `contest` call of a session may build the binary (`cargo build --release`, minutes): run it with a Bash timeout of 600000 ms or in the background (`run_in_background`).
+
 ## Requests
 
 | user says | do |
 | --- | --- |
-| status, how is it going | `contest status <dir>`, then Read `<dir>/run/status.md` and the tail of `<dir>/run/replies.md` |
+| status, how is it going | `contest status <dir>`, then Read `<dir>/run/status.md` and the end of `<dir>/run/replies.md` (Read with offset/limit) |
 | tell it X, ask it X | `contest say <dir> "X"`: the manager answers at its next tick in `run/replies.md` |
-| start, resume | `contest start <dir>`: forks the supervisor and returns; never `--foreground` |
+| start, resume | `contest start <dir>` in the background (`run_in_background`); it forks the supervisor; never `--foreground` |
 | stop | `contest stop <dir>`: returns at once, prints the seconds left |
-| stop and wait | `contest stop <dir> --wait` in the background (`run_in_background`) or with a Bash timeout of 330000 ms: it has no timeout of its own |
+| stop and wait | `contest stop <dir> --wait` in the background (`run_in_background`) or with a Bash timeout longer than the seconds `contest stop` prints (at most 600000 ms): it has no timeout of its own |
 | new run | `contest init <dir> --puzzle <id> --mode contest-live\|past-puzzle\|optimization [--deadline <rfc3339>] [--active-budget-hours N]`; `<dir>` must sit inside a git repo, not be its top |
 
 ## Answer
@@ -35,6 +39,6 @@ User-facing control of a run. The run works alone: a supervisor launches a manag
 ## Never
 
 - edit or create anything under `run/`: only the `contest` CLI writes there
-- read `run/journal.md` whole: tail at most 40 lines
+- read `run/journal.md` whole: Read its last 40 lines at most (offset/limit)
 - answer a worker's question yourself: forward user decisions with `contest say`, the manager answers workers
 - ask the user for approval mid-run: the run must not wait on you

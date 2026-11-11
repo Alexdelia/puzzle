@@ -54,7 +54,9 @@ fail() {
 }
 
 supervisor_running() {
-	contest status "$contest_dir" | grep -Eq '^supervisor: (starting|running|stopping)'
+	local status
+	status="$(contest status "$contest_dir")"
+	grep -Eq '^supervisor: (starting|running|stopping)' <<<"$status"
 }
 
 stop_leftover_supervisor() {
@@ -105,7 +107,13 @@ wait_for_task_done() {
 }
 
 running_job() {
-	grep -lx 'state = "Running"' "$run"/jobs/j*/job.toml 2>/dev/null | head -n 1 || true
+	local record
+	for record in "$run"/jobs/j*/job.toml; do
+		if [[ -f $record ]] && grep -qx 'state = "Running"' "$record"; then
+			echo "$record"
+			return
+		fi
+	done
 }
 
 wait_for_running_job() {
@@ -162,11 +170,14 @@ contest start "$contest_dir"
 hello_dir="$(wait_for_task_done hello)"
 hello_task="$(basename "$hello_dir")"
 say "$hello_task done"
-hello_commit="$(git -C "$repo" log --format='%H %s' | awk -v task="$hello_task" '$2 == "hello:" && $3 == task && $4 == "hello" { print $1; exit }')"
+history="$(git -C "$repo" log --format='%H %s')"
+hello_commit="$(awk -v task="$hello_task" '$2 == "hello:" && $3 == task && $4 == "hello" && !found { print $1; found = 1 }' <<<"$history")"
 [[ -n $hello_commit ]] || fail "no commit 'hello: $hello_task hello'"
-git -C "$repo" log -1 --format=%s "$hello_commit" | grep -Eq "$HELLO_SUBJECT_PATTERN" ||
+hello_subject="$(git -C "$repo" log -1 --format=%s "$hello_commit")"
+grep -Eq "$HELLO_SUBJECT_PATTERN" <<<"$hello_subject" ||
 	fail "commit subject is not 'hello: <task> hello'"
-git -C "$repo" show --name-only --format= "$hello_commit" | grep -qx 'contest/hello.txt' ||
+hello_files="$(git -C "$repo" show --name-only --format= "$hello_commit")"
+grep -qx 'contest/hello.txt' <<<"$hello_files" ||
 	fail "commit $hello_commit lacks contest/hello.txt"
 say "commit $hello_commit has contest/hello.txt"
 
