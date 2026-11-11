@@ -171,7 +171,7 @@ hello_dir="$(wait_for_task_done hello)"
 hello_task="$(basename "$hello_dir")"
 say "$hello_task done"
 history="$(git -C "$repo" log --format='%H %s')"
-hello_commit="$(awk -v task="$hello_task" '$2 == "hello:" && $3 == task && $4 == "hello" && !found { print $1; found = 1 }' <<<"$history")"
+hello_commit="$(awk -v task="$hello_task" 'NF == 4 && $2 == "hello:" && $3 == task && $4 == "hello" && !found { print $1; found = 1 }' <<<"$history")"
 [[ -n $hello_commit ]] || fail "no commit 'hello: $hello_task hello'"
 hello_subject="$(git -C "$repo" log -1 --format=%s "$hello_commit")"
 grep -Eq "$HELLO_SUBJECT_PATTERN" <<<"$hello_subject" ||
