@@ -43,7 +43,7 @@ fn manager_actions(status: ExitStatus, outcome: &StreamOutcome) -> Result<Vec<Ac
 }
 
 pub(super) struct ManagerProcess {
-	child: Child,
+	pub(super) child: Child,
 	model: String,
 	started: Instant,
 	stream_log: PathBuf,

@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use clap::{Args, Subcommand, ValueEnum};
 use serde_json::Value;
 
-use crate::broker::JobClass;
+use crate::broker::{JobClass, physical_core_count};
 use crate::paths::{JobId, RunDir, TaskId};
 use crate::spool::{Outcome, Request, send_request};
 
@@ -85,7 +85,9 @@ fn job_class(args: &SubmitArgs) -> JobClass {
 		ClassArg::Batch => JobClass::Batch,
 		ClassArg::Timed => JobClass::Timed {
 			min_cores: args.min_cores,
-			max_cores: args.max_cores.unwrap_or(args.min_cores),
+			max_cores: args
+				.max_cores
+				.unwrap_or_else(|| physical_core_count().max(args.min_cores)),
 		},
 	}
 }

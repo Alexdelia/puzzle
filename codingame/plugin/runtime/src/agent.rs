@@ -14,6 +14,8 @@ use serde_json::Value;
 
 use crate::config::Config;
 
+const AGENT_NICE: libc::c_int = 10;
+
 #[derive(Debug, Clone)]
 pub struct AgentRun {
 	pub prompt: String,
@@ -146,6 +148,7 @@ pub fn spawn_agent_scrubbed(
 	let mut command = Command::new(program);
 	command.process_group(0);
 	die_with_spawning_thread(&mut command);
+	yield_to_jobs(&mut command);
 	for name in removed_env {
 		command.env_remove(name);
 	}
@@ -186,6 +189,17 @@ pub fn kill_agent_group(child: &Child) -> anyhow::Result<()> {
 fn die_with_spawning_thread(command: &mut Command) {
 	unsafe {
 		command.pre_exec(|| set_pdeathsig(Signal::SIGKILL).map_err(std::io::Error::from));
+	}
+}
+
+fn yield_to_jobs(command: &mut Command) {
+	unsafe {
+		command.pre_exec(|| {
+			if libc::setpriority(libc::PRIO_PROCESS, 0, AGENT_NICE) != 0 {
+				return Err(std::io::Error::last_os_error());
+			}
+			Ok(())
+		});
 	}
 }
 

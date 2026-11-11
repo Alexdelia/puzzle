@@ -23,7 +23,7 @@ mod workers;
 pub use stop::STOP_SETTLE_SECONDS;
 
 use commits::{CommitThread, Commits, spawn_commit};
-use jobs::reconcile_jobs;
+use jobs::{HeldLease, reconcile_jobs};
 use manager::ManagerProcess;
 use probe::{Gate, RunningProbe};
 use signals::{install_stop_signals, stop_signals_received};
@@ -31,7 +31,7 @@ use workers::{TaskLaunchFailures, WorkerProcess};
 
 use crate::agent::{AgentRun, kill_agent_group, spawn_agent, spawn_agent_scrubbed};
 use crate::atomic::write_atomic;
-use crate::broker::{Grant, Machine};
+use crate::broker::Machine;
 use crate::claude_config::write_claude_settings;
 use crate::commit::unstage_task;
 use crate::config::Config;
@@ -246,7 +246,9 @@ struct Supervisor {
 	workers: Vec<WorkerProcess>,
 	manager: Option<ManagerProcess>,
 	commits: Commits,
-	grants: HashMap<JobId, Grant>,
+	leases: HashMap<JobId, HeldLease>,
+	agent_cpus: Vec<usize>,
+	last_agent_pin: Instant,
 	spawned_jobs: HashMap<JobId, u32>,
 	cancelling_since: HashMap<JobId, Instant>,
 	cancel_failures: HashSet<JobId>,
@@ -325,14 +327,16 @@ impl Supervisor {
 			credentials: std::env::var_os("HOME")
 				.map(|home| PathBuf::from(home).join(CREDENTIALS_FILE)),
 			exempt,
-			machine: Machine::detect(cfg.ram_budget_mb),
+			machine: Machine::detect(cfg.ram_budget_mb, cfg.agent_cores),
 			run_json_seen: run_json_modified(&run),
 			persist_error: None,
 			stopping: false,
 			workers: Vec::new(),
 			manager: None,
 			commits: Commits::default(),
-			grants: HashMap::new(),
+			leases: HashMap::new(),
+			agent_cpus: Vec::new(),
+			last_agent_pin: now,
 			spawned_jobs: HashMap::new(),
 			cancelling_since: HashMap::new(),
 			cancel_failures: HashSet::new(),
@@ -421,7 +425,7 @@ impl Supervisor {
 		report("requeue", requeued);
 		self.cancel_jobs_of_ended_tasks();
 		self.reap_jobs();
-		let scheduled = self.schedule_jobs();
+		let scheduled = self.schedule_jobs(now);
 		report("schedule jobs", scheduled);
 		let manager = self.manager_step(now);
 		report("manager", manager);
@@ -470,7 +474,7 @@ impl Supervisor {
 				self.start_commit(request, &tainted, &over_budget)
 			})
 		};
-		let served = serve_pending(&self.run, &committer);
+		let served = serve_pending(&self.run, &self.machine, &committer);
 		self.commits = commits.into_inner();
 		if let Some(over) = over_budget.get() {
 			self.note_taint_budget(over);

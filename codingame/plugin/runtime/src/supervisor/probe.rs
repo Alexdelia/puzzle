@@ -38,7 +38,7 @@ impl Gate {
 }
 
 pub(super) struct RunningProbe {
-	probe: Probe,
+	pub(super) probe: Probe,
 	started: Instant,
 }
 

@@ -8,9 +8,10 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use contest::agent::{RateLimitInfo, Window};
 use contest::atomic::write_atomic;
+use contest::broker::parse_cpu_list;
 use contest::broker::{JobClass, JobRequest, Machine};
 use contest::config::Config;
-use contest::job::{JobRecord, JobState, read_job_record, write_job_record};
+use contest::job::{JobRecord, JobState, read_job_record, read_lease, write_job_record};
 use contest::paths::{JobId, RunDir, TaskId};
 use contest::run_info::{Mode, RunInfo};
 use contest::supervisor::active_increment;
@@ -1510,7 +1511,7 @@ fn cancelled_job_cores_go_to_next_job_after_reap() {
 	let contest = contest(1);
 	let run = &contest.run;
 	let id = create_task(run, "sim-bench", 0);
-	let cores = Machine::detect(13000).physical.len();
+	let cores = Machine::detect(13000, 1).timed_cores();
 	let first_pid = contest.home.join("first-pid");
 	let overlap = contest.home.join("overlap");
 	let script = contest.home.join("worker.sh");
@@ -2498,4 +2499,181 @@ fn task_sorts_last_only_until_another_task_ran() {
 	});
 	supervisor.stop(run);
 	assert_eq!(launch_order(run), [first.0, failed_once.0, later.0]);
+}
+
+fn allowed_cpus(status: &str) -> Vec<usize> {
+	status
+		.lines()
+		.find_map(|line| line.strip_prefix("Cpus_allowed_list:"))
+		.map(parse_cpu_list)
+		.unwrap_or_default()
+}
+
+fn recorded_cpus(path: &Path) -> Vec<usize> {
+	parse_cpu_list(&fs::read_to_string(path).unwrap_or_default())
+}
+
+fn process_threads_cpus(pid: u32) -> Vec<Vec<usize>> {
+	fs::read_dir(format!("/proc/{pid}/task"))
+		.unwrap()
+		.flatten()
+		.filter_map(|thread| fs::read_to_string(thread.path().join("status")).ok())
+		.map(|status| allowed_cpus(&status))
+		.collect()
+}
+
+fn record_cpus_loop(out: &Path, until: &Path) -> String {
+	format!(
+		"while [ ! -e {until} ]; do grep Cpus_allowed_list /proc/self/status | cut -f2 > {out}.tmp && mv {out}.tmp {out}; sleep 0.1; done",
+		until = until.display(),
+		out = out.display()
+	)
+}
+
+fn all_cpus() -> Vec<usize> {
+	Machine::detect(13000, 1).all_cpus()
+}
+
+fn lease_cpus(run: &RunDir, job: &str) -> Vec<usize> {
+	read_lease(run, &JobId(job.into()))
+		.map(|lease| lease.cpus)
+		.unwrap_or_default()
+}
+
+#[test]
+fn agents_and_the_supervisor_never_run_on_timed_cores() {
+	let contest = contest(1);
+	let run = &contest.run;
+	if Machine::detect(13000, 1).timed_cores() == 0 {
+		eprintln!("machine has a single core, skipped");
+		return;
+	}
+	let id = create_task(run, "sim-bench", 0);
+	let worker_cpus = contest.home.join("worker-cpus");
+	let worker_nice = contest.home.join("worker-nice");
+	let release = contest.home.join("release");
+	let finish = contest.home.join("finish");
+	let action = worker_script(
+		&contest,
+		&format!(
+			"cut -d' ' -f19 /proc/self/stat > {nice}\n\
+			contest job submit --class timed --ram-mb 10 -- sleep 60\n\
+			( {record} ) &\n\
+			until [ -e {release} ]; do sleep 0.1; done\n\
+			contest job cancel j0001\n\
+			until [ -e {finish} ]; do sleep 0.1; done\n\
+			wait\n\
+			contest task done\n",
+			nice = worker_nice.display(),
+			record = record_cpus_loop(&worker_cpus, &finish),
+			release = release.display(),
+			finish = finish.display()
+		),
+	);
+	let supervisor = start(&contest, &action);
+	let job = JobId("j0001".into());
+	wait_until(20, "timed job running", || {
+		read_job_record(run, &job).is_ok_and(|record| record.state == JobState::Running)
+	});
+	let timed = lease_cpus(run, "j0001");
+	let untimed: Vec<usize> = all_cpus()
+		.into_iter()
+		.filter(|cpu| !timed.contains(cpu))
+		.collect();
+	assert!(!timed.is_empty() && !untimed.is_empty(), "{timed:?}");
+	wait_until(10, "worker pinned off the timed cores", || {
+		recorded_cpus(&worker_cpus) == untimed
+	});
+	let supervisor_threads = process_threads_cpus(supervisor.0.id());
+	assert!(
+		supervisor_threads.iter().all(|cpus| *cpus == untimed),
+		"{supervisor_threads:?} vs {untimed:?}"
+	);
+	assert_eq!(fs::read_to_string(&worker_nice).unwrap().trim(), "10");
+	fs::write(&release, "").unwrap();
+	wait_until(20, "worker repinned to every cpu", || {
+		recorded_cpus(&worker_cpus) == all_cpus()
+	});
+	fs::write(&finish, "").unwrap();
+	wait_until(20, "task done", || state(run, &id) == TaskState::Done);
+	supervisor.stop(run);
+}
+
+#[test]
+fn running_timed_job_keeps_its_cores_until_the_drain_ends() {
+	let contest = contest(1);
+	let run = &contest.run;
+	if Machine::detect(13000, 1).timed_cores() < 2 {
+		eprintln!("machine has fewer than 3 cores, skipped");
+		return;
+	}
+	let drain_seconds = 4;
+	edit_config(&contest, |config| config.drain_seconds = drain_seconds);
+	create_task(run, "sim-bench", 0);
+	let first_cpus = contest.home.join("first-cpus");
+	let second_go = contest.home.join("second-go");
+	let finish = contest.home.join("finish");
+	let first_job = contest.home.join("first-job.sh");
+	fs::write(&first_job, record_cpus_loop(&first_cpus, &finish)).unwrap();
+	let action = worker_script(
+		&contest,
+		&format!(
+			"contest job submit --class timed --ram-mb 10 -- bash {first_job}\n\
+			until [ -e {second_go} ]; do sleep 0.1; done\n\
+			contest job submit --class timed --ram-mb 10 -- sleep 60\n\
+			exec sleep 120\n",
+			first_job = first_job.display(),
+			second_go = second_go.display()
+		),
+	);
+	let supervisor = start(&contest, &action);
+	let first = JobId("j0001".into());
+	let second = JobId("j0002".into());
+	wait_until(20, "first job pinned", || {
+		let cpus = lease_cpus(run, "j0001");
+		!cpus.is_empty() && recorded_cpus(&first_cpus) == cpus
+	});
+	let before = read_lease(run, &first).unwrap();
+	assert_eq!(before.generation, 1);
+	assert!(before.pending_cpus.is_none());
+	fs::write(&second_go, "").unwrap();
+	wait_until(20, "drain announced", || {
+		read_lease(run, &first).is_ok_and(|lease| lease.pending_cpus.is_some())
+	});
+	let draining = read_lease(run, &first).unwrap();
+	assert_eq!(draining.generation, 2);
+	assert_eq!(draining.cpus, before.cpus);
+	let pending = draining.pending_cpus.clone().unwrap();
+	assert!(pending.len() < before.cpus.len(), "{pending:?}");
+	let effective_at = draining.effective_at.unwrap();
+	assert!(
+		effective_at >= now() + drain_seconds as i64 - 2,
+		"{effective_at}"
+	);
+	while now() < effective_at - 1 {
+		assert_eq!(recorded_cpus(&first_cpus), before.cpus);
+		assert_eq!(
+			read_job_record(run, &second).unwrap().state,
+			JobState::Queued
+		);
+		sleep(Duration::from_millis(200));
+	}
+	wait_until(20, "second job running", || {
+		read_job_record(run, &second).is_ok_and(|record| record.state == JobState::Running)
+	});
+	assert!(now() >= effective_at);
+	let drained = read_lease(run, &first).unwrap();
+	assert_eq!(drained.generation, 3);
+	assert_eq!(drained.cpus, pending);
+	assert!(drained.pending_cpus.is_none());
+	wait_until(10, "first job repinned", || {
+		recorded_cpus(&first_cpus) == pending
+	});
+	let second_cpus = lease_cpus(run, "j0002");
+	assert!(
+		second_cpus.iter().all(|cpu| !pending.contains(cpu)),
+		"{second_cpus:?} vs {pending:?}"
+	);
+	fs::write(&finish, "").unwrap();
+	supervisor.stop(run);
 }

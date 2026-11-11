@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::atomic::write_atomic;
-use crate::broker::{JobClass, JobRequest};
+use crate::broker::{JobClass, JobRequest, Machine};
 use crate::job::{JobRecord, JobState, read_job_record, signal_if_same_process, write_job_record};
 use crate::paths::{JobId, RunDir, TaskId};
 use crate::taint::read_worker_file;
@@ -121,6 +121,7 @@ fn validate_class(class: &JobClass) -> Result<()> {
 
 fn submit_job(
 	run: &RunDir,
+	machine: &Machine,
 	task: &TaskId,
 	cmd: Vec<String>,
 	cwd: PathBuf,
@@ -144,6 +145,7 @@ fn submit_job(
 		sandboxed: false,
 	};
 	validate_class(&record.request.class)?;
+	machine.check_admittable(&record.request)?;
 	write_job_record(run, &record)?;
 	Ok(job_status(&record))
 }
@@ -202,6 +204,7 @@ fn is_pending(value: &Value) -> bool {
 
 pub fn handle(
 	run: &RunDir,
+	machine: &Machine,
 	task: &TaskId,
 	request: Request,
 	commit: MilestoneCommitter,
@@ -218,7 +221,7 @@ pub fn handle(
 			gpu,
 			ram_mb,
 			priority,
-		} => submit_job(run, task, cmd, cwd, |id| JobRequest {
+		} => submit_job(run, machine, task, cmd, cwd, |id| JobRequest {
 			id,
 			class,
 			gpu,
@@ -277,6 +280,7 @@ fn remove_refused(path: &Path) -> io::Result<()> {
 
 fn answer_one(
 	run: &RunDir,
+	machine: &Machine,
 	task: &TaskId,
 	dir: &Path,
 	stem: &str,
@@ -308,7 +312,7 @@ fn answer_one(
 			milestone,
 		})
 	};
-	let mut value = match handle(run, task, request, &commit_this) {
+	let mut value = match handle(run, machine, task, request, &commit_this) {
 		Ok(value) => value,
 		Err(error) => return Ok(Some(failure(&error))),
 	};
@@ -371,14 +375,20 @@ pub fn prepare_task_requests(run: &RunDir, task: &TaskId) -> Result<()> {
 	Ok(())
 }
 
-fn serve_task(run: &RunDir, task: &TaskId, dir: &Path, commit: Committer) -> Result<usize> {
+fn serve_task(
+	run: &RunDir,
+	machine: &Machine,
+	task: &TaskId,
+	dir: &Path,
+	commit: Committer,
+) -> Result<usize> {
 	let mut answered = 0;
 	for stem in request_stems(dir)? {
 		let target = response_path(dir, &stem);
 		if target.exists() {
 			continue;
 		}
-		if let Some(response) = answer_one(run, task, dir, &stem, commit)? {
+		if let Some(response) = answer_one(run, machine, task, dir, &stem, commit)? {
 			write_atomic(&target, &serde_json::to_vec(&response)?)?;
 			answered += 1;
 		}
@@ -386,10 +396,10 @@ fn serve_task(run: &RunDir, task: &TaskId, dir: &Path, commit: Committer) -> Res
 	Ok(answered)
 }
 
-pub fn serve_pending(run: &RunDir, commit: Committer) -> Result<usize> {
+pub fn serve_pending(run: &RunDir, machine: &Machine, commit: Committer) -> Result<usize> {
 	let mut answered = 0;
 	for (task, dir) in running_task_dirs(run)? {
-		match serve_task(run, &task, &dir, commit) {
+		match serve_task(run, machine, &task, &dir, commit) {
 			Ok(count) => answered += count,
 			Err(error) => {
 				let _ = writeln!(io::stderr(), "spool: skipped task {task}: {error:#}");

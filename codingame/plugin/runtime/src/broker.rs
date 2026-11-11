@@ -1,17 +1,22 @@
 use std::fs;
 use std::process::Command;
 
+use anyhow::ensure;
 use serde::{Deserialize, Serialize};
 
 use crate::paths::JobId;
 
-const MIN_CORES_FOR_BATCH: usize = 1;
+const MEMINFO_PATH: &str = "/proc/meminfo";
+const MEM_AVAILABLE: &str = "MemAvailable:";
+const KIB_PER_MIB: u64 = 1024;
+const MIN_AGENT_CORES: usize = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Machine {
 	pub physical: Vec<Vec<usize>>,
 	pub gpus: usize,
 	pub ram_budget_mb: u64,
+	pub agent_cores: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,19 +44,85 @@ pub struct Grant {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunningJob {
+	pub request: JobRequest,
+	pub cpus: Vec<usize>,
+	pub draining_to: Option<Vec<usize>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Load {
+	pub swapping: bool,
+	pub agent_ram_mb: u64,
+	pub mem_available_mb: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Allocation {
 	pub grants: Vec<Grant>,
 	pub admitted: Vec<JobId>,
+	pub shrinks: Vec<(JobId, Vec<usize>)>,
+	pub agent_cpus: Vec<usize>,
 }
 
 impl Machine {
-	pub fn detect(ram_budget_mb: u64) -> Machine {
+	pub fn detect(ram_budget_mb: u64, agent_cores: usize) -> Machine {
 		Machine {
 			physical: detect_physical_cores(),
 			gpus: detect_gpus(),
 			ram_budget_mb,
+			agent_cores,
 		}
 	}
+
+	pub fn timed_cores(&self) -> usize {
+		self.physical
+			.len()
+			.saturating_sub(self.agent_cores.max(MIN_AGENT_CORES))
+	}
+
+	pub fn all_cpus(&self) -> Vec<usize> {
+		threads_of(self, &(0..self.physical.len()).collect::<Vec<_>>())
+	}
+
+	pub fn check_admittable(&self, request: &JobRequest) -> anyhow::Result<()> {
+		if let JobClass::Timed { min_cores, .. } = request.class {
+			ensure!(
+				min_cores <= self.timed_cores(),
+				"min_cores {min_cores} can never be granted: timed jobs hold at most {timed} of the {physical} physical cores ({agents} kept for agents and builds)",
+				timed = self.timed_cores(),
+				physical = self.physical.len(),
+				agents = self.physical.len() - self.timed_cores()
+			);
+		}
+		ensure!(
+			request.ram_mb <= self.ram_budget_mb,
+			"ram_mb {ram} is above the RAM budget of {budget} MB",
+			ram = request.ram_mb,
+			budget = self.ram_budget_mb
+		);
+		ensure!(
+			!request.gpu || self.gpus > 0,
+			"gpu requested but this machine has no GPU"
+		);
+		Ok(())
+	}
+}
+
+pub fn physical_core_count() -> usize {
+	detect_physical_cores().len()
+}
+
+pub fn parse_mem_available_mb(meminfo: &str) -> Option<u64> {
+	meminfo
+		.lines()
+		.find_map(|line| line.strip_prefix(MEM_AVAILABLE))
+		.and_then(|rest| rest.split_whitespace().next()?.parse::<u64>().ok())
+		.map(|kib| kib / KIB_PER_MIB)
+}
+
+pub fn mem_available_mb() -> Option<u64> {
+	parse_mem_available_mb(&fs::read_to_string(MEMINFO_PATH).ok()?)
 }
 
 fn detect_physical_cores() -> Vec<Vec<usize>> {
@@ -100,24 +171,20 @@ fn detect_gpus() -> usize {
 
 pub fn allocate(
 	machine: &Machine,
-	running: &[JobRequest],
+	running: &[RunningJob],
 	queued: &[JobRequest],
-	swapping: bool,
+	load: &Load,
 ) -> Allocation {
-	let mut admission = Admission::new(machine);
-	for job in running.iter().filter(|job| is_valid(job)) {
-		admission.keep_running(job);
+	let mut plan = Plan::new(machine, load);
+	for job in running.iter().filter(|job| is_valid(&job.request)) {
+		plan.keep_running(job);
 	}
 	for job in queue_order(queued) {
-		if is_valid(job) && admission.admits_queued(job, swapping) {
-			admission.add(job, false);
+		if is_valid(job) {
+			plan.consider(job);
 		}
 	}
-	admission.into_allocation(machine, swapping)
-}
-
-fn is_batch(job: &JobRequest) -> bool {
-	matches!(job.class, JobClass::Batch)
+	plan.into_allocation()
 }
 
 fn is_valid(job: &JobRequest) -> bool {
@@ -130,175 +197,306 @@ fn is_valid(job: &JobRequest) -> bool {
 	}
 }
 
-fn min_cores_of(job: &JobRequest) -> usize {
-	match job.class {
-		JobClass::Timed { min_cores, .. } => min_cores,
-		JobClass::Batch => 0,
-	}
-}
-
 fn queue_order(queued: &[JobRequest]) -> Vec<&JobRequest> {
 	let mut ordered: Vec<&JobRequest> = queued.iter().collect();
 	ordered.sort_by(|a, b| b.priority.cmp(&a.priority).then_with(|| a.id.cmp(&b.id)));
 	ordered
 }
 
-struct Admission<'a> {
-	cores: usize,
-	ram_budget_mb: u64,
-	gpu_slots: usize,
-	jobs: Vec<(&'a JobRequest, bool)>,
-	ram_used_mb: u64,
-	gpus_used: usize,
-	reserved_cores: usize,
-	batch_admitted: bool,
+struct TimedHolding {
+	id: JobId,
+	min_cores: usize,
+	max_cores: usize,
+	priority: i32,
+	cores: Vec<usize>,
+	keep: Option<Vec<usize>>,
+	shrink_planned: bool,
+	was_running: bool,
+	gpu: bool,
 }
 
-impl<'a> Admission<'a> {
-	fn new(machine: &Machine) -> Self {
-		Admission {
-			cores: machine.physical.len(),
-			ram_budget_mb: machine.ram_budget_mb,
-			gpu_slots: machine.gpus,
-			jobs: Vec::new(),
+impl TimedHolding {
+	fn kept_cores(&self) -> usize {
+		self.keep.as_ref().unwrap_or(&self.cores).len()
+	}
+
+	fn can_shrink(&self) -> bool {
+		self.was_running
+			&& (self.keep.is_none() || self.shrink_planned)
+			&& self.kept_cores() > self.min_cores
+	}
+
+	fn can_grow(&self) -> bool {
+		self.keep.is_none() && self.cores.len() < self.max_cores
+	}
+
+	fn give_up_one_core(&mut self) {
+		let keep = self.keep.get_or_insert_with(|| self.cores.clone());
+		keep.sort_unstable();
+		keep.pop();
+		self.shrink_planned = true;
+	}
+}
+
+struct BatchHolding {
+	id: JobId,
+	gpu: bool,
+}
+
+enum Holding {
+	Timed(TimedHolding),
+	Batch(BatchHolding),
+}
+
+struct Plan<'a> {
+	machine: &'a Machine,
+	load: &'a Load,
+	holdings: Vec<Holding>,
+	admitted: Vec<JobId>,
+	ram_used_mb: u64,
+	ram_started_mb: u64,
+	gpus_used: usize,
+	free: Vec<usize>,
+	coming: Vec<usize>,
+}
+
+fn cores_of(machine: &Machine, cpus: &[usize]) -> Vec<usize> {
+	machine
+		.physical
+		.iter()
+		.enumerate()
+		.filter(|(_, threads)| threads.iter().any(|thread| cpus.contains(thread)))
+		.map(|(core, _)| core)
+		.collect()
+}
+
+impl<'a> Plan<'a> {
+	fn new(machine: &'a Machine, load: &'a Load) -> Self {
+		Plan {
+			machine,
+			load,
+			holdings: Vec::new(),
+			admitted: Vec::new(),
 			ram_used_mb: 0,
+			ram_started_mb: 0,
 			gpus_used: 0,
-			reserved_cores: 0,
-			batch_admitted: false,
+			free: (0..machine.timed_cores()).collect(),
+			coming: Vec::new(),
 		}
 	}
 
-	fn keep_running(&mut self, job: &'a JobRequest) {
-		self.add(job, true);
-	}
-
-	fn add(&mut self, job: &'a JobRequest, was_running: bool) {
-		self.ram_used_mb += job.ram_mb;
-		self.gpus_used += usize::from(job.gpu);
-		self.reserved_cores += min_cores_of(job);
-		self.batch_admitted |= is_batch(job);
-		self.jobs.push((job, was_running));
-	}
-
-	fn admits_queued(&self, job: &JobRequest, swapping: bool) -> bool {
-		self.fits_ram(job)
-			&& self.fits_gpu(job)
-			&& !blocked_by_swap(job, swapping)
-			&& self.fits_cores(job)
+	fn keep_running(&mut self, job: &RunningJob) {
+		let request = &job.request;
+		self.ram_used_mb += request.ram_mb;
+		self.gpus_used += usize::from(request.gpu);
+		let JobClass::Timed {
+			min_cores,
+			max_cores,
+		} = request.class
+		else {
+			self.holdings.push(Holding::Batch(BatchHolding {
+				id: request.id.clone(),
+				gpu: request.gpu,
+			}));
+			return;
+		};
+		let cores = cores_of(self.machine, &job.cpus);
+		let keep = job
+			.draining_to
+			.as_ref()
+			.map(|cpus| cores_of(self.machine, cpus));
+		self.free.retain(|core| !cores.contains(core));
+		if let Some(keep) = &keep {
+			self.coming
+				.extend(cores.iter().filter(|core| !keep.contains(core)));
+		}
+		self.holdings.push(Holding::Timed(TimedHolding {
+			id: request.id.clone(),
+			min_cores,
+			max_cores,
+			priority: request.priority,
+			cores,
+			keep,
+			shrink_planned: false,
+			was_running: true,
+			gpu: request.gpu,
+		}));
 	}
 
 	fn fits_ram(&self, job: &JobRequest) -> bool {
-		self.ram_used_mb + job.ram_mb <= self.ram_budget_mb
+		self.ram_used_mb + self.load.agent_ram_mb + job.ram_mb <= self.machine.ram_budget_mb
+			&& self
+				.load
+				.mem_available_mb
+				.is_none_or(|available| self.ram_started_mb + job.ram_mb <= available)
 	}
 
 	fn fits_gpu(&self, job: &JobRequest) -> bool {
-		!job.gpu || self.gpus_used < self.gpu_slots
+		!job.gpu || self.gpus_used < self.machine.gpus
 	}
 
-	fn fits_cores(&self, job: &JobRequest) -> bool {
-		if is_batch(job) {
-			return self.reserved_cores < self.cores;
+	fn reserve(&mut self, job: &JobRequest) {
+		self.ram_used_mb += job.ram_mb;
+		self.ram_started_mb += job.ram_mb;
+		self.gpus_used += usize::from(job.gpu);
+	}
+
+	fn consider(&mut self, job: &JobRequest) {
+		if !self.fits_ram(job) || !self.fits_gpu(job) {
+			return;
 		}
-		let kept_for_batch = if self.batch_admitted {
-			MIN_CORES_FOR_BATCH
-		} else {
-			0
-		};
-		self.reserved_cores + min_cores_of(job) + kept_for_batch <= self.cores
-	}
-
-	fn timed_core_budget(&self) -> usize {
-		let kept_for_batch = if self.batch_admitted {
-			MIN_CORES_FOR_BATCH
-		} else {
-			0
-		};
-		self.cores.saturating_sub(kept_for_batch)
-	}
-
-	fn into_allocation(self, machine: &Machine, swapping: bool) -> Allocation {
-		let mut holdings = self.give_minimum_cores();
-		let held: usize = holdings.iter().map(|holding| holding.cores.len()).sum();
-		let extra = self.timed_core_budget().saturating_sub(held);
-		share_extra_round_robin(&mut holdings, held, extra);
-		let held: usize = holdings.iter().map(|holding| holding.cores.len()).sum();
-		let batch_threads = threads_of(machine, &(held..self.cores).collect::<Vec<_>>());
-
-		let mut grants = Vec::new();
-		let mut admitted = Vec::new();
-		for (job, was_running) in &self.jobs {
-			let cpus = if is_batch(job) {
-				batch_threads.clone()
-			} else {
-				holdings
-					.iter()
-					.find(|holding| holding.id == job.id)
-					.map(|holding| threads_of(machine, &holding.cores))
-					.unwrap_or_default()
-			};
-			if cpus.is_empty() {
-				continue;
-			}
-			if !was_running {
-				admitted.push(job.id.clone());
-			}
-			grants.push(Grant {
+		let JobClass::Timed {
+			min_cores,
+			max_cores,
+		} = job.class
+		else {
+			self.reserve(job);
+			self.admitted.push(job.id.clone());
+			self.holdings.push(Holding::Batch(BatchHolding {
 				id: job.id.clone(),
-				cpus,
-				exclusive: !is_batch(job),
 				gpu: job.gpu,
-				contended: *was_running && swapping && !is_batch(job),
-			});
+			}));
+			return;
+		};
+		if self.load.swapping {
+			return;
 		}
-		Allocation { grants, admitted }
-	}
-
-	fn give_minimum_cores(&self) -> Vec<Holding> {
-		let mut next_core = 0;
-		let mut holdings = Vec::new();
-		for (job, _) in &self.jobs {
-			let JobClass::Timed {
+		if self.free.len() >= min_cores {
+			self.reserve(job);
+			let cores: Vec<usize> = self.free.drain(..min_cores).collect();
+			self.admitted.push(job.id.clone());
+			self.holdings.push(Holding::Timed(TimedHolding {
+				id: job.id.clone(),
 				min_cores,
 				max_cores,
-			} = job.class
-			else {
-				continue;
-			};
-			holdings.push(Holding {
-				id: job.id.clone(),
-				max_cores,
-				cores: (next_core..next_core + min_cores).collect(),
-			});
-			next_core += min_cores;
+				priority: job.priority,
+				cores,
+				keep: None,
+				shrink_planned: false,
+				was_running: false,
+				gpu: job.gpu,
+			}));
+			return;
 		}
-		holdings
+		let missing = min_cores - self.free.len();
+		let from_coming = missing.min(self.coming.len());
+		let to_reclaim = missing - from_coming;
+		if self.shrinkable_cores() < to_reclaim {
+			return;
+		}
+		self.plan_shrinks(to_reclaim);
+		self.reserve(job);
+		self.free.clear();
+		self.coming.drain(..from_coming);
 	}
-}
 
-fn blocked_by_swap(job: &JobRequest, swapping: bool) -> bool {
-	swapping && !is_batch(job)
-}
+	fn timed_mut(&mut self) -> impl Iterator<Item = &mut TimedHolding> {
+		self.holdings
+			.iter_mut()
+			.filter_map(|holding| match holding {
+				Holding::Timed(timed) => Some(timed),
+				Holding::Batch(_) => None,
+			})
+	}
 
-struct Holding {
-	id: JobId,
-	max_cores: usize,
-	cores: Vec<usize>,
-}
+	fn timed(&self) -> impl Iterator<Item = &TimedHolding> {
+		self.holdings.iter().filter_map(|holding| match holding {
+			Holding::Timed(timed) => Some(timed),
+			Holding::Batch(_) => None,
+		})
+	}
 
-fn share_extra_round_robin(holdings: &mut [Holding], first_free_core: usize, extra: usize) {
-	let mut next_core = first_free_core;
-	let end = first_free_core + extra;
-	loop {
-		let mut progressed = false;
-		for holding in holdings.iter_mut() {
-			if holding.cores.len() < holding.max_cores && next_core < end {
-				holding.cores.push(next_core);
-				next_core += 1;
-				progressed = true;
+	fn shrinkable_cores(&self) -> usize {
+		self.timed()
+			.filter(|holding| holding.can_shrink())
+			.map(|holding| holding.kept_cores() - holding.min_cores)
+			.sum()
+	}
+
+	fn plan_shrinks(&mut self, cores: usize) {
+		for _ in 0..cores {
+			let donor = self
+				.timed_mut()
+				.filter(|holding| holding.can_shrink())
+				.max_by(|a, b| {
+					(a.kept_cores() - a.min_cores)
+						.cmp(&(b.kept_cores() - b.min_cores))
+						.then_with(|| b.priority.cmp(&a.priority))
+						.then_with(|| a.id.cmp(&b.id))
+				});
+			if let Some(donor) = donor {
+				donor.give_up_one_core();
 			}
 		}
-		if !progressed {
-			return;
+	}
+
+	fn grow_round_robin(&mut self) {
+		let mut free = std::mem::take(&mut self.free).into_iter();
+		loop {
+			let mut grew = false;
+			for holding in self.timed_mut().filter(|holding| holding.can_grow()) {
+				let Some(core) = free.next() else {
+					return;
+				};
+				holding.cores.push(core);
+				grew = true;
+			}
+			if !grew {
+				return;
+			}
+		}
+	}
+
+	fn into_allocation(mut self) -> Allocation {
+		self.grow_round_robin();
+		let machine = self.machine;
+		let held: Vec<usize> = self
+			.timed()
+			.flat_map(|holding| holding.cores.iter().copied())
+			.collect();
+		let untimed: Vec<usize> = (0..machine.physical.len())
+			.filter(|core| !held.contains(core))
+			.collect();
+		let agent_cpus = threads_of(machine, &untimed);
+		let swapping = self.load.swapping;
+		let mut grants = Vec::new();
+		let mut shrinks = Vec::new();
+		for holding in &self.holdings {
+			match holding {
+				Holding::Timed(timed) => {
+					if timed.shrink_planned
+						&& let Some(keep) = &timed.keep
+					{
+						shrinks.push((timed.id.clone(), threads_of(machine, keep)));
+					}
+					grants.push(Grant {
+						id: timed.id.clone(),
+						cpus: threads_of(machine, &timed.cores),
+						exclusive: true,
+						gpu: timed.gpu,
+						contended: timed.was_running && swapping,
+					});
+				}
+				Holding::Batch(batch) => grants.push(Grant {
+					id: batch.id.clone(),
+					cpus: agent_cpus.clone(),
+					exclusive: false,
+					gpu: batch.gpu,
+					contended: false,
+				}),
+			}
+		}
+		grants.retain(|grant| !grant.cpus.is_empty());
+		let admitted = self
+			.admitted
+			.into_iter()
+			.filter(|id| grants.iter().any(|grant| &grant.id == id))
+			.collect();
+		Allocation {
+			grants,
+			admitted,
+			shrinks,
+			agent_cpus,
 		}
 	}
 }

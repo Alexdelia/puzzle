@@ -29,6 +29,7 @@ const STAT_PARENT: usize = 1;
 const STAT_SESSION: usize = 3;
 const STAT_STARTTIME: usize = 19;
 const NAMESPACE_INIT_PID: &str = "1";
+const MAX_PIN_ROUNDS: usize = 16;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum JobState {
@@ -61,12 +62,31 @@ pub struct VmStat {
 	pub pswpout: u64,
 }
 
-#[derive(Serialize)]
-struct Lease<'a> {
-	cpus: &'a [usize],
-	exclusive: bool,
-	contended: bool,
-	updated_at: u64,
+const FIRST_LEASE_GENERATION: u64 = 1;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Lease {
+	pub cpus: Vec<usize>,
+	pub exclusive: bool,
+	pub contended: bool,
+	pub updated_at: u64,
+	pub generation: u64,
+	pub pending_cpus: Option<Vec<usize>>,
+	pub effective_at: Option<i64>,
+}
+
+impl Lease {
+	pub fn first(grant: &Grant) -> Self {
+		Self {
+			cpus: grant.cpus.clone(),
+			exclusive: grant.exclusive,
+			contended: grant.contended,
+			updated_at: 0,
+			generation: FIRST_LEASE_GENERATION,
+			pending_cpus: None,
+			effective_at: None,
+		}
+	}
 }
 
 impl RunDir {
@@ -110,22 +130,25 @@ pub fn list_job_records(run: &RunDir) -> Vec<JobRecord> {
 	records
 }
 
-pub fn write_lease(run: &RunDir, grant: &Grant) -> anyhow::Result<()> {
-	let updated_at = SystemTime::now()
-		.duration_since(UNIX_EPOCH)
-		.map_or(0, |elapsed| elapsed.as_secs());
+pub fn write_lease(run: &RunDir, id: &JobId, lease: &Lease) -> anyhow::Result<()> {
 	let lease = Lease {
-		cpus: &grant.cpus,
-		exclusive: grant.exclusive,
-		contended: grant.contended,
-		updated_at,
+		updated_at: SystemTime::now()
+			.duration_since(UNIX_EPOCH)
+			.map_or(0, |elapsed| elapsed.as_secs()),
+		..lease.clone()
 	};
-	fs::create_dir_all(run.job_dir(&grant.id))?;
+	fs::create_dir_all(run.job_dir(id))?;
 	write_atomic(
-		&run.job_lease_path(&grant.id),
+		&run.job_lease_path(id),
 		serde_json::to_string(&lease)?.as_bytes(),
 	)?;
 	Ok(())
+}
+
+pub fn read_lease(run: &RunDir, id: &JobId) -> anyhow::Result<Lease> {
+	let path = run.job_lease_path(id);
+	let text = fs::read_to_string(&path).with_context(|| format!("read {path:?}"))?;
+	Ok(serde_json::from_str(&text)?)
 }
 
 fn cpu_set(cpus: &[usize]) -> nix::Result<CpuSet> {
@@ -181,7 +204,7 @@ pub fn spawn_job_scrubbed(
 	let (program, args) = record.cmd.split_first().context("job command is empty")?;
 	let job_dir = run.job_dir(&record.id);
 	fs::create_dir_all(&job_dir)?;
-	write_lease(run, grant)?;
+	write_lease(run, &grant.id, &Lease::first(grant))?;
 	let work = create_job_work_dir(run, record)?;
 	let log = File::create(run.job_log_path(&record.id))?;
 	let set = cpu_set(&grant.cpus)?;
@@ -362,8 +385,42 @@ pub fn process_tree(root: u32) -> Vec<u32> {
 	tree
 }
 
-pub fn repin(pid: u32, cpus: &[usize]) -> anyhow::Result<()> {
-	let set = cpu_set(cpus)?;
+fn pin_until_no_new_member(
+	members: impl Fn() -> Vec<u32>,
+	mut pin: impl FnMut(u32) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
+	let mut pinned: Vec<u32> = Vec::new();
+	for _ in 0..MAX_PIN_ROUNDS {
+		let fresh: Vec<u32> = members()
+			.into_iter()
+			.filter(|member| !pinned.contains(member))
+			.collect();
+		if fresh.is_empty() {
+			return Ok(());
+		}
+		for &member in &fresh {
+			pin(member)?;
+		}
+		pinned.extend(fresh);
+	}
+	Ok(())
+}
+
+fn pin_threads(process: u32, set: &CpuSet) -> anyhow::Result<()> {
+	pin_until_no_new_member(
+		|| thread_ids(process),
+		|thread| match sched_setaffinity(Pid::from_raw(thread as i32), set) {
+			Ok(()) | Err(Errno::ESRCH) => Ok(()),
+			Err(error) => Err(error).with_context(|| format!("repin thread {thread}")),
+		},
+	)
+}
+
+pub fn pin_process_threads(pid: u32, cpus: &[usize]) -> anyhow::Result<()> {
+	pin_threads(pid, &cpu_set(cpus)?)
+}
+
+fn tree_and_session(pid: u32) -> Vec<u32> {
 	let session_members = all_pids()
 		.into_iter()
 		.filter(|&process| session_of(process) == Some(pid));
@@ -373,15 +430,15 @@ pub fn repin(pid: u32, cpus: &[usize]) -> anyhow::Result<()> {
 		.collect();
 	processes.sort_unstable();
 	processes.dedup();
-	for process in processes {
-		for thread in thread_ids(process) {
-			match sched_setaffinity(Pid::from_raw(thread as i32), &set) {
-				Ok(()) | Err(Errno::ESRCH) => {}
-				Err(error) => return Err(error).with_context(|| format!("repin thread {thread}")),
-			}
-		}
-	}
-	Ok(())
+	processes
+}
+
+pub fn repin(pid: u32, cpus: &[usize]) -> anyhow::Result<()> {
+	let set = cpu_set(cpus)?;
+	pin_until_no_new_member(
+		|| tree_and_session(pid),
+		|process| pin_threads(process, &set),
+	)
 }
 
 pub fn parse_vmstat(text: &str) -> anyhow::Result<VmStat> {

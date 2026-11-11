@@ -170,6 +170,9 @@ fn spawn_sets_job_environment_and_lease() {
 	assert_eq!(lease_json["exclusive"], true);
 	assert_eq!(lease_json["contended"], false);
 	assert!(lease_json["updated_at"].as_u64().unwrap() > 0);
+	assert_eq!(lease_json["generation"], 1);
+	assert_eq!(lease_json["pending_cpus"], serde_json::Value::Null);
+	assert_eq!(lease_json["effective_at"], serde_json::Value::Null);
 }
 
 #[test]

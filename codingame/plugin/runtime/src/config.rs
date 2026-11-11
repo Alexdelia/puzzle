@@ -40,6 +40,9 @@ pub struct Config {
 	pub worker_idle_minutes: u64,
 	pub result_grace_seconds: u64,
 	pub taint_scan_max_entries: usize,
+	pub agent_cores: usize,
+	pub agent_reserve_mb: u64,
+	pub drain_seconds: u64,
 }
 
 impl Default for Config {
@@ -87,6 +90,9 @@ impl Default for Config {
 			worker_idle_minutes: 30,
 			result_grace_seconds: 60,
 			taint_scan_max_entries: 5_000_000,
+			agent_cores: 1,
+			agent_reserve_mb: 700,
+			drain_seconds: 30,
 		}
 	}
 }
