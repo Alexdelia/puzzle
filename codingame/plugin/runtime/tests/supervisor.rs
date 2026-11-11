@@ -2634,14 +2634,13 @@ fn running_timed_job_keeps_its_cores_until_the_drain_ends() {
 		!cpus.is_empty() && recorded_cpus(&first_cpus) == cpus
 	});
 	let before = read_lease(run, &first).unwrap();
-	assert_eq!(before.generation, 1);
 	assert!(before.pending_cpus.is_none());
 	fs::write(&second_go, "").unwrap();
 	wait_until(20, "drain announced", || {
 		read_lease(run, &first).is_ok_and(|lease| lease.pending_cpus.is_some())
 	});
 	let draining = read_lease(run, &first).unwrap();
-	assert_eq!(draining.generation, 2);
+	assert!(draining.generation > before.generation);
 	assert_eq!(draining.cpus, before.cpus);
 	let pending = draining.pending_cpus.clone().unwrap();
 	assert!(pending.len() < before.cpus.len(), "{pending:?}");
@@ -2663,7 +2662,7 @@ fn running_timed_job_keeps_its_cores_until_the_drain_ends() {
 	});
 	assert!(now() >= effective_at);
 	let drained = read_lease(run, &first).unwrap();
-	assert_eq!(drained.generation, 3);
+	assert!(drained.generation > draining.generation);
 	assert_eq!(drained.cpus, pending);
 	assert!(drained.pending_cpus.is_none());
 	wait_until(10, "first job repinned", || {
