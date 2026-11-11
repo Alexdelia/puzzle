@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -5,7 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 
 use crate::config::Config;
-use crate::events::events_since;
+use crate::events::{Event, events_since};
 use crate::journal::journal_tail;
 use crate::paths::RunDir;
 use crate::run_info::RunInfo;
@@ -25,6 +26,9 @@ const MESSAGE_MAX_BYTES: u64 = 4000;
 const QUESTION_HEADER: &str = "## Question";
 const QUOTE_PREFIX: &str = "  > ";
 const INBOX_READ_DIR: &str = "read";
+const EVENTS_SHOWN: usize = 100;
+const INBOX_SHOWN: usize = 10;
+const OMITTED_EVENTS: &str = "older events omitted:";
 
 fn one_line(text: &str, max_chars: usize) -> String {
 	text.chars()
@@ -181,19 +185,27 @@ fn read_message(path: &Path) -> Result<(String, bool)> {
 	Ok((String::from_utf8_lossy(&bytes).into_owned(), truncated))
 }
 
-fn pending_inbox(run: &RunDir) -> (Vec<String>, Vec<PathBuf>) {
+fn is_temp_name(path: &Path) -> bool {
+	path.file_name()
+		.is_some_and(|name| name.to_string_lossy().starts_with('.'))
+}
+
+fn pending_inbox(run: &RunDir) -> Vec<(String, PathBuf)> {
 	let Ok(entries) = fs::read_dir(run.inbox()) else {
-		return (Vec::new(), Vec::new());
+		return Vec::new();
 	};
 	let mut files: Vec<PathBuf> = entries
 		.filter_map(Result::ok)
 		.filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
 		.map(|entry| entry.path())
+		.filter(|path| !is_temp_name(path))
 		.collect();
 	files.sort();
 	let mut messages = Vec::new();
-	let mut consumed = Vec::new();
 	for path in files {
+		if messages.len() >= INBOX_SHOWN {
+			break;
+		}
 		let name = path
 			.file_name()
 			.unwrap_or_default()
@@ -207,13 +219,10 @@ fn pending_inbox(run: &RunDir) -> (Vec<String>, Vec<PathBuf>) {
 		} else {
 			String::new()
 		};
-		messages.push(format!(
-			"- {name}\n{body}{marker}",
-			body = quoted(&text, usize::MAX)
-		));
-		consumed.push(path);
+		let message = format!("- {name}\n{body}{marker}", body = quoted(&text, usize::MAX));
+		messages.push((message, path));
 	}
-	(messages, consumed)
+	messages
 }
 
 pub fn ack_inbox(run: &RunDir, paths: &[PathBuf]) -> Result<()> {
@@ -239,14 +248,49 @@ struct Sections {
 	needs_answer: Vec<String>,
 	queued: Vec<String>,
 	recent: Vec<String>,
-	events: Vec<String>,
-	inbox: Vec<String>,
+	events: Vec<(String, String)>,
+	omitted_events: BTreeMap<String, usize>,
+	inbox: Vec<(String, PathBuf)>,
 	journal: Vec<String>,
 	kb: Vec<String>,
 }
 
+fn event_lines(events: Vec<Event>) -> Vec<(String, String)> {
+	events
+		.iter()
+		.filter_map(|event| {
+			serde_json::to_string(event)
+				.ok()
+				.map(|line| (event.kind(), line))
+		})
+		.collect()
+}
+
 impl Sections {
+	fn event_section(&self) -> Vec<String> {
+		let mut lines = Vec::new();
+		if !self.omitted_events.is_empty() {
+			let counts: Vec<String> = self
+				.omitted_events
+				.iter()
+				.map(|(kind, count)| format!("{kind} {count}"))
+				.collect();
+			lines.push(format!(
+				"{OMITTED_EVENTS} {counts}",
+				counts = counts.join(", ")
+			));
+		}
+		lines.extend(self.events.iter().map(|(_, line)| line.clone()));
+		lines
+	}
+
 	fn render(&self) -> String {
+		let events = self.event_section();
+		let inbox: Vec<String> = self
+			.inbox
+			.iter()
+			.map(|(message, _)| message.clone())
+			.collect();
 		let sections: [(&str, &Vec<String>); 10] = [
 			("run", &self.run),
 			("usage", &self.usage),
@@ -254,8 +298,8 @@ impl Sections {
 			("needs-answer", &self.needs_answer),
 			("queued", &self.queued),
 			("recent", &self.recent),
-			("events", &self.events),
-			("inbox", &self.inbox),
+			("events", &events),
+			("inbox", &inbox),
 			("journal", &self.journal),
 			("kb", &self.kb),
 		];
@@ -274,6 +318,15 @@ impl Sections {
 		text
 	}
 
+	fn omit_oldest_event(&mut self) -> bool {
+		if self.events.is_empty() {
+			return false;
+		}
+		let (kind, _) = self.events.remove(0);
+		*self.omitted_events.entry(kind).or_default() += 1;
+		true
+	}
+
 	fn shrink_once(&mut self) -> bool {
 		if !self.recent.is_empty() {
 			self.recent.remove(0);
@@ -282,6 +335,11 @@ impl Sections {
 			true
 		} else if !self.journal.is_empty() {
 			self.journal.remove(0);
+			true
+		} else if self.omit_oldest_event() {
+			true
+		} else if self.inbox.len() > 1 {
+			self.inbox.pop();
 			true
 		} else {
 			false
@@ -300,7 +358,6 @@ pub fn build_digest(run: &RunDir, config: &Config, now: i64) -> Digest {
 		.and_then(|text| text.trim().parse().ok())
 		.unwrap_or(0);
 	let (events, new_cursor) = events_since(run, cursor);
-	let (inbox, inbox_paths) = pending_inbox(run);
 	let mut sections = Sections {
 		run: run_section(run, now)
 			.into_iter()
@@ -311,14 +368,15 @@ pub fn build_digest(run: &RunDir, config: &Config, now: i64) -> Digest {
 		needs_answer: needs_answer_section(run, &tasks),
 		queued: queued_section(&tasks),
 		recent: recent_section(&store, &tasks),
-		events: events
-			.iter()
-			.filter_map(|event| serde_json::to_string(event).ok())
-			.collect(),
-		inbox,
+		events: event_lines(events),
+		omitted_events: BTreeMap::new(),
+		inbox: pending_inbox(run),
 		journal: journal_tail(run, JOURNAL_SHOWN),
 		kb: vec![config.plugin_dir.join("kb/index.md").display().to_string()],
 	};
+	while sections.events.len() > EVENTS_SHOWN {
+		sections.omit_oldest_event();
+	}
 	let mut text = sections.render();
 	while text.len() > config.digest_max_bytes && sections.shrink_once() {
 		text = sections.render();
@@ -326,6 +384,6 @@ pub fn build_digest(run: &RunDir, config: &Config, now: i64) -> Digest {
 	Digest {
 		text,
 		cursor: new_cursor,
-		inbox: inbox_paths,
+		inbox: sections.inbox.into_iter().map(|(_, path)| path).collect(),
 	}
 }

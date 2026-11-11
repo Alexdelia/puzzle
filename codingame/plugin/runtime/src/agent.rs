@@ -1,7 +1,8 @@
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
+use std::io::{Seek, SeekFrom, Write};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command};
 
 use anyhow::{Context, bail};
 use nix::errno::Errno;
@@ -94,7 +95,6 @@ pub struct StreamOutcome {
 pub fn claude_args(run: &AgentRun) -> Vec<String> {
 	let mut args = vec![
 		"-p".to_owned(),
-		run.prompt.clone(),
 		"--model".to_owned(),
 		run.model.clone(),
 		"--output-format".to_owned(),
@@ -142,6 +142,7 @@ pub fn spawn_agent_scrubbed(
 		.with_context(|| format!("create {path:?}", path = run.stream_log))?;
 	let stderr_path = run.stream_log.with_extension("stderr.log");
 	let stderr = File::create(&stderr_path).with_context(|| format!("create {stderr_path:?}"))?;
+	let prompt = unlinked_prompt_file(&run.stream_log, &run.prompt)?;
 	let mut command = Command::new(program);
 	command.process_group(0);
 	die_with_spawning_thread(&mut command);
@@ -152,11 +153,27 @@ pub fn spawn_agent_scrubbed(
 		.args(rest)
 		.current_dir(&run.cwd)
 		.envs(run.env.iter().map(|(key, value)| (key, value)))
-		.stdin(Stdio::null())
+		.stdin(prompt)
 		.stdout(stream)
 		.stderr(stderr)
 		.spawn()
 		.with_context(|| format!("spawn {program}"))
+}
+
+fn unlinked_prompt_file(stream_log: &Path, prompt: &str) -> anyhow::Result<File> {
+	let path = stream_log.with_extension("prompt");
+	let mut file = OpenOptions::new()
+		.read(true)
+		.write(true)
+		.create(true)
+		.truncate(true)
+		.open(&path)
+		.with_context(|| format!("create {path:?}"))?;
+	fs::remove_file(&path).with_context(|| format!("unlink {path:?}"))?;
+	file.write_all(prompt.as_bytes())
+		.and_then(|()| file.seek(SeekFrom::Start(0)))
+		.with_context(|| format!("write prompt to {path:?}"))?;
+	Ok(file)
 }
 
 pub fn kill_agent_group(child: &Child) -> anyhow::Result<()> {

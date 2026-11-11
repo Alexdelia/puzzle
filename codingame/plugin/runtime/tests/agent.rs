@@ -69,7 +69,8 @@ fn rate_limit_info_serializes_in_stream_shape() {
 fn args_contain_budget_and_model() {
 	let mut run = agent_run(PathBuf::from("s.jsonl"));
 	let args = claude_args(&run);
-	assert_eq!(args[..2], ["-p", "do it"]);
+	assert_eq!(args[0], "-p");
+	assert!(!args.contains(&"do it".to_owned()));
 	let position = |flag: &str| args.iter().position(|arg| arg == flag).unwrap();
 	assert_eq!(args[position("--model") + 1], "opus");
 	assert_eq!(args[position("--max-budget-usd") + 1], "2.5");
@@ -136,6 +137,41 @@ fn spawn_applies_wrapper_prefix_and_exec_hook() {
 	let mut child = spawn_agent(&config, &run, wrapper).unwrap();
 	assert!(child.wait().unwrap().success());
 	assert_eq!(std::fs::read_to_string(&marker).unwrap(), "1");
+}
+
+#[test]
+fn spawn_passes_prompt_on_stdin() {
+	let dir = tempfile::tempdir().unwrap();
+	let marker = dir.path().join("prompt");
+	let config = Config {
+		claude_bin: fixture("fake-claude.sh"),
+		..Config::default()
+	};
+	let mut run = agent_run(dir.path().join("agents/a/stream.jsonl"));
+	run.prompt = "p".repeat(200 * 1024);
+	run.env = vec![
+		(
+			"FAKE_CLAUDE_SCRIPT".into(),
+			fixture("stream-success.jsonl")
+				.to_string_lossy()
+				.into_owned(),
+		),
+		(
+			"FAKE_CLAUDE_EXEC".into(),
+			format!(
+				"printf %s \"$prompt\" > {marker}",
+				marker = marker.display()
+			),
+		),
+	];
+	let status = spawn_agent(&config, &run, None).unwrap().wait().unwrap();
+	assert!(status.success());
+	assert_eq!(std::fs::read_to_string(&marker).unwrap(), run.prompt);
+	let leftovers: Vec<_> = std::fs::read_dir(dir.path().join("agents/a"))
+		.unwrap()
+		.map(|entry| entry.unwrap().file_name())
+		.collect();
+	assert_eq!(leftovers.len(), 2, "{leftovers:?}");
 }
 
 fn gone_or_zombie(pid: u32) -> bool {

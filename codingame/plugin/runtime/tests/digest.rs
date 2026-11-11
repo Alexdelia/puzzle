@@ -1,8 +1,9 @@
 use std::fs;
+use std::io::Write;
 
 use contest::config::Config;
 use contest::digest::{ack_inbox, build_digest};
-use contest::events::{Event, emit};
+use contest::events::{Event, emit, has_complete_event_after};
 use contest::journal::journal_append;
 use contest::paths::{JobId, RunDir, TaskId};
 use contest::task::{TaskSpec, TaskState, TaskStore};
@@ -288,4 +289,136 @@ fn missing_or_stale_usage_says_no_launches() {
 	contest::usage::record_usage(&run, &info, NOW - 60).unwrap();
 	let fresh = build_digest(&run, &config, NOW).text;
 	assert!(!fresh.contains("no launches"));
+}
+
+#[test]
+fn many_events_are_compacted_under_the_limit() {
+	let (_dir, run) = run_dir();
+	for index in 0..5000 {
+		let event = if index % 2 == 0 {
+			Event::JobFinished {
+				job: JobId(format!("j{index:05}")),
+				code: 0,
+			}
+		} else {
+			Event::UserMessage {
+				text: format!("message {index:05} {pad}", pad = "m".repeat(150)),
+			}
+		};
+		emit(&run, event).unwrap();
+	}
+	let digest = build_digest(&run, &Config::default(), NOW);
+	assert!(digest.text.len() <= 32000, "{len}", len = digest.text.len());
+	assert!(digest.text.contains("j04998"));
+	assert!(digest.text.contains("message 04999"));
+	assert!(!digest.text.contains("j00000"));
+	let shown = digest
+		.text
+		.lines()
+		.filter(|line| line.starts_with("{\"event\""))
+		.count();
+	assert!(shown <= 100, "{shown}");
+	let omitted_line = digest
+		.text
+		.lines()
+		.find(|line| line.starts_with("older events omitted:"))
+		.expect("omitted counts line");
+	let omitted: usize = omitted_line
+		.split(|c: char| !c.is_ascii_digit())
+		.filter_map(|number| number.parse::<usize>().ok())
+		.sum();
+	assert_eq!(shown + omitted, 5000, "{omitted_line}");
+	assert_eq!(digest.cursor, fs::metadata(run.events()).unwrap().len());
+}
+
+#[test]
+fn inbox_messages_per_digest_are_capped_and_only_those_acked() {
+	let (_dir, run) = run_dir();
+	for index in 0..30 {
+		fs::write(
+			run.inbox().join(format!("{index:04}.md")),
+			format!("note {index:04}"),
+		)
+		.unwrap();
+	}
+	let digest = build_digest(&run, &Config::default(), NOW);
+	assert_eq!(digest.inbox.len(), 10);
+	assert!(digest.text.contains("note 0009"));
+	assert!(!digest.text.contains("note 0010"));
+	ack_inbox(&run, &digest.inbox).unwrap();
+	let next = build_digest(&run, &Config::default(), NOW);
+	assert!(next.text.contains("note 0010"));
+	assert_eq!(next.inbox.len(), 10);
+}
+
+#[test]
+fn big_inbox_messages_shrink_to_fit_and_stay_unacked() {
+	let (_dir, run) = run_dir();
+	for index in 0..10 {
+		fs::write(
+			run.inbox().join(format!("{index:04}.md")),
+			format!("start {index:04} {pad}", pad = "z".repeat(3900)),
+		)
+		.unwrap();
+	}
+	let digest = build_digest(&run, &Config::default(), NOW);
+	assert!(digest.text.len() <= 32000, "{len}", len = digest.text.len());
+	let shown = (0..10)
+		.filter(|index| digest.text.contains(&format!("start {index:04}")))
+		.count();
+	assert!(shown >= 1);
+	assert_eq!(digest.inbox.len(), shown);
+}
+
+#[test]
+fn inbox_skips_dot_prefixed_temp_files() {
+	let (_dir, run) = run_dir();
+	fs::write(run.inbox().join(".0001.md.tmp.1.0"), "half written").unwrap();
+	fs::write(run.inbox().join("0002.md"), "whole").unwrap();
+	let digest = build_digest(&run, &Config::default(), NOW);
+	assert!(!digest.text.contains("half written"));
+	assert_eq!(digest.inbox, vec![run.inbox().join("0002.md")]);
+}
+
+#[test]
+fn emit_bounds_free_text() {
+	let (_dir, run) = run_dir();
+	emit(
+		&run,
+		Event::ManagerError {
+			error: "e".repeat(5000),
+		},
+	)
+	.unwrap();
+	emit(
+		&run,
+		Event::UserMessage {
+			text: "u".repeat(5000),
+		},
+	)
+	.unwrap();
+	let lines: Vec<serde_json::Value> = fs::read_to_string(run.events())
+		.unwrap()
+		.lines()
+		.map(|line| serde_json::from_str(line).unwrap())
+		.collect();
+	assert_eq!(lines[0]["error"].as_str().unwrap().chars().count(), 500);
+	assert_eq!(lines[1]["text"].as_str().unwrap().chars().count(), 200);
+}
+
+#[test]
+fn partial_event_line_is_not_new() {
+	let (_dir, run) = run_dir();
+	assert!(!has_complete_event_after(&run, 0));
+	emit(&run, Event::BudgetExhausted).unwrap();
+	let length = fs::metadata(run.events()).unwrap().len();
+	assert!(has_complete_event_after(&run, 0));
+	assert!(!has_complete_event_after(&run, length));
+	fs::OpenOptions::new()
+		.append(true)
+		.open(run.events())
+		.unwrap()
+		.write_all(b"{\"event\":\"budg")
+		.unwrap();
+	assert!(!has_complete_event_after(&run, length));
 }

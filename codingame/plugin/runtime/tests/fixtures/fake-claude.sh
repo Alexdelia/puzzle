@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+prompt="$(cat)"
 if [[ -n ${FAKE_CLAUDE_EXEC:-} ]]; then
 	eval "$FAKE_CLAUDE_EXEC"
 fi

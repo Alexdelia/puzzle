@@ -187,7 +187,7 @@ fn start(contest: &Contest, worker_action: &str) -> Supervisor {
 
 fn start_with_probe(contest: &Contest, worker_action: &str, probe_action: &str) -> Supervisor {
 	let exec = format!(
-		"if [[ $2 == ok ]]; then {probe_action}; elif [[ -n ${{CONTEST_TASK:-}} ]]; then {worker_action}; else {MANAGER_BRANCH}; fi"
+		"if [[ $prompt == ok ]]; then {probe_action}; elif [[ -n ${{CONTEST_TASK:-}} ]]; then {worker_action}; else {MANAGER_BRANCH}; fi"
 	);
 	let log = fs::File::create(contest.home.join("supervisor.log")).unwrap();
 	let child = Command::new(BIN)
@@ -260,7 +260,7 @@ fn task_runs_to_done() {
 	let prompt_dump = contest.home.join("worker-prompt");
 	let env_dump = contest.home.join("worker-env");
 	let action = format!(
-		"printf %s \"$2\" > {prompt}; env > {env}; contest task done",
+		"printf %s \"$prompt\" > {prompt}; env > {env}; contest task done",
 		prompt = prompt_dump.display(),
 		env = env_dump.display()
 	);
@@ -458,7 +458,7 @@ fn manager_prompt_carries_digest() {
 	assert!(contest_say(run, "hello manager").status.success());
 	let prompt_dump = contest.home.join("manager-prompt");
 	let exec = format!(
-		"printf %s \"$2\" > {dump}; FAKE_CLAUDE_SCRIPT=$FAKE_MANAGER_STREAM",
+		"printf %s \"$prompt\" > {dump}; FAKE_CLAUDE_SCRIPT=$FAKE_MANAGER_STREAM",
 		dump = prompt_dump.display()
 	);
 	let log = fs::File::create(contest.home.join("supervisor.log")).unwrap();
@@ -497,6 +497,64 @@ fn failed_manager_tick_keeps_inbox_and_cursor() {
 	assert!(!run.manager_cursor().exists());
 	assert!(!run.inbox().join("read").exists());
 	assert_eq!(fs::read_dir(run.inbox()).unwrap().count(), 1);
+}
+
+#[test]
+fn huge_says_still_tick() {
+	let contest = contest(0);
+	let run = &contest.run;
+	for marker in ['a', 'b'] {
+		let text = marker.to_string().repeat(100 * 1024);
+		assert!(contest_say(run, &text).status.success());
+	}
+	let supervisor = start(&contest, "true");
+	wait_until(20, "both messages acknowledged", || {
+		fs::read_dir(run.inbox().join("read")).is_ok_and(|entries| entries.count() == 2)
+	});
+	supervisor.stop(run);
+	assert!(run.manager_cursor().is_file());
+	assert!(
+		events(run)
+			.iter()
+			.filter(|event| event["event"] == "user_message")
+			.all(|event| event["text"].as_str().unwrap().chars().count() <= 200)
+	);
+}
+
+fn manager_ticks(run: &RunDir) -> usize {
+	fs::read_to_string(run.ledger())
+		.unwrap_or_default()
+		.lines()
+		.filter(|line| line.split('\t').nth(1) == Some("manager"))
+		.count()
+}
+
+#[test]
+fn partial_event_line_does_not_retick_manager() {
+	let contest = contest(0);
+	let run = &contest.run;
+	fs::write(run.events(), "{\"event\":\"budget_exh").unwrap();
+	let supervisor = start(&contest, "true");
+	wait_until(20, "first tick", || manager_ticks(run) >= 1);
+	sleep(Duration::from_secs(4));
+	supervisor.stop(run);
+	assert_eq!(manager_ticks(run), 1);
+}
+
+#[test]
+fn cursor_write_error_backs_off() {
+	let contest = contest(0);
+	let run = &contest.run;
+	fs::create_dir_all(run.manager_cursor().join("blocker")).unwrap();
+	assert!(contest_say(run, "hello").status.success());
+	let supervisor = start(&contest, "true");
+	wait_until(20, "manager error", || {
+		event_count(run, "manager_error") >= 1
+	});
+	sleep(Duration::from_secs(4));
+	supervisor.stop(run);
+	assert_eq!(manager_ticks(run), 1);
+	assert_eq!(event_count(run, "manager_error"), 1);
 }
 
 #[test]
@@ -1127,7 +1185,7 @@ fn manager_timeout_kills_manager() {
 	edit_config(&contest, |config| config.manager_timeout_seconds = 2);
 	let pid_file = contest.home.join("manager-pid");
 	let exec = format!(
-		"if [[ $2 != ok ]]; then echo $$ > {pid}; exec sleep 60; fi",
+		"if [[ $prompt != ok ]]; then echo $$ > {pid}; exec sleep 60; fi",
 		pid = pid_file.display()
 	);
 	let log = fs::File::create(contest.home.join("supervisor.log")).unwrap();
@@ -1234,7 +1292,7 @@ fn oversized_notes_are_flagged_in_prompt() {
 	.unwrap();
 	let prompt_dump = contest.home.join("worker-prompt");
 	let action = format!(
-		"printf %s \"$2\" > {prompt}; contest task done",
+		"printf %s \"$prompt\" > {prompt}; contest task done",
 		prompt = prompt_dump.display()
 	);
 	let supervisor = start(&contest, &action);

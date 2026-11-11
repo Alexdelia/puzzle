@@ -11,7 +11,7 @@ use crate::agent::{AgentRun, StreamOutcome, parse_stream};
 use crate::atomic::write_atomic;
 use crate::claude_config::agent_env;
 use crate::digest::{ack_inbox, build_digest};
-use crate::events::{Event, emit};
+use crate::events::{Event, emit, has_complete_event_after};
 use crate::journal::journal_append;
 use crate::paths::RunDir;
 
@@ -53,7 +53,7 @@ impl Supervisor {
 			.ok()
 			.and_then(|text| text.trim().parse().ok())
 			.unwrap_or(0);
-		fs::metadata(self.run.events()).is_ok_and(|meta| meta.len() > cursor)
+		has_complete_event_after(&self.run, cursor)
 	}
 
 	fn tick_due(&self) -> bool {
@@ -160,14 +160,16 @@ impl Supervisor {
 	}
 
 	fn apply_manager(&mut self, actions: Vec<Action>, manager: &ManagerProcess) {
-		let errors = apply_actions(&self.run, actions);
+		let mut errors = apply_actions(&self.run, actions);
 		let acked = write_atomic(
 			&self.run.manager_cursor(),
 			manager.cursor.to_string().as_bytes(),
 		)
 		.map_err(anyhow::Error::from)
 		.and_then(|()| ack_inbox(&self.run, &manager.inbox));
-		report("manager ack", acked);
+		if let Err(error) = acked {
+			errors.push(format!("ack of the tick failed: {error:#}"));
+		}
 		self.kill_cancelled_workers();
 		if errors.is_empty() {
 			self.manager_failures = 0;

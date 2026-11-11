@@ -22,6 +22,42 @@ pub enum Event {
 	LaunchFailed { task: TaskId, error: String },
 }
 
+const USER_TEXT_MAX_CHARS: usize = 200;
+const ERROR_MAX_CHARS: usize = 500;
+const SCAN_CHUNK_BYTES: usize = 64 * 1024;
+
+fn clipped(text: String, max_chars: usize) -> String {
+	match text.char_indices().nth(max_chars) {
+		Some((end, _)) => text[..end].to_owned(),
+		None => text,
+	}
+}
+
+impl Event {
+	fn bounded(self) -> Self {
+		match self {
+			Self::UserMessage { text } => Self::UserMessage {
+				text: clipped(text, USER_TEXT_MAX_CHARS),
+			},
+			Self::ManagerError { error } => Self::ManagerError {
+				error: clipped(error, ERROR_MAX_CHARS),
+			},
+			Self::LaunchFailed { task, error } => Self::LaunchFailed {
+				task,
+				error: clipped(error, ERROR_MAX_CHARS),
+			},
+			other => other,
+		}
+	}
+
+	pub fn kind(&self) -> String {
+		serde_json::to_value(self)
+			.ok()
+			.and_then(|value| value["event"].as_str().map(str::to_owned))
+			.unwrap_or_default()
+	}
+}
+
 fn now_unix() -> u64 {
 	SystemTime::now()
 		.duration_since(UNIX_EPOCH)
@@ -29,7 +65,7 @@ fn now_unix() -> u64 {
 }
 
 pub fn emit(run: &RunDir, event: Event) -> anyhow::Result<()> {
-	let Value::Object(mut fields) = serde_json::to_value(&event)? else {
+	let Value::Object(mut fields) = serde_json::to_value(event.bounded())? else {
 		anyhow::bail!("event is not a json object");
 	};
 	fields.insert("at".to_owned(), Value::from(now_unix()));
@@ -62,4 +98,21 @@ pub fn events_since(run: &RunDir, cursor: u64) -> (Vec<Event>, u64) {
 		.filter_map(|line| serde_json::from_str(line).ok())
 		.collect();
 	(events, cursor + complete as u64)
+}
+
+pub fn has_complete_event_after(run: &RunDir, cursor: u64) -> bool {
+	let Ok(mut file) = File::open(run.events()) else {
+		return false;
+	};
+	if file.seek(SeekFrom::Start(cursor)).is_err() {
+		return false;
+	}
+	let mut chunk = vec![0; SCAN_CHUNK_BYTES];
+	loop {
+		match file.read(&mut chunk) {
+			Ok(0) | Err(_) => return false,
+			Ok(read) if chunk[..read].contains(&b'\n') => return true,
+			Ok(_) => {}
+		}
+	}
 }

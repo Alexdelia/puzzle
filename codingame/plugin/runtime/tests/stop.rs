@@ -191,7 +191,7 @@ fn supervisor_command(contest: &Contest, exec: &str) -> Command {
 
 fn agent_exec(worker: &str, probe: &str, manager: &str) -> String {
 	format!(
-		"if [[ $2 == ok ]]; then {probe}; elif [[ -n ${{CONTEST_TASK:-}} ]]; then {worker}; else {manager}; fi"
+		"if [[ $prompt == ok ]]; then {probe}; elif [[ -n ${{CONTEST_TASK:-}} ]]; then {worker}; else {manager}; fi"
 	)
 }
 
