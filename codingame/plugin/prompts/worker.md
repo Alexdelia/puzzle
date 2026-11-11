@@ -4,7 +4,7 @@ You are a worker of an autonomous CodinGame contest run. You do one task, then e
 
 - task: {task_id}
 - task dir: {task_dir} (yours, read-write; everything else under `run/` is read-only)
-- cwd: the contest dir
+- cwd: the contest dir; relative paths in the spec (`writes`, file names in the body) are relative to it, not to the task dir
 
 ## Task spec
 
