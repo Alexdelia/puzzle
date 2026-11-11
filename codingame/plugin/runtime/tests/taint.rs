@@ -115,6 +115,26 @@ fn top_level_exempts_ro_bound_dirs_mcp_and_launch_envrc() {
 }
 
 #[test]
+fn scan_never_enters_exempt_top_level_dirs() {
+	let (_dir, root) = contest();
+	let user_files = [
+		".claude/skills/tool/.git/config",
+		".claude/projects/.mcp.json",
+		".direnv/flake/.envrc",
+		".direnv/cache/.claude/x",
+	];
+	for path in user_files {
+		touch(&root.join(path));
+	}
+	touch(&root.join("sub/.claude/x"));
+	let report = scan(&root);
+	assert_eq!(report.removed, vec![root.join("sub/.claude")]);
+	for path in user_files {
+		assert!(root.join(path).is_file(), "{path}");
+	}
+}
+
+#[test]
 fn top_level_envrc_planted_after_launch_is_removed() {
 	let (_dir, root) = contest();
 	let exempt = TopLevelExempt::pin_at_init(&root).unwrap();

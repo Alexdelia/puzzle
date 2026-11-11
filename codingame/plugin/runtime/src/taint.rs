@@ -23,6 +23,7 @@ const PLANTED_NAMES: [&str; 5] = [".git", ".envrc", ".direnv", ".claude", ".mcp.
 const GIT_DIR_NAME: &str = ".git";
 const ENVRC_NAME: &str = ".envrc";
 const SUPERVISOR_DIR: &str = "run";
+const EXEMPT_TOP_LEVEL_DIRS: [&str; 2] = [".claude", ".direnv"];
 const WORKER_WRITABLE_RUN_DIRS: [&str; 2] = ["tasks", "requests"];
 
 fn open_worker_file(path: &Path, options: &mut OpenOptions) -> Result<File> {
@@ -109,7 +110,9 @@ impl Level {
 
 	fn is_skipped(self, name: &OsStr) -> bool {
 		match self {
-			Self::ContestTop(_) => name == SUPERVISOR_DIR,
+			Self::ContestTop(_) => {
+				name == SUPERVISOR_DIR || EXEMPT_TOP_LEVEL_DIRS.iter().any(|dir| name == *dir)
+			}
 			Self::TaskTop => name == TASK_META_DIR,
 			Self::Nested => false,
 		}
