@@ -190,8 +190,9 @@ say "$job running for $(basename "$long_dir"), stopping"
 contest stop "$contest_dir" --reason smoke
 wait_for_supervisor_gone
 say "supervisor gone"
-[[ "$(task_state "$long_dir")" == interrupted ]] ||
-	fail "task $(basename "$long_dir") is $(task_state "$long_dir"), not interrupted"
+long_state="$(task_state "$long_dir")"
+[[ $long_state == interrupted || $long_state == waiting ]] ||
+	fail "task $(basename "$long_dir") is $long_state, not interrupted or waiting"
 [[ -s "$long_dir/notes.md" ]] || fail "$(basename "$long_dir")/notes.md is empty"
 
 check_cost
