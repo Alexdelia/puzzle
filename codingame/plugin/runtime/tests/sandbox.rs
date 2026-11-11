@@ -332,16 +332,22 @@ fn host_executed_contest_files_read_only() {
 fn manager_sandbox_has_no_task_binds() {
 	let spec = spec_under(Path::new("/r"), None);
 	let args = bwrap_args(&spec);
-	let run = text(&spec.contest_root.join("run"));
-	let rw_in_run: Vec<_> = mounts(&args)
+	let contest = text(&spec.contest_root);
+	let rw_in_contest: Vec<_> = mounts(&args)
 		.into_iter()
-		.filter(|(flag, _, dest)| flag == "--bind" && dest.starts_with(&run))
+		.filter(|(flag, _, dest)| flag == "--bind" && dest.starts_with(&contest))
 		.map(|(_, _, dest)| dest)
 		.collect();
 	assert_eq!(
-		rw_in_run,
+		rw_in_contest,
 		vec![text(&spec.claude_config.join(".credentials.json"))]
 	);
+	let contest_ro = position(&args, "--ro-bind", &spec.contest_root);
+	assert!(position(&args, "--tmpfs", &spec.repo_root) < contest_ro);
+	assert!(contest_ro < position(&args, "--ro-bind", &spec.contest_root.join("run")));
+	let home = &mounts(&args)[position(&args, "--bind", &spec.home)];
+	assert_eq!(home.1, text(&spec.sandbox_home));
+	assert!(home.1.ends_with("run/agents/manager/home"));
 }
 
 #[test]
@@ -781,7 +787,13 @@ fn claude_settings_carry_hook_timeouts_and_skills() {
 		bash_timeout_ms: 90000,
 		..Config::default()
 	};
+	let plugin_skills = config.plugin_dir.join("skills");
+	for skill in ["contest", "study-rules", "arena"] {
+		fs::create_dir_all(plugin_skills.join(skill)).unwrap();
+	}
 	write_claude_settings(&run, &config).unwrap();
+	fs::create_dir_all(plugin_skills.join("referee")).unwrap();
+	fs::remove_dir_all(plugin_skills.join("arena")).unwrap();
 	write_claude_settings(&run, &config).unwrap();
 	let settings: serde_json::Value =
 		serde_json::from_slice(&fs::read(run.claude_config().join("settings.json")).unwrap())
@@ -796,10 +808,42 @@ fn claude_settings_carry_hook_timeouts_and_skills() {
 	assert_eq!(settings["env"]["BASH_DEFAULT_TIMEOUT_MS"], "90000");
 	assert_eq!(settings["env"]["BASH_MAX_TIMEOUT_MS"], "90000");
 	assert_eq!(settings["disableClaudeAiConnectors"], true);
+	let skills = run.claude_config().join("skills");
+	assert!(fs::symlink_metadata(&skills).unwrap().is_dir());
+	let mut linked: Vec<String> = fs::read_dir(&skills)
+		.unwrap()
+		.map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+		.collect();
+	linked.sort();
+	assert_eq!(linked, ["referee", "study-rules"]);
 	assert_eq!(
-		fs::read_link(run.claude_config().join("skills")).unwrap(),
-		config.plugin_dir.join("skills")
+		fs::read_link(skills.join("study-rules")).unwrap(),
+		plugin_skills.join("study-rules")
 	);
+}
+
+#[test]
+fn claude_settings_replace_legacy_skills_symlink() {
+	let dir = TempDir::new().unwrap();
+	let run = RunDir {
+		root: dir.path().join("contest"),
+	};
+	let config = Config {
+		plugin_dir: dir.path().join("plugin"),
+		..Config::default()
+	};
+	fs::create_dir_all(config.plugin_dir.join("skills/contest")).unwrap();
+	fs::create_dir_all(run.claude_config()).unwrap();
+	std::os::unix::fs::symlink(
+		config.plugin_dir.join("skills"),
+		run.claude_config().join("skills"),
+	)
+	.unwrap();
+	write_claude_settings(&run, &config).unwrap();
+	let skills = run.claude_config().join("skills");
+	assert!(fs::symlink_metadata(&skills).unwrap().is_dir());
+	assert_eq!(fs::read_dir(&skills).unwrap().count(), 0);
+	assert!(config.plugin_dir.join("skills/contest").is_dir());
 }
 
 #[test]

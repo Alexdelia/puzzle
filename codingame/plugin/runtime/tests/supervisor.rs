@@ -923,7 +923,70 @@ fn stale_usage_triggers_probe() {
 		let usage: Value = serde_json::from_slice(&fs::read(run.usage()).unwrap()).unwrap();
 		usage["recorded_at"].as_i64().unwrap() > now() - 60
 	});
+	wait_until(10, "probe in ledger", || {
+		fs::read_to_string(run.ledger())
+			.unwrap_or_default()
+			.lines()
+			.any(|line| {
+				let fields: Vec<&str> = line.split('\t').collect();
+				fields[1..3] == ["probe", "haiku"] && fields[7] == "0.05"
+			})
+	});
 	supervisor.stop(run);
+}
+
+#[test]
+fn manager_runs_sandboxed_with_read_only_tools() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let argv_dump = contest.home.join("manager-argv");
+	let pasta = contest.home.join("fake-pasta.sh");
+	fs::write(
+		&pasta,
+		format!(
+			"#!/usr/bin/env bash\nprintf '%s\\0' \"$@\" > {dump}\ncat \"$FAKE_MANAGER_STREAM\"\n",
+			dump = argv_dump.display()
+		),
+	)
+	.unwrap();
+	fs::set_permissions(&pasta, fs::Permissions::from_mode(0o755)).unwrap();
+	edit_config(&contest, |config| {
+		config.sandbox = true;
+		config.pasta_bin = pasta.clone();
+		config.repo_root = run.root.clone();
+	});
+	let supervisor = start(&contest, "true");
+	wait_until(20, "sandboxed manager in ledger", || {
+		fs::read_to_string(run.ledger())
+			.unwrap_or_default()
+			.lines()
+			.any(|line| line.split('\t').nth(1) == Some("manager"))
+	});
+	supervisor.stop(run);
+	let dump = fs::read_to_string(&argv_dump).unwrap();
+	let argv: Vec<&str> = dump.split('\0').collect();
+	let claude = fixture("fake-claude.sh");
+	let claude_at = argv
+		.iter()
+		.position(|arg| Path::new(arg) == claude)
+		.unwrap();
+	let bwrap_at = argv.iter().position(|arg| *arg == "bwrap").unwrap();
+	assert!(bwrap_at < claude_at);
+	let (sandbox, claude_args) = argv.split_at(claude_at);
+	let tools_at = claude_args
+		.iter()
+		.position(|arg| *arg == "--tools")
+		.unwrap();
+	assert_eq!(claude_args[tools_at + 1], "Read,Glob,Grep");
+	assert!(!claude_args.contains(&"--allowedTools"));
+	let root = run.root.to_string_lossy();
+	let bound = |flag: &str| {
+		sandbox
+			.windows(3)
+			.any(|mount| mount[0] == flag && mount[1] == root && mount[2] == root)
+	};
+	assert!(bound("--ro-bind"));
+	assert!(!bound("--bind"));
 }
 
 #[test]

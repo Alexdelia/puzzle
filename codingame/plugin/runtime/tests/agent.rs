@@ -17,7 +17,7 @@ fn agent_run(stream_log: PathBuf) -> AgentRun {
 		model: "opus".into(),
 		budget_usd: 2.5,
 		cwd: std::env::temp_dir(),
-		allowed_tools: None,
+		tools: None,
 		stream_log,
 		env: Vec::new(),
 	}
@@ -78,12 +78,13 @@ fn args_contain_budget_and_model() {
 	assert!(args.contains(&"--verbose".to_owned()));
 	assert!(args.contains(&"--no-session-persistence".to_owned()));
 	assert_eq!(args[position("--setting-sources") + 1], "user");
-	assert!(!args.contains(&"--allowedTools".to_owned()));
+	assert!(!args.contains(&"--tools".to_owned()));
 
-	run.allowed_tools = Some(vec!["Read".into(), "Bash".into()]);
+	run.tools = Some(vec!["Read".into(), "Glob".into(), "Grep".into()]);
 	let args = claude_args(&run);
-	let at = args.iter().position(|arg| arg == "--allowedTools").unwrap();
-	assert_eq!(args[at + 1..], ["Read", "Bash"]);
+	let at = args.iter().position(|arg| arg == "--tools").unwrap();
+	assert_eq!(args[at + 1..], ["Read,Glob,Grep"]);
+	assert!(!args.contains(&"--allowedTools".to_owned()));
 }
 
 #[test]

@@ -181,8 +181,8 @@ impl Argv {
 	}
 }
 
-fn contest_mounts(argv: &mut Argv, contest_root: &Path) {
-	argv.same("--bind", contest_root);
+fn contest_mounts(argv: &mut Argv, contest_root: &Path, contest_bind: &str) {
+	argv.same(contest_bind, contest_root);
 	for dir in HOST_EXECUTED_CONTEST_DIRS {
 		argv.same("--ro-bind", &contest_root.join(dir));
 	}
@@ -236,7 +236,11 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
 	for tool in &spec.toolbox {
 		argv.same("--ro-bind", tool);
 	}
-	contest_mounts(&mut argv, &spec.contest_root);
+	let contest_bind = match spec.own_task {
+		Some(_) => "--bind",
+		None => "--ro-bind",
+	};
+	contest_mounts(&mut argv, &spec.contest_root, contest_bind);
 	if let Some(task) = &spec.own_task {
 		let run = RunDir {
 			root: spec.contest_root.clone(),

@@ -126,7 +126,7 @@ impl Supervisor {
 			model: self.cfg.manager_model.clone(),
 			budget_usd: self.cfg.manager_budget_usd,
 			cwd: self.run.root.clone(),
-			allowed_tools: Some(MANAGER_TOOLS.map(String::from).to_vec()),
+			tools: Some(MANAGER_TOOLS.map(String::from).to_vec()),
 			stream_log: self.run.agents().join(MANAGER_WHO).join(STREAM_FILE),
 			env: agent_env(&self.run, None, &self.bin_dir),
 		};

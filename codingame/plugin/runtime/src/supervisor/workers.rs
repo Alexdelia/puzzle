@@ -267,7 +267,7 @@ impl Supervisor {
 			model: spec.model.unwrap_or_else(|| self.cfg.worker_model.clone()),
 			budget_usd: spec.budget_usd.unwrap_or(self.cfg.worker_budget_usd),
 			cwd: self.run.root.clone(),
-			allowed_tools: None,
+			tools: None,
 			stream_log: self.run.agents().join(&id.0).join(STREAM_FILE),
 			env: agent_env(&self.run, Some(id), &self.bin_dir),
 		};

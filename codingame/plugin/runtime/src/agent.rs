@@ -19,7 +19,7 @@ pub struct AgentRun {
 	pub model: String,
 	pub budget_usd: f64,
 	pub cwd: PathBuf,
-	pub allowed_tools: Option<Vec<String>>,
+	pub tools: Option<Vec<String>>,
 	pub stream_log: PathBuf,
 	pub env: Vec<(String, String)>,
 }
@@ -108,9 +108,9 @@ pub fn claude_args(run: &AgentRun) -> Vec<String> {
 		"--setting-sources".to_owned(),
 		"user".to_owned(),
 	];
-	if let Some(tools) = &run.allowed_tools {
-		args.push("--allowedTools".to_owned());
-		args.extend(tools.iter().cloned());
+	if let Some(tools) = &run.tools {
+		args.push("--tools".to_owned());
+		args.push(tools.join(","));
 	}
 	args
 }

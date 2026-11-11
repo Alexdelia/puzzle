@@ -47,7 +47,7 @@ impl Supervisor {
 		);
 		report("stop", journaled);
 		self.discard_manager(now);
-		self.discard_probe();
+		self.discard_probe(now);
 		self.terminate_jobs();
 		let status = self.write_status_now(now);
 		report("status", status);

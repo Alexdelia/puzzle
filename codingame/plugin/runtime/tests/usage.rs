@@ -86,7 +86,39 @@ fn probe_reads_rate_limit_from_fake_claude() {
 	};
 	let mut probe = spawn_probe(&config, dir.path().join("probe/stream.jsonl")).unwrap();
 	probe.child.wait().unwrap();
-	let probed = probe.finish().unwrap();
+	let end = probe.finish();
 	assert!(!dir.path().join("probe/stream.jsonl").exists());
-	assert_eq!(probed.five_hour.utilization, 0.13);
+	assert!(end.cleanup_failures.is_empty());
+	assert_eq!(end.outcome.cost_usd, 0.05);
+	assert_eq!(end.outcome.rate_limit.unwrap().five_hour.utilization, 0.13);
+}
+
+#[test]
+fn probe_finish_reports_cleanup_failures() {
+	if nix::unistd::geteuid().is_root() {
+		return;
+	}
+	let dir = tempfile::tempdir().unwrap();
+	let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/stream-success.jsonl");
+	let script = dir.path().join("claude");
+	fs::write(&script, format!("#!/usr/bin/env bash\ncat {fixture:?}\n")).unwrap();
+	fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+	let config = Config {
+		claude_bin: script,
+		..Config::default()
+	};
+	let probe_dir = dir.path().join("probe");
+	let mut probe = spawn_probe(&config, probe_dir.join("stream.jsonl")).unwrap();
+	probe.child.wait().unwrap();
+	fs::set_permissions(&probe_dir, fs::Permissions::from_mode(0o500)).unwrap();
+	let end = probe.finish();
+	fs::set_permissions(&probe_dir, fs::Permissions::from_mode(0o755)).unwrap();
+	assert_eq!(
+		end.cleanup_failures.len(),
+		2,
+		"{failures:?}",
+		failures = end.cleanup_failures
+	);
+	assert!(end.cleanup_failures[0].contains("stream.jsonl"));
+	assert!(end.outcome.rate_limit.is_some());
 }

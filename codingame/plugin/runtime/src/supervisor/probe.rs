@@ -8,7 +8,7 @@ use crate::claude_config::credentials_expire_within;
 use crate::events::{Event, emit};
 use crate::journal::journal_append;
 use crate::usage::{
-	Probe, five_hour_full, fresh_usage, over_weekly_pace, record_usage, rejected_until, spawn_probe,
+	PROBE_MODEL, Probe, five_hour_full, fresh_usage, over_weekly_pace, rejected_until, spawn_probe,
 };
 
 const CREDENTIALS_HORIZON_SECONDS: u64 = 15 * 60;
@@ -28,12 +28,22 @@ impl Supervisor {
 				.is_none_or(|probed| probed.elapsed() >= retry)
 	}
 
-	pub(super) fn discard_probe(&mut self) {
+	fn settle_probe(&mut self, running: RunningProbe, now: i64) -> Option<RateLimitInfo> {
+		let end = running.probe.finish();
+		for failure in &end.cleanup_failures {
+			let journaled = journal_append(&self.run, &format!("usage probe cleanup: {failure}"));
+			report(PROBE_WHO, journaled);
+		}
+		self.record_agent(PROBE_WHO, PROBE_MODEL, &end.outcome, running.started, now);
+		end.outcome.rate_limit
+	}
+
+	pub(super) fn discard_probe(&mut self, now: i64) {
 		let Some(mut running) = self.probe.take() else {
 			return;
 		};
 		self.kill_and_reap(&mut running.probe.child, PROBE_WHO);
-		drop(running.probe.finish());
+		self.settle_probe(running, now);
 		let journaled = journal_append(&self.run, "usage probe discarded at stop");
 		report("usage probe", journaled);
 	}
@@ -66,6 +76,7 @@ impl Supervisor {
 			}
 			if let Some(mut timed_out) = self.probe.take() {
 				self.kill_and_reap(&mut timed_out.probe.child, PROBE_WHO);
+				self.settle_probe(timed_out, now);
 			}
 			self.probe_failed(&format!(
 				"usage probe timed out after {seconds} s",
@@ -76,16 +87,10 @@ impl Supervisor {
 		let Some(finished) = self.probe.take() else {
 			return Ok(());
 		};
-		match finished.probe.finish() {
-			Some(info) => {
-				self.usage_unknown_reported = false;
-				record_usage(&self.run, &info, now)
-			}
-			None => {
-				self.probe_failed("usage probe failed: no rate limit in its stream");
-				Ok(())
-			}
+		if self.settle_probe(finished, now).is_none() {
+			self.probe_failed("usage probe failed: no rate limit in its stream");
 		}
+		Ok(())
 	}
 
 	fn probe_failed(&mut self, failure: &str) {

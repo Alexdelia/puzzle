@@ -15,6 +15,7 @@ use crate::taint::read_worker_file;
 
 pub const HOOK_COMMAND: &str = "contest hook pre-tool-use";
 const MILLIS_PER_SECOND: i64 = 1000;
+const USER_SKILLS: [&str; 1] = ["contest"];
 
 #[derive(Deserialize)]
 struct CredentialsExpiry {
@@ -66,14 +67,35 @@ pub fn write_claude_settings(run: &RunDir, config: &Config) -> Result<()> {
 	link_skills(&dir.join("skills"), &config.plugin_dir.join("skills"))
 }
 
-fn link_skills(link: &Path, skills: &Path) -> Result<()> {
-	match fs::remove_file(link) {
-		Err(error) if error.kind() != io::ErrorKind::NotFound => {
-			return Err(error).with_context(|| format!("replace {link:?}"));
+fn clear_skills_dir(dir: &Path) -> Result<()> {
+	let cleared = match fs::symlink_metadata(dir) {
+		Ok(meta) if meta.is_dir() => fs::remove_dir_all(dir),
+		Ok(_) => fs::remove_file(dir),
+		Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+		Err(error) => Err(error),
+	};
+	cleared.with_context(|| format!("replace {dir:?}"))
+}
+
+fn link_skills(dir: &Path, skills: &Path) -> Result<()> {
+	clear_skills_dir(dir)?;
+	fs::create_dir_all(dir).with_context(|| format!("create {dir:?}"))?;
+	let entries = match fs::read_dir(skills) {
+		Ok(entries) => entries,
+		Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+		Err(error) => return Err(error).with_context(|| format!("list {skills:?}")),
+	};
+	for entry in entries {
+		let name = entry
+			.with_context(|| format!("list {skills:?}"))?
+			.file_name();
+		if USER_SKILLS.iter().any(|user_skill| name == *user_skill) {
+			continue;
 		}
-		_ => {}
+		let (target, link) = (skills.join(&name), dir.join(&name));
+		symlink(&target, &link).with_context(|| format!("link {link:?} to {target:?}"))?;
 	}
-	symlink(skills, link).with_context(|| format!("link {link:?} to {skills:?}"))
+	Ok(())
 }
 
 pub fn agent_env(

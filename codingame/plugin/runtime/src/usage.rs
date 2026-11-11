@@ -1,17 +1,18 @@
 use std::fs;
-use std::path::PathBuf;
+use std::io;
+use std::path::{Path, PathBuf};
 use std::process::Child;
 
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
-use crate::agent::{AgentRun, RateLimitInfo, Window, parse_stream, spawn_agent};
+use crate::agent::{AgentRun, RateLimitInfo, StreamOutcome, Window, parse_stream, spawn_agent};
 use crate::atomic::write_atomic;
 use crate::config::Config;
 use crate::paths::RunDir;
 
 const WEEK_SECONDS: i64 = 604800;
-const PROBE_MODEL: &str = "haiku";
+pub const PROBE_MODEL: &str = "haiku";
 const PROBE_BUDGET_USD: f64 = 0.05;
 
 #[derive(Serialize, Deserialize)]
@@ -89,12 +90,34 @@ pub struct Probe {
 	stream_log: PathBuf,
 }
 
+pub struct ProbeEnd {
+	pub outcome: StreamOutcome,
+	pub cleanup_failures: Vec<String>,
+}
+
+fn remove_probe_file(path: &Path) -> Option<String> {
+	match fs::remove_file(path) {
+		Err(error) if error.kind() != io::ErrorKind::NotFound => {
+			Some(format!("remove {path:?}: {error}"))
+		}
+		_ => None,
+	}
+}
+
 impl Probe {
-	pub fn finish(self) -> Option<RateLimitInfo> {
-		let info = parse_stream(&self.stream_log).rate_limit;
-		let _ = fs::remove_file(&self.stream_log);
-		let _ = fs::remove_file(self.stream_log.with_extension("stderr.log"));
-		info
+	pub fn finish(self) -> ProbeEnd {
+		let outcome = parse_stream(&self.stream_log);
+		let cleanup_failures = [
+			self.stream_log.clone(),
+			self.stream_log.with_extension("stderr.log"),
+		]
+		.iter()
+		.filter_map(|path| remove_probe_file(path))
+		.collect();
+		ProbeEnd {
+			outcome,
+			cleanup_failures,
+		}
 	}
 }
 
@@ -104,7 +127,7 @@ pub fn spawn_probe(config: &Config, stream_log: PathBuf) -> anyhow::Result<Probe
 		model: PROBE_MODEL.into(),
 		budget_usd: PROBE_BUDGET_USD,
 		cwd: std::env::temp_dir(),
-		allowed_tools: None,
+		tools: None,
 		stream_log,
 		env: Vec::new(),
 	};
