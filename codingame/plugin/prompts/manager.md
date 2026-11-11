@@ -24,9 +24,9 @@ One array of actions; an empty array `[]` is valid. Fields:
 - `journal`: `line`
 - `reply`: `text` (shown to the user)
 
-Hard limits: the supervisor rejects an action that breaks one, the rest of the array still applies:
+Hard limits. The whole answer is rejected, nothing applied, when the last ```json block is missing, unclosed, not an action array, or holds more than 50 actions. Otherwise actions apply in order, one by one: an action that breaks a limit below is rejected alone, the actions before and after it still apply.
 
-- at most 50 actions per answer
+- at most 50 actions per answer (more rejects the whole answer)
 - `kind`: `[a-z0-9-]+`, not empty
 - `title`: one non-empty line, at most 200 chars
 - `body`: at most 64 KiB
