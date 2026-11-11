@@ -16,6 +16,7 @@ mod commits;
 mod jobs;
 mod manager;
 mod probe;
+mod signals;
 mod stop;
 mod workers;
 
@@ -25,6 +26,7 @@ use commits::{CommitThread, Commits, spawn_commit};
 use jobs::reconcile_jobs;
 use manager::ManagerProcess;
 use probe::RunningProbe;
+use signals::{install_stop_signals, stop_signals_received};
 use workers::WorkerProcess;
 
 use crate::agent::{AgentRun, kill_agent_group, spawn_agent, spawn_agent_scrubbed};
@@ -56,9 +58,9 @@ const CREDENTIALS_FILE: &str = ".claude/.credentials.json";
 const BUDGET_STOP_REASON: &str = "budget";
 const KILL_REAP_TIMEOUT: Duration = Duration::from_secs(3);
 const KILL_REAP_POLL: Duration = Duration::from_millis(20);
-const PID_LOCK_RETRY: Duration = Duration::from_secs(1);
 const PID_LOCK_POLL: Duration = Duration::from_millis(20);
 const STOPPED: &str = "stopped: ";
+const SIGNAL_STOP_REASON: &str = "signal";
 pub const DEFAULT_STOP_REASON: &str = "requested";
 
 pub fn active_increment(elapsed: Duration) -> Duration {
@@ -89,7 +91,7 @@ fn read_run_info(run: &RunDir) -> Result<RunInfo> {
 	serde_json::from_slice(&bytes).with_context(|| format!("parse {path:?}"))
 }
 
-fn lock_pid_file(run: &RunDir) -> Result<Flock<File>> {
+fn lock_pid_file(run: &RunDir, retry: Duration) -> Result<Flock<File>> {
 	let path = run.supervisor_pid();
 	let mut file = OpenOptions::new()
 		.read(true)
@@ -98,7 +100,7 @@ fn lock_pid_file(run: &RunDir) -> Result<Flock<File>> {
 		.truncate(false)
 		.open(&path)
 		.with_context(|| format!("open {path:?}"))?;
-	let deadline = Instant::now() + PID_LOCK_RETRY;
+	let deadline = Instant::now() + retry;
 	loop {
 		match Flock::lock(file, FlockArg::LockExclusiveNonblock) {
 			Ok(lock) => {
@@ -146,11 +148,24 @@ fn abandoned_commits(run: &RunDir) -> Vec<TaskId> {
 }
 
 fn unstage_abandoned_commits(run: &RunDir, cfg: &Config) -> Result<()> {
+	let mut still_staged = Vec::new();
 	for task in abandoned_commits(run) {
-		unstage_task(run, cfg, &task).with_context(|| format!("unstage {task}"))?;
-		journal_append(run, &format!("unstaged {task} after abandoned commit"))?;
+		match unstage_task(run, cfg, &task) {
+			Ok(()) => journal_append(run, &format!("unstaged {task} after abandoned commit"))?,
+			Err(error) => {
+				journal_append(run, &format!("unstage of {task} failed: {error:#}"))?;
+				still_staged.push(task);
+			}
+		}
 	}
 	let path = run.abandoned_commits();
+	if !still_staged.is_empty() {
+		let lines: String = still_staged
+			.iter()
+			.map(|task| format!("{task}\n"))
+			.collect();
+		return Ok(write_atomic(&path, lines.as_bytes())?);
+	}
 	match fs::remove_file(&path) {
 		Err(error) if error.kind() != io::ErrorKind::NotFound => {
 			Err(error).with_context(|| format!("remove {path:?}"))
@@ -229,12 +244,13 @@ struct Supervisor {
 }
 
 pub fn run_supervisor(run: RunDir, cfg: Config) -> Result<()> {
+	install_stop_signals()?;
 	let mut supervisor = Supervisor::start(run, cfg)?;
 	loop {
 		let began = Instant::now();
 		let accounted = supervisor.account_time(unix_now());
 		report("time", accounted);
-		if let Some(reason) = read_stop_reason(&supervisor.run) {
+		if let Some(reason) = supervisor.requested_stop() {
 			return supervisor.stop(&reason);
 		}
 		supervisor.iterate();
@@ -257,9 +273,9 @@ impl Supervisor {
 		] {
 			fs::create_dir_all(&dir).with_context(|| format!("create {dir:?}"))?;
 		}
-		let pid_lock = lock_pid_file(&run)?;
-		unstage_abandoned_commits(&run, &cfg)?;
+		let pid_lock = lock_pid_file(&run, Duration::from_millis(cfg.pid_lock_retry_ms))?;
 		journal_resumed_after_stop(&run)?;
+		unstage_abandoned_commits(&run, &cfg)?;
 		let exempt = TopLevelExempt::observe(&run.root);
 		for id in (TaskStore { run: &run }).reconcile_after_restart()? {
 			journal_append(&run, &format!("requeued {id} after restart"))?;
@@ -310,6 +326,17 @@ impl Supervisor {
 			.write_all_at(std::process::id().to_string().as_bytes(), 0)
 			.context("announce supervisor pid")?;
 		Ok(supervisor)
+	}
+
+	fn requested_stop(&self) -> Option<String> {
+		if stop_signals_received() == 0 {
+			return read_stop_reason(&self.run);
+		}
+		if !self.run.stop_file().exists() {
+			let written = write_atomic(&self.run.stop_file(), SIGNAL_STOP_REASON.as_bytes());
+			report("stop signal", written.map_err(Into::into));
+		}
+		Some(read_stop_reason(&self.run).unwrap_or_else(|| SIGNAL_STOP_REASON.to_owned()))
 	}
 
 	fn shut_down(mut self, reason: &str) -> Result<()> {

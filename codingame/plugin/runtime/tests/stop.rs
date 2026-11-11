@@ -576,6 +576,7 @@ fn abandoned_commit_is_unstaged_at_next_start() {
 	});
 	assert_eq!(git(&repo, &["diff", "--cached", "--name-only"]), "");
 	assert!(!marker.exists());
+	assert_eq!(journal_lines(run, "resumed after stop: test"), 1);
 	supervisor.stop_within(run, 10);
 }
 
@@ -593,10 +594,14 @@ fn pid_file_lock(run: &RunDir, arg: FlockArg) -> Flock<fs::File> {
 fn stop_landing_during_startup_is_honored() {
 	let contest = contest(0, 2);
 	let run = &contest.run;
+	let mut config = Config::load(&run.config()).unwrap();
+	config.pid_lock_retry_ms = 10_000;
+	write_atomic(&run.config(), toml::to_string(&config).unwrap().as_bytes()).unwrap();
 	fs::write(run.stop_file(), "earlier").unwrap();
 	let reader = pid_file_lock(run, FlockArg::LockShared);
 	let mut supervisor = start(&contest, "exec sleep 60");
 	wait_until(5, "STOP cleared by start", || !run.stop_file().exists());
+	sleep(Duration::from_secs(2));
 	fs::write(run.stop_file(), "late").unwrap();
 	drop(reader);
 	supervisor.exited_within(10);
@@ -725,4 +730,138 @@ fn sandboxed_stubborn_worker_killed_at_grace() {
 		tree.iter().all(|&pid| !alive(pid as i32))
 	});
 	assert_eq!(state(run, &id), TaskState::Interrupted);
+}
+
+fn signal(supervisor: &Supervisor, signal: nix::sys::signal::Signal) {
+	nix::sys::signal::kill(nix::unistd::Pid::from_raw(supervisor.0.id() as i32), signal).unwrap();
+}
+
+#[test]
+fn sigterm_enters_stop_protocol() {
+	let contest = contest(1, 2);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	let tool_file = contest.home.join("tool-child");
+	let action = format!(
+		"sleep 60 & echo $! > {tool}; exec sleep 60",
+		tool = tool_file.display()
+	);
+	let mut supervisor = start(&contest, &action);
+	wait_until(20, "worker tool child", || {
+		fs::read_to_string(&tool_file).is_ok_and(|text| text.ends_with('\n'))
+	});
+	let tool = read_pid(&tool_file);
+	signal(&supervisor, nix::sys::signal::Signal::SIGTERM);
+	supervisor.exited_within(10);
+	let survived = alive(tool);
+	if survived {
+		let _ = nix::sys::signal::kill(
+			nix::unistd::Pid::from_raw(tool),
+			nix::sys::signal::Signal::SIGKILL,
+		);
+	}
+	assert!(!survived, "worker tool child survived");
+	assert_eq!(journal_lines(run, "stopped: signal"), 1);
+	assert_eq!(state(run, &id), TaskState::Interrupted);
+	assert_eq!(fs::read_to_string(run.stop_file()).unwrap(), "signal");
+}
+
+#[test]
+fn second_signal_cuts_grace_short() {
+	let contest = contest(1, 60);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	let mut supervisor = start(&contest, "exec sleep 60");
+	wait_until(20, "task running", || state(run, &id) == TaskState::Running);
+	signal(&supervisor, nix::sys::signal::Signal::SIGINT);
+	wait_until(5, "stopping", || {
+		journal_lines(run, "stopping: signal") == 1
+	});
+	signal(&supervisor, nix::sys::signal::Signal::SIGTERM);
+	supervisor.exited_within(5);
+	assert_eq!(journal_lines(run, "stopped: signal"), 1);
+	assert_eq!(state(run, &id), TaskState::Interrupted);
+}
+
+#[test]
+fn commit_git_child_dies_with_supervisor() {
+	let contest = contest(1, 2);
+	let run = &contest.run;
+	pin_repo(&contest);
+	create_task(run, "sim-bench", 0);
+	let real_git = Command::new("sh")
+		.args(["-c", "command -v git"])
+		.output()
+		.unwrap();
+	let real_git = String::from_utf8_lossy(&real_git.stdout).trim().to_owned();
+	let fake_dir = contest.home.join("fake-bin");
+	fs::create_dir_all(&fake_dir).unwrap();
+	let git_pid = contest.home.join("git-pid");
+	let fake_git = fake_dir.join("git");
+	fs::write(
+		&fake_git,
+		format!(
+			"#!/bin/sh\nfor arg in \"$@\"; do if [ \"$arg\" = add ]; then echo $$ > {pid}; exec sleep 60; fi; done\nexec {real_git} \"$@\"\n",
+			pid = git_pid.display()
+		),
+	)
+	.unwrap();
+	fs::set_permissions(&fake_git, fs::Permissions::from_mode(0o755)).unwrap();
+	let path = format!(
+		"{fake}:{inherited}",
+		fake = fake_dir.display(),
+		inherited = std::env::var("PATH").unwrap()
+	);
+	let log = fs::File::create(contest.home.join("supervisor.log")).unwrap();
+	let child = supervisor_command(
+		&contest,
+		&worker_exec(
+			"echo hi > \"$CONTEST_RUN/run/tasks/$CONTEST_TASK/out.txt\"; contest commit --milestone m; exec sleep 60",
+		),
+	)
+	.env("PATH", path)
+	.arg("start")
+	.arg(&run.root)
+	.arg("--foreground")
+	.stdin(Stdio::null())
+	.stdout(log.try_clone().unwrap())
+	.stderr(log)
+	.spawn()
+	.unwrap();
+	let mut supervisor = Supervisor(child);
+	wait_until(20, "git add running", || {
+		fs::read_to_string(&git_pid).is_ok_and(|text| text.ends_with('\n'))
+	});
+	let pid = read_pid(&git_pid);
+	supervisor.stop_within(run, 20);
+	wait_until(3, "git child gone", || !alive(pid));
+}
+
+#[test]
+fn failed_unstage_does_not_block_start() {
+	let contest = contest(0, 2);
+	let run = &contest.run;
+	pin_repo(&contest);
+	fs::write(run.abandoned_commits(), "t0099-missing\n").unwrap();
+	let mut supervisor = start(&contest, "true");
+	wait_until(10, "status file", || run.status().is_file());
+	assert!(supervisor.0.try_wait().unwrap().is_none());
+	assert_eq!(journal_lines(run, "unstage of t0099-missing failed"), 1);
+	assert_eq!(
+		fs::read_to_string(run.abandoned_commits()).unwrap().trim(),
+		"t0099-missing"
+	);
+	supervisor.stop_within(run, 10);
+}
+
+#[test]
+fn start_while_starting_names_supervisor_once() {
+	let contest = contest(0, 2);
+	let run = &contest.run;
+	let _starting = pid_file_lock(run, FlockArg::LockExclusive);
+	let started = contest_cli(&contest, &["start", run.root.to_str().unwrap()]);
+	assert!(!started.status.success());
+	let text = String::from_utf8_lossy(&started.stderr);
+	assert!(text.contains("(still starting)"), "{text}");
+	assert!(!text.contains("(("), "{text}");
 }

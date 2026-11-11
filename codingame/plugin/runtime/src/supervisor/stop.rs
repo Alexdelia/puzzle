@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 
+use super::signals::stop_signals_received;
 use super::{Supervisor, abandoned_commits, report, unix_now};
 use crate::agent::kill_agent_group;
 use crate::atomic::write_atomic;
@@ -16,9 +17,15 @@ pub const STOP_SETTLE_SECONDS: u64 = 10;
 impl Supervisor {
 	pub(super) fn stop(mut self, reason: &str) -> Result<()> {
 		let began = Instant::now();
+		let signals_at_stop = stop_signals_received();
 		self.begin_stop(reason);
 		let grace = Duration::from_secs(self.cfg.grace_seconds);
 		while self.has_live_work() && began.elapsed() < grace {
+			if stop_signals_received() > signals_at_stop {
+				let journaled = journal_append(&self.run, "grace cut short by a second signal");
+				report("stop", journaled);
+				break;
+			}
 			let step = Instant::now();
 			self.wrap_up_step();
 			sleep(WRAP_UP_INTERVAL.saturating_sub(step.elapsed()));

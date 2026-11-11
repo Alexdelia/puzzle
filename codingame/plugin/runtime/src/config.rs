@@ -32,6 +32,7 @@ pub struct Config {
 	pub pasta_bin: PathBuf,
 	pub probe_timeout_seconds: u64,
 	pub probe_retry_seconds: u64,
+	pub pid_lock_retry_ms: u64,
 	pub manager_timeout_seconds: u64,
 }
 
@@ -65,6 +66,7 @@ impl Default for Config {
 			pasta_bin: PathBuf::new(),
 			probe_timeout_seconds: 120,
 			probe_retry_seconds: 60,
+			pid_lock_retry_ms: 1000,
 			manager_timeout_seconds: 900,
 		}
 	}
