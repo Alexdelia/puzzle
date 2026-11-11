@@ -667,3 +667,19 @@ fn one_broken_task_dir_does_not_stop_serving_others() {
 	assert_eq!(store.state(&healthy).unwrap(), TaskState::Done);
 	assert_eq!(store.state(&broken).unwrap(), TaskState::Running);
 }
+
+#[test]
+fn job_submit_refused_while_stopping() {
+	let (_dir, run) = run_dir();
+	let task = make_task(&run);
+	fs::write(run.stop_file(), "requested").unwrap();
+	let error = handle(
+		&run,
+		&task,
+		submit_request(JobClass::Batch),
+		&commit_nothing,
+	)
+	.unwrap_err();
+	assert!(format!("{error:#}").contains("stopping"), "{error:#}");
+	assert!(fs::read_dir(run.jobs()).map_or(true, |mut entries| entries.next().is_none()));
+}

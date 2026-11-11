@@ -126,6 +126,10 @@ fn submit_job(
 	cwd: PathBuf,
 	request: impl FnOnce(JobId) -> JobRequest,
 ) -> Result<Value> {
+	ensure!(
+		!run.stop_file().exists(),
+		"stopping: no new jobs, update notes.md and end the turn"
+	);
 	ensure!(!cmd.is_empty(), "job command is empty");
 	let id = next_job_id(run);
 	let record = JobRecord {
