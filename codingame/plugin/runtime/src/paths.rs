@@ -127,6 +127,10 @@ impl RunDir {
 		self.run().join("STOP")
 	}
 
+	pub fn abandoned_commits(&self) -> PathBuf {
+		self.run().join("abandoned-commits")
+	}
+
 	pub fn inbox(&self) -> PathBuf {
 		self.run().join("inbox")
 	}

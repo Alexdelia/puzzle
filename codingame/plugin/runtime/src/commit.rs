@@ -7,7 +7,7 @@ use anyhow::{Context, Result, bail, ensure};
 
 use crate::config::Config;
 use crate::paths::{RunDir, TaskId, is_valid_kind};
-use crate::task::TaskStore;
+use crate::task::{TaskSpec, TaskStore};
 
 const MILESTONE_MAX_CHARS: usize = 72;
 const LOCK_FILE: &str = "contest-commit.lock";
@@ -166,35 +166,50 @@ fn milestone_line(milestone: &str) -> String {
 		.to_owned()
 }
 
+fn ensure_pinned(config: &Config) -> Result<()> {
+	ensure!(
+		!config.repo_root.as_os_str().is_empty() && !config.git_common_dir.as_os_str().is_empty(),
+		"config has no pinned repo_root and git_common_dir"
+	);
+	Ok(())
+}
+
+fn task_paths(
+	run: &RunDir,
+	config: &Config,
+	task: &TaskId,
+	spec: &TaskSpec,
+) -> Result<Vec<PathBuf>> {
+	let mut candidates = vec![run.task_dir(task)];
+	for relative in &spec.writes {
+		candidates.push(declared_write(run, task, relative)?);
+	}
+	let repo = &config.repo_root;
+	let mut paths = Vec::new();
+	for candidate in candidates {
+		ensure_outside_git_dirs(repo, &candidate)?;
+		if candidate.exists() || is_tracked(repo, &candidate)? {
+			paths.push(candidate);
+		}
+	}
+	Ok(paths)
+}
+
 pub fn commit_task(
 	run: &RunDir,
 	config: &Config,
 	task: &TaskId,
 	milestone: &str,
 ) -> Result<Option<String>> {
-	let store = TaskStore { run };
-	let spec = store.spec(task)?;
+	let spec = TaskStore { run }.spec(task)?;
 	ensure!(
 		is_valid_kind(&spec.kind),
 		"invalid task kind {kind:?}",
 		kind = spec.kind
 	);
-	ensure!(
-		!config.repo_root.as_os_str().is_empty() && !config.git_common_dir.as_os_str().is_empty(),
-		"config has no pinned repo_root and git_common_dir"
-	);
-	let mut candidates = vec![run.task_dir(task)];
-	for relative in &spec.writes {
-		candidates.push(declared_write(run, task, relative)?);
-	}
-	let repo = config.repo_root.clone();
-	let mut paths = Vec::new();
-	for candidate in candidates {
-		ensure_outside_git_dirs(&repo, &candidate)?;
-		if candidate.exists() || is_tracked(&repo, &candidate)? {
-			paths.push(candidate);
-		}
-	}
+	ensure_pinned(config)?;
+	let paths = task_paths(run, config, task, &spec)?;
+	let repo = &config.repo_root;
 	let mut message = format!(
 		"{kind}: {task} {milestone}",
 		kind = spec.kind,
@@ -204,19 +219,30 @@ pub fn commit_task(
 		message.push_str(&format!("\n\n{trailer}", trailer = config.commit_trailer));
 	}
 
-	let contest = run.root.strip_prefix(&repo).unwrap_or(Path::new(""));
+	let contest = run.root.strip_prefix(repo).unwrap_or(Path::new(""));
 	let _lock = CommitLock::acquire(&config.git_common_dir)?;
-	stage(&repo, contest, &paths)?;
-	let unchanged = git(&repo, &["diff", "--cached", "--quiet"], &paths)?;
+	stage(repo, contest, &paths)?;
+	let unchanged = git(repo, &["diff", "--cached", "--quiet"], &paths)?;
 	match unchanged.status.code() {
 		Some(0) => return Ok(None),
 		Some(1) => {}
 		_ => bail!("git diff --cached failed"),
 	}
 	git_checked(
-		&repo,
+		repo,
 		&["commit", "-q", "--no-verify", "-m", &message],
 		&paths,
 	)?;
-	Ok(Some(git_checked(&repo, &["rev-parse", "HEAD"], &[])?))
+	Ok(Some(git_checked(repo, &["rev-parse", "HEAD"], &[])?))
+}
+
+pub fn unstage_task(run: &RunDir, config: &Config, task: &TaskId) -> Result<()> {
+	ensure_pinned(config)?;
+	let spec = TaskStore { run }.spec(task)?;
+	let paths = task_paths(run, config, task, &spec)?;
+	if paths.is_empty() {
+		return Ok(());
+	}
+	let _lock = CommitLock::acquire(&config.git_common_dir)?;
+	git_checked(&config.repo_root, &["reset", "-q"], &paths).map(drop)
 }

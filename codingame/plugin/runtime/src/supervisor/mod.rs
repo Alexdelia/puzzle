@@ -31,6 +31,7 @@ use crate::agent::{AgentRun, spawn_agent, spawn_agent_scrubbed};
 use crate::atomic::write_atomic;
 use crate::broker::{Grant, Machine};
 use crate::claude_config::write_claude_settings;
+use crate::commit::unstage_task;
 use crate::config::Config;
 use crate::events::{Event, emit};
 use crate::job::VmStat;
@@ -139,6 +140,28 @@ fn resume_after_stop(run: &RunDir) -> Result<()> {
 	journal_append(run, &format!("resumed after stop: {reason}"))
 }
 
+fn abandoned_commits(run: &RunDir) -> Vec<TaskId> {
+	fs::read_to_string(run.abandoned_commits())
+		.unwrap_or_default()
+		.lines()
+		.filter_map(|line| TaskId::parse(line.trim()).ok())
+		.collect()
+}
+
+fn unstage_abandoned_commits(run: &RunDir, cfg: &Config) -> Result<()> {
+	for task in abandoned_commits(run) {
+		unstage_task(run, cfg, &task).with_context(|| format!("unstage {task}"))?;
+		journal_append(run, &format!("unstaged {task} after abandoned commit"))?;
+	}
+	let path = run.abandoned_commits();
+	match fs::remove_file(&path) {
+		Err(error) if error.kind() != io::ErrorKind::NotFound => {
+			Err(error).with_context(|| format!("remove {path:?}"))
+		}
+		_ => Ok(()),
+	}
+}
+
 fn remove_planted(run: &RunDir, exempt: TopLevelExempt) -> Result<ScanReport> {
 	let report = remove_planted_files(&run.root, exempt)?;
 	for path in &report.removed {
@@ -238,6 +261,7 @@ impl Supervisor {
 			fs::create_dir_all(&dir).with_context(|| format!("create {dir:?}"))?;
 		}
 		let pid_lock = lock_pid_file(&run)?;
+		unstage_abandoned_commits(&run, &cfg)?;
 		resume_after_stop(&run)?;
 		let exempt = TopLevelExempt::observe(&run.root);
 		for id in (TaskStore { run: &run }).reconcile_after_restart()? {

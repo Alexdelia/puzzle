@@ -3,7 +3,8 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 
-use super::{Supervisor, report, unix_now};
+use super::{Supervisor, abandoned_commits, report, unix_now};
+use crate::atomic::write_atomic;
 use crate::journal::journal_append;
 use crate::task::{TaskState, TaskStore};
 
@@ -67,7 +68,9 @@ impl Supervisor {
 		self.kill_live_jobs();
 		let settle_end = Instant::now() + Duration::from_secs(STOP_SETTLE_SECONDS);
 		while self.has_live_work() && Instant::now() < settle_end {
-			self.wrap_up_step();
+			let reaped = self.reap_workers(unix_now());
+			report("reap workers", reaped);
+			self.reap_jobs();
 			sleep(SETTLE_INTERVAL);
 		}
 		let now = unix_now();
@@ -76,12 +79,29 @@ impl Supervisor {
 			report("finish worker", finished);
 		}
 		self.interrupt_remaining_jobs();
-		for task in self.commits.unfinished() {
-			let journaled =
-				journal_append(&self.run, &format!("commit of {task} abandoned at stop"));
+		self.abandon_commits();
+		self.interrupt_running_tasks();
+	}
+
+	fn abandon_commits(&self) {
+		let abandoned = self.commits.unfinished();
+		if abandoned.is_empty() {
+			return;
+		}
+		for task in &abandoned {
+			let journaled = journal_append(
+				&self.run,
+				&format!("commit of {task} abandoned at stop, may have staged or landed"),
+			);
 			report("stop", journaled);
 		}
-		self.interrupt_running_tasks();
+		let mut marked = abandoned_commits(&self.run);
+		marked.extend(abandoned);
+		marked.sort_by(|a, b| a.0.cmp(&b.0));
+		marked.dedup();
+		let lines: String = marked.iter().map(|task| format!("{task}\n")).collect();
+		let written = write_atomic(&self.run.abandoned_commits(), lines.as_bytes());
+		report("stop", written.map_err(Into::into));
 	}
 
 	fn interrupt_running_tasks(&self) {

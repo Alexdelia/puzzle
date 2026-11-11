@@ -538,3 +538,42 @@ fn stop_cli_returns_at_once_and_wait_blocks() {
 	assert_eq!(journal_lines(run, "stopped: user break"), 1);
 	assert_eq!(fs::read_to_string(run.stop_file()).unwrap(), "user break");
 }
+
+#[test]
+fn abandoned_commit_is_unstaged_at_next_start() {
+	let contest = contest(1, 2);
+	let run = &contest.run;
+	let repo = pin_repo(&contest);
+	let id = create_task(run, "sim-bench", 0);
+	let lock_file = fs::OpenOptions::new()
+		.create(true)
+		.write(true)
+		.truncate(false)
+		.open(repo.join(".git/contest-commit.lock"))
+		.unwrap();
+	let lock = Flock::lock(lock_file, FlockArg::LockExclusive).unwrap();
+	let out = run.task_dir(&id).join("out.txt");
+	let action = format!(
+		"echo hi > {out}; contest commit --milestone first; exec sleep 60",
+		out = out.display()
+	);
+	let mut supervisor = start(&contest, &action);
+	wait_until(20, "commit requested", || {
+		fs::read_dir(run.task_requests(&id)).is_ok_and(|mut entries| entries.next().is_some())
+	});
+	sleep(Duration::from_secs(1));
+	supervisor.stop_within(run, 20);
+	assert_eq!(journal_lines(run, "may have staged or landed"), 1);
+	let marker = run.abandoned_commits();
+	assert_eq!(fs::read_to_string(&marker).unwrap().trim(), id.0);
+	git(&repo, &["add", "--", out.to_str().unwrap()]);
+	drop(lock);
+
+	let mut supervisor = start(&contest, "exec sleep 60");
+	wait_until(10, "unstaged", || {
+		journal_lines(run, &format!("unstaged {id}")) == 1
+	});
+	assert_eq!(git(&repo, &["diff", "--cached", "--name-only"]), "");
+	assert!(!marker.exists());
+	supervisor.stop_within(run, 10);
+}
