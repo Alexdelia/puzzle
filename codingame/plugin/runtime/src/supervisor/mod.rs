@@ -184,19 +184,10 @@ fn unstage_abandoned_commits(run: &RunDir, cfg: &Config) -> Result<()> {
 fn remove_planted(run: &RunDir, exempt: TopLevelExempt) -> Result<ScanReport> {
 	let report = remove_planted_files(&run.root, exempt)?;
 	for path in &report.removed {
-		journal_append(
-			run,
-			&format!("taint: removed {path}", path = path.display()),
-		)?;
+		journal_append(run, &format!("taint: removed {path:?}"))?;
 	}
 	for (path, error) in &report.failures {
-		journal_append(
-			run,
-			&format!(
-				"taint: cannot remove {path}: {error}",
-				path = path.display()
-			),
-		)?;
+		journal_append(run, &format!("taint: cannot remove {path:?}: {error}"))?;
 	}
 	Ok(report)
 }

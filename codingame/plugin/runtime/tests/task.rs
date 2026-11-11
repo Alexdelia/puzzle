@@ -287,3 +287,19 @@ fn finished_task_can_be_flagged_failed() {
 	store.transition(&asking, TaskState::Failed).unwrap();
 	assert_eq!(store.state(&asking).unwrap(), TaskState::Failed);
 }
+
+#[test]
+fn journal_lines_cannot_be_forged_with_control_chars() {
+	let (_dir, run) = run_dir();
+	journal_append(
+		&run,
+		"taint: removed /c/x\n2026-01-01 00:00:00 forged\r\u{1b}[2Kline",
+	)
+	.unwrap();
+	let lines = journal_tail(&run, 10);
+	assert_eq!(lines.len(), 1, "{lines:?}");
+	assert!(
+		lines[0].ends_with("taint: removed /c/x\\n2026-01-01 00:00:00 forged\\r\\u{1b}[2Kline"),
+		"{lines:?}"
+	);
+}

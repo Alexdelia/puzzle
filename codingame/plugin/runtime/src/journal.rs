@@ -8,6 +8,18 @@ use crate::paths::RunDir;
 
 const TIMESTAMP_FORMAT: &str = "[year]-[month]-[day] [hour]:[minute]:[second]";
 
+fn single_line(line: &str) -> String {
+	let mut escaped = String::with_capacity(line.len());
+	for char in line.chars() {
+		if char.is_control() {
+			escaped.extend(char.escape_debug());
+		} else {
+			escaped.push(char);
+		}
+	}
+	escaped
+}
+
 pub fn journal_append(run: &RunDir, line: &str) -> anyhow::Result<()> {
 	let format = parse_borrowed::<2>(TIMESTAMP_FORMAT)?;
 	let stamp = OffsetDateTime::now_utc().format(&format)?;
@@ -16,6 +28,7 @@ pub fn journal_append(run: &RunDir, line: &str) -> anyhow::Result<()> {
 		fs::create_dir_all(dir)?;
 	}
 	let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+	let line = single_line(line);
 	file.write_all(format!("{stamp} {line}\n").as_bytes())?;
 	Ok(())
 }

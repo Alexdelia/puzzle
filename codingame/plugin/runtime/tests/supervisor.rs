@@ -329,6 +329,34 @@ fn planted_files_removed_after_task() {
 	assert!(journal.contains(&planted.display().to_string()));
 }
 
+#[test]
+fn planted_names_cannot_forge_journal_lines() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	let forged = run
+		.task_dir(&id)
+		.join("x\n2026-01-01 00:00:00 forged entry");
+	let planted = forged.join(".git");
+	let action = format!(
+		"mkdir -p \"{planted}\"; contest task done",
+		planted = planted.display()
+	);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "task finished event", || {
+		has_event(run, json!({"event": "task_finished", "task": id.0}))
+	});
+	supervisor.stop(run);
+	assert!(!planted.exists());
+	assert_eq!(journal_lines(run, "forged entry"), 1);
+	assert!(
+		fs::read_to_string(run.journal())
+			.unwrap()
+			.lines()
+			.all(|line| !line.starts_with("2026-01-01 00:00:00 forged"))
+	);
+}
+
 fn git(dir: &Path, args: &[&str]) -> String {
 	let output = Command::new("git")
 		.arg("-C")
