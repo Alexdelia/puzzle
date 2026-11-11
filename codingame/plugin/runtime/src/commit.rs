@@ -51,6 +51,7 @@ fn git(repo: &Path, args: &[&str], paths: &[PathBuf]) -> Result<std::process::Ou
 	let mut command = Command::new("git");
 	die_with_commit_thread(&mut command);
 	command
+		.process_group(0)
 		.arg("--literal-pathspecs")
 		.arg("-C")
 		.arg(repo)
@@ -65,7 +66,7 @@ fn git(repo: &Path, args: &[&str], paths: &[PathBuf]) -> Result<std::process::Ou
 
 fn die_with_commit_thread(command: &mut Command) {
 	unsafe {
-		command.pre_exec(|| set_pdeathsig(Signal::SIGKILL).map_err(std::io::Error::from));
+		command.pre_exec(|| set_pdeathsig(Signal::SIGTERM).map_err(std::io::Error::from));
 	}
 }
 
