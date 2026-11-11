@@ -51,7 +51,7 @@ const ROOT_ALLOWLIST: [&str; 13] = [
 	"/run/opengl-driver-32",
 ];
 const PRIVATE_DIRS: [&str; 3] = ["/tmp", "/var/tmp", "/home"];
-const NIX_DAEMON_SOCKET_DIR: &str = "/nix/var/nix/daemon-socket";
+const NIX_SOCKET_DIRS: [&str; 2] = ["/nix/var/nix/daemon-socket", "/nix/var/nix/gc-socket"];
 const HIDDEN_ENV: [&str; 10] = [
 	"DBUS_SESSION_BUS_ADDRESS",
 	"SSH_AUTH_SOCK",
@@ -141,6 +141,12 @@ fn ensure_pinned_envrc(envrc: &Path) -> Result<()> {
 	Ok(())
 }
 
+fn existing_real_paths(paths: impl Iterator<Item = PathBuf>) -> Vec<PathBuf> {
+	paths
+		.filter_map(|path| fs::canonicalize(path).ok())
+		.collect()
+}
+
 impl SandboxSpec {
 	pub fn for_run(run: &RunDir, config: &Config, own_task: Option<TaskId>) -> Result<Self> {
 		ensure_plugin_dir(&config.plugin_dir)?;
@@ -176,16 +182,14 @@ impl SandboxSpec {
 		let sandbox_home = run.agents().join(home_owner).join("home");
 		create_dir(&sandbox_home)?;
 		let bin_dir = contest_bin_dir()?;
-		let mut plugin_ro = vec![bin_dir.clone()];
-		plugin_ro.extend(
-			PLUGIN_READ_ONLY_DIRS
-				.iter()
-				.map(|dir| config.plugin_dir.join(dir)),
-		);
+		let plugin_dirs = PLUGIN_READ_ONLY_DIRS
+			.iter()
+			.map(|dir| config.plugin_dir.join(dir));
+		let plugin_ro = existing_real_paths(std::iter::once(bin_dir.clone()).chain(plugin_dirs));
 		Ok(Self {
 			repo_root: config.repo_root.clone(),
 			contest_envrc: config.contest_envrc,
-			toolbox: config.toolbox.clone(),
+			toolbox: existing_real_paths(config.toolbox.iter().cloned()),
 			plugin_ro,
 			claude_config: run.claude_config(),
 			credentials: home.join(".claude/.credentials.json"),
@@ -322,7 +326,7 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Result<Vec<String>> {
 	let after_home = argv.destinations.len();
 	argv.on("--tmpfs", &spec.repo_root);
 	for tool in &spec.toolbox {
-		argv.same("--ro-bind", tool);
+		argv.same(RO_BIND_FD, tool);
 	}
 	let contest_bind = match spec.own_task {
 		Some(_) => BIND_FD,
@@ -336,12 +340,13 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Result<Vec<String>> {
 		own_task_mounts(&mut argv, &run, task);
 	}
 	for path in &spec.plugin_ro {
-		argv.same("--ro-bind-try", path);
+		argv.same(RO_BIND_FD, path);
 	}
 	claude_config_mounts(&mut argv, spec);
-	let nix_daemon_sockets = Path::new(NIX_DAEMON_SOCKET_DIR);
-	if nix_daemon_sockets.is_dir() {
-		argv.on("--tmpfs", nix_daemon_sockets);
+	for sockets in NIX_SOCKET_DIRS.map(Path::new) {
+		if sockets.is_dir() {
+			argv.on("--tmpfs", sockets);
+		}
 	}
 	let hidden = HIDDEN_ENV
 		.iter()

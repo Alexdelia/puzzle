@@ -36,6 +36,7 @@ const HIDDEN_ENV: [&str; 10] = [
 ];
 
 const NIX_DAEMON_SOCKET_DIR: &str = "/nix/var/nix/daemon-socket";
+const NIX_GC_SOCKET_DIR: &str = "/nix/var/nix/gc-socket";
 const SYSTEM_BUS_DIR: &str = "/run/dbus";
 const SPAWNER_RUN: &str = "CONTEST_TEST_SPAWNER_RUN";
 const SPAWNER_JOB: &str = "CONTEST_TEST_SPAWNER_JOB";
@@ -250,7 +251,72 @@ fn bwrap_hides_nix_daemon_socket_after_every_bind() {
 		assert_eq!(hidden, None, "{args:?}");
 		return;
 	}
-	assert_eq!(hidden, Some(mounts.len() - 1), "{args:?}");
+	let last_bind = mounts
+		.iter()
+		.rposition(|(flag, _, _)| flag.contains("bind"))
+		.unwrap();
+	assert!(hidden.unwrap() > last_bind, "{args:?}");
+}
+
+#[test]
+fn bwrap_hides_nix_gc_socket_after_every_bind() {
+	let mut spec = spec();
+	spec.toolbox.push("/nix".into());
+	let args = bwrap_args(&spec);
+	let mounts: Vec<_> = mounts(&args)
+		.into_iter()
+		.filter(|(flag, _, _)| flag != "--unsetenv")
+		.collect();
+	let hidden = mounts
+		.iter()
+		.position(|(flag, _, target)| flag == "--tmpfs" && target == NIX_GC_SOCKET_DIR);
+	if !Path::new(NIX_GC_SOCKET_DIR).is_dir() {
+		assert_eq!(hidden, None, "{args:?}");
+		return;
+	}
+	let last_bind = mounts
+		.iter()
+		.rposition(|(flag, _, _)| flag.contains("bind"))
+		.unwrap();
+	assert!(hidden.unwrap() > last_bind, "{args:?}");
+}
+
+#[test]
+fn real_bwrap_hides_nix_gc_socket() {
+	if !Path::new(NIX_GC_SOCKET_DIR).is_dir() {
+		eprintln!("nix gc socket not found, skipped");
+		return;
+	}
+	let Some(Layout { _dir, mut spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	spec.toolbox.push("/nix/var/nix".into());
+	let socket = Path::new(NIX_GC_SOCKET_DIR).join("socket");
+	assert_eq!(sandboxed_sh(&spec, &probe_line(&socket)).trim(), "absent");
+}
+
+#[test]
+fn real_sandbox_refuses_toolbox_swapped_for_a_symlink() {
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	let secret_dir = spec.repo_root.parent().unwrap().join("host-secret-dir");
+	fs::create_dir_all(&secret_dir).unwrap();
+	fs::write(secret_dir.join("referee.rs"), "host secret").unwrap();
+	let tool = &spec.toolbox[0];
+	fs::remove_dir_all(tool).unwrap();
+	std::os::unix::fs::symlink(&secret_dir, tool).unwrap();
+	let argv = vec!["cat".to_string(), text(&tool.join("referee.rs"))];
+	let command = sandbox_command(&spec, &argv);
+	let output = Command::new(&command[0])
+		.args(&command[1..])
+		.output()
+		.unwrap();
+	let stdout = String::from_utf8_lossy(&output.stdout);
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(!stdout.contains("host secret"), "{stdout}");
+	assert!(!output.status.success());
+	assert!(stderr.contains("without following symlinks"), "{stderr}");
 }
 
 #[test]
@@ -300,6 +366,7 @@ fn spec_owned_destinations(spec: &SandboxSpec) -> Vec<PathBuf> {
 		spec.contest_root.clone(),
 		PathBuf::from(AGENT_HOME),
 		PathBuf::from(NIX_DAEMON_SOCKET_DIR),
+		PathBuf::from(NIX_GC_SOCKET_DIR),
 	];
 	owned.extend(spec.toolbox.iter().cloned());
 	owned.extend(spec.plugin_ro.iter().cloned());
@@ -370,9 +437,9 @@ fn toolbox_read_only() {
 			.collect();
 		assert_eq!(
 			binds,
-			vec![("--ro-bind".into(), tool_text.clone(), tool_text.clone())]
+			vec![("--ro-bind-fd".into(), tool_text.clone(), tool_text.clone())]
 		);
-		assert!(position(&args, "--ro-bind", tool) > repo_hidden);
+		assert!(position(&args, "--ro-bind-fd", tool) > repo_hidden);
 	}
 }
 
@@ -558,8 +625,9 @@ fn plugin_paths_read_only_and_claude_config_layered() {
 	let spec = spec();
 	let args = bwrap_args(&spec);
 	for path in &spec.plugin_ro {
-		position(&args, "--ro-bind-try", path);
+		position(&args, "--ro-bind-fd", path);
 	}
+	assert!(args.iter().all(|arg| !arg.ends_with("-try")), "{args:?}");
 	let config_tmpfs = position(&args, "--tmpfs", &spec.claude_config);
 	let settings = position(
 		&args,
@@ -635,6 +703,9 @@ fn layout() -> Layout {
 		touch(&tool.join("referee.rs"), "referee");
 	}
 	touch(&spec.plugin_ro[0].join("contest"), "bin");
+	for path in &spec.plugin_ro {
+		fs::create_dir_all(path).unwrap();
+	}
 	touch(&run.config(), "workers = 3\n");
 	for id in [&task, &other] {
 		for file in ["spec.toml", "spec.md", "state"] {
@@ -1216,11 +1287,17 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 		root: dir.path().join("repo/bot-programming/c1"),
 	};
 	fs::create_dir_all(&run.root).unwrap();
-	fs::create_dir_all(dir.path().join("repo/plugin")).unwrap();
+	for plugin_part in ["prompts", "skills", "kb"] {
+		fs::create_dir_all(dir.path().join("repo/plugin").join(plugin_part)).unwrap();
+	}
+	fs::create_dir_all(dir.path().join("repo/bot-programming/c0")).unwrap();
 	let config = Config {
 		repo_root: dir.path().join("repo"),
-		plugin_dir: dir.path().join("repo/plugin"),
-		toolbox: vec![dir.path().join("repo/bot-programming/c0")],
+		plugin_dir: fs::canonicalize(dir.path().join("repo/plugin")).unwrap(),
+		toolbox: vec![
+			fs::canonicalize(dir.path().join("repo/bot-programming/c0")).unwrap(),
+			dir.path().join("repo/bot-programming/gone"),
+		],
 		pasta_bin: "/nix/passt/bin/pasta".into(),
 		..Config::default()
 	};
@@ -1229,7 +1306,7 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 	let contest_root = fs::canonicalize(&run.root).unwrap();
 	assert_eq!(spec.contest_root, contest_root);
 	assert_eq!(spec.repo_root, config.repo_root);
-	assert_eq!(spec.toolbox, config.toolbox);
+	assert_eq!(spec.toolbox, config.toolbox[..1]);
 	assert_eq!(spec.claude_config, contest_root.join("run/claude-config"));
 	assert_eq!(
 		spec.sandbox_home,
@@ -1823,4 +1900,28 @@ fn sandboxed_job_dies_when_spawner_dies() {
 	wait_for("sandbox teardown", || {
 		gone_or_zombie(pid) && processes_running(&text(&script)).is_empty()
 	});
+}
+
+#[test]
+fn spec_for_run_skips_missing_plugin_dirs() {
+	let dir = TempDir::new().unwrap();
+	let run = RunDir {
+		root: dir.path().join("repo/bot-programming/c1"),
+	};
+	fs::create_dir_all(&run.root).unwrap();
+	fs::create_dir_all(dir.path().join("repo/plugin/prompts")).unwrap();
+	let config = Config {
+		repo_root: dir.path().join("repo"),
+		plugin_dir: fs::canonicalize(dir.path().join("repo/plugin")).unwrap(),
+		pasta_bin: "/nix/passt/bin/pasta".into(),
+		..Config::default()
+	};
+	let spec = SandboxSpec::for_run(&run, &config, Some(task())).unwrap();
+	assert_eq!(
+		spec.plugin_ro,
+		[
+			contest_bin_dir().unwrap(),
+			config.plugin_dir.join("prompts")
+		]
+	);
 }
