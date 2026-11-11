@@ -11,12 +11,16 @@ use contest::job::{
 };
 use contest::paths::{JobId, RunDir, TaskId};
 use contest::spool::{
-	Outcome, Request, handle, prepare_task_requests, send_request, serve_pending,
+	CommitRequest, Outcome, Request, handle, prepare_task_requests, send_request, serve_pending,
 };
 use contest::task::{TaskSpec, TaskState, TaskStore};
 use tempfile::TempDir;
 
-fn no_commit(_: &TaskId, _: &str) -> Poll<anyhow::Result<Option<String>>> {
+fn no_commit(_: &CommitRequest) -> Poll<anyhow::Result<Option<String>>> {
+	Poll::Ready(Ok(None))
+}
+
+fn commit_nothing(_: &str) -> Poll<anyhow::Result<Option<String>>> {
 	Poll::Ready(Ok(None))
 }
 
@@ -157,13 +161,19 @@ fn job_submit_creates_queued_record() {
 		min_cores: 1,
 		max_cores: 2,
 	};
-	let value = handle(&run, &task, submit_request(class), &no_commit).unwrap();
+	let value = handle(&run, &task, submit_request(class), &commit_nothing).unwrap();
 	let id = JobId(value["job"].as_str().unwrap().into());
 	let record = read_job_record(&run, &id).unwrap();
 	assert_eq!(record.state, JobState::Queued);
 	assert_eq!(record.owner_task, task);
 	assert_eq!(record.request.class, class);
-	let second = handle(&run, &task, submit_request(JobClass::Batch), &no_commit).unwrap();
+	let second = handle(
+		&run,
+		&task,
+		submit_request(JobClass::Batch),
+		&commit_nothing,
+	)
+	.unwrap();
 	assert_ne!(second["job"], value["job"]);
 }
 
@@ -176,7 +186,7 @@ fn job_submit_rejects_bad_core_counts() {
 			min_cores,
 			max_cores,
 		};
-		assert!(handle(&run, &task, submit_request(class), &no_commit).is_err());
+		assert!(handle(&run, &task, submit_request(class), &commit_nothing).is_err());
 	}
 }
 
@@ -189,7 +199,7 @@ fn job_cancel_marks_queued_job_cancelled() {
 		&run,
 		&task,
 		Request::JobCancel { job: job.clone() },
-		&no_commit,
+		&commit_nothing,
 	)
 	.unwrap();
 	assert_eq!(
@@ -207,7 +217,7 @@ fn task_finish_transitions() {
 		outcome: Outcome::Done,
 		question: None,
 	};
-	handle(&run, &done, request, &no_commit).unwrap();
+	handle(&run, &done, request, &commit_nothing).unwrap();
 	assert_eq!(store.state(&done).unwrap(), TaskState::Done);
 
 	let asking = make_task(&run);
@@ -215,7 +225,7 @@ fn task_finish_transitions() {
 		outcome: Outcome::NeedsAnswer,
 		question: Some("which cap?".into()),
 	};
-	handle(&run, &asking, request, &no_commit).unwrap();
+	handle(&run, &asking, request, &commit_nothing).unwrap();
 	assert_eq!(store.state(&asking).unwrap(), TaskState::NeedsAnswer);
 	let notes = fs::read_to_string(run.task_dir(&asking).join("notes.md")).unwrap();
 	assert!(notes.contains("which cap?"));
@@ -225,7 +235,7 @@ fn task_finish_transitions() {
 		outcome: Outcome::NeedsAnswer,
 		question: None,
 	};
-	assert!(handle(&run, &missing_question, request, &no_commit).is_err());
+	assert!(handle(&run, &missing_question, request, &commit_nothing).is_err());
 }
 
 #[test]
@@ -423,7 +433,7 @@ fn job_verbs_refuse_another_tasks_job() {
 		},
 		Request::JobCancel { job: job.clone() },
 	] {
-		assert!(handle(&run, &intruder, request, &no_commit).is_err());
+		assert!(handle(&run, &intruder, request, &commit_nothing).is_err());
 	}
 	assert_eq!(read_job_record(&run, &job).unwrap().state, JobState::Queued);
 }
@@ -436,7 +446,10 @@ fn malformed_job_ids_are_rejected() {
 		let request = Request::JobCancel {
 			job: JobId(id.into()),
 		};
-		assert!(handle(&run, &task, request, &no_commit).is_err(), "{id}");
+		assert!(
+			handle(&run, &task, request, &commit_nothing).is_err(),
+			"{id}"
+		);
 	}
 }
 
@@ -472,7 +485,7 @@ fn forged_starttime_is_never_signalled() {
 	let real = process_starttime(child.id()).unwrap();
 	for forged in [Some(real + 1), None] {
 		let job = running_job_of(&run, &task, child.id(), forged);
-		handle(&run, &task, Request::JobCancel { job }, &no_commit).unwrap();
+		handle(&run, &task, Request::JobCancel { job }, &commit_nothing).unwrap();
 		thread::sleep(Duration::from_millis(200));
 		assert!(alive(child.id()));
 	}
@@ -490,7 +503,7 @@ fn unsignalled_running_job_stays_live_until_reaped() {
 		&run,
 		&task,
 		Request::JobCancel { job: job.clone() },
-		&no_commit,
+		&commit_nothing,
 	)
 	.unwrap();
 	assert_eq!(value["state"], "Cancelling");
@@ -513,7 +526,7 @@ fn matching_starttime_is_signalled_and_job_is_cancelling() {
 		&run,
 		&task,
 		Request::JobCancel { job: job.clone() },
-		&no_commit,
+		&commit_nothing,
 	)
 	.unwrap();
 	assert_eq!(value["state"], "Cancelling");
@@ -539,7 +552,7 @@ fn job_wait_does_not_return_ended_while_cancelling() {
 			job,
 			timeout_seconds: 5,
 		},
-		&no_commit,
+		&commit_nothing,
 	)
 	.unwrap();
 	assert_eq!(value["pending"], true);

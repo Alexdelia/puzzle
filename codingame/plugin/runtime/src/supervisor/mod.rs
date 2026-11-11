@@ -38,7 +38,7 @@ use crate::journal::journal_append;
 use crate::paths::{JobId, RunDir, TaskId};
 use crate::run_info::RunInfo;
 use crate::sandbox::{SandboxSpec, contest_bin_dir, dropped_host_env, sandbox_command};
-use crate::spool::serve_pending;
+use crate::spool::{CommitRequest, request_pending, serve_pending};
 use crate::status::write_status;
 use crate::taint::{ScanReport, TopLevelExempt, ensure_no_top_level_git, remove_planted_files};
 use crate::task::{TaskState, TaskStore};
@@ -330,35 +330,38 @@ impl Supervisor {
 
 	fn start_commit(
 		&self,
-		task: &TaskId,
-		milestone: &str,
+		request: &CommitRequest,
 		tainted: &RefCell<Vec<(TaskId, String)>>,
 	) -> Result<CommitThread> {
 		if let Some(failure) = taint_failure(remove_planted(&self.run, self.exempt)) {
-			tainted.borrow_mut().push((task.clone(), failure.clone()));
+			tainted
+				.borrow_mut()
+				.push((request.task.clone(), failure.clone()));
 			bail!("commit refused, taint scan failed: {failure}");
 		}
 		spawn_commit(
 			self.run.clone(),
 			self.cfg.clone(),
-			task.clone(),
-			milestone.to_owned(),
+			request.task.clone(),
+			request.milestone.to_owned(),
 		)
 	}
 
 	fn serve_requests(&mut self) -> Result<()> {
 		let tainted = RefCell::new(Vec::new());
 		let commits = RefCell::new(std::mem::take(&mut self.commits));
-		let committer = |task: &TaskId, milestone: &str| {
-			commits.borrow_mut().poll(task, milestone, || {
-				self.start_commit(task, milestone, &tainted)
-			})
+		let committer = |request: &CommitRequest| {
+			commits
+				.borrow_mut()
+				.poll(request, || self.start_commit(request, &tainted))
 		};
 		let served = serve_pending(&self.run, &committer);
 		self.commits = commits.into_inner();
 		let store = TaskStore { run: &self.run };
-		self.commits
-			.forget_finished_unless(|task| store.state(task).ok() == Some(TaskState::Running));
+		self.commits.forget_finished_unless(|key| {
+			store.state(&key.task).ok() == Some(TaskState::Running)
+				&& request_pending(&self.run, &key.task, &key.stem)
+		});
 		for (task, failure) in tainted.into_inner() {
 			self.flag_tainted(&task, TaskState::Running, &failure);
 			self.kill_worker(&task);

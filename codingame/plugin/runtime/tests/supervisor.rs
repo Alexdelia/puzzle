@@ -1401,3 +1401,113 @@ fn usage_refresh_rearms_unknown_report() {
 	});
 	supervisor.stop(run);
 }
+
+fn hold_commit_lock(repo: &Path) -> Flock<fs::File> {
+	let file = fs::OpenOptions::new()
+		.create(true)
+		.write(true)
+		.truncate(false)
+		.open(repo.join(".git/contest-commit.lock"))
+		.unwrap();
+	Flock::lock(file, FlockArg::LockExclusive).unwrap()
+}
+
+fn commits_with(repo: &Path, subject: &str) -> Vec<String> {
+	git(repo, &["log", "--format=%H %s"])
+		.lines()
+		.filter(|line| line.ends_with(subject))
+		.map(|line| line.split(' ').next().unwrap().to_owned())
+		.collect()
+}
+
+fn worker_script(contest: &Contest, body: &str) -> String {
+	let script = contest.home.join("worker.sh");
+	fs::write(&script, body).unwrap();
+	format!("exec bash {script}", script = script.display())
+}
+
+#[test]
+fn commit_retried_after_timeout_commits_new_changes() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let repo = pin_repo(&contest);
+	let id = create_task(run, "sim-bench", 0);
+	let home = contest.home.display();
+	let action = worker_script(
+		&contest,
+		&format!(
+			"out=\"$CONTEST_RUN/run/tasks/$CONTEST_TASK/out.txt\"\n\
+			echo one > \"$out\"\n\
+			contest --timeout 2 commit --milestone m || touch {home}/timed-out\n\
+			until [ -e {home}/go ]; do sleep 0.1; done\n\
+			echo two > \"$out\"\n\
+			contest commit --milestone m > {home}/second\n\
+			contest task done\n"
+		),
+	);
+	let lock = hold_commit_lock(&repo);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "client timed out", || {
+		contest.home.join("timed-out").exists()
+	});
+	drop(lock);
+	let subject = format!("sim-bench: {id} m");
+	wait_until(10, "first commit landed", || {
+		commits_with(&repo, &subject).len() == 1
+	});
+	sleep(Duration::from_millis(1500));
+	fs::write(contest.home.join("go"), "").unwrap();
+	wait_until(20, "task done", || state(run, &id) == TaskState::Done);
+	supervisor.stop(run);
+	let shas = commits_with(&repo, &subject);
+	assert_eq!(shas.len(), 2, "{shas:?}");
+	let committed = git(
+		&repo,
+		&["show", &format!("HEAD:contest/run/tasks/{id}/out.txt")],
+	);
+	assert_eq!(committed.trim(), "two");
+	let second = fs::read_to_string(contest.home.join("second")).unwrap();
+	assert!(second.contains(&shas[0]), "{second}");
+}
+
+#[test]
+fn concurrent_commits_get_their_own_sha() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let repo = pin_repo(&contest);
+	let id = create_task(run, "sim-bench", 0);
+	let home = contest.home.display();
+	let action = worker_script(
+		&contest,
+		&format!(
+			"dir=\"$CONTEST_RUN/run/tasks/$CONTEST_TASK\"\n\
+			echo a > \"$dir/a.txt\"\n\
+			contest commit --milestone a > {home}/sha-a &\n\
+			until [ -e {home}/go ]; do sleep 0.1; done\n\
+			echo b > \"$dir/b.txt\"\n\
+			contest commit --milestone b > {home}/sha-b &\n\
+			wait\n\
+			contest task done\n"
+		),
+	);
+	let lock = hold_commit_lock(&repo);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "first request", || {
+		fs::read_dir(run.task_requests(&id)).is_ok_and(|mut entries| entries.next().is_some())
+	});
+	sleep(Duration::from_secs(1));
+	drop(lock);
+	wait_until(10, "first commit landed", || {
+		commits_with(&repo, &format!("sim-bench: {id} a")).len() == 1
+	});
+	fs::write(contest.home.join("go"), "").unwrap();
+	wait_until(20, "task done", || state(run, &id) == TaskState::Done);
+	supervisor.stop(run);
+	for milestone in ["a", "b"] {
+		let shas = commits_with(&repo, &format!("sim-bench: {id} {milestone}"));
+		assert_eq!(shas.len(), 1, "{milestone}: {shas:?}");
+		let answer = fs::read_to_string(contest.home.join(format!("sha-{milestone}"))).unwrap();
+		assert!(answer.contains(&shas[0]), "{milestone}: {answer}");
+		assert!(!answer.contains("null"), "{milestone}: {answer}");
+	}
+}

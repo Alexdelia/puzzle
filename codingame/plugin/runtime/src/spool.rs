@@ -183,15 +183,27 @@ fn finish_task(
 	Ok(json!({ "task": task, "state": next }))
 }
 
-pub type Committer<'a> = &'a dyn Fn(&TaskId, &str) -> Poll<Result<Option<String>>>;
+pub struct CommitRequest<'a> {
+	pub task: &'a TaskId,
+	pub stem: &'a str,
+	pub milestone: &'a str,
+}
+
+pub type Committer<'a> = &'a dyn Fn(&CommitRequest) -> Poll<Result<Option<String>>>;
+pub type MilestoneCommitter<'a> = &'a dyn Fn(&str) -> Poll<Result<Option<String>>>;
 
 fn is_pending(value: &Value) -> bool {
 	value["pending"] == json!(true)
 }
 
-pub fn handle(run: &RunDir, task: &TaskId, request: Request, commit: Committer) -> Result<Value> {
+pub fn handle(
+	run: &RunDir,
+	task: &TaskId,
+	request: Request,
+	commit: MilestoneCommitter,
+) -> Result<Value> {
 	match request {
-		Request::Commit { milestone } => match commit(task, &milestone) {
+		Request::Commit { milestone } => match commit(&milestone) {
 			Poll::Pending => Ok(json!({ "pending": true })),
 			Poll::Ready(sha) => Ok(json!({ "sha": sha? })),
 		},
@@ -262,9 +274,11 @@ fn remove_refused(path: &Path) -> io::Result<()> {
 fn answer_one(
 	run: &RunDir,
 	task: &TaskId,
-	path: &Path,
+	dir: &Path,
+	stem: &str,
 	commit: Committer,
 ) -> Result<Option<Response>> {
+	let path = &request_path(dir, stem);
 	let bytes = match read_worker_file(path) {
 		Ok(bytes) => bytes,
 		Err(error) => {
@@ -283,7 +297,14 @@ fn answer_one(
 		_ => None,
 	};
 	let is_commit = matches!(request, Request::Commit { .. });
-	let mut value = match handle(run, task, request, commit) {
+	let commit_this = |milestone: &str| {
+		commit(&CommitRequest {
+			task,
+			stem,
+			milestone,
+		})
+	};
+	let mut value = match handle(run, task, request, &commit_this) {
 		Ok(value) => value,
 		Err(error) => return Ok(Some(failure(&error))),
 	};
@@ -330,6 +351,10 @@ fn running_task_dirs(run: &RunDir) -> Result<Vec<(TaskId, PathBuf)>> {
 	Ok(dirs)
 }
 
+pub fn request_pending(run: &RunDir, task: &TaskId, stem: &str) -> bool {
+	fs::symlink_metadata(request_path(&run.task_requests(task), stem)).is_ok()
+}
+
 pub fn prepare_task_requests(run: &RunDir, task: &TaskId) -> Result<()> {
 	let dir = run.task_requests(task);
 	match fs::remove_dir_all(&dir) {
@@ -349,7 +374,7 @@ fn serve_task(run: &RunDir, task: &TaskId, dir: &Path, commit: Committer) -> Res
 		if target.exists() {
 			continue;
 		}
-		if let Some(response) = answer_one(run, task, &request_path(dir, &stem), commit)? {
+		if let Some(response) = answer_one(run, task, dir, &stem, commit)? {
 			write_atomic(&target, &serde_json::to_vec(&response)?)?;
 			answered += 1;
 		}
