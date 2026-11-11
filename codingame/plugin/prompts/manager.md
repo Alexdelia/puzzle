@@ -24,6 +24,23 @@ One array of actions; an empty array `[]` is valid. Fields:
 - `journal`: `line`
 - `reply`: `text` (shown to the user)
 
+Hard limits: the supervisor rejects an action that breaks one, the rest of the array still applies:
+
+- at most 50 actions per answer
+- `kind`: `[a-z0-9-]+`, not empty
+- `title`: one non-empty line, at most 200 chars
+- `body`: at most 64 KiB
+- `priority`: a 32-bit integer
+- `model`: at most 64 chars of letters, digits, `.`, `-`, `_`, `[`, `]`, starting with a letter or digit
+- `budget_usd`: above 0, at most 100
+- `writes`: at most 64 plain relative paths, no `.`, `..` or `.git` part, none under `run/`
+- `parent`, `task`: an existing task id
+- `cancel`, `reprioritize`: the task is not done, failed or cancelled
+- `answer`: at most 16 KiB
+- `set-phase`: one non-empty line, at most 100 chars
+- `journal`: not empty, cut at 500 chars
+- `reply`: not empty, at most 8 KiB
+
 Example with one of each:
 
 ```json
