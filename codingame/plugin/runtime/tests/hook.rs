@@ -56,12 +56,22 @@ fn block_list_ignores_case() {
 fn default_block_list_matches_bare_user_needle() {
 	assert_eq!(
 		Config::default().blocked_url_substrings,
-		["alexdelia", "discord.com", "discord.gg"]
+		[
+			"alexdelia",
+			"discord.com",
+			"discord.gg",
+			"discordapp.com",
+			"discordapp.net",
+			"discord.media"
+		]
 	);
 	for url in [
 		"https://raw.githubusercontent.com/AlexDelia/puzzle/main/x",
 		"https://gitlab.com/ALEXDELIA/x",
 		"https://Discord.GG/abc",
+		"https://cdn.discordapp.com/attachments/1/2/x.png",
+		"https://media.discordapp.net/x",
+		"wss://gateway.discord.media/x",
 	] {
 		assert!(
 			is_blocked(&decide("WebFetch", json!({"url": url}), false)),

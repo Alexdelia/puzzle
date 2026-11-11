@@ -161,7 +161,14 @@ fn config_defaults_round_trip() {
 	assert!(config.sandbox);
 	assert_eq!(
 		config.blocked_url_substrings,
-		["alexdelia", "discord.com", "discord.gg"]
+		[
+			"alexdelia",
+			"discord.com",
+			"discord.gg",
+			"discordapp.com",
+			"discordapp.net",
+			"discord.media"
+		]
 	);
 	assert!(config.plugin_dir.join("runtime/Cargo.toml").is_file());
 
