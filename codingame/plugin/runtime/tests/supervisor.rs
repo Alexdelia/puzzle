@@ -188,6 +188,15 @@ fn start(contest: &Contest, worker_action: &str) -> Supervisor {
 }
 
 fn start_with_probe(contest: &Contest, worker_action: &str, probe_action: &str) -> Supervisor {
+	start_with_env(contest, worker_action, probe_action, &[])
+}
+
+fn start_with_env(
+	contest: &Contest,
+	worker_action: &str,
+	probe_action: &str,
+	env: &[(&str, &Path)],
+) -> Supervisor {
 	let exec = format!(
 		"if [[ $prompt == ok ]]; then {probe_action}; elif [[ -n ${{CONTEST_TASK:-}} ]]; then {worker_action}; else {MANAGER_BRANCH}; fi"
 	);
@@ -202,6 +211,7 @@ fn start_with_probe(contest: &Contest, worker_action: &str, probe_action: &str) 
 		.env("FAKE_CLAUDE_EXEC", exec)
 		.env("ANTHROPIC_TEST_SECRET", "leak")
 		.env("CLAUDE_TEST_SECRET", "leak")
+		.envs(env.iter().copied())
 		.stdin(Stdio::null())
 		.stdout(log.try_clone().unwrap())
 		.stderr(log)
@@ -2809,4 +2819,152 @@ fn job_events_of_idle_tasks_wake_the_manager() {
 	wait_until(20, "job finished", || event_count(run, "job_finished") == 1);
 	wait_until(20, "tick on the job event", || manager_ticks(run) >= 2);
 	supervisor.stop(run);
+}
+
+const NEVER_FITTING_RAM_MB: u64 = 900_000;
+
+fn age_job_record(run: &RunDir, job: &str, minutes: u64) {
+	let file = fs::File::options()
+		.write(true)
+		.open(run.job_record_path(&JobId(job.into())))
+		.unwrap();
+	file.set_modified(SystemTime::now() - Duration::from_secs(minutes * 60))
+		.unwrap();
+}
+
+fn never_admitted_job(run: &RunDir, id: &str, owner: &TaskId) -> JobId {
+	let job = JobId(id.into());
+	write_job_record(
+		run,
+		&JobRecord {
+			id: job.clone(),
+			owner_task: owner.clone(),
+			cmd: vec!["true".into()],
+			cwd: run.root.clone(),
+			request: JobRequest {
+				id: job.clone(),
+				class: JobClass::Batch,
+				gpu: false,
+				ram_mb: NEVER_FITTING_RAM_MB,
+				priority: 0,
+			},
+			state: JobState::Queued,
+			pid: None,
+			starttime: None,
+			sandboxed: false,
+		},
+	)
+	.unwrap();
+	job
+}
+
+#[test]
+fn job_queued_past_the_warning_is_journaled_and_shown() {
+	let contest = contest(0);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.ram_budget_mb = 1_000_000);
+	let owner = create_task(run, "train", 0);
+	let supervisor = start(&contest, "true");
+	wait_until(10, "status file", || run.status().is_file());
+	let job = never_admitted_job(run, "j0001", &owner);
+	age_job_record(run, "j0001", 31);
+	wait_until(20, "warning journaled", || {
+		journal_lines(run, "job j0001 queued 31 min: ram available") == 1
+	});
+	wait_until(20, "block shown", || {
+		contest_status(run).contains("blocked: job j0001: queued since")
+	});
+	sleep(Duration::from_secs(3));
+	assert_eq!(journal_lines(run, "job j0001 queued"), 1);
+	assert_eq!(read_job_record(run, &job).unwrap().state, JobState::Queued);
+	supervisor.stop(run);
+}
+
+#[test]
+fn job_never_started_is_interrupted_and_its_waiting_task_resumes() {
+	let contest = contest(1);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.ram_budget_mb = 1_000_000);
+	let id = create_task(run, "train", 0);
+	let notes = run.task_dir(&id).join("notes.md");
+	let action = format!(
+		"if grep -q 'j0001 never started' {notes} 2>/dev/null; then contest task done; \
+		else contest job submit --class batch --ram-mb {NEVER_FITTING_RAM_MB} -- true \
+		&& echo submitted >> {notes} && contest task wait-jobs; fi",
+		notes = notes.display()
+	);
+	let supervisor = start(&contest, &action);
+	let job = JobId("j0001".into());
+	wait_until(20, "task waiting", || state(run, &id) == TaskState::Waiting);
+	age_job_record(run, "j0001", 121);
+	wait_until(20, "job interrupted", || {
+		read_job_record(run, &job).is_ok_and(|record| record.state == JobState::Interrupted)
+	});
+	wait_until(30, "task done", || state(run, &id) == TaskState::Done);
+	supervisor.stop(run);
+	assert_eq!(
+		journal_lines(
+			run,
+			"job j0001 interrupted: queued 121 min without starting: ram available"
+		),
+		1
+	);
+	assert_eq!(
+		journal_lines(run, &format!("resumed {id}: its jobs ended")),
+		1
+	);
+	let notes = fs::read_to_string(&notes).unwrap();
+	assert!(notes.contains("j0001 never started"), "{notes}");
+}
+
+#[test]
+fn pin_failure_pauses_only_timed_launches() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	let failure = contest.home.join("pin-failure");
+	fs::write(&failure, "").unwrap();
+	let finish = contest.home.join("finish");
+	let action = worker_script(
+		&contest,
+		&format!(
+			"contest job submit --class batch --ram-mb 10 -- true\n\
+			contest job wait j0001\n\
+			contest job submit --class timed --ram-mb 10 -- true\n\
+			until [ -e {finish} ]; do sleep 0.1; done\n\
+			contest job wait j0002\n\
+			contest task done\n",
+			finish = finish.display()
+		),
+	);
+	let supervisor = start_with_env(
+		&contest,
+		&action,
+		":",
+		&[("CONTEST_TEST_PIN_FAILURE_FILE", failure.as_path())],
+	);
+	let batch = JobId("j0001".into());
+	let timed = JobId("j0002".into());
+	wait_until(20, "batch job done", || {
+		read_job_record(run, &batch).is_ok_and(|record| record.state == JobState::Done { code: 0 })
+	});
+	wait_until(20, "timed job submitted", || {
+		read_job_record(run, &timed).is_ok()
+	});
+	assert!(contest_status(run).contains("blocked: pin: "));
+	sleep(Duration::from_secs(3));
+	assert_eq!(
+		read_job_record(run, &timed).unwrap().state,
+		JobState::Queued
+	);
+	assert_eq!(journal_lines(run, "agents not pinned off timed cores"), 1);
+	fs::remove_file(&failure).unwrap();
+	fs::write(&finish, "").unwrap();
+	wait_until(20, "task done", || state(run, &id) == TaskState::Done);
+	supervisor.stop(run);
+	assert_eq!(
+		read_job_record(run, &timed).unwrap().state,
+		JobState::Done { code: 0 }
+	);
+	assert_eq!(journal_lines(run, "agents pinned again"), 1);
 }

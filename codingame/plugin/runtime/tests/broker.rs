@@ -1,5 +1,5 @@
 use contest::broker::{
-	Allocation, Grant, JobClass, JobRequest, Load, Machine, RunningJob, allocate,
+	Allocation, Grant, JobClass, JobRequest, Load, Machine, RunningJob, Wait, allocate,
 	parse_mem_available_mb,
 };
 use contest::paths::JobId;
@@ -467,4 +467,86 @@ fn mixed_scenario_never_emits_empty_or_shared_timed_cpus() {
 fn malformed_cpu_list_parts_are_dropped() {
 	use contest::broker::parse_cpu_list;
 	assert_eq!(parse_cpu_list("0,x,2-y,3"), vec![0, 3]);
+}
+
+fn wait_of(allocation: &Allocation, id: &str) -> Wait {
+	allocation
+		.waits
+		.iter()
+		.find(|(job, _)| job.0 == id)
+		.map(|(_, wait)| wait.clone())
+		.unwrap_or_else(|| panic!("no wait reason for {id} in {allocation:?}"))
+}
+
+#[test]
+fn every_queued_job_left_out_gets_a_reason() {
+	let big = JobRequest {
+		ram_mb: 12500,
+		..batch("j1")
+	};
+	let agents = Load {
+		agent_ram_mb: 1400,
+		..Load::default()
+	};
+	let allocation = allocate(&machine(), &[], std::slice::from_ref(&big), &agents);
+	assert_eq!(
+		wait_of(&allocation, "j1"),
+		Wait::RamBudget {
+			free_mb: 11600,
+			need_mb: 12500
+		}
+	);
+	let short = Load {
+		mem_available_mb: Some(4900),
+		..Load::default()
+	};
+	let allocation = allocate(&machine(), &[], &[big], &short);
+	let wait = wait_of(&allocation, "j1");
+	assert_eq!(
+		wait,
+		Wait::RamAvailable {
+			available_mb: 4900,
+			need_mb: 12500
+		}
+	);
+	assert_eq!(wait.to_string(), "ram available 4900 MB < 12500 MB");
+	let gpu_job = |id: &str| JobRequest {
+		gpu: true,
+		..batch(id)
+	};
+	let allocation = allocate(&machine(), &[], &[gpu_job("j1"), gpu_job("j2")], &idle());
+	assert_eq!(wait_of(&allocation, "j2"), Wait::GpuBusy);
+	let allocation = allocate(&machine(), &[], &[timed("j1")], &swapping());
+	assert_eq!(wait_of(&allocation, "j1"), Wait::Swapping);
+	let running = [holding(fixed_timed("j1", 3, 0), &TIMED_THREADS)];
+	let allocation = allocate(&machine(), &running, &[timed("j2")], &idle());
+	assert_eq!(wait_of(&allocation, "j2"), Wait::Cores { free: 0, need: 1 });
+	let running = [holding(timed("j1"), &TIMED_THREADS)];
+	let allocation = allocate(&machine(), &running, &[timed("j2")], &idle());
+	assert_eq!(wait_of(&allocation, "j2"), Wait::Drain);
+	let inverted = job(
+		"j1",
+		JobClass::Timed {
+			min_cores: 3,
+			max_cores: 2,
+		},
+	);
+	let allocation = allocate(&machine(), &[], &[inverted], &idle());
+	assert_eq!(wait_of(&allocation, "j1"), Wait::InvalidCores);
+	let allocation = allocate(&machine(), &[], &[timed("j1"), batch("j2")], &idle());
+	assert!(allocation.waits.is_empty(), "{allocation:?}");
+}
+
+#[test]
+fn wait_kinds_ignore_the_numbers() {
+	let first = Wait::RamAvailable {
+		available_mb: 4900,
+		need_mb: 6000,
+	};
+	let later = Wait::RamAvailable {
+		available_mb: 4800,
+		need_mb: 6000,
+	};
+	assert!(first.same_kind(&later));
+	assert!(!first.same_kind(&Wait::Swapping));
 }

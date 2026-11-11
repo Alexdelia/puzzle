@@ -31,7 +31,7 @@ use workers::{TaskLaunchFailures, WorkerProcess};
 
 use crate::agent::{AgentRun, kill_agent_group, spawn_agent, spawn_agent_scrubbed};
 use crate::atomic::write_atomic;
-use crate::broker::Machine;
+use crate::broker::{Machine, Wait};
 use crate::claude_config::write_claude_settings;
 use crate::commit::unstage_task;
 use crate::config::Config;
@@ -272,7 +272,9 @@ struct Supervisor {
 	blocked_until: Option<i64>,
 	limit_until: Option<i64>,
 	manager_last_error: Option<String>,
-	blocks: BTreeMap<&'static str, String>,
+	blocks: BTreeMap<String, String>,
+	job_waits: HashMap<JobId, Wait>,
+	pin_error: Option<String>,
 	taint_over_budget: bool,
 	last_taint_scan: Instant,
 	taint_rescans: u32,
@@ -364,6 +366,8 @@ impl Supervisor {
 			limit_until: None,
 			manager_last_error: None,
 			blocks: BTreeMap::new(),
+			job_waits: HashMap::new(),
+			pin_error: None,
 			taint_over_budget: false,
 			last_taint_scan: now,
 			taint_rescans: 0,
@@ -558,7 +562,7 @@ impl Supervisor {
 		}
 	}
 
-	fn set_block(&mut self, slot: &'static str, reason: Option<String>) -> bool {
+	fn set_block(&mut self, slot: &str, reason: Option<String>) -> bool {
 		let changed = match &reason {
 			Some(reason) => self.blocks.get(slot) != Some(reason),
 			None => self.blocks.contains_key(slot),
@@ -567,7 +571,7 @@ impl Supervisor {
 			return false;
 		}
 		match reason {
-			Some(reason) => self.blocks.insert(slot, reason),
+			Some(reason) => self.blocks.insert(slot.to_owned(), reason),
 			None => self.blocks.remove(slot),
 		};
 		report("blocks", self.write_blocks());

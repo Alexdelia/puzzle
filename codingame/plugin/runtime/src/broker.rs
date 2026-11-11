@@ -1,4 +1,6 @@
+use std::fmt;
 use std::fs;
+use std::mem::discriminant;
 use std::process::Command;
 
 use anyhow::ensure;
@@ -58,11 +60,50 @@ pub struct Load {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Wait {
+	RamBudget { free_mb: u64, need_mb: u64 },
+	RamAvailable { available_mb: u64, need_mb: u64 },
+	GpuBusy,
+	Swapping,
+	Cores { free: usize, need: usize },
+	Drain,
+	InvalidCores,
+}
+
+impl Wait {
+	pub fn same_kind(&self, other: &Wait) -> bool {
+		discriminant(self) == discriminant(other)
+	}
+}
+
+impl fmt::Display for Wait {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::RamBudget { free_mb, need_mb } => {
+				write!(f, "ram budget left {free_mb} MB < {need_mb} MB")
+			}
+			Self::RamAvailable {
+				available_mb,
+				need_mb,
+			} => write!(f, "ram available {available_mb} MB < {need_mb} MB"),
+			Self::GpuBusy => write!(f, "the gpu is held by another job"),
+			Self::Swapping => write!(f, "the host is swapping, timed jobs wait"),
+			Self::Cores { free, need } => {
+				write!(f, "needs {need} timed cores, {free} free")
+			}
+			Self::Drain => write!(f, "waiting for a running timed job to drain"),
+			Self::InvalidCores => write!(f, "invalid core counts"),
+		}
+	}
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Allocation {
 	pub grants: Vec<Grant>,
 	pub admitted: Vec<JobId>,
 	pub shrinks: Vec<(JobId, Vec<usize>)>,
 	pub agent_cpus: Vec<usize>,
+	pub waits: Vec<(JobId, Wait)>,
 }
 
 impl Machine {
@@ -180,8 +221,13 @@ pub fn allocate(
 		plan.keep_running(job);
 	}
 	for job in queue_order(queued) {
-		if is_valid(job) {
-			plan.consider(job);
+		let considered = if is_valid(job) {
+			plan.consider(job)
+		} else {
+			Err(Wait::InvalidCores)
+		};
+		if let Err(wait) = considered {
+			plan.waits.push((job.id.clone(), wait));
 		}
 	}
 	plan.into_allocation()
@@ -258,6 +304,7 @@ struct Plan<'a> {
 	gpus_used: usize,
 	free: Vec<usize>,
 	coming: Vec<usize>,
+	waits: Vec<(JobId, Wait)>,
 }
 
 fn cores_of(machine: &Machine, cpus: &[usize]) -> Vec<usize> {
@@ -282,6 +329,7 @@ impl<'a> Plan<'a> {
 			gpus_used: 0,
 			free: (0..machine.timed_cores()).collect(),
 			coming: Vec::new(),
+			waits: Vec::new(),
 		}
 	}
 
@@ -323,16 +371,32 @@ impl<'a> Plan<'a> {
 		}));
 	}
 
-	fn fits_ram(&self, job: &JobRequest) -> bool {
-		self.ram_used_mb + self.load.agent_ram_mb + job.ram_mb <= self.machine.ram_budget_mb
-			&& self
-				.load
-				.mem_available_mb
-				.is_none_or(|available| self.ram_started_mb + job.ram_mb <= available)
+	fn fits_ram(&self, job: &JobRequest) -> Result<(), Wait> {
+		let free_mb = self
+			.machine
+			.ram_budget_mb
+			.saturating_sub(self.ram_used_mb + self.load.agent_ram_mb);
+		if job.ram_mb > free_mb {
+			return Err(Wait::RamBudget {
+				free_mb,
+				need_mb: job.ram_mb,
+			});
+		}
+		let need_mb = self.ram_started_mb + job.ram_mb;
+		match self.load.mem_available_mb {
+			Some(available_mb) if need_mb > available_mb => Err(Wait::RamAvailable {
+				available_mb,
+				need_mb,
+			}),
+			_ => Ok(()),
+		}
 	}
 
-	fn fits_gpu(&self, job: &JobRequest) -> bool {
-		!job.gpu || self.gpus_used < self.machine.gpus
+	fn fits_gpu(&self, job: &JobRequest) -> Result<(), Wait> {
+		if job.gpu && self.gpus_used >= self.machine.gpus {
+			return Err(Wait::GpuBusy);
+		}
+		Ok(())
 	}
 
 	fn reserve(&mut self, job: &JobRequest) {
@@ -341,10 +405,9 @@ impl<'a> Plan<'a> {
 		self.gpus_used += usize::from(job.gpu);
 	}
 
-	fn consider(&mut self, job: &JobRequest) {
-		if !self.fits_ram(job) || !self.fits_gpu(job) {
-			return;
-		}
+	fn consider(&mut self, job: &JobRequest) -> Result<(), Wait> {
+		self.fits_ram(job)?;
+		self.fits_gpu(job)?;
 		let JobClass::Timed {
 			min_cores,
 			max_cores,
@@ -356,10 +419,10 @@ impl<'a> Plan<'a> {
 				id: job.id.clone(),
 				gpu: job.gpu,
 			}));
-			return;
+			return Ok(());
 		};
 		if self.load.swapping {
-			return;
+			return Err(Wait::Swapping);
 		}
 		if self.free.len() >= min_cores {
 			self.reserve(job);
@@ -376,18 +439,22 @@ impl<'a> Plan<'a> {
 				was_running: false,
 				gpu: job.gpu,
 			}));
-			return;
+			return Ok(());
 		}
 		let missing = min_cores - self.free.len();
 		let from_coming = missing.min(self.coming.len());
 		let to_reclaim = missing - from_coming;
 		if self.shrinkable_cores() < to_reclaim {
-			return;
+			return Err(Wait::Cores {
+				free: self.free.len(),
+				need: min_cores,
+			});
 		}
 		self.plan_shrinks(to_reclaim);
 		self.reserve(job);
 		self.free.clear();
 		self.coming.drain(..from_coming);
+		Err(Wait::Drain)
 	}
 
 	fn timed_mut(&mut self) -> impl Iterator<Item = &mut TimedHolding> {
@@ -497,6 +564,7 @@ impl<'a> Plan<'a> {
 			admitted,
 			shrinks,
 			agent_cpus,
+			waits: self.waits,
 		}
 	}
 }

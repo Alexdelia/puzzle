@@ -43,6 +43,8 @@ pub struct Config {
 	pub agent_cores: usize,
 	pub agent_reserve_mb: u64,
 	pub drain_seconds: u64,
+	pub job_queue_warn_minutes: u64,
+	pub job_queue_max_minutes: u64,
 }
 
 impl Default for Config {
@@ -93,6 +95,8 @@ impl Default for Config {
 			agent_cores: 1,
 			agent_reserve_mb: 700,
 			drain_seconds: 30,
+			job_queue_warn_minutes: 30,
+			job_queue_max_minutes: 120,
 		}
 	}
 }
