@@ -699,7 +699,9 @@ fn sandboxed_stubborn_worker_killed_at_grace() {
 	let contest = contest(1, 2);
 	let run = &contest.run;
 	pin_repo(&contest);
-	let claude = run.root.join("fake-claude.sh");
+	let tools = run.root.parent().unwrap().join("tools");
+	fs::create_dir_all(&tools).unwrap();
+	let claude = tools.join("fake-claude.sh");
 	fs::copy(fixture("fake-claude.sh"), &claude).unwrap();
 	fs::set_permissions(&claude, fs::Permissions::from_mode(0o755)).unwrap();
 	let credentials = contest.home.join(".claude/.credentials.json");
@@ -709,6 +711,7 @@ fn sandboxed_stubborn_worker_killed_at_grace() {
 	config.sandbox = true;
 	config.pasta_bin = pasta;
 	config.claude_bin = claude;
+	config.toolbox = vec![tools];
 	write_atomic(&run.config(), toml::to_string(&config).unwrap().as_bytes()).unwrap();
 	let id = create_task(run, "sim-bench", 0);
 	let mut supervisor = start(&contest, "exec sleep 60");

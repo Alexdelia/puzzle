@@ -18,7 +18,8 @@ use time::format_description::well_known::Rfc3339;
 use crate::atomic::write_atomic;
 use crate::config::Config;
 use crate::contest_root::{
-	ensure_dedicated_contest_root, ensure_plugin_dir, refuse_planted_below_top,
+	ensure_dedicated_contest_root, ensure_host_path_outside, ensure_plugin_dir,
+	refuse_planted_below_top,
 };
 use crate::events::{Event, emit};
 use crate::hook::{HookVerb, run_hook};
@@ -166,6 +167,7 @@ fn init(args: InitArgs) -> anyhow::Result<()> {
 	fs::create_dir_all(&args.contest_dir)
 		.with_context(|| format!("create {dir:?}", dir = args.contest_dir))?;
 	let run = contest_run(&args.contest_dir)?;
+	ensure_host_path_outside(&run.root)?;
 	let (repo_root, git_common_dir) = pinned_git_dirs(&run.root);
 	config.repo_root = repo_root;
 	config.git_common_dir = git_common_dir;

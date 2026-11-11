@@ -650,7 +650,12 @@ fn contest_dir_holding_git_refused() {
 }
 
 fn start_output(contest: &Contest) -> std::process::Output {
+	start_output_with_path(contest, std::env::var_os("PATH").unwrap())
+}
+
+fn start_output_with_path(contest: &Contest, path: std::ffi::OsString) -> std::process::Output {
 	let mut child = Command::new(BIN)
+		.env("PATH", path)
 		.arg("start")
 		.arg(&contest.run.root)
 		.arg("--foreground")
@@ -2212,4 +2217,46 @@ fn restart_marks_queued_jobs_interrupted() {
 		JobState::Interrupted
 	);
 	assert!(!marker.exists());
+}
+
+fn path_with_first(dir: &Path) -> std::ffi::OsString {
+	let mut entries = vec![dir.to_path_buf()];
+	entries.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
+	std::env::join_paths(entries).unwrap()
+}
+
+fn assert_start_refused(contest: &Contest, path: std::ffi::OsString, needle: &str) {
+	let output = start_output_with_path(contest, path);
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(!output.status.success(), "{needle}: {stderr}");
+	assert!(stderr.contains(needle), "{needle}: {stderr}");
+}
+
+#[test]
+fn start_refuses_host_lookups_through_the_contest_root() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let planted_bin = run.root.join("bin");
+	fs::create_dir_all(&planted_bin).unwrap();
+	let planted_git = planted_bin.join("git");
+	fs::write(&planted_git, "#!/bin/sh\n").unwrap();
+	fs::set_permissions(&planted_git, fs::Permissions::from_mode(0o755)).unwrap();
+	assert_start_refused(&contest, path_with_first(&planted_bin), "PATH entry");
+	assert_start_refused(&contest, path_with_first(Path::new("bin")), "relative");
+	let outside = contest.home.join("tools");
+	fs::create_dir_all(&outside).unwrap();
+	std::os::unix::fs::symlink(&planted_git, outside.join("git")).unwrap();
+	assert_start_refused(&contest, path_with_first(&outside), "git");
+	fs::remove_file(outside.join("git")).unwrap();
+	let original = Config::load(&run.config()).unwrap();
+	edit_config(&contest, |config| config.claude_bin = planted_git.clone());
+	assert_start_refused(&contest, std::env::var_os("PATH").unwrap(), "claude_bin");
+	edit_config(&contest, |config| config.claude_bin = "bin/git".into());
+	assert_start_refused(&contest, std::env::var_os("PATH").unwrap(), "claude_bin");
+	write_atomic(
+		&run.config(),
+		toml::to_string(&original).unwrap().as_bytes(),
+	)
+	.unwrap();
+	assert!(!run.status().exists());
 }

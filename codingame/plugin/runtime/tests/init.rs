@@ -563,3 +563,23 @@ fn extend_updates_limits_and_keeps_progress() {
 		.unwrap();
 	assert!(!refused.status.success());
 }
+
+#[test]
+fn init_refuses_relative_path_entries() {
+	let repo = tempfile::tempdir().unwrap();
+	git_repo_with_commit(repo.path());
+	let contest_dir = repo.path().join("contest");
+	let outside_repo = tempfile::tempdir().unwrap();
+	let mut entries = vec![PathBuf::from("bin")];
+	entries.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
+	let output = init_command(&contest_dir, repo.path())
+		.arg("--pasta-bin")
+		.arg(fake_pasta(outside_repo.path()))
+		.env("PATH", std::env::join_paths(entries).unwrap())
+		.output()
+		.unwrap();
+	assert!(!output.status.success());
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(stderr.contains("relative"), "{stderr}");
+	assert!(!contest_dir.join("run/run.json").exists());
+}
