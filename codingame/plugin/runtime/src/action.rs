@@ -1,15 +1,14 @@
-use std::fs::{self, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 
-use crate::atomic::write_atomic;
 use crate::commit::check_write_path;
 use crate::journal::journal_append;
 use crate::paths::{RunDir, TaskId, is_valid_kind};
-use crate::run_info::RunInfo;
+use crate::run_info::update_run_info;
 use crate::task::{TaskSpec, TaskState, TaskStore};
 
 const MAX_ACTIONS: usize = 50;
@@ -179,10 +178,11 @@ fn set_phase(run: &RunDir, phase: &str) -> Result<String> {
 		is_clean_line(phase) && phase.chars().count() <= MAX_PHASE_CHARS,
 		"phase must be one non-empty line of at most {MAX_PHASE_CHARS} chars"
 	);
-	let path = run.run_json();
-	let mut info: RunInfo = serde_json::from_slice(&fs::read(&path)?)?;
-	info.phase = phase.to_owned();
-	write_atomic(&path, &serde_json::to_vec(&info)?)?;
+	update_run_info(run, |info| {
+		let mut info = info?;
+		info.phase = phase.to_owned();
+		Ok(info)
+	})?;
 	Ok(format!("phase {phase}"))
 }
 

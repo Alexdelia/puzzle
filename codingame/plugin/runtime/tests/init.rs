@@ -118,7 +118,7 @@ fn init_creates_layout() {
 	let ignore = fs::read_to_string(contest_dir.join("run/.gitignore")).unwrap();
 	assert_eq!(
 		ignore,
-		"agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\ntasks/*/work/\nsupervisor.log\nsupervisor.pid\n"
+		"agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\ntasks/*/work/\nsupervisor.log\nsupervisor.pid\nrun.json.lock\nblocks\n"
 	);
 	assert_eq!(config.pasta_bin, pasta);
 
@@ -503,4 +503,63 @@ fn init_refuses_unresolvable_plugin_dir() {
 	let contest_dir = outside.path().join("work/contest");
 	let output = run_copied_init(&binary, &contest_dir, &[]);
 	assert_refused(output, &["plugin_dir"], &contest_dir);
+}
+
+#[test]
+fn init_refuses_existing_run() {
+	let repo = tempfile::tempdir().unwrap();
+	git_repo_with_commit(repo.path());
+	let contest_dir = repo.path().join("contest");
+	run_init(&contest_dir, repo.path(), &["--active-budget-hours", "2"]);
+	let run = RunDir {
+		root: fs::canonicalize(&contest_dir).unwrap(),
+	};
+	let before = fs::read(run.run_json()).unwrap();
+	let outside_repo = tempfile::tempdir().unwrap();
+	let output = init_command(&contest_dir, repo.path())
+		.arg("--pasta-bin")
+		.arg(fake_pasta(outside_repo.path()))
+		.output()
+		.unwrap();
+	assert!(!output.status.success());
+	assert!(
+		String::from_utf8_lossy(&output.stderr).contains("contest extend"),
+		"{stderr}",
+		stderr = String::from_utf8_lossy(&output.stderr)
+	);
+	assert_eq!(fs::read(run.run_json()).unwrap(), before);
+}
+
+#[test]
+fn extend_updates_limits_and_keeps_progress() {
+	let repo = tempfile::tempdir().unwrap();
+	git_repo_with_commit(repo.path());
+	let contest_dir = repo.path().join("contest");
+	run_init(&contest_dir, repo.path(), &["--active-budget-hours", "2"]);
+	let run = RunDir {
+		root: fs::canonicalize(&contest_dir).unwrap(),
+	};
+	let mut info: RunInfo = serde_json::from_slice(&fs::read(run.run_json()).unwrap()).unwrap();
+	info.active_seconds = 1234;
+	info.phase = "bots".into();
+	write_atomic(&run.run_json(), &serde_json::to_vec(&info).unwrap()).unwrap();
+	let output = Command::new(env!("CARGO_BIN_EXE_contest"))
+		.arg("extend")
+		.arg(&contest_dir)
+		.args(["--active-budget-hours", "5"])
+		.args(["--deadline", "2030-01-02T03:04:05Z"])
+		.output()
+		.unwrap();
+	assert!(output.status.success(), "{output:?}");
+	let extended: RunInfo = serde_json::from_slice(&fs::read(run.run_json()).unwrap()).unwrap();
+	assert_eq!(extended.active_budget_seconds, Some(5 * 3600));
+	assert_eq!(extended.deadline_unix, Some(1893553445));
+	assert_eq!(extended.active_seconds, 1234);
+	assert_eq!(extended.phase, "bots");
+	let refused = Command::new(env!("CARGO_BIN_EXE_contest"))
+		.arg("extend")
+		.arg(&contest_dir)
+		.output()
+		.unwrap();
+	assert!(!refused.status.success());
 }

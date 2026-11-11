@@ -23,16 +23,17 @@ The first `contest` call of a session may build the binary (`cargo build --relea
 
 | user says | do |
 | --- | --- |
-| status, how is it going | `contest status <dir>`, then Read `<dir>/run/status.md` and the end of `<dir>/run/replies.md` (Read with offset/limit) |
+| status, how is it going | `contest status <dir>`, then Read the end of `<dir>/run/replies.md` (Read with offset/limit) |
 | tell it X, ask it X | `contest say <dir> "X"`: the manager answers at its next tick in `run/replies.md` |
 | start, resume | `contest start <dir>` in the background (`run_in_background`); it forks the supervisor; never `--foreground` |
 | stop | `contest stop <dir>`: returns at once, prints the seconds left |
 | stop and wait | `contest stop <dir> --wait` in the background (`run_in_background`) or with a Bash timeout longer than the seconds `contest stop` prints (at most 600000 ms): it has no timeout of its own |
+| more time, new deadline | `contest extend <dir> [--active-budget-hours N] [--deadline <rfc3339>]`: a running supervisor picks it up; after a budget stop, `contest start` again |
 | new run | `contest init <dir> --puzzle <id> --mode contest-live\|past-puzzle\|optimization [--deadline <rfc3339>] [--active-budget-hours N]`; `<dir>` must be a new, dedicated dir inside a git repo: not its top, not holding the plugin, other contests or nested repos |
 
 ## Answer
 
-- relay status terse: supervisor line, phase, running tasks, jobs, last reply
+- relay status terse: supervisor line, `blocked:` lines, phase, running tasks, jobs, last reply
 - after `say`: tell the user the reply comes at the next manager tick; check `run/replies.md` again when asked
 - `contest stop` prints the remaining time: pass it on
 

@@ -22,15 +22,16 @@ use crate::contest_root::{
 };
 use crate::events::{Event, emit};
 use crate::hook::{HookVerb, run_hook};
+use crate::journal::utc_time;
 use crate::paths::RunDir;
-use crate::run_info::{Mode, RunInfo};
+use crate::run_info::{Mode, RunInfo, update_run_info};
 use crate::sandbox::exec_with_pinned_sources;
 use crate::status::{running_supervisor, status_text};
 use crate::supervisor::{DEFAULT_STOP_REASON, STOP_SETTLE_SECONDS, run_supervisor};
 use crate::taint::{TopLevelExempt, ensure_no_top_level_git};
 use crate::worker::{WorkerVerb, run_worker};
 
-const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\ntasks/*/work/\nsupervisor.log\nsupervisor.pid\n";
+const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\ntasks/*/work/\nsupervisor.log\nsupervisor.pid\nrun.json.lock\nblocks\n";
 const PASTA: &str = "pasta";
 const PASST_FLAKE: &str = "nixpkgs#passt";
 const SECONDS_PER_HOUR: u64 = 3600;
@@ -53,6 +54,7 @@ pub enum Verb {
 	Stop(StopArgs),
 	Status(StatusArgs),
 	Say(SayArgs),
+	Extend(ExtendArgs),
 	#[command(subcommand)]
 	Hook(HookVerb),
 	#[command(flatten)]
@@ -108,6 +110,15 @@ pub struct StatusArgs {
 }
 
 #[derive(Debug, clap::Args)]
+pub struct ExtendArgs {
+	pub contest_dir: PathBuf,
+	#[arg(long)]
+	pub active_budget_hours: Option<u64>,
+	#[arg(long)]
+	pub deadline: Option<String>,
+}
+
+#[derive(Debug, clap::Args)]
 pub struct SayArgs {
 	pub contest_dir: PathBuf,
 	pub text: String,
@@ -120,6 +131,7 @@ pub fn run(cli: Cli) -> anyhow::Result<ExitCode> {
 		Verb::Stop(args) => stop(args).map(|()| ExitCode::SUCCESS),
 		Verb::Status(args) => status(args).map(|()| ExitCode::SUCCESS),
 		Verb::Say(args) => say(args).map(|()| ExitCode::SUCCESS),
+		Verb::Extend(args) => extend(args).map(|()| ExitCode::SUCCESS),
 		Verb::Hook(verb) => Ok(run_hook(verb)),
 		Verb::Worker(verb) => run_worker(verb, cli.timeout).map(|()| ExitCode::SUCCESS),
 		Verb::SandboxExec(args) => {
@@ -128,7 +140,21 @@ pub fn run(cli: Cli) -> anyhow::Result<ExitCode> {
 	}
 }
 
+fn parse_deadline(text: &str) -> anyhow::Result<i64> {
+	OffsetDateTime::parse(text, &Rfc3339)
+		.map(OffsetDateTime::unix_timestamp)
+		.with_context(|| format!("parse deadline {text:?}"))
+}
+
 fn init(args: InitArgs) -> anyhow::Result<()> {
+	let existing = RunDir {
+		root: args.contest_dir.clone(),
+	}
+	.run_json();
+	ensure!(
+		fs::symlink_metadata(&existing).is_err(),
+		"{existing:?} exists: this run is already initialized, change its limits with `contest extend`"
+	);
 	ensure_no_top_level_git(&args.contest_dir)?;
 	let exempt = TopLevelExempt::pin_at_init(&args.contest_dir)?;
 	let mut config = Config::default();
@@ -162,14 +188,7 @@ fn init(args: InitArgs) -> anyhow::Result<()> {
 	};
 	write_atomic(&run.config(), toml::to_string(&config)?.as_bytes())?;
 
-	let deadline_unix = args
-		.deadline
-		.map(|text| {
-			OffsetDateTime::parse(&text, &Rfc3339)
-				.map(OffsetDateTime::unix_timestamp)
-				.with_context(|| format!("parse deadline {text:?}"))
-		})
-		.transpose()?;
+	let deadline_unix = args.deadline.as_deref().map(parse_deadline).transpose()?;
 	let info = RunInfo {
 		puzzle: args.puzzle,
 		mode: args.mode,
@@ -331,6 +350,33 @@ fn say(args: SayArgs) -> anyhow::Result<()> {
 	let nanos = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
 	write_atomic(&inbox.join(format!("{nanos}.md")), args.text.as_bytes())?;
 	emit(&run, Event::UserMessage { text: args.text })
+}
+
+fn extend(args: ExtendArgs) -> anyhow::Result<()> {
+	ensure!(
+		args.active_budget_hours.is_some() || args.deadline.is_some(),
+		"nothing to extend: pass --active-budget-hours or --deadline"
+	);
+	let deadline_unix = args.deadline.as_deref().map(parse_deadline).transpose()?;
+	let run = contest_run(&args.contest_dir)?;
+	let info = update_run_info(&run, |info| {
+		let mut info = info?;
+		if let Some(hours) = args.active_budget_hours {
+			info.active_budget_seconds = Some(hours * SECONDS_PER_HOUR);
+		}
+		if deadline_unix.is_some() {
+			info.deadline_unix = deadline_unix;
+		}
+		Ok(info)
+	})?;
+	println!(
+		"run limits: active budget {budget}, deadline {deadline}",
+		budget = info
+			.active_budget_seconds
+			.map_or("none".to_owned(), |seconds| format!("{seconds} s")),
+		deadline = info.deadline_unix.map_or("none".to_owned(), utc_time)
+	);
+	Ok(())
 }
 
 fn git_path(dir: &Path, args: &[&str]) -> PathBuf {

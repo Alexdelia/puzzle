@@ -95,6 +95,10 @@ impl RunDir {
 		self.run().join("run.json")
 	}
 
+	pub fn run_json_lock(&self) -> PathBuf {
+		self.run().join("run.json.lock")
+	}
+
 	pub fn config(&self) -> PathBuf {
 		self.run().join("config.toml")
 	}

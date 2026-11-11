@@ -39,7 +39,7 @@ use crate::events::{Event, emit};
 use crate::job::VmStat;
 use crate::journal::{journal_append, journal_tail};
 use crate::paths::{JobId, RunDir, TaskId};
-use crate::run_info::RunInfo;
+use crate::run_info::{RunInfo, read_run_info, update_run_info};
 use crate::sandbox::{SandboxSpec, contest_bin_dir, dropped_host_env, sandbox_command};
 use crate::spool::{CommitRequest, request_pending, serve_pending};
 use crate::status::write_status;
@@ -101,10 +101,10 @@ fn report(step: &str, result: Result<()>) {
 	}
 }
 
-fn read_run_info(run: &RunDir) -> Result<RunInfo> {
-	let path = run.run_json();
-	let bytes = fs::read(&path).with_context(|| format!("read {path:?}"))?;
-	serde_json::from_slice(&bytes).with_context(|| format!("parse {path:?}"))
+fn run_json_modified(run: &RunDir) -> Option<SystemTime> {
+	fs::metadata(run.run_json())
+		.and_then(|meta| meta.modified())
+		.ok()
 }
 
 fn lock_pid_file(run: &RunDir, retry: Duration) -> Result<Flock<File>> {
@@ -231,11 +231,6 @@ struct StopRequest {
 	signals_seen: u32,
 }
 
-struct RunLimits {
-	active_budget_seconds: Option<u64>,
-	deadline_unix: Option<i64>,
-}
-
 struct Supervisor {
 	run: RunDir,
 	cfg: Config,
@@ -243,7 +238,9 @@ struct Supervisor {
 	credentials: Option<PathBuf>,
 	exempt: TopLevelExempt,
 	machine: Machine,
-	limits: RunLimits,
+	info: RunInfo,
+	run_json_seen: Option<SystemTime>,
+	persist_error: Option<String>,
 	stopping: bool,
 	workers: Vec<WorkerProcess>,
 	manager: Option<ManagerProcess>,
@@ -328,10 +325,8 @@ impl Supervisor {
 				.map(|home| PathBuf::from(home).join(CREDENTIALS_FILE)),
 			exempt,
 			machine: Machine::detect(cfg.ram_budget_mb),
-			limits: RunLimits {
-				active_budget_seconds: info.active_budget_seconds,
-				deadline_unix: info.deadline_unix,
-			},
+			run_json_seen: run_json_modified(&run),
+			persist_error: None,
 			stopping: false,
 			workers: Vec::new(),
 			manager: None,
@@ -342,6 +337,7 @@ impl Supervisor {
 			cancel_failures: HashSet::new(),
 			vmstat: None,
 			active: Duration::from_secs(info.active_seconds),
+			info,
 			last_iteration: now,
 			last_persist: now,
 			last_status: None,
@@ -610,20 +606,67 @@ impl Supervisor {
 		}
 	}
 
+	fn adopt_run_info(&mut self, info: RunInfo) {
+		self.info = info;
+		self.run_json_seen = run_json_modified(&self.run);
+	}
+
 	fn persist(&mut self) -> Result<()> {
-		let mut info = read_run_info(&self.run)?;
-		info.active_seconds = self.active.as_secs();
-		write_atomic(&self.run.run_json(), &serde_json::to_vec_pretty(&info)?)?;
 		self.last_persist = Instant::now();
+		let active_seconds = self.active.as_secs();
+		let last_good = self.info.clone();
+		let mut unreadable = None;
+		let info = update_run_info(&self.run, |current| {
+			let mut info = current.unwrap_or_else(|error| {
+				unreadable = Some(format!("{error:#}"));
+				last_good
+			});
+			info.active_seconds = active_seconds;
+			Ok(info)
+		})?;
+		self.adopt_run_info(info);
+		if let Some(error) = unreadable {
+			journal_append(
+				&self.run,
+				&format!("run.json unreadable, rewritten from the last good copy: {error}"),
+			)?;
+		}
 		Ok(())
 	}
 
+	fn persist_on_schedule(&mut self) {
+		if self.last_persist.elapsed() < PERSIST_INTERVAL {
+			return;
+		}
+		match self.persist() {
+			Ok(()) => self.persist_error = None,
+			Err(error) => {
+				let text = format!("{error:#}");
+				if self.persist_error.as_deref() != Some(text.as_str()) {
+					report("persist", Err(error));
+					self.persist_error = Some(text);
+				}
+			}
+		}
+	}
+
+	fn reload_run_info_on_change(&mut self) {
+		let modified = run_json_modified(&self.run);
+		if modified == self.run_json_seen {
+			return;
+		}
+		self.run_json_seen = modified;
+		if let Ok(info) = read_run_info(&self.run) {
+			self.info = info;
+		}
+	}
+
 	fn limit_reached(&self, now: i64) -> bool {
-		self.limits
+		self.info
 			.active_budget_seconds
 			.is_some_and(|budget| self.active.as_secs() >= budget)
 			|| self
-				.limits
+				.info
 				.deadline_unix
 				.is_some_and(|deadline| now >= deadline)
 	}
@@ -631,14 +674,13 @@ impl Supervisor {
 	fn account_time(&mut self, now: i64) -> Result<()> {
 		self.active += active_increment(self.last_iteration.elapsed());
 		self.last_iteration = Instant::now();
-		if self.last_persist.elapsed() >= PERSIST_INTERVAL {
-			self.persist()?;
-		}
+		self.reload_run_info_on_change();
 		if self.limit_reached(now) && !self.run.stop_file().exists() {
 			write_atomic(&self.run.stop_file(), BUDGET_STOP_REASON.as_bytes())?;
 			emit(&self.run, Event::BudgetExhausted)?;
 			journal_append(&self.run, "budget reached, stop requested")?;
 		}
+		self.persist_on_schedule();
 		Ok(())
 	}
 

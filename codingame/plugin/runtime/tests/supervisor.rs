@@ -1310,6 +1310,7 @@ fn shutdown_finishes_after_persist_failure() {
 	let mut supervisor = start(&contest, "true");
 	wait_until(10, "status file", || run.status().is_file());
 	fs::remove_file(run.run_json()).unwrap();
+	fs::create_dir(run.run_json()).unwrap();
 	fs::write(run.stop_file(), "test").unwrap();
 	let deadline = Instant::now() + Duration::from_secs(10);
 	let status = loop {
@@ -2137,4 +2138,48 @@ fn taint_over_budget_pauses_without_failing() {
 	assert!(status.contains("blocked: taint"), "{status}");
 	assert_eq!(journal_lines(run, "taint scan failed"), 0);
 	assert!(journal_lines(run, "over its entry budget") >= 1);
+}
+
+fn wait_for_exit(supervisor: &mut Supervisor, seconds: u64) {
+	let deadline = Instant::now() + Duration::from_secs(seconds);
+	while supervisor.0.try_wait().unwrap().is_none() {
+		assert!(Instant::now() < deadline, "supervisor kept running");
+		sleep(Duration::from_millis(50));
+	}
+}
+
+#[test]
+fn broken_run_json_neither_hides_the_budget_nor_floods_the_log() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let mut info: RunInfo = serde_json::from_slice(&fs::read(run.run_json()).unwrap()).unwrap();
+	info.active_budget_seconds = Some(34);
+	write_atomic(&run.run_json(), &serde_json::to_vec(&info).unwrap()).unwrap();
+	let mut supervisor = start(&contest, "true");
+	wait_until(10, "status file", || run.status().is_file());
+	fs::write(run.run_json(), "{ broken").unwrap();
+	wait_for_exit(&mut supervisor, 60);
+	assert_eq!(fs::read_to_string(run.stop_file()).unwrap(), "budget");
+	assert_eq!(journal_lines(run, "run.json"), 1);
+	let log = fs::read_to_string(contest.home.join("supervisor.log")).unwrap();
+	assert!(log.lines().count() <= 2, "{log}");
+	let repaired: RunInfo = serde_json::from_slice(&fs::read(run.run_json()).unwrap()).unwrap();
+	assert!(repaired.active_seconds >= 30);
+}
+
+#[test]
+fn extend_reaches_a_running_supervisor() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let mut supervisor = start(&contest, "true");
+	wait_until(10, "status file", || run.status().is_file());
+	let output = Command::new(BIN)
+		.arg("extend")
+		.arg(&run.root)
+		.args(["--deadline", "2020-01-01T00:00:00Z"])
+		.output()
+		.unwrap();
+	assert!(output.status.success(), "{output:?}");
+	wait_for_exit(&mut supervisor, 20);
+	assert_eq!(fs::read_to_string(run.stop_file()).unwrap(), "budget");
 }
