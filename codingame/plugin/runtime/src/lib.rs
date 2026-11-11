@@ -1,3 +1,4 @@
+pub mod action;
 pub mod agent;
 pub mod atomic;
 pub mod broker;
@@ -5,6 +6,7 @@ pub mod claude_config;
 pub mod cli;
 pub mod commit;
 pub mod config;
+pub mod digest;
 pub mod events;
 pub mod hook;
 pub mod job;

@@ -46,6 +46,14 @@ pub fn five_hour_used_percent(info: &RateLimitInfo, now: i64) -> u8 {
 	}
 }
 
+pub fn seven_day_used_percent(info: &RateLimitInfo, now: i64) -> u8 {
+	if info.seven_day.resets_at > now {
+		percent(&info.seven_day).clamp(0, 255) as u8
+	} else {
+		0
+	}
+}
+
 pub fn five_hour_full(info: &RateLimitInfo, now: i64, running: usize, config: &Config) -> bool {
 	let reserved = i64::from(config.five_hour_task_reserve_percent) * (running as i64 + 1);
 	i64::from(five_hour_used_percent(info, now)) + reserved

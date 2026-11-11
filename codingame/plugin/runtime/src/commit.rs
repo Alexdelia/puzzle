@@ -73,7 +73,7 @@ fn is_tracked(repo: &Path, path: &Path) -> Result<bool> {
 	Ok(!listed.is_empty())
 }
 
-fn declared_write(run: &RunDir, task: &TaskId, relative: &Path) -> Result<PathBuf> {
+pub fn check_write_path(relative: &Path, own_task_dir: Option<&Path>) -> Result<()> {
 	let components: Vec<Component> = relative.components().collect();
 	ensure!(
 		!components.is_empty()
@@ -83,11 +83,15 @@ fn declared_write(run: &RunDir, task: &TaskId, relative: &Path) -> Result<PathBu
 		"write path {relative:?} must be a plain relative path without . .. or .git"
 	);
 	let under_run = components[0] == Component::Normal("run".as_ref());
-	let own_task_dir = Path::new("run/tasks").join(&task.0);
 	ensure!(
-		!under_run || relative.starts_with(&own_task_dir),
-		"write path {relative:?} is inside run/ but not in {own_task_dir:?}"
+		!under_run || own_task_dir.is_some_and(|own| relative.starts_with(own)),
+		"write path {relative:?} is inside run/ but not in the task's own dir"
 	);
+	Ok(())
+}
+
+fn declared_write(run: &RunDir, task: &TaskId, relative: &Path) -> Result<PathBuf> {
+	check_write_path(relative, Some(&Path::new("run/tasks").join(&task.0)))?;
 	Ok(run.root.join(relative))
 }
 
