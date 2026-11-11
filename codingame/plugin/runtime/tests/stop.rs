@@ -500,6 +500,7 @@ fn resumed_budget_stop_stops_again() {
 	info.active_budget_seconds = Some(10);
 	info.active_seconds = 20;
 	write_run_info(run, &info);
+	fs::write(run.journal(), "2026-01-01 00:00:00 stopped: budget\n").unwrap();
 	fs::write(run.stop_file(), "budget").unwrap();
 	let mut supervisor = start(&contest, "contest task done");
 	supervisor.exited_within(10);
@@ -509,7 +510,7 @@ fn resumed_budget_stop_stops_again() {
 		.find("budget reached")
 		.expect("budget reason journaled");
 	assert!(resumed < reached);
-	assert_eq!(journal_lines(run, "stopped: budget"), 1);
+	assert_eq!(journal_lines(run, "stopped: budget"), 2);
 	assert_eq!(fs::read_to_string(run.stop_file()).unwrap(), "budget");
 	assert_eq!(state(run, &id), TaskState::Queued);
 	assert!(!run.agents().join(&id.0).exists());
@@ -576,4 +577,42 @@ fn abandoned_commit_is_unstaged_at_next_start() {
 	assert_eq!(git(&repo, &["diff", "--cached", "--name-only"]), "");
 	assert!(!marker.exists());
 	supervisor.stop_within(run, 10);
+}
+
+fn pid_file_lock(run: &RunDir, arg: FlockArg) -> Flock<fs::File> {
+	let file = fs::OpenOptions::new()
+		.create(true)
+		.write(true)
+		.truncate(false)
+		.open(run.supervisor_pid())
+		.unwrap();
+	Flock::lock(file, arg).unwrap()
+}
+
+#[test]
+fn stop_landing_during_startup_is_honored() {
+	let contest = contest(0, 2);
+	let run = &contest.run;
+	fs::write(run.stop_file(), "earlier").unwrap();
+	let reader = pid_file_lock(run, FlockArg::LockShared);
+	let mut supervisor = start(&contest, "exec sleep 60");
+	wait_until(5, "STOP cleared by start", || !run.stop_file().exists());
+	fs::write(run.stop_file(), "late").unwrap();
+	drop(reader);
+	supervisor.exited_within(10);
+	assert_eq!(journal_lines(run, "stopped: late"), 1);
+	assert_eq!(journal_lines(run, "resumed"), 0);
+}
+
+#[test]
+fn stop_while_starting_prints_no_empty_pid() {
+	let contest = contest(0, 2);
+	let run = &contest.run;
+	let _starting = pid_file_lock(run, FlockArg::LockExclusive);
+	let stopped = contest_cli(&contest, &["stop", run.root.to_str().unwrap()]);
+	assert!(stopped.status.success());
+	let text = String::from_utf8_lossy(&stopped.stdout);
+	assert!(text.contains("starting"), "{text}");
+	assert!(!text.contains("pid  "), "{text}");
+	assert!(!text.contains("pid stops"), "{text}");
 }

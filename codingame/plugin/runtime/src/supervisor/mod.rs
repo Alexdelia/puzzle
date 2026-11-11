@@ -35,7 +35,7 @@ use crate::commit::unstage_task;
 use crate::config::Config;
 use crate::events::{Event, emit};
 use crate::job::VmStat;
-use crate::journal::journal_append;
+use crate::journal::{journal_append, journal_tail};
 use crate::paths::{JobId, RunDir, TaskId};
 use crate::run_info::RunInfo;
 use crate::sandbox::{SandboxSpec, contest_bin_dir, dropped_host_env, sandbox_command};
@@ -56,6 +56,7 @@ const CREDENTIALS_FILE: &str = ".claude/.credentials.json";
 const BUDGET_STOP_REASON: &str = "budget";
 const PID_LOCK_RETRY: Duration = Duration::from_secs(1);
 const PID_LOCK_POLL: Duration = Duration::from_millis(20);
+const STOPPED: &str = "stopped: ";
 pub const DEFAULT_STOP_REASON: &str = "requested";
 
 pub fn active_increment(elapsed: Duration) -> Duration {
@@ -126,17 +127,11 @@ fn read_stop_reason(run: &RunDir) -> Option<String> {
 	})
 }
 
-fn resume_after_stop(run: &RunDir) -> Result<()> {
-	let Some(reason) = read_stop_reason(run) else {
+fn journal_resumed_after_stop(run: &RunDir) -> Result<()> {
+	let last = journal_tail(run, 1);
+	let Some((_, reason)) = last.first().and_then(|line| line.split_once(STOPPED)) else {
 		return Ok(());
 	};
-	let path = run.stop_file();
-	match fs::remove_file(&path) {
-		Err(error) if error.kind() != io::ErrorKind::NotFound => {
-			return Err(error).with_context(|| format!("remove {path:?}"));
-		}
-		_ => {}
-	}
 	journal_append(run, &format!("resumed after stop: {reason}"))
 }
 
@@ -262,7 +257,7 @@ impl Supervisor {
 		}
 		let pid_lock = lock_pid_file(&run)?;
 		unstage_abandoned_commits(&run, &cfg)?;
-		resume_after_stop(&run)?;
+		journal_resumed_after_stop(&run)?;
 		let exempt = TopLevelExempt::observe(&run.root);
 		for id in (TaskStore { run: &run }).reconcile_after_restart()? {
 			journal_append(&run, &format!("requeued {id} after restart"))?;
@@ -317,7 +312,7 @@ impl Supervisor {
 
 	fn shut_down(mut self, reason: &str) -> Result<()> {
 		let persisted = self.persist();
-		let journaled = journal_append(&self.run, &format!("stopped: {reason}"));
+		let journaled = journal_append(&self.run, &format!("{STOPPED}{reason}"));
 		let cleared = self.pid_lock.set_len(0).map_err(anyhow::Error::from);
 		let status = write_status(&self.run, unix_now(), None);
 		let errors: Vec<String> = [persisted, journaled, cleared, status]

@@ -76,6 +76,8 @@ pub struct StartArgs {
 	pub contest_dir: PathBuf,
 	#[arg(long)]
 	pub foreground: bool,
+	#[arg(long, hide = true)]
+	pub stop_cleared: bool,
 }
 
 #[derive(Debug, clap::Args)]
@@ -172,16 +174,23 @@ fn contest_run(contest_dir: &Path) -> anyhow::Result<RunDir> {
 fn start(args: StartArgs) -> anyhow::Result<()> {
 	let run = contest_run(&args.contest_dir)?;
 	let config = Config::load(&run.config())?;
-	if args.foreground {
-		return run_supervisor(run, config);
-	}
-	if let Some(pid) = running_supervisor(&run) {
-		if run.stop_file().exists() {
+	if !args.stop_cleared {
+		if let Some(pid) = running_supervisor(&run) {
+			if run.stop_file().exists() {
+				bail!(
+					"supervisor {pid} is stopping: wait with `contest stop --wait`, then start again",
+					pid = supervisor_name(&pid)
+				);
+			}
 			bail!(
-				"supervisor pid {pid} is stopping: wait with `contest stop --wait`, then start again"
+				"supervisor already running ({pid})",
+				pid = supervisor_name(&pid)
 			);
 		}
-		bail!("supervisor already running (pid {pid})");
+		clear_stop(&run)?;
+	}
+	if args.foreground {
+		return run_supervisor(run, config);
 	}
 	let log_path = run.supervisor_log();
 	let log = OpenOptions::new()
@@ -194,6 +203,7 @@ fn start(args: StartArgs) -> anyhow::Result<()> {
 		.arg("start")
 		.arg(&run.root)
 		.arg("--foreground")
+		.arg("--stop-cleared")
 		.stdin(Stdio::null())
 		.stdout(log.try_clone()?)
 		.stderr(log);
@@ -220,6 +230,24 @@ fn start(args: StartArgs) -> anyhow::Result<()> {
 	}
 }
 
+fn clear_stop(run: &RunDir) -> anyhow::Result<()> {
+	let path = run.stop_file();
+	match fs::remove_file(&path) {
+		Err(error) if error.kind() != io::ErrorKind::NotFound => {
+			Err(error).with_context(|| format!("remove {path:?}"))
+		}
+		_ => Ok(()),
+	}
+}
+
+fn supervisor_name(pid: &str) -> String {
+	if pid.is_empty() {
+		"(still starting)".to_owned()
+	} else {
+		format!("pid {pid}")
+	}
+}
+
 fn announced_pid(run: &RunDir) -> Option<String> {
 	fs::read_to_string(run.supervisor_pid())
 		.ok()
@@ -236,7 +264,8 @@ fn stop(args: StopArgs) -> anyhow::Result<()> {
 		return Ok(());
 	};
 	println!(
-		"stop requested: supervisor pid {pid} stops within {seconds} s",
+		"stop requested: supervisor {name} stops within {seconds} s",
+		name = supervisor_name(&pid),
 		seconds = seconds_until_stopped(&run)
 	);
 	if args.wait {
