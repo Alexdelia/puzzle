@@ -24,7 +24,7 @@ pub use stop::STOP_SETTLE_SECONDS;
 
 use commits::{CommitThread, Commits, spawn_commit};
 use jobs::{HeldLease, reconcile_jobs};
-use manager::ManagerProcess;
+use manager::{EventScan, ManagerProcess};
 use probe::{Gate, RunningProbe};
 use signals::{install_stop_signals, stop_signals_received};
 use workers::{TaskLaunchFailures, WorkerProcess};
@@ -245,6 +245,7 @@ struct Supervisor {
 	stopping: bool,
 	workers: Vec<WorkerProcess>,
 	manager: Option<ManagerProcess>,
+	event_scan: EventScan,
 	commits: Commits,
 	jobs: JobIndex,
 	leases: HashMap<JobId, HeldLease>,
@@ -334,6 +335,7 @@ impl Supervisor {
 			stopping: false,
 			workers: Vec::new(),
 			manager: None,
+			event_scan: EventScan::default(),
 			commits: Commits::default(),
 			jobs: JobIndex::default(),
 			leases: HashMap::new(),
@@ -427,6 +429,7 @@ impl Supervisor {
 		report("requeue", requeued);
 		self.cancel_jobs_of_ended_tasks();
 		self.reap_jobs();
+		self.scan_events();
 		let scheduled = self.schedule_jobs(now);
 		report("schedule jobs", scheduled);
 		let manager = self.manager_step(now);

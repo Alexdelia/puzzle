@@ -14,9 +14,11 @@ use crate::agent::{AgentRun, StreamOutcome, parse_stream};
 use crate::atomic::write_atomic;
 use crate::claude_config::agent_env;
 use crate::digest::{ack_inbox, build_digest};
-use crate::events::{Event, emit, has_complete_event_after};
+use crate::events::{Event, emit, events_ending_after};
+use crate::job::read_job_record;
 use crate::journal::{clip_chars, journal_append, utc_time};
-use crate::paths::RunDir;
+use crate::paths::{JobId, RunDir};
+use crate::task::{TaskState, TaskStore};
 
 const MANAGER_TOOLS: [&str; 3] = ["Read", "Glob", "Grep"];
 const MANAGER_WHO: &str = "manager";
@@ -30,6 +32,38 @@ fn has_inbox(run: &RunDir) -> bool {
 				&& entry.file_type().is_ok_and(|kind| kind.is_file())
 		})
 	})
+}
+
+fn read_cursor(run: &RunDir) -> u64 {
+	fs::read_to_string(run.manager_cursor())
+		.ok()
+		.and_then(|text| text.trim().parse().ok())
+		.unwrap_or(0)
+}
+
+fn owner_is_active(run: &RunDir, job: &JobId) -> bool {
+	let Ok(record) = read_job_record(run, job) else {
+		return false;
+	};
+	matches!(
+		TaskStore { run }.state(&record.owner_task),
+		Ok(TaskState::Running | TaskState::Waiting)
+	)
+}
+
+fn wakes_manager(run: &RunDir, event: &Event) -> bool {
+	match event {
+		Event::JobFinished { job, .. } | Event::JobInterrupted { job } => {
+			!owner_is_active(run, job)
+		}
+		_ => true,
+	}
+}
+
+#[derive(Default)]
+pub(super) struct EventScan {
+	scanned_to: Option<u64>,
+	waking_ends: Vec<u64>,
 }
 
 fn manager_actions(status: ExitStatus, outcome: &StreamOutcome) -> Result<Vec<Action>> {
@@ -52,12 +86,21 @@ pub(super) struct ManagerProcess {
 }
 
 impl Supervisor {
+	pub(super) fn scan_events(&mut self) {
+		let cursor = read_cursor(&self.run);
+		let from = self.event_scan.scanned_to.unwrap_or(cursor).max(cursor);
+		let (events, scanned_to) = events_ending_after(&self.run, from);
+		for (event, end) in events {
+			if wakes_manager(&self.run, &event) {
+				self.event_scan.waking_ends.push(end);
+			}
+		}
+		self.event_scan.scanned_to = Some(scanned_to);
+		self.event_scan.waking_ends.retain(|&end| end > cursor);
+	}
+
 	fn has_new_events(&self) -> bool {
-		let cursor: u64 = fs::read_to_string(self.run.manager_cursor())
-			.ok()
-			.and_then(|text| text.trim().parse().ok())
-			.unwrap_or(0);
-		has_complete_event_after(&self.run, cursor)
+		!self.event_scan.waking_ends.is_empty()
 	}
 
 	fn tick_due(&self) -> bool {

@@ -73,6 +73,26 @@ pub fn emit(run: &RunDir, event: Event) -> anyhow::Result<()> {
 	Ok(())
 }
 
+pub fn events_ending_after(run: &RunDir, cursor: u64) -> (Vec<(Event, u64)>, u64) {
+	let Ok(mut file) = File::open(run.events()) else {
+		return (Vec::new(), cursor);
+	};
+	let mut bytes = Vec::new();
+	if file.seek(SeekFrom::Start(cursor)).is_err() || file.read_to_end(&mut bytes).is_err() {
+		return (Vec::new(), cursor);
+	}
+	let mut events = Vec::new();
+	let mut line_start = 0;
+	for (index, _) in bytes.iter().enumerate().filter(|(_, byte)| **byte == b'\n') {
+		let line = String::from_utf8_lossy(&bytes[line_start..index]);
+		if let Ok(event) = serde_json::from_str(&line) {
+			events.push((event, cursor + index as u64 + 1));
+		}
+		line_start = index + 1;
+	}
+	(events, cursor + line_start as u64)
+}
+
 pub fn events_since(run: &RunDir, cursor: u64) -> (Vec<Event>, u64) {
 	let Ok(mut file) = File::open(run.events()) else {
 		return (Vec::new(), cursor);

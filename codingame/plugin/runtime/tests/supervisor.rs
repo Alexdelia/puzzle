@@ -2769,3 +2769,44 @@ fn waiting_task_resumes_after_restart() {
 	);
 	assert_eq!(store.spec(&id).unwrap().priority, 0);
 }
+
+#[test]
+fn job_events_of_running_tasks_do_not_wake_the_manager() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	let finish = contest.home.join("finish");
+	let action = worker_script(
+		&contest,
+		&format!(
+			"for job in j0001 j0002 j0003; do contest job submit --class batch --ram-mb 10 -- true; contest job wait $job; done\n\
+			until [ -e {finish} ]; do sleep 0.1; done\n\
+			contest task done\n",
+			finish = finish.display()
+		),
+	);
+	let supervisor = start(&contest, &action);
+	wait_until(20, "first tick", || manager_ticks(run) >= 1);
+	wait_until(30, "three job events", || {
+		event_count(run, "job_finished") == 3
+	});
+	sleep(Duration::from_secs(3));
+	assert_eq!(manager_ticks(run), 1);
+	fs::write(&finish, "").unwrap();
+	wait_until(20, "task done", || state(run, &id) == TaskState::Done);
+	wait_until(20, "tick on the task end", || manager_ticks(run) >= 2);
+	supervisor.stop(run);
+}
+
+#[test]
+fn job_events_of_idle_tasks_wake_the_manager() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	let supervisor = start(&contest, "true");
+	wait_until(20, "first tick", || manager_ticks(run) >= 1);
+	queued_job_record(run, "j0001", &id, &["true"]);
+	wait_until(20, "job finished", || event_count(run, "job_finished") == 1);
+	wait_until(20, "tick on the job event", || manager_ticks(run) >= 2);
+	supervisor.stop(run);
+}
