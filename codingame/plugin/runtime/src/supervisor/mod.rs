@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
-use std::io;
+use std::io::{self, Write};
 use std::os::unix::fs::FileExt;
 use std::path::PathBuf;
 use std::process::Child;
@@ -81,7 +81,7 @@ fn retry_backoff(failures: u32, heartbeat_minutes: u64) -> Duration {
 
 fn report(step: &str, result: Result<()>) {
 	if let Err(error) = result {
-		eprintln!("supervisor: {step}: {error:#}");
+		let _ = writeln!(io::stderr(), "supervisor: {step}: {error:#}");
 	}
 }
 
@@ -150,6 +150,13 @@ fn abandoned_commits(run: &RunDir) -> Vec<TaskId> {
 fn unstage_abandoned_commits(run: &RunDir, cfg: &Config) -> Result<()> {
 	let mut still_staged = Vec::new();
 	for task in abandoned_commits(run) {
+		if !run.task_meta(&task).is_dir() {
+			journal_append(
+				run,
+				&format!("dropped abandoned commit of {task}: task no longer exists"),
+			)?;
+			continue;
+		}
 		match unstage_task(run, cfg, &task) {
 			Ok(()) => journal_append(run, &format!("unstaged {task} after abandoned commit"))?,
 			Err(error) => {
@@ -205,6 +212,11 @@ fn taint_failure(report: Result<ScanReport>) -> Option<String> {
 	}
 }
 
+struct StopRequest {
+	reason: String,
+	signals_seen: u32,
+}
+
 struct RunLimits {
 	active_budget_seconds: Option<u64>,
 	deadline_unix: Option<i64>,
@@ -250,8 +262,8 @@ pub fn run_supervisor(run: RunDir, cfg: Config) -> Result<()> {
 		let began = Instant::now();
 		let accounted = supervisor.account_time(unix_now());
 		report("time", accounted);
-		if let Some(reason) = supervisor.requested_stop() {
-			return supervisor.stop(&reason);
+		if let Some(request) = supervisor.requested_stop() {
+			return supervisor.stop(&request);
 		}
 		supervisor.iterate();
 		sleep(LOOP_INTERVAL.saturating_sub(began.elapsed()));
@@ -328,15 +340,22 @@ impl Supervisor {
 		Ok(supervisor)
 	}
 
-	fn requested_stop(&self) -> Option<String> {
-		if stop_signals_received() == 0 {
-			return read_stop_reason(&self.run);
+	fn requested_stop(&self) -> Option<StopRequest> {
+		let signals_seen = stop_signals_received();
+		if signals_seen == 0 {
+			return read_stop_reason(&self.run).map(|reason| StopRequest {
+				reason,
+				signals_seen,
+			});
 		}
 		if !self.run.stop_file().exists() {
 			let written = write_atomic(&self.run.stop_file(), SIGNAL_STOP_REASON.as_bytes());
 			report("stop signal", written.map_err(Into::into));
 		}
-		Some(read_stop_reason(&self.run).unwrap_or_else(|| SIGNAL_STOP_REASON.to_owned()))
+		Some(StopRequest {
+			reason: read_stop_reason(&self.run).unwrap_or_else(|| SIGNAL_STOP_REASON.to_owned()),
+			signals_seen,
+		})
 	}
 
 	fn shut_down(mut self, reason: &str) -> Result<()> {

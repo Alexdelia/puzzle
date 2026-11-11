@@ -1,5 +1,6 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::thread::sleep;
@@ -783,12 +784,7 @@ fn second_signal_cuts_grace_short() {
 	assert_eq!(state(run, &id), TaskState::Interrupted);
 }
 
-#[test]
-fn commit_git_child_dies_with_supervisor() {
-	let contest = contest(1, 2);
-	let run = &contest.run;
-	pin_repo(&contest);
-	create_task(run, "sim-bench", 0);
+fn start_with_fake_git(contest: &Contest, add_body: &str, worker: &str) -> Supervisor {
 	let real_git = Command::new("sh")
 		.args(["-c", "command -v git"])
 		.output()
@@ -796,13 +792,11 @@ fn commit_git_child_dies_with_supervisor() {
 	let real_git = String::from_utf8_lossy(&real_git.stdout).trim().to_owned();
 	let fake_dir = contest.home.join("fake-bin");
 	fs::create_dir_all(&fake_dir).unwrap();
-	let git_pid = contest.home.join("git-pid");
 	let fake_git = fake_dir.join("git");
 	fs::write(
 		&fake_git,
 		format!(
-			"#!/bin/sh\nfor arg in \"$@\"; do if [ \"$arg\" = add ]; then echo $$ > {pid}; exec sleep 60; fi; done\nexec {real_git} \"$@\"\n",
-			pid = git_pid.display()
+			"#!/bin/sh\nfor arg in \"$@\"; do\nif [ \"$arg\" = add ]; then\n{add_body}\nfi\ndone\nexec {real_git} \"$@\"\n"
 		),
 	)
 	.unwrap();
@@ -813,44 +807,144 @@ fn commit_git_child_dies_with_supervisor() {
 		inherited = std::env::var("PATH").unwrap()
 	);
 	let log = fs::File::create(contest.home.join("supervisor.log")).unwrap();
-	let child = supervisor_command(
-		&contest,
-		&worker_exec(
-			"echo hi > \"$CONTEST_RUN/run/tasks/$CONTEST_TASK/out.txt\"; contest commit --milestone m; exec sleep 60",
-		),
-	)
-	.env("PATH", path)
-	.arg("start")
-	.arg(&run.root)
-	.arg("--foreground")
-	.stdin(Stdio::null())
-	.stdout(log.try_clone().unwrap())
-	.stderr(log)
-	.spawn()
-	.unwrap();
-	let mut supervisor = Supervisor(child);
+	let child = supervisor_command(contest, &worker_exec(worker))
+		.env("PATH", path)
+		.arg("start")
+		.arg(&contest.run.root)
+		.arg("--foreground")
+		.process_group(0)
+		.stdin(Stdio::null())
+		.stdout(log.try_clone().unwrap())
+		.stderr(log)
+		.spawn()
+		.unwrap();
+	Supervisor(child)
+}
+
+const COMMIT_THEN_SLEEP: &str = "echo hi > \"$CONTEST_RUN/run/tasks/$CONTEST_TASK/out.txt\"; contest commit --milestone m; exec sleep 60";
+
+#[test]
+fn commit_git_child_gets_sigterm_when_supervisor_dies() {
+	let contest = contest(1, 2);
+	let run = &contest.run;
+	pin_repo(&contest);
+	create_task(run, "sim-bench", 0);
+	let git_pid = contest.home.join("git-pid");
+	let marker = contest.home.join("git-terminated");
+	let lock = contest.home.join("fake-index.lock");
+	let add_body = format!(
+		"trap 'echo term > {marker}; rm -f {lock}; exit 143' TERM\ntouch {lock}\necho $$ > {pid}\nwhile true; do sleep 0.1; done",
+		marker = marker.display(),
+		lock = lock.display(),
+		pid = git_pid.display()
+	);
+	let supervisor = start_with_fake_git(&contest, &add_body, COMMIT_THEN_SLEEP);
 	wait_until(20, "git add running", || {
 		fs::read_to_string(&git_pid).is_ok_and(|text| text.ends_with('\n'))
 	});
 	let pid = read_pid(&git_pid);
-	supervisor.stop_within(run, 20);
-	wait_until(3, "git child gone", || !alive(pid));
+	signal(&supervisor, nix::sys::signal::Signal::SIGKILL);
+	wait_until(5, "git terminated", || marker.exists() && !alive(pid));
+	assert!(!lock.exists());
+}
+
+#[test]
+fn terminal_interrupt_does_not_reach_commit_git() {
+	let contest = contest(1, 60);
+	let run = &contest.run;
+	let repo = pin_repo(&contest);
+	let id = create_task(run, "sim-bench", 0);
+	let git_pid = contest.home.join("git-pid");
+	let add_body = format!("echo $$ > {pid}\nsleep 1", pid = git_pid.display());
+	let mut supervisor = start_with_fake_git(&contest, &add_body, COMMIT_THEN_SLEEP);
+	wait_until(20, "git add running", || {
+		fs::read_to_string(&git_pid).is_ok_and(|text| text.ends_with('\n'))
+	});
+	nix::sys::signal::killpg(
+		nix::unistd::Pid::from_raw(supervisor.0.id() as i32),
+		nix::sys::signal::Signal::SIGINT,
+	)
+	.unwrap();
+	let subject = format!("sim-bench: {id} m");
+	wait_until(10, "commit landed during wrap-up", || {
+		git(&repo, &["log", "--format=%s"]).contains(&subject)
+	});
+	signal(&supervisor, nix::sys::signal::Signal::SIGTERM);
+	supervisor.exited_within(5);
+	assert_eq!(journal_lines(run, "stopped: signal"), 1);
+}
+
+#[test]
+fn back_to_back_signals_cut_grace() {
+	let contest = contest(1, 60);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	let mut supervisor = start(&contest, "exec sleep 60");
+	wait_until(20, "task running", || state(run, &id) == TaskState::Running);
+	signal(&supervisor, nix::sys::signal::Signal::SIGTERM);
+	sleep(Duration::from_millis(100));
+	signal(&supervisor, nix::sys::signal::Signal::SIGTERM);
+	supervisor.exited_within(5);
+	assert_eq!(journal_lines(run, "stopped: signal"), 1);
+	assert_eq!(state(run, &id), TaskState::Interrupted);
+}
+
+#[test]
+fn closed_stderr_does_not_kill_supervisor() {
+	let contest = contest(0, 2);
+	let run = &contest.run;
+	fs::create_dir_all(run.status()).unwrap();
+	let mut child = supervisor_command(&contest, &worker_exec("true"))
+		.arg("start")
+		.arg(&run.root)
+		.arg("--foreground")
+		.stdin(Stdio::null())
+		.stdout(Stdio::null())
+		.stderr(Stdio::piped())
+		.spawn()
+		.unwrap();
+	drop(child.stderr.take());
+	let mut supervisor = Supervisor(child);
+	sleep(Duration::from_secs(3));
+	assert!(
+		supervisor.0.try_wait().unwrap().is_none(),
+		"supervisor died writing to a closed stderr"
+	);
+	supervisor.stop_within(run, 10);
+	assert_eq!(journal_lines(run, "stopped: test"), 1);
 }
 
 #[test]
 fn failed_unstage_does_not_block_start() {
 	let contest = contest(0, 2);
 	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	fs::write(run.abandoned_commits(), format!("{id}\n")).unwrap();
+	let mut supervisor = start(&contest, "true");
+	wait_until(10, "status file", || run.status().is_file());
+	assert!(supervisor.0.try_wait().unwrap().is_none());
+	assert_eq!(journal_lines(run, &format!("unstage of {id} failed")), 1);
+	assert_eq!(
+		fs::read_to_string(run.abandoned_commits()).unwrap().trim(),
+		id.0
+	);
+	supervisor.stop_within(run, 10);
+}
+
+#[test]
+fn abandoned_commit_of_missing_task_is_dropped() {
+	let contest = contest(0, 2);
+	let run = &contest.run;
 	pin_repo(&contest);
 	fs::write(run.abandoned_commits(), "t0099-missing\n").unwrap();
 	let mut supervisor = start(&contest, "true");
 	wait_until(10, "status file", || run.status().is_file());
-	assert!(supervisor.0.try_wait().unwrap().is_none());
-	assert_eq!(journal_lines(run, "unstage of t0099-missing failed"), 1);
 	assert_eq!(
-		fs::read_to_string(run.abandoned_commits()).unwrap().trim(),
-		"t0099-missing"
+		journal_lines(run, "dropped abandoned commit of t0099-missing"),
+		1
 	);
+	assert_eq!(journal_lines(run, "unstage of t0099-missing failed"), 0);
+	assert!(!run.abandoned_commits().exists());
 	supervisor.stop_within(run, 10);
 }
 

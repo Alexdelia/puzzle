@@ -1,5 +1,5 @@
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::task::Poll;
 use std::thread::sleep;
@@ -391,7 +391,9 @@ pub fn serve_pending(run: &RunDir, commit: Committer) -> Result<usize> {
 	for (task, dir) in running_task_dirs(run)? {
 		match serve_task(run, &task, &dir, commit) {
 			Ok(count) => answered += count,
-			Err(error) => eprintln!("spool: skipped task {task}: {error:#}"),
+			Err(error) => {
+				let _ = writeln!(io::stderr(), "spool: skipped task {task}: {error:#}");
+			}
 		}
 	}
 	Ok(answered)
