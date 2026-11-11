@@ -73,6 +73,7 @@ pub fn parse_actions(text: &str) -> Result<Vec<Action>> {
 			None => {}
 		}
 	}
+	ensure!(open.is_none(), "last json fence is not closed");
 	let block = last_block.context("no fenced json block")?;
 	let actions: Vec<Action> =
 		serde_json::from_str(&block.join("\n")).context("json block is not an action array")?;

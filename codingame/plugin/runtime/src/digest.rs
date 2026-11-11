@@ -1,5 +1,8 @@
-use std::fs;
-use std::path::PathBuf;
+use std::fs::{self, File};
+use std::io::Read;
+use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
 
 use crate::config::Config;
 use crate::events::events_since;
@@ -16,8 +19,9 @@ const JOURNAL_SHOWN: usize = 20;
 const TITLE_MAX_CHARS: usize = 120;
 const SUMMARY_MAX_CHARS: usize = 200;
 const QUESTION_MAX_CHARS: usize = 1500;
-const MESSAGE_MAX_CHARS: usize = 4000;
+const MESSAGE_MAX_BYTES: u64 = 4000;
 const QUESTION_HEADER: &str = "## Question";
+const QUOTE_PREFIX: &str = "  > ";
 const INBOX_READ_DIR: &str = "read";
 
 fn one_line(text: &str, max_chars: usize) -> String {
@@ -27,6 +31,19 @@ fn one_line(text: &str, max_chars: usize) -> String {
 		.collect::<String>()
 		.trim()
 		.to_owned()
+}
+
+fn quoted(text: &str, max_chars: usize) -> String {
+	let flat: String = text
+		.chars()
+		.take(max_chars)
+		.map(|c| if c != '\n' && c.is_control() { ' ' } else { c })
+		.collect();
+	flat.trim()
+		.lines()
+		.map(|line| format!("{QUOTE_PREFIX}{line}"))
+		.collect::<Vec<_>>()
+		.join("\n")
 }
 
 fn task_line(task: &TaskSummary) -> String {
@@ -40,11 +57,12 @@ fn task_line(task: &TaskSummary) -> String {
 }
 
 fn run_section(run: &RunDir, now: i64) -> Vec<String> {
-	let info: Option<RunInfo> = fs::read(run.run_json())
-		.ok()
-		.and_then(|bytes| serde_json::from_slice(&bytes).ok());
-	let Some(info) = info else {
-		return vec!["run info unavailable".to_owned()];
+	let info = match fs::read(run.run_json())
+		.context("read run.json")
+		.and_then(|bytes| serde_json::from_slice::<RunInfo>(&bytes).context("parse run.json"))
+	{
+		Ok(info) => info,
+		Err(error) => return vec![format!("run info unavailable: {error:#}")],
 	};
 	let budget = info
 		.active_budget_seconds
@@ -81,7 +99,7 @@ fn question_of(run: &RunDir, task: &TaskSummary) -> String {
 	let question = notes
 		.rsplit_once(QUESTION_HEADER)
 		.map_or("", |(_, question)| question);
-	question.trim().chars().take(QUESTION_MAX_CHARS).collect()
+	quoted(question, QUESTION_MAX_CHARS)
 }
 
 fn needs_answer_section(run: &RunDir, tasks: &[TaskSummary]) -> Vec<String> {
@@ -90,7 +108,7 @@ fn needs_answer_section(run: &RunDir, tasks: &[TaskSummary]) -> Vec<String> {
 		.filter(|task| task.state == TaskState::NeedsAnswer)
 		.map(|task| {
 			format!(
-				"{line}\n  question: {question}",
+				"{line}\n  question:\n{question}",
 				line = task_line(task),
 				question = question_of(run, task)
 			)
@@ -108,10 +126,10 @@ fn recent_section(store: &TaskStore, tasks: &[TaskSummary]) -> Vec<String> {
 		.iter()
 		.map(|task| {
 			format!(
-				"{line} -> {state:?}: {summary}",
+				"{line} -> {state:?}\n{summary}",
 				line = task_line(task),
 				state = task.state,
-				summary = one_line(
+				summary = quoted(
 					&store.result_summary(&task.id).unwrap_or_default(),
 					SUMMARY_MAX_CHARS
 				)
@@ -145,9 +163,19 @@ fn state_section(tasks: &[TaskSummary], states: &[TaskState]) -> Vec<String> {
 		.collect()
 }
 
-fn consume_inbox(run: &RunDir) -> Vec<String> {
+fn read_message(path: &Path) -> Result<(String, bool)> {
+	let mut bytes = Vec::new();
+	File::open(path)?
+		.take(MESSAGE_MAX_BYTES + 1)
+		.read_to_end(&mut bytes)?;
+	let truncated = bytes.len() as u64 > MESSAGE_MAX_BYTES;
+	bytes.truncate(MESSAGE_MAX_BYTES as usize);
+	Ok((String::from_utf8_lossy(&bytes).into_owned(), truncated))
+}
+
+fn pending_inbox(run: &RunDir) -> (Vec<String>, Vec<PathBuf>) {
 	let Ok(entries) = fs::read_dir(run.inbox()) else {
-		return Vec::new();
+		return (Vec::new(), Vec::new());
 	};
 	let mut files: Vec<PathBuf> = entries
 		.filter_map(Result::ok)
@@ -155,30 +183,45 @@ fn consume_inbox(run: &RunDir) -> Vec<String> {
 		.map(|entry| entry.path())
 		.collect();
 	files.sort();
-	let read_dir = run.inbox().join(INBOX_READ_DIR);
 	let mut messages = Vec::new();
+	let mut consumed = Vec::new();
 	for path in files {
-		let Some(name) = path.file_name() else {
+		let name = path
+			.file_name()
+			.unwrap_or_default()
+			.to_string_lossy()
+			.into_owned();
+		let Ok((text, truncated)) = read_message(&path) else {
 			continue;
 		};
-		let Ok(bytes) = fs::read(&path) else {
-			continue;
+		let marker = if truncated {
+			format!("\n{QUOTE_PREFIX}[truncated: {name}]")
+		} else {
+			String::new()
 		};
-		if fs::create_dir_all(&read_dir).is_err() || fs::rename(&path, read_dir.join(name)).is_err()
-		{
-			continue;
-		}
-		let text = String::from_utf8_lossy(&bytes);
 		messages.push(format!(
-			"- {text}",
-			text = text
-				.trim()
-				.chars()
-				.take(MESSAGE_MAX_CHARS)
-				.collect::<String>()
+			"- {name}\n{body}{marker}",
+			body = quoted(&text, usize::MAX)
 		));
+		consumed.push(path);
 	}
-	messages
+	(messages, consumed)
+}
+
+pub fn ack_inbox(run: &RunDir, paths: &[PathBuf]) -> Result<()> {
+	let read_dir = run.inbox().join(INBOX_READ_DIR);
+	fs::create_dir_all(&read_dir).with_context(|| format!("create {read_dir:?}"))?;
+	for path in paths {
+		let name = path.file_name().context("inbox path has no file name")?;
+		fs::rename(path, read_dir.join(name)).with_context(|| format!("ack {path:?}"))?;
+	}
+	Ok(())
+}
+
+pub struct Digest {
+	pub text: String,
+	pub cursor: u64,
+	pub inbox: Vec<PathBuf>,
 }
 
 struct Sections {
@@ -238,16 +281,23 @@ impl Sections {
 	}
 }
 
-pub fn build_digest(run: &RunDir, config: &Config, now: i64) -> (String, u64) {
+pub fn build_digest(run: &RunDir, config: &Config, now: i64) -> Digest {
 	let store = TaskStore { run };
-	let tasks = store.list().unwrap_or_default();
+	let (tasks, tasks_error) = match store.list() {
+		Ok(tasks) => (tasks, None),
+		Err(error) => (Vec::new(), Some(format!("tasks unavailable: {error:#}"))),
+	};
 	let cursor = fs::read_to_string(run.manager_cursor())
 		.ok()
 		.and_then(|text| text.trim().parse().ok())
 		.unwrap_or(0);
 	let (events, new_cursor) = events_since(run, cursor);
+	let (inbox, inbox_paths) = pending_inbox(run);
 	let mut sections = Sections {
-		run: run_section(run, now),
+		run: run_section(run, now)
+			.into_iter()
+			.chain(tasks_error)
+			.collect(),
 		usage: usage_section(run, now),
 		running: state_section(&tasks, &[TaskState::Running, TaskState::Interrupted]),
 		needs_answer: needs_answer_section(run, &tasks),
@@ -257,16 +307,17 @@ pub fn build_digest(run: &RunDir, config: &Config, now: i64) -> (String, u64) {
 			.iter()
 			.filter_map(|event| serde_json::to_string(event).ok())
 			.collect(),
-		inbox: consume_inbox(run),
+		inbox,
 		journal: journal_tail(run, JOURNAL_SHOWN),
-		kb: vec![format!(
-			"{path}",
-			path = config.plugin_dir.join("kb/index.md").display()
-		)],
+		kb: vec![config.plugin_dir.join("kb/index.md").display().to_string()],
 	};
 	let mut text = sections.render();
 	while text.len() > config.digest_max_bytes && sections.shrink_once() {
 		text = sections.render();
 	}
-	(text, new_cursor)
+	Digest {
+		text,
+		cursor: new_cursor,
+		inbox: inbox_paths,
+	}
 }

@@ -59,6 +59,12 @@ fn parse_rejects_prose() {
 }
 
 #[test]
+fn parse_rejects_unclosed_last_fence() {
+	let text = "```json\n[{\"action\":\"reply\",\"text\":\"old\"}]\n```\n```json\n[{\"action\":\"reply\",\"text\":\"cut\"}]\n";
+	assert!(parse_actions(text).is_err());
+}
+
+#[test]
 fn parse_rejects_51_actions() {
 	let one = r#"{"action":"journal","line":"x"}"#;
 	let build = |count: usize| {
