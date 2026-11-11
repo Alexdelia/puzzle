@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 
 use contest::broker::{Grant, JobClass, JobRequest};
 use contest::job::{
-	JobRecord, JobState, VmStat, parse_vmstat, read_job_record, read_vmstat, repin, signal_job,
-	spawn_job, swap_delta_exceeds, try_reap, write_job_record,
+	JobRecord, JobState, VmStat, parse_vmstat, process_tree, read_job_record, read_vmstat, repin,
+	signal_job, spawn_job, swap_delta_exceeds, try_reap, write_job_record,
 };
 use contest::paths::{JobId, RunDir, TaskId};
 use nix::sys::signal::Signal;
@@ -51,6 +51,7 @@ fn record(id: &str, class: JobClass, cmd: &[&str]) -> JobRecord {
 		state: JobState::Running,
 		pid: None,
 		starttime: None,
+		sandboxed: false,
 	}
 }
 
@@ -131,7 +132,7 @@ fn spawned_job_pinned() {
 	);
 	let pid = spawn_job(&run, &job, &grant("pinned", &[1, 5])).unwrap();
 	assert_eq!(status_field(pid, "Cpus_allowed_list"), "1,5");
-	signal_job(pid, Signal::SIGKILL).unwrap();
+	signal_job(pid, false, Signal::SIGKILL).unwrap();
 	wait_until("reap", || try_reap(pid).unwrap().is_some());
 }
 
@@ -144,7 +145,7 @@ fn spawn_sets_job_environment_and_lease() {
 		&[
 			"sh",
 			"-c",
-			"echo \"$CONTEST_LEASE|$CONTEST_JOB_DIR|[$CUDA_VISIBLE_DEVICES]\"",
+			"echo \"$CONTEST_LEASE|$CONTEST_JOB_DIR|$CONTEST_JOB_WORK|[$CUDA_VISIBLE_DEVICES]\"",
 		],
 	);
 	let pid = spawn_job(&run, &job, &grant("env", &[0])).unwrap();
@@ -152,12 +153,15 @@ fn spawn_sets_job_environment_and_lease() {
 	let log = fs::read_to_string(run.job_dir(&job.id).join("log")).unwrap();
 	let job_dir = run.job_dir(&job.id);
 	let lease = job_dir.join("lease.json");
+	let work = run.job_work_dir(&job.owner_task, &job.id);
+	assert!(work.is_dir());
 	assert_eq!(
 		log.trim(),
 		format!(
-			"{lease}|{job_dir}|[]",
+			"{lease}|{job_dir}|{work}|[]",
 			lease = lease.display(),
-			job_dir = job_dir.display()
+			job_dir = job_dir.display(),
+			work = work.display()
 		)
 	);
 	let lease_json: serde_json::Value =
@@ -196,7 +200,7 @@ fn repin_moves_all_threads() {
 	for tid in session_threads(pid) {
 		assert_eq!(thread_cpus(tid), "2,6", "thread {tid}");
 	}
-	signal_job(pid, Signal::SIGKILL).unwrap();
+	signal_job(pid, false, Signal::SIGKILL).unwrap();
 	wait_until("reap", || try_reap(pid).unwrap().is_some());
 }
 
@@ -212,14 +216,66 @@ fn sigterm_lets_job_checkpoint() {
 	wait_until("ready", || {
 		fs::read_to_string(run.job_dir(&job.id).join("log")).is_ok_and(|log| log.contains("ready"))
 	});
-	signal_job(pid, Signal::SIGTERM).unwrap();
+	signal_job(pid, false, Signal::SIGTERM).unwrap();
 	let mut state = None;
 	wait_until("exit", || {
 		state = try_reap(pid).unwrap();
 		state.is_some()
 	});
 	assert_eq!(state, Some(JobState::Done { code: 0 }));
-	assert!(run.job_dir(&job.id).join("checkpoint").exists());
+	assert_eq!(
+		fs::read_to_string(
+			run.job_work_dir(&job.owner_task, &job.id)
+				.join("checkpoint")
+		)
+		.unwrap(),
+		"saved\n"
+	);
+}
+
+fn bwrap_available() -> bool {
+	std::process::Command::new("bwrap")
+		.arg("--version")
+		.output()
+		.is_ok_and(|output| output.status.success())
+}
+
+fn gone_or_zombie(pid: u32) -> bool {
+	fs::read_to_string(format!("/proc/{pid}/stat")).map_or(true, |stat| {
+		stat[stat.rfind(')').unwrap() + 1..]
+			.split_whitespace()
+			.next() == Some("Z")
+	})
+}
+
+#[test]
+fn sigkill_reaches_nested_pid_namespace_of_unsandboxed_job() {
+	if !bwrap_available() {
+		eprintln!("bwrap not found, skipped");
+		return;
+	}
+	let (_dir, run) = run_dir();
+	let nested = "bwrap --new-session --unshare-pid --ro-bind / / --dev /dev --proc /proc -- sleep 300 & echo ready; wait";
+	let job = record("nested", JobClass::Batch, &["sh", "-c", nested]);
+	let pid = spawn_job(&run, &job, &grant("nested", &[0])).unwrap();
+	wait_until("ready", || {
+		fs::read_to_string(run.job_dir(&job.id).join("log")).is_ok_and(|log| log.contains("ready"))
+	});
+	let mut tree = Vec::new();
+	wait_until("nested pid namespace", || {
+		tree = process_tree(pid);
+		tree.len() >= 4
+	});
+	signal_job(pid, false, Signal::SIGKILL).unwrap();
+	let mut state = None;
+	wait_until("leader exit", || {
+		state = try_reap(pid).unwrap();
+		state.is_some()
+	});
+	assert_eq!(state, Some(JobState::Done { code: 137 }));
+	wait_until("nested teardown", || {
+		tree[1..].iter().all(|&process| gone_or_zombie(process))
+	});
 }
 
 #[test]
@@ -239,7 +295,7 @@ fn batch_is_niced() {
 	assert_eq!(nice_of(batch_pid), 19);
 	assert_eq!(nice_of(timed_pid), 0);
 	for pid in [batch_pid, timed_pid] {
-		signal_job(pid, Signal::SIGKILL).unwrap();
+		signal_job(pid, false, Signal::SIGKILL).unwrap();
 		wait_until("reap", || try_reap(pid).unwrap().is_some());
 	}
 }

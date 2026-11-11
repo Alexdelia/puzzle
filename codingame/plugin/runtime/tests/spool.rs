@@ -76,6 +76,7 @@ fn queued_job(run: &RunDir, owner: &TaskId, id: &str) -> JobId {
 			state: JobState::Queued,
 			pid: None,
 			starttime: None,
+			sandboxed: false,
 		},
 	)
 	.unwrap();

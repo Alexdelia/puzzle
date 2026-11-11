@@ -1,9 +1,10 @@
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::Context;
+use anyhow::{Context, ensure};
 use clap::{Parser, Subcommand};
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
@@ -87,8 +88,8 @@ fn init(args: InitArgs) -> anyhow::Result<()> {
 	config.repo_root = repo_root;
 	config.git_common_dir = git_common_dir;
 	config.pasta_bin = match args.pasta_bin {
-		Some(pasta) => fs::canonicalize(&pasta).with_context(|| format!("resolve {pasta:?}"))?,
-		None => pinned_pasta_bin(&run)?,
+		Some(pasta) => explicit_pasta_bin(&pasta, &config.repo_root)?,
+		None => pinned_pasta_bin(&run, &config.repo_root)?,
 	};
 	write_atomic(&run.config(), toml::to_string(&config)?.as_bytes())?;
 
@@ -138,11 +139,33 @@ fn pinned_git_dirs(contest_dir: &Path) -> (PathBuf, PathBuf) {
 	)
 }
 
-fn pasta_on_path() -> Option<PathBuf> {
+fn is_executable_file(path: &Path) -> bool {
+	fs::metadata(path).is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+}
+
+fn inside_repo(path: &Path, repo_root: &Path) -> bool {
+	!repo_root.as_os_str().is_empty()
+		&& fs::canonicalize(path).map_or(true, |real| real.starts_with(repo_root))
+}
+
+fn explicit_pasta_bin(pasta: &Path, repo_root: &Path) -> anyhow::Result<PathBuf> {
+	let real = fs::canonicalize(pasta).with_context(|| format!("resolve {pasta:?}"))?;
+	ensure!(
+		is_executable_file(&real),
+		"pasta {real:?} is not an executable file"
+	);
+	ensure!(
+		!inside_repo(&real, repo_root),
+		"pasta {real:?} lies under repo_root {repo_root:?}"
+	);
+	Ok(real)
+}
+
+fn pasta_on_path(repo_root: &Path) -> Option<PathBuf> {
 	std::env::split_paths(&std::env::var_os("PATH")?)
 		.filter(|dir| dir.is_absolute())
 		.map(|dir| dir.join(PASTA))
-		.find(|path| path.is_file())
+		.find(|path| is_executable_file(path) && !inside_repo(path, repo_root))
 }
 
 fn pasta_from_nix(gc_root: &Path) -> Option<PathBuf> {
@@ -159,8 +182,8 @@ fn pasta_from_nix(gc_root: &Path) -> Option<PathBuf> {
 	Some(PathBuf::from(store_path).join("bin").join(PASTA)).filter(|path| path.is_file())
 }
 
-fn pinned_pasta_bin(run: &RunDir) -> anyhow::Result<PathBuf> {
-	if let Some(pasta) = pasta_on_path() {
+fn pinned_pasta_bin(run: &RunDir, repo_root: &Path) -> anyhow::Result<PathBuf> {
+	if let Some(pasta) = pasta_on_path(repo_root) {
 		return Ok(pasta);
 	}
 	let gc_roots = run.gc_roots();

@@ -29,6 +29,7 @@ const ISOLATION_FLAGS: [&str; 4] = [
 ];
 const HIDDEN_DIRS: [&str; 4] = ["/tmp", "/var/tmp", "/run/user", "/home"];
 const NIX_DAEMON_SOCKET_DIR: &str = "/nix/var/nix/daemon-socket";
+const SYSTEM_BUS_DIR: &str = "/run/dbus";
 const HIDDEN_ENV: [&str; 10] = [
 	"DBUS_SESSION_BUS_ADDRESS",
 	"SSH_AUTH_SOCK",
@@ -112,6 +113,12 @@ impl SandboxSpec {
 			config.pasta_bin.is_absolute(),
 			"config pasta_bin {pasta:?} is not pinned",
 			pasta = config.pasta_bin
+		);
+		ensure!(
+			!config.pasta_bin.starts_with(&config.repo_root),
+			"config pasta_bin {pasta:?} lies under repo_root {root:?}",
+			pasta = config.pasta_bin,
+			root = config.repo_root
 		);
 		let contest_root = fs::canonicalize(&run.root)
 			.with_context(|| format!("resolve {root:?}", root = run.root))?;
@@ -240,9 +247,10 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
 		argv.same("--ro-bind-try", path);
 	}
 	claude_config_mounts(&mut argv, spec);
-	let nix_daemon_socket = Path::new(NIX_DAEMON_SOCKET_DIR);
-	if nix_daemon_socket.is_dir() {
-		argv.on("--tmpfs", nix_daemon_socket);
+	for socket_dir in [SYSTEM_BUS_DIR, NIX_DAEMON_SOCKET_DIR].map(Path::new) {
+		if socket_dir.is_dir() {
+			argv.on("--tmpfs", socket_dir);
+		}
 	}
 	let hidden = HIDDEN_ENV
 		.iter()

@@ -59,14 +59,17 @@ fn fake_pasta(dir: &Path) -> PathBuf {
 	pasta
 }
 
-fn run_init(contest_dir: &Path, plugin_dir: &Path, extra: &[&str]) {
+fn run_init(contest_dir: &Path, plugin_dir: &Path, extra: &[&str]) -> PathBuf {
+	let outside_repo = tempfile::tempdir().unwrap();
+	let pasta = fs::canonicalize(fake_pasta(outside_repo.path())).unwrap();
 	let status = init_command(contest_dir, plugin_dir)
 		.arg("--pasta-bin")
-		.arg(fake_pasta(plugin_dir))
+		.arg(&pasta)
 		.args(extra)
 		.status()
 		.unwrap();
 	assert!(status.success());
+	pasta
 }
 
 #[test]
@@ -74,7 +77,7 @@ fn init_creates_layout() {
 	let repo = tempfile::tempdir().unwrap();
 	git_repo_with_commit(repo.path());
 	let contest_dir = repo.path().join("bot-programming/seabed");
-	run_init(
+	let pasta = run_init(
 		&contest_dir,
 		repo.path(),
 		&[
@@ -117,10 +120,7 @@ fn init_creates_layout() {
 		ignore,
 		"agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\n"
 	);
-	assert_eq!(
-		config.pasta_bin,
-		fs::canonicalize(repo.path().join("fake-bin/pasta")).unwrap()
-	);
+	assert_eq!(config.pasta_bin, pasta);
 
 	let config = Config::load(&run.config()).unwrap();
 	assert_eq!(config.plugin_dir, repo.path());
@@ -255,10 +255,17 @@ fn nix_available() -> bool {
 		.is_ok_and(|output| output.status.success())
 }
 
+fn nix_builds_passt() -> bool {
+	Command::new("nix")
+		.args(["build", "nixpkgs#passt", "--no-link"])
+		.output()
+		.is_ok_and(|output| output.status.success())
+}
+
 #[test]
 fn init_pins_pasta_from_nix_with_gc_root() {
-	if !nix_available() {
-		eprintln!("nix not found, skipped");
+	if !nix_available() || !nix_builds_passt() {
+		eprintln!("nix missing or nix build nixpkgs#passt failed (offline?), skipped");
 		return;
 	}
 	let plain = tempfile::tempdir().unwrap();
@@ -275,4 +282,61 @@ fn init_pins_pasta_from_nix_with_gc_root() {
 	assert!(config.pasta_bin.is_file());
 	let gc_root = fs::read_link(run.root.join("run/gcroots/passt")).unwrap();
 	assert_eq!(config.pasta_bin, gc_root.join("bin/pasta"));
+}
+
+fn init_with_pasta_status(pasta: &Path) -> std::process::ExitStatus {
+	let plain = tempfile::tempdir().unwrap();
+	init_command(&plain.path().join("c"), plain.path())
+		.arg("--pasta-bin")
+		.arg(pasta)
+		.status()
+		.unwrap()
+}
+
+#[test]
+fn init_refuses_non_executable_pasta_bin() {
+	let dir = tempfile::tempdir().unwrap();
+	let plain_file = dir.path().join("pasta");
+	fs::write(&plain_file, "").unwrap();
+	assert!(!init_with_pasta_status(&plain_file).success());
+	assert!(!init_with_pasta_status(dir.path()).success());
+}
+
+#[test]
+fn init_refuses_pasta_bin_inside_repo() {
+	let repo = tempfile::tempdir().unwrap();
+	git_repo_with_commit(repo.path());
+	let pasta = fake_pasta(repo.path());
+	let status = init_command(&repo.path().join("bot-programming/c"), repo.path())
+		.arg("--pasta-bin")
+		.arg(&pasta)
+		.status()
+		.unwrap();
+	assert!(!status.success());
+}
+
+#[test]
+fn init_skips_pasta_on_path_inside_repo() {
+	let repo = tempfile::tempdir().unwrap();
+	git_repo_with_commit(repo.path());
+	let planted = fake_pasta(repo.path());
+	let outside = tempfile::tempdir().unwrap();
+	let trusted = fake_pasta(outside.path());
+	let path = std::env::join_paths(
+		[planted.parent().unwrap(), trusted.parent().unwrap()]
+			.into_iter()
+			.map(Path::to_path_buf)
+			.chain(std::env::split_paths(
+				&std::env::var_os("PATH").unwrap_or_default(),
+			)),
+	)
+	.unwrap();
+	let contest_dir = repo.path().join("bot-programming/c");
+	let status = init_command(&contest_dir, repo.path())
+		.env("PATH", path)
+		.status()
+		.unwrap();
+	assert!(status.success());
+	let config = Config::load(&RunDir { root: contest_dir }.config()).unwrap();
+	assert_eq!(config.pasta_bin, trusted);
 }

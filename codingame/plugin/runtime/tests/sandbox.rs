@@ -11,7 +11,10 @@ use contest::atomic::write_atomic;
 use contest::broker::{Grant, JobClass, JobRequest};
 use contest::claude_config::{agent_env, credentials_expire_within, write_claude_settings};
 use contest::config::Config;
-use contest::job::{JobRecord, JobState, process_tree, repin, signal_job, spawn_job, try_reap};
+use contest::job::{
+	JobRecord, JobState, process_tree, read_job_record, repin, sandbox_job, signal_job, spawn_job,
+	try_reap, write_job_record,
+};
 use contest::paths::{JobId, RunDir, TaskId};
 use contest::sandbox::{
 	SandboxSpec, bwrap_args, contest_bin_dir, dropped_env_names, sandbox_command,
@@ -33,6 +36,9 @@ const HIDDEN_ENV: [&str; 10] = [
 ];
 
 const NIX_DAEMON_SOCKET_DIR: &str = "/nix/var/nix/daemon-socket";
+const SYSTEM_BUS_DIR: &str = "/run/dbus";
+const SPAWNER_RUN: &str = "CONTEST_TEST_SPAWNER_RUN";
+const SPAWNER_JOB: &str = "CONTEST_TEST_SPAWNER_JOB";
 const READY_TIMEOUT: Duration = Duration::from_secs(10);
 const PASTA_FLAGS: [&str; 11] = [
 	"--foreground",
@@ -237,6 +243,15 @@ fn real_bwrap_hides_nix_daemon_socket_under_nix_toolbox() {
 	spec.toolbox.push("/nix/var/nix".into());
 	let socket = Path::new(NIX_DAEMON_SOCKET_DIR).join("socket");
 	assert_eq!(sandboxed_sh(&spec, &probe_line(&socket)).trim(), "absent");
+}
+
+#[test]
+fn bwrap_hides_system_bus() {
+	let args = bwrap_args(&spec());
+	let hidden = mounts(&args)
+		.iter()
+		.any(|(flag, _, target)| flag == "--tmpfs" && target == SYSTEM_BUS_DIR);
+	assert_eq!(hidden, Path::new(SYSTEM_BUS_DIR).is_dir(), "{args:?}");
 }
 
 #[test]
@@ -643,6 +658,11 @@ fn real_bwrap_enforces_layout() {
 			probe_line(&Path::new(NIX_DAEMON_SOCKET_DIR).join("socket")),
 			"absent",
 		),
+		(
+			"system bus",
+			probe_line(&Path::new(SYSTEM_BUS_DIR).join("system_bus_socket")),
+			"absent",
+		),
 	];
 	let script = checks
 		.iter()
@@ -859,6 +879,12 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 	};
 	let error = SandboxSpec::for_run(&run, &pasta_unpinned, None).unwrap_err();
 	assert!(format!("{error:#}").contains("pasta_bin"), "{error:#}");
+	let pasta_in_repo = Config {
+		pasta_bin: dir.path().join("repo/bot-programming/c1/pasta"),
+		..config.clone()
+	};
+	let error = SandboxSpec::for_run(&run, &pasta_in_repo, None).unwrap_err();
+	assert!(format!("{error:#}").contains("repo_root"), "{error:#}");
 }
 
 #[test]
@@ -1111,12 +1137,12 @@ fn real_sandbox_dies_with_outer_process() {
 	});
 }
 
-fn sandboxed_job(spec: &SandboxSpec, id: &str, class: JobClass, argv: &[String]) -> JobRecord {
+fn plain_job(id: &str, class: JobClass, cwd: &Path, argv: &[String]) -> JobRecord {
 	JobRecord {
 		id: JobId(id.to_string()),
 		owner_task: task(),
-		cmd: sandbox_command(spec, argv),
-		cwd: spec.contest_root.clone(),
+		cmd: argv.to_vec(),
+		cwd: cwd.to_path_buf(),
 		request: JobRequest {
 			id: JobId(id.to_string()),
 			class,
@@ -1127,7 +1153,14 @@ fn sandboxed_job(spec: &SandboxSpec, id: &str, class: JobClass, argv: &[String])
 		state: JobState::Running,
 		pid: None,
 		starttime: None,
+		sandboxed: false,
 	}
+}
+
+fn sandboxed_job(spec: &SandboxSpec, id: &str, class: JobClass, argv: &[String]) -> JobRecord {
+	let mut record = plain_job(id, class, &spec.contest_root, argv);
+	sandbox_job(&mut record, spec);
+	record
 }
 
 fn job_grant(id: &str, cpus: &[usize]) -> Grant {
@@ -1140,19 +1173,16 @@ fn job_grant(id: &str, cpus: &[usize]) -> Grant {
 	}
 }
 
-fn writable_job_run(spec: &SandboxSpec) -> RunDir {
-	RunDir {
-		root: spec.contest_root.join("work"),
-	}
-}
-
 fn log_has(run: &RunDir, id: &JobId, needle: &str) -> bool {
 	fs::read_to_string(run.job_dir(id).join("log")).is_ok_and(|log| log.contains(needle))
 }
 
 #[test]
 fn real_sandbox_job_checkpoints_on_supervisor_sigterm() {
-	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+	let Some(Layout {
+		_dir, spec, run, ..
+	}) = sandbox_layout()
+	else {
 		return;
 	};
 	let fixture = concat!(
@@ -1161,11 +1191,11 @@ fn real_sandbox_job_checkpoints_on_supervisor_sigterm() {
 	);
 	let script = spec.contest_root.join("checkpoint-job.sh");
 	fs::copy(fixture, &script).unwrap();
-	let run = writable_job_run(&spec);
 	let job = sandboxed_job(&spec, "j0001", JobClass::Batch, &[text(&script)]);
+	assert!(job.sandboxed);
 	let pid = spawn_job(&run, &job, &job_grant("j0001", &[0])).unwrap();
 	wait_for("ready", || log_has(&run, &job.id, "ready"));
-	signal_job(pid, Signal::SIGTERM).unwrap();
+	signal_job(pid, job.sandboxed, Signal::SIGTERM).unwrap();
 	let mut state = None;
 	wait_for("exit", || {
 		state = try_reap(pid).unwrap();
@@ -1173,7 +1203,11 @@ fn real_sandbox_job_checkpoints_on_supervisor_sigterm() {
 	});
 	assert_eq!(state, Some(JobState::Done { code: 0 }));
 	assert_eq!(
-		fs::read_to_string(run.job_dir(&job.id).join("checkpoint")).unwrap(),
+		fs::read_to_string(
+			run.job_work_dir(&job.owner_task, &job.id)
+				.join("checkpoint")
+		)
+		.unwrap(),
 		"saved\n"
 	);
 }
@@ -1204,10 +1238,12 @@ fn real_sandbox_repin_reaches_workload_threads() {
 		eprintln!("machine lacks cpus 1, 2, 5, 6 or python3, skipped");
 		return;
 	}
-	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+	let Some(Layout {
+		_dir, spec, run, ..
+	}) = sandbox_layout()
+	else {
 		return;
 	};
-	let run = writable_job_run(&spec);
 	let argv = ["python3", "-c", THREADED_PROGRAM].map(String::from);
 	let class = JobClass::Timed {
 		min_cores: 1,
@@ -1230,6 +1266,101 @@ fn real_sandbox_repin_reaches_workload_threads() {
 		.collect();
 	assert_eq!(repinned.len(), threads.len(), "{repinned:?}");
 	assert!(repinned.iter().all(|cpus| cpus == "2,6"), "{repinned:?}");
-	signal_job(pid, Signal::SIGKILL).unwrap();
+	signal_job(pid, job.sandboxed, Signal::SIGKILL).unwrap();
 	wait_for("reap", || try_reap(pid).unwrap().is_some());
+}
+
+#[test]
+#[ignore = "helper process of jobs_die_with_their_short_lived_spawner"]
+fn spawner_process() {
+	let root = std::env::var_os(SPAWNER_RUN).expect("spawner run dir");
+	let id = JobId(std::env::var(SPAWNER_JOB).expect("spawner job id"));
+	let run = RunDir { root: root.into() };
+	let record = read_job_record(&run, &id).unwrap();
+	let pid = spawn_job(&run, &record, &job_grant(&id.0, &[0])).unwrap();
+	wait_for("ready", || log_has(&run, &id, "ready"));
+	println!("spawned {pid}");
+}
+
+fn spawn_from_short_lived_process(run: &RunDir, record: &JobRecord) -> u32 {
+	write_job_record(run, record).unwrap();
+	let output = Command::new(std::env::current_exe().unwrap())
+		.args(["--ignored", "--exact", "spawner_process", "--nocapture"])
+		.env(SPAWNER_RUN, &run.root)
+		.env(SPAWNER_JOB, &record.id.0)
+		.output()
+		.unwrap();
+	let stdout = String::from_utf8_lossy(&output.stdout);
+	assert!(output.status.success(), "{stdout}");
+	stdout
+		.lines()
+		.find_map(|line| line.strip_prefix("spawned "))
+		.and_then(|pid| pid.trim().parse().ok())
+		.unwrap_or_else(|| panic!("no pid in {stdout}"))
+}
+
+fn processes_running(needle: &str) -> Vec<u32> {
+	fs::read_dir("/proc")
+		.unwrap()
+		.flatten()
+		.filter_map(|entry| entry.file_name().to_str()?.parse::<u32>().ok())
+		.filter(|&pid| {
+			fs::read(format!("/proc/{pid}/cmdline"))
+				.is_ok_and(|cmdline| String::from_utf8_lossy(&cmdline).contains(needle))
+		})
+		.filter(|&pid| !gone_or_zombie(pid))
+		.collect()
+}
+
+fn checkpoint_fixture_in(dir: &Path) -> PathBuf {
+	let script = dir.join(unique_name("checkpoint-job")).with_extension("sh");
+	fs::copy(
+		concat!(
+			env!("CARGO_MANIFEST_DIR"),
+			"/tests/fixtures/checkpoint-job.sh"
+		),
+		&script,
+	)
+	.unwrap();
+	script
+}
+
+#[test]
+fn unsandboxed_job_checkpoints_when_spawner_dies() {
+	let Layout {
+		_dir, run, spec, ..
+	} = layout();
+	let script = checkpoint_fixture_in(&spec.contest_root);
+	let job = plain_job(
+		"j0003",
+		JobClass::Batch,
+		&spec.contest_root,
+		&[text(&script)],
+	);
+	let pid = spawn_from_short_lived_process(&run, &job);
+	wait_for("job exit", || gone_or_zombie(pid));
+	assert_eq!(
+		fs::read_to_string(
+			run.job_work_dir(&job.owner_task, &job.id)
+				.join("checkpoint")
+		)
+		.unwrap(),
+		"saved\n"
+	);
+}
+
+#[test]
+fn sandboxed_job_dies_when_spawner_dies() {
+	let Some(Layout {
+		_dir, spec, run, ..
+	}) = sandbox_layout()
+	else {
+		return;
+	};
+	let script = checkpoint_fixture_in(&spec.contest_root);
+	let job = sandboxed_job(&spec, "j0004", JobClass::Batch, &[text(&script)]);
+	let pid = spawn_from_short_lived_process(&run, &job);
+	wait_for("sandbox teardown", || {
+		gone_or_zombie(pid) && processes_running(&text(&script)).is_empty()
+	});
 }

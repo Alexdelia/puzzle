@@ -138,6 +138,7 @@ fn submit_job(
 		state: JobState::Queued,
 		pid: None,
 		starttime: None,
+		sandboxed: false,
 	};
 	validate_class(&record.request.class)?;
 	write_job_record(run, &record)?;

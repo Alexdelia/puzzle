@@ -6,16 +6,21 @@ use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
+use nix::dir::Dir;
 use nix::errno::Errno;
+use nix::fcntl::OFlag;
 use nix::sched::{CpuSet, sched_setaffinity};
-use nix::sys::signal::{Signal, killpg};
+use nix::sys::prctl::set_pdeathsig;
+use nix::sys::signal::{Signal, kill, killpg};
+use nix::sys::stat::{Mode, mkdirat};
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 use nix::unistd::{Pid, setsid};
 use serde::{Deserialize, Serialize};
 
 use crate::atomic::write_atomic;
 use crate::broker::{Grant, JobClass, JobRequest};
-use crate::paths::{JobId, RunDir, TaskId};
+use crate::paths::{JOB_WORK_DIR, JobId, RunDir, TaskId};
+use crate::sandbox::{SandboxSpec, sandbox_command};
 
 const BATCH_NICE: libc::c_int = 19;
 const SWAP_PAGES_THRESHOLD: u64 = 256;
@@ -46,6 +51,8 @@ pub struct JobRecord {
 	pub pid: Option<u32>,
 	#[serde(default)]
 	pub starttime: Option<u64>,
+	#[serde(default)]
+	pub sandboxed: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -117,6 +124,32 @@ fn cpu_set(cpus: &[usize]) -> nix::Result<CpuSet> {
 	Ok(set)
 }
 
+fn open_dir_no_follow(parent: &Dir, name: &str) -> nix::Result<Dir> {
+	Dir::openat(parent, name, no_follow_dir_flags(), Mode::empty())
+}
+
+fn no_follow_dir_flags() -> OFlag {
+	OFlag::O_RDONLY | OFlag::O_DIRECTORY | OFlag::O_NOFOLLOW | OFlag::O_CLOEXEC
+}
+
+fn make_dir_no_follow(parent: &Dir, name: &str) -> anyhow::Result<Dir> {
+	match mkdirat(parent, name, Mode::S_IRWXU) {
+		Ok(()) | Err(Errno::EEXIST) => {}
+		Err(error) => return Err(error).with_context(|| format!("create {name}")),
+	}
+	open_dir_no_follow(parent, name).with_context(|| format!("open {name} without following links"))
+}
+
+fn create_job_work_dir(run: &RunDir, record: &JobRecord) -> anyhow::Result<PathBuf> {
+	let task_dir = run.task_dir(&record.owner_task);
+	fs::create_dir_all(&task_dir)?;
+	let task = Dir::open(&task_dir, no_follow_dir_flags(), Mode::empty())
+		.with_context(|| format!("open {task_dir:?}"))?;
+	let work = make_dir_no_follow(&task, JOB_WORK_DIR)?;
+	make_dir_no_follow(&work, &record.id.0)?;
+	Ok(run.job_work_dir(&record.owner_task, &record.id))
+}
+
 pub fn spawn_job(run: &RunDir, record: &JobRecord, grant: &Grant) -> anyhow::Result<u32> {
 	anyhow::ensure!(
 		grant.id == record.id,
@@ -128,6 +161,7 @@ pub fn spawn_job(run: &RunDir, record: &JobRecord, grant: &Grant) -> anyhow::Res
 	let job_dir = run.job_dir(&record.id);
 	fs::create_dir_all(&job_dir)?;
 	write_lease(run, grant)?;
+	let work = create_job_work_dir(run, record)?;
 	let log = File::create(run.job_log_path(&record.id))?;
 	let set = cpu_set(&grant.cpus)?;
 	let batch = matches!(record.request.class, JobClass::Batch);
@@ -137,6 +171,7 @@ pub fn spawn_job(run: &RunDir, record: &JobRecord, grant: &Grant) -> anyhow::Res
 		.current_dir(&record.cwd)
 		.env("CONTEST_LEASE", run.job_lease_path(&record.id))
 		.env("CONTEST_JOB_DIR", &job_dir)
+		.env("CONTEST_JOB_WORK", &work)
 		.env("CUDA_VISIBLE_DEVICES", if grant.gpu { "0" } else { "" })
 		.stdin(Stdio::null())
 		.stdout(log.try_clone()?)
@@ -144,6 +179,7 @@ pub fn spawn_job(run: &RunDir, record: &JobRecord, grant: &Grant) -> anyhow::Res
 	unsafe {
 		command.pre_exec(move || {
 			setsid().map_err(std::io::Error::from)?;
+			set_pdeathsig(Signal::SIGTERM).map_err(std::io::Error::from)?;
 			sched_setaffinity(Pid::from_raw(0), &set).map_err(std::io::Error::from)?;
 			if batch && libc::setpriority(libc::PRIO_PROCESS, 0, BATCH_NICE) != 0 {
 				return Err(std::io::Error::last_os_error());
@@ -190,23 +226,57 @@ pub fn signal_if_same_process(record: &JobRecord, signal: Signal) -> anyhow::Res
 	if pid <= 1 || process_starttime(pid) != Some(starttime) {
 		return Ok(false);
 	}
-	signal_job(pid, signal)?;
+	signal_job(pid, record.sandboxed, signal)?;
 	Ok(true)
 }
 
-pub fn signal_job(pid: u32, signal: Signal) -> anyhow::Result<()> {
-	match killpg(Pid::from_raw(workload_group(pid) as i32), signal) {
+pub fn sandbox_job(record: &mut JobRecord, spec: &SandboxSpec) {
+	record.cmd = sandbox_command(spec, &record.cmd);
+	record.sandboxed = true;
+}
+
+pub fn signal_job(pid: u32, sandboxed: bool, signal: Signal) -> anyhow::Result<()> {
+	if signal == Signal::SIGKILL {
+		return kill_job_tree(pid);
+	}
+	let group = if sandboxed {
+		sandbox_workload_group(pid).unwrap_or(pid)
+	} else {
+		pid
+	};
+	signal_group(group, signal)
+}
+
+fn signal_group(group: u32, signal: Signal) -> anyhow::Result<()> {
+	match killpg(Pid::from_raw(group as i32), signal) {
 		Ok(()) | Err(Errno::ESRCH) => Ok(()),
 		Err(error) => Err(error.into()),
 	}
 }
 
-fn workload_group(leader: u32) -> u32 {
-	process_tree(leader)
-		.into_iter()
-		.skip(1)
-		.find(|&pid| session_of(pid) == Some(pid) && is_namespace_init(pid))
-		.unwrap_or(leader)
+fn kill_job_tree(leader: u32) -> anyhow::Result<()> {
+	let tree = process_tree(leader);
+	signal_group(leader, Signal::SIGKILL)?;
+	for &process in &tree[1..] {
+		match kill(Pid::from_raw(process as i32), Signal::SIGKILL) {
+			Ok(()) | Err(Errno::ESRCH) => {}
+			Err(error) => return Err(error).with_context(|| format!("kill {process}")),
+		}
+	}
+	Ok(())
+}
+
+fn only_child(parent: u32) -> Option<u32> {
+	match children(&parent_table(), parent)[..] {
+		[child] => Some(child),
+		_ => None,
+	}
+}
+
+fn sandbox_workload_group(pasta: u32) -> Option<u32> {
+	let bwrap =
+		only_child(pasta).filter(|&pid| is_namespace_init(pid) && session_of(pid) != Some(pid))?;
+	only_child(bwrap).filter(|&pid| is_namespace_init(pid) && session_of(pid) == Some(pid))
 }
 
 fn is_namespace_init(pid: u32) -> bool {
@@ -241,20 +311,27 @@ fn thread_ids(pid: u32) -> Vec<u32> {
 		.collect()
 }
 
-pub fn process_tree(root: u32) -> Vec<u32> {
-	let parents: Vec<(u32, u32)> = all_pids()
+fn parent_table() -> Vec<(u32, u32)> {
+	all_pids()
 		.into_iter()
 		.filter_map(|pid| Some((pid, stat_field(pid, STAT_PARENT)?)))
-		.collect();
+		.collect()
+}
+
+fn children(parents: &[(u32, u32)], parent: u32) -> Vec<u32> {
+	parents
+		.iter()
+		.filter(|(_, of)| *of == parent)
+		.map(|(pid, _)| *pid)
+		.collect()
+}
+
+pub fn process_tree(root: u32) -> Vec<u32> {
+	let parents = parent_table();
 	let mut tree = vec![root];
 	let mut next = 0;
 	while let Some(&parent) = tree.get(next) {
-		tree.extend(
-			parents
-				.iter()
-				.filter(|(_, of)| *of == parent)
-				.map(|(pid, _)| *pid),
-		);
+		tree.extend(children(&parents, parent));
 		next += 1;
 	}
 	tree

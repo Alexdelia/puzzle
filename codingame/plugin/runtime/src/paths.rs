@@ -22,6 +22,7 @@ fn digits(text: &str, count: usize) -> bool {
 }
 
 const JOB_ID_MIN_DIGITS: usize = 4;
+pub const JOB_WORK_DIR: &str = "work";
 
 impl TaskId {
 	pub fn parse(text: &str) -> Result<Self, String> {
@@ -152,6 +153,10 @@ impl RunDir {
 
 	pub fn jobs(&self) -> PathBuf {
 		self.run().join("jobs")
+	}
+
+	pub fn job_work_dir(&self, owner: &TaskId, id: &JobId) -> PathBuf {
+		self.task_dir(owner).join(JOB_WORK_DIR).join(&id.0)
 	}
 
 	pub fn gc_roots(&self) -> PathBuf {
