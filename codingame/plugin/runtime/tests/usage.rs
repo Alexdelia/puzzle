@@ -122,3 +122,31 @@ fn probe_finish_reports_cleanup_failures() {
 	assert!(end.cleanup_failures[0].contains("stream.jsonl"));
 	assert!(end.outcome.rate_limit.is_some());
 }
+
+#[test]
+fn probe_runs_without_tools() {
+	let dir = tempfile::tempdir().unwrap();
+	let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/stream-success.jsonl");
+	let argv_dump = dir.path().join("argv");
+	let script = dir.path().join("claude");
+	fs::write(
+		&script,
+		format!("#!/usr/bin/env bash\nprintf '%s\\0' \"$@\" > {argv_dump:?}\ncat {fixture:?}\n"),
+	)
+	.unwrap();
+	fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+	let config = Config {
+		claude_bin: script,
+		..Config::default()
+	};
+	let mut probe = spawn_probe(&config, dir.path().join("probe/stream.jsonl")).unwrap();
+	probe.child.wait().unwrap();
+	let dump = fs::read_to_string(&argv_dump).unwrap();
+	let argv: Vec<&str> = dump.split('\0').collect();
+	let tools_at = argv
+		.iter()
+		.position(|arg| *arg == "--tools")
+		.unwrap_or_else(|| panic!("no --tools in {argv:?}"));
+	assert_eq!(argv[tools_at + 1], "");
+	assert_eq!(argv.iter().filter(|arg| **arg == "--tools").count(), 1);
+}

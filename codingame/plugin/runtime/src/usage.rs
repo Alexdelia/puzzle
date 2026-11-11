@@ -127,7 +127,7 @@ pub fn spawn_probe(config: &Config, stream_log: PathBuf) -> anyhow::Result<Probe
 		model: PROBE_MODEL.into(),
 		budget_usd: PROBE_BUDGET_USD,
 		cwd: std::env::temp_dir(),
-		tools: None,
+		tools: Some(Vec::new()),
 		stream_log,
 		env: Vec::new(),
 	};
