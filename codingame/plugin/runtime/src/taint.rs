@@ -1,12 +1,12 @@
 use std::ffi::{CStr, CString, OsStr};
 use std::fmt::Display;
 use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use nix::dir::{Dir, Type};
 use nix::errno::Errno;
 use nix::fcntl::{AtFlags, OFlag};
@@ -65,9 +65,15 @@ pub struct TopLevelExempt {
 }
 
 impl TopLevelExempt {
-	pub fn observe(contest_root: &Path) -> Self {
-		Self {
-			envrc: fs::symlink_metadata(contest_root.join(ENVRC_NAME)).is_ok(),
+	pub fn pin_at_init(contest_root: &Path) -> Result<Self> {
+		let envrc = contest_root.join(ENVRC_NAME);
+		match fs::symlink_metadata(&envrc) {
+			Ok(meta) if meta.file_type().is_file() => Ok(Self { envrc: true }),
+			Ok(_) => bail!(
+				"{envrc:?} is not a regular file (a symlink or another type): the sandbox only binds a plain .envrc"
+			),
+			Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Self { envrc: false }),
+			Err(error) => Err(error).with_context(|| format!("inspect {envrc:?}")),
 		}
 	}
 }

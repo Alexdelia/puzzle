@@ -99,7 +99,7 @@ fn top_level_exempts_ro_bound_dirs_mcp_and_launch_envrc() {
 	touch(&root.join(".git/config"));
 	touch(&root.join(".mcp.json"));
 	assert_eq!(
-		TopLevelExempt::observe(&root),
+		TopLevelExempt::pin_at_init(&root).unwrap(),
 		TopLevelExempt { envrc: true }
 	);
 	let report = scan(&root);
@@ -117,12 +117,23 @@ fn top_level_exempts_ro_bound_dirs_mcp_and_launch_envrc() {
 #[test]
 fn top_level_envrc_planted_after_launch_is_removed() {
 	let (_dir, root) = contest();
-	let exempt = TopLevelExempt::observe(&root);
+	let exempt = TopLevelExempt::pin_at_init(&root).unwrap();
 	assert_eq!(exempt, TopLevelExempt { envrc: false });
 	touch(&root.join(".envrc"));
 	let report = remove_planted_files(&root, exempt).unwrap();
 	assert_eq!(report.removed, vec![root.join(".envrc")]);
 	assert!(absent(&root.join(".envrc")));
+}
+
+#[test]
+fn envrc_pin_refuses_non_regular_envrc() {
+	let (_dir, root) = contest();
+	symlink("/etc/hostname", root.join(".envrc")).unwrap();
+	let error = TopLevelExempt::pin_at_init(&root).unwrap_err();
+	assert!(format!("{error:#}").contains(".envrc"), "{error:#}");
+	fs::remove_file(root.join(".envrc")).unwrap();
+	fs::create_dir(root.join(".envrc")).unwrap();
+	assert!(TopLevelExempt::pin_at_init(&root).is_err());
 }
 
 #[test]

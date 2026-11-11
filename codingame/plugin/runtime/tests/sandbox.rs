@@ -17,7 +17,7 @@ use contest::job::{
 };
 use contest::paths::{JobId, RunDir, TaskId};
 use contest::sandbox::{
-	SandboxSpec, bwrap_args, contest_bin_dir, dropped_env_names, sandbox_command,
+	AGENT_HOME, SandboxSpec, contest_bin_dir, dropped_env_names, pin_fd_bind_sources,
 };
 use nix::sys::signal::Signal;
 use tempfile::TempDir;
@@ -109,6 +109,14 @@ fn task() -> TaskId {
 	TaskId::parse("t0001-sim-bench").unwrap()
 }
 
+fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
+	contest::sandbox::bwrap_args(spec).unwrap()
+}
+
+fn sandbox_command(spec: &SandboxSpec, argv: &[String]) -> Vec<String> {
+	contest::sandbox::sandbox_command(spec, argv).unwrap()
+}
+
 fn spec_under(root: &Path, own_task: Option<TaskId>) -> SandboxSpec {
 	let repo = root.join("repo");
 	let contest = repo.join("bot-programming/c1");
@@ -118,6 +126,7 @@ fn spec_under(root: &Path, own_task: Option<TaskId>) -> SandboxSpec {
 	SandboxSpec {
 		repo_root: repo.clone(),
 		contest_root: contest.clone(),
+		contest_envrc: true,
 		toolbox: vec![
 			repo.join("bot-programming/c0"),
 			repo.join("optimization/o1"),
@@ -126,10 +135,10 @@ fn spec_under(root: &Path, own_task: Option<TaskId>) -> SandboxSpec {
 		claude_config: contest.join("run/claude-config"),
 		credentials: root.join("host-home/.claude/.credentials.json"),
 		sandbox_home: contest.join(format!("run/agents/{home_owner}/home")),
-		home: root.join("host-home"),
 		own_task,
 		dropped_host_env: vec!["CLAUDE_CODE_MESSAGING_TOKEN".into()],
 		pasta_bin: "/nix/passt/bin/pasta".into(),
+		launcher: env!("CARGO_BIN_EXE_contest").into(),
 	}
 }
 
@@ -143,7 +152,8 @@ fn mounts(args: &[String]) -> Vec<(String, String, String)> {
 	while index < args.len() {
 		let flag = args[index].as_str();
 		match flag {
-			"--bind" | "--ro-bind" | "--ro-bind-try" | "--bind-try" => {
+			"--bind" | "--ro-bind" | "--ro-bind-try" | "--bind-try" | "--bind-fd"
+			| "--ro-bind-fd" => {
 				found.push((
 					flag.into(),
 					args[index + 1].clone(),
@@ -201,9 +211,12 @@ fn bwrap_starts_with_isolation_flags() {
 		"/run/user",
 		"--tmpfs",
 		"/home",
-		"--bind",
+		"--bind-fd",
 		"/r/repo/bot-programming/c1/run/agents/t0001-sim-bench/home",
-		"/r/host-home",
+		"/home/contest-agent",
+		"--setenv",
+		"HOME",
+		"/home/contest-agent",
 		"--tmpfs",
 		"/r/repo",
 	]
@@ -290,11 +303,11 @@ fn run_dir_is_read_only_except_own_task_and_requests() {
 		root: spec.contest_root.clone(),
 	};
 	let task = task();
-	let contest = position(&args, "--bind", &spec.contest_root);
-	let run_ro = position(&args, "--ro-bind", &run.root.join("run"));
-	let task_rw = position(&args, "--bind", &run.task_dir(&task));
-	let meta_ro = position(&args, "--ro-bind", &run.task_meta(&task));
-	let requests_rw = position(&args, "--bind", &run.task_requests(&task));
+	let contest = position(&args, "--bind-fd", &spec.contest_root);
+	let run_ro = position(&args, "--ro-bind-fd", &run.root.join("run"));
+	let task_rw = position(&args, "--bind-fd", &run.task_dir(&task));
+	let meta_ro = position(&args, "--ro-bind-fd", &run.task_meta(&task));
+	let requests_rw = position(&args, "--bind-fd", &run.task_requests(&task));
 	assert!(position(&args, "--tmpfs", &spec.repo_root) < contest);
 	assert!(contest < run_ro);
 	assert!(run_ro < task_rw);
@@ -310,7 +323,7 @@ fn run_dir_is_read_only_except_own_task_and_requests() {
 	);
 	let rw: Vec<String> = mounts(&args)
 		.into_iter()
-		.filter(|(flag, _, _)| flag == "--bind")
+		.filter(|(flag, _, _)| flag == "--bind" || flag == "--bind-fd")
 		.map(|(_, _, dest)| dest)
 		.collect();
 	assert!(!rw.contains(&text(&run.jobs())));
@@ -321,11 +334,120 @@ fn run_dir_is_read_only_except_own_task_and_requests() {
 fn host_executed_contest_files_read_only() {
 	let spec = spec();
 	let args = bwrap_args(&spec);
-	let contest = position(&args, "--bind", &spec.contest_root);
-	let claude = position(&args, "--ro-bind", &spec.contest_root.join(".claude"));
-	let direnv = position(&args, "--ro-bind", &spec.contest_root.join(".direnv"));
-	let envrc = position(&args, "--ro-bind-try", &spec.contest_root.join(".envrc"));
+	let contest = position(&args, "--bind-fd", &spec.contest_root);
+	let claude = position(&args, "--ro-bind-fd", &spec.contest_root.join(".claude"));
+	let direnv = position(&args, "--ro-bind-fd", &spec.contest_root.join(".direnv"));
+	let envrc = position(&args, "--ro-bind-fd", &spec.contest_root.join(".envrc"));
 	assert!(contest < claude && contest < direnv && contest < envrc);
+}
+
+const FD_BINDS: [&str; 2] = ["--bind-fd", "--ro-bind-fd"];
+
+fn binds_from_worker_trees(spec: &SandboxSpec) -> Vec<(String, String, String)> {
+	let contest = text(&spec.contest_root);
+	mounts(&bwrap_args(spec))
+		.into_iter()
+		.filter(|(flag, source, _)| flag.contains("bind") && source.starts_with(&contest))
+		.collect()
+}
+
+#[test]
+fn worker_tree_sources_bound_by_fd() {
+	for spec in [spec(), spec_under(Path::new("/r"), None)] {
+		let binds = binds_from_worker_trees(&spec);
+		assert!(binds.len() >= 6, "{binds:?}");
+		for (flag, source, _) in &binds {
+			assert!(FD_BINDS.contains(&flag.as_str()), "{flag} {source}");
+		}
+	}
+}
+
+#[test]
+fn no_try_bind_on_worker_creatable_paths() {
+	for contest_envrc in [true, false] {
+		let spec = SandboxSpec {
+			contest_envrc,
+			..spec()
+		};
+		let contest = text(&spec.contest_root);
+		let envrc = text(&spec.contest_root.join(".envrc"));
+		let mut envrc_binds = Vec::new();
+		for (flag, source, dest) in mounts(&bwrap_args(&spec)) {
+			assert!(
+				!(flag.ends_with("-try") && source.starts_with(&contest)),
+				"{flag} {source}"
+			);
+			if dest == envrc {
+				envrc_binds.push((flag, source));
+			}
+		}
+		let expected = if contest_envrc {
+			vec![("--ro-bind-fd".to_string(), envrc.clone())]
+		} else {
+			Vec::new()
+		};
+		assert_eq!(envrc_binds, expected);
+	}
+}
+
+#[test]
+fn destination_under_agent_home_is_refused() {
+	let spec = spec_under(&Path::new(AGENT_HOME).join("x"), Some(task()));
+	let error = contest::sandbox::bwrap_args(&spec).unwrap_err();
+	assert!(format!("{error:#}").contains("agent home"), "{error:#}");
+	let error = contest::sandbox::sandbox_command(&spec, &[]).unwrap_err();
+	assert!(format!("{error:#}").contains("agent home"), "{error:#}");
+}
+
+fn os(parts: &[&str]) -> Vec<std::ffi::OsString> {
+	parts.iter().map(Into::into).collect()
+}
+
+#[test]
+fn launcher_pins_fd_bind_sources_without_symlinks() {
+	let dir = TempDir::new().unwrap();
+	let root = fs::canonicalize(dir.path()).unwrap();
+	let real = root.join("real");
+	fs::create_dir_all(&real).unwrap();
+	let link = root.join("link");
+	std::os::unix::fs::symlink(&real, &link).unwrap();
+	let real_text = text(&real);
+	let pinned = pin_fd_bind_sources(&os(&[
+		"bwrap",
+		"--ro-bind-fd",
+		&real_text,
+		"/dest",
+		"--",
+		"--bind-fd",
+		&real_text,
+	]))
+	.unwrap();
+	let fd: i32 = pinned[2].to_str().unwrap().parse().unwrap();
+	assert_eq!(fs::read_link(format!("/proc/self/fd/{fd}")).unwrap(), real);
+	assert_eq!(
+		pinned[3..],
+		os(&["/dest", "--", "--bind-fd", &real_text])[..]
+	);
+	for refused in [link.clone(), link.join("sub"), PathBuf::from("relative")] {
+		let error =
+			pin_fd_bind_sources(&os(&["bwrap", "--bind-fd", &text(&refused), "/d"])).unwrap_err();
+		assert!(format!("{error:#}").contains(&text(&refused)), "{error:#}");
+	}
+	let fifo = root.join("fifo");
+	nix::unistd::mkfifo(&fifo, nix::sys::stat::Mode::S_IRWXU).unwrap();
+	assert!(pin_fd_bind_sources(&os(&["bwrap", "--ro-bind-fd", &text(&fifo), "/d"])).is_err());
+}
+
+#[test]
+fn agent_home_mounted_at_fixed_path() {
+	let spec = spec();
+	let args = bwrap_args(&spec);
+	let home = &mounts(&args)[position(&args, "--bind-fd", Path::new(AGENT_HOME))];
+	assert_eq!(home.1, text(&spec.sandbox_home));
+	let setenv = args
+		.windows(3)
+		.any(|window| window == ["--setenv", "HOME", AGENT_HOME]);
+	assert!(setenv, "{args:?}");
 }
 
 #[test]
@@ -335,17 +457,17 @@ fn manager_sandbox_has_no_task_binds() {
 	let contest = text(&spec.contest_root);
 	let rw_in_contest: Vec<_> = mounts(&args)
 		.into_iter()
-		.filter(|(flag, _, dest)| flag == "--bind" && dest.starts_with(&contest))
+		.filter(|(flag, _, dest)| flag.starts_with("--bind") && dest.starts_with(&contest))
 		.map(|(_, _, dest)| dest)
 		.collect();
 	assert_eq!(
 		rw_in_contest,
 		vec![text(&spec.claude_config.join(".credentials.json"))]
 	);
-	let contest_ro = position(&args, "--ro-bind", &spec.contest_root);
+	let contest_ro = position(&args, "--ro-bind-fd", &spec.contest_root);
 	assert!(position(&args, "--tmpfs", &spec.repo_root) < contest_ro);
-	assert!(contest_ro < position(&args, "--ro-bind", &spec.contest_root.join("run")));
-	let home = &mounts(&args)[position(&args, "--bind", &spec.home)];
+	assert!(contest_ro < position(&args, "--ro-bind-fd", &spec.contest_root.join("run")));
+	let home = &mounts(&args)[position(&args, "--bind-fd", Path::new(AGENT_HOME))];
 	assert_eq!(home.1, text(&spec.sandbox_home));
 	assert!(home.1.ends_with("run/agents/manager/home"));
 }
@@ -360,16 +482,16 @@ fn plugin_paths_read_only_and_claude_config_layered() {
 	let config_tmpfs = position(&args, "--tmpfs", &spec.claude_config);
 	let settings = position(
 		&args,
-		"--ro-bind",
+		"--ro-bind-fd",
 		&spec.claude_config.join("settings.json"),
 	);
-	let skills = position(&args, "--ro-bind-try", &spec.claude_config.join("skills"));
+	let skills = position(&args, "--ro-bind-fd", &spec.claude_config.join("skills"));
 	let credentials = position(
 		&args,
 		"--bind",
 		&spec.claude_config.join(".credentials.json"),
 	);
-	assert!(position(&args, "--ro-bind", &spec.contest_root.join("run")) < config_tmpfs);
+	assert!(position(&args, "--ro-bind-fd", &spec.contest_root.join("run")) < config_tmpfs);
 	assert!(config_tmpfs < settings && config_tmpfs < skills && config_tmpfs < credentials);
 	let credentials_mount = &mounts(&args)[credentials];
 	assert_eq!(credentials_mount.1, text(&spec.credentials));
@@ -395,7 +517,8 @@ fn sandbox_command_runs_bwrap_inside_pasta() {
 	let command = sandbox_command(&spec, &argv);
 	let mut expected = vec!["/nix/passt/bin/pasta".to_string()];
 	expected.extend(PASTA_FLAGS.map(String::from));
-	expected.extend(["--".to_string(), "bwrap".to_string()]);
+	expected
+		.extend(["--", env!("CARGO_BIN_EXE_contest"), "sandbox-exec", "bwrap"].map(String::from));
 	expected.extend(bwrap_args(&spec));
 	expected.extend(["--", "cargo", "build"].map(String::from));
 	assert_eq!(command, expected);
@@ -444,6 +567,7 @@ fn layout() -> Layout {
 	touch(&spec.contest_root.join(".envrc"), "use flake");
 	fs::create_dir_all(run.jobs().join("j0001")).unwrap();
 	touch(&spec.claude_config.join("settings.json"), "{}");
+	fs::create_dir_all(spec.claude_config.join("skills")).unwrap();
 	fs::create_dir_all(&spec.sandbox_home).unwrap();
 	touch(&spec.credentials, "token");
 	touch(&spec.contest_root.join("src/main.rs"), "fn main() {}");
@@ -658,7 +782,7 @@ fn real_bwrap_enforces_layout() {
 			probe_line(&spec.claude_config.join(".credentials.json")),
 			"rw",
 		),
-		("home", probe_dir_line(&spec.home), "rw"),
+		("home", probe_dir_line(Path::new(AGENT_HOME)), "rw"),
 		(
 			"nix daemon socket",
 			probe_line(&Path::new(NIX_DAEMON_SOCKET_DIR).join("socket")),
@@ -690,6 +814,58 @@ fn real_bwrap_enforces_layout() {
 	);
 	assert!(!spec.claude_config.join("probe").exists());
 	assert_eq!(fs::read_to_string(run.config()).unwrap(), "workers = 3\n");
+}
+
+#[test]
+fn real_sandbox_never_binds_envrc_symlink_target() {
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	let secret = spec.repo_root.parent().unwrap().join("host-secret");
+	fs::write(&secret, "host secret").unwrap();
+	let envrc = spec.contest_root.join(".envrc");
+	fs::remove_file(&envrc).unwrap();
+	std::os::unix::fs::symlink(&secret, &envrc).unwrap();
+	let argv = vec!["cat".to_string(), text(&envrc)];
+	let command = sandbox_command(&spec, &argv);
+	let output = Command::new(&command[0])
+		.args(&command[1..])
+		.output()
+		.unwrap();
+	let stdout = String::from_utf8_lossy(&output.stdout);
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(!stdout.contains("host secret"), "{stdout}");
+	assert!(!output.status.success());
+	assert!(stderr.contains(".envrc"), "{stderr}");
+}
+
+#[test]
+fn real_sandbox_inherits_no_bind_source_fds() {
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	let listing = sandboxed(&spec, &["ls", "-l", "/proc/self/fd"]);
+	let fds: Vec<(&str, &str)> = listing
+		.lines()
+		.filter_map(|line| line.split_once(" -> "))
+		.map(|(left, target)| (left.rsplit(' ').next().unwrap(), target))
+		.collect();
+	let numbers: Vec<&str> = fds.iter().map(|(fd, _)| *fd).collect();
+	assert_eq!(numbers, ["0", "1", "2", "3"], "{listing}");
+	assert!(fds[3].1.starts_with("/proc/"), "{listing}");
+}
+
+#[test]
+fn real_sandbox_leaves_no_mountpoint_dirs_in_agent_home() {
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	sandboxed(&spec, &["true"]);
+	let leftovers: Vec<_> = fs::read_dir(&spec.sandbox_home)
+		.unwrap()
+		.map(|entry| entry.unwrap().file_name())
+		.collect();
+	assert!(leftovers.is_empty(), "{leftovers:?}");
 }
 
 fn uid() -> u32 {
@@ -758,7 +934,7 @@ fn real_bwrap_hides_host_environment() {
 	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
 		return;
 	};
-	let script = "echo ${SSH_AUTH_SOCK:-unset} ${XDG_RUNTIME_DIR:-unset} ${CLAUDE_CODE_MESSAGING_TOKEN:-unset} $CLAUDE_CONFIG_DIR";
+	let script = "echo ${SSH_AUTH_SOCK:-unset} ${XDG_RUNTIME_DIR:-unset} ${CLAUDE_CODE_MESSAGING_TOKEN:-unset} $CLAUDE_CONFIG_DIR $HOME";
 	let argv = vec!["sh".to_string(), "-c".to_string(), script.to_string()];
 	let command = sandbox_command(&spec, &argv);
 	let output = Command::new(&command[0])
@@ -767,12 +943,12 @@ fn real_bwrap_hides_host_environment() {
 		.env("XDG_RUNTIME_DIR", "/run/user/1000")
 		.env("CLAUDE_CODE_MESSAGING_TOKEN", "host-session")
 		.env("CLAUDE_CONFIG_DIR", "/run-config")
-		.env("HOME", &spec.home)
+		.env("HOME", "/host-home")
 		.output()
 		.unwrap();
 	assert_eq!(
 		String::from_utf8_lossy(&output.stdout).trim(),
-		"unset unset unset /run-config"
+		"unset unset unset /run-config /home/contest-agent"
 	);
 }
 
@@ -908,8 +1084,10 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 	assert!(spec.plugin_ro.iter().all(|path| !path.ends_with("corpus")));
 	assert_eq!(
 		spec.credentials,
-		spec.home.join(".claude/.credentials.json")
+		PathBuf::from(std::env::var_os("HOME").unwrap()).join(".claude/.credentials.json")
 	);
+	assert_eq!(spec.launcher, contest_bin_dir().unwrap().join("contest"));
+	assert!(!spec.contest_envrc);
 	assert_eq!(spec.own_task, Some(task()));
 	assert_eq!(
 		spec.dropped_host_env,
@@ -953,6 +1131,49 @@ fn spec_for_run_refuses_symlinked_host_executed_dirs() {
 			format!("{error:#}").contains("symlink"),
 			"{name}: {error:#}"
 		);
+	}
+}
+
+fn pinned_envrc_contest(envrc: impl FnOnce(&Path)) -> (TempDir, RunDir, Config) {
+	let dir = TempDir::new().unwrap();
+	let run = RunDir {
+		root: dir.path().join("repo/bot-programming/c1"),
+	};
+	fs::create_dir_all(&run.root).unwrap();
+	envrc(&run.root.join(".envrc"));
+	let config = Config {
+		repo_root: dir.path().join("repo"),
+		plugin_dir: dir.path().join("repo/plugin"),
+		pasta_bin: "/nix/passt/bin/pasta".into(),
+		contest_envrc: true,
+		..Config::default()
+	};
+	(dir, run, config)
+}
+
+#[test]
+fn spec_for_run_refuses_swapped_pinned_envrc() {
+	let (_dir, run, config) = pinned_envrc_contest(|envrc| fs::write(envrc, "use flake").unwrap());
+	assert!(
+		SandboxSpec::for_run(&run, &config, Some(task()))
+			.unwrap()
+			.contest_envrc
+	);
+	let swaps: [fn(&Path); 3] = [
+		|_| {},
+		|envrc| std::os::unix::fs::symlink("/etc/hostname", envrc).unwrap(),
+		|envrc| fs::create_dir(envrc).unwrap(),
+	];
+	for swap in swaps {
+		let (_dir, run, config) = pinned_envrc_contest(swap);
+		let error = SandboxSpec::for_run(&run, &config, Some(task())).unwrap_err();
+		assert!(format!("{error:#}").contains(".envrc"), "{error:#}");
+		let unpinned = Config {
+			contest_envrc: false,
+			..config
+		};
+		let spec = SandboxSpec::for_run(&run, &unpinned, Some(task())).unwrap();
+		assert!(!spec.contest_envrc);
 	}
 }
 
@@ -1203,7 +1424,7 @@ fn plain_job(id: &str, class: JobClass, cwd: &Path, argv: &[String]) -> JobRecor
 
 fn sandboxed_job(spec: &SandboxSpec, id: &str, class: JobClass, argv: &[String]) -> JobRecord {
 	let mut record = plain_job(id, class, &spec.contest_root, argv);
-	sandbox_job(&mut record, spec);
+	sandbox_job(&mut record, spec).unwrap();
 	record
 }
 

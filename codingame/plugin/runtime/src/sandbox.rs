@@ -1,7 +1,14 @@
+use std::convert::Infallible;
+use std::ffi::OsString;
 use std::fs;
+use std::os::fd::IntoRawFd;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use anyhow::{Context, Result, bail, ensure};
+use nix::fcntl::{AT_FDCWD, OFlag, OpenHow, ResolveFlag, openat2};
+use nix::sys::stat::{SFlag, fstat};
 use nix::unistd::{getgid, getuid};
 
 use crate::config::Config;
@@ -49,20 +56,27 @@ const HOST_EXECUTED_CONTEST_DIRS: [&str; 2] = [".claude", ".direnv"];
 const HOST_EXECUTED_CONTEST_FILE: &str = ".envrc";
 const PLUGIN_READ_ONLY_DIRS: [&str; 3] = ["prompts", "skills", "kb"];
 const MANAGER_HOME_OWNER: &str = "manager";
+const CONTEST_BIN: &str = "contest";
+const LAUNCHER_VERB: &str = "sandbox-exec";
+pub const AGENT_HOME: &str = "/home/contest-agent";
+const BIND_FD: &str = "--bind-fd";
+const RO_BIND_FD: &str = "--ro-bind-fd";
+const END_OF_OPTIONS: &str = "--";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SandboxSpec {
 	pub repo_root: PathBuf,
 	pub contest_root: PathBuf,
+	pub contest_envrc: bool,
 	pub toolbox: Vec<PathBuf>,
 	pub plugin_ro: Vec<PathBuf>,
 	pub claude_config: PathBuf,
 	pub credentials: PathBuf,
 	pub sandbox_home: PathBuf,
-	pub home: PathBuf,
 	pub own_task: Option<TaskId>,
 	pub dropped_host_env: Vec<String>,
 	pub pasta_bin: PathBuf,
+	pub launcher: PathBuf,
 }
 
 pub fn dropped_env_names(names: impl IntoIterator<Item = String>) -> Vec<String> {
@@ -102,6 +116,16 @@ fn create_host_executed_dir(dir: &Path) -> Result<()> {
 	create_dir(dir)
 }
 
+fn ensure_pinned_envrc(envrc: &Path) -> Result<()> {
+	let meta = fs::symlink_metadata(envrc)
+		.with_context(|| format!("pinned {envrc:?} is gone, refusing to launch"))?;
+	ensure!(
+		meta.file_type().is_file(),
+		"pinned {envrc:?} is no longer a regular file (a symlink or another type), refusing to launch"
+	);
+	Ok(())
+}
+
 impl SandboxSpec {
 	pub fn for_run(run: &RunDir, config: &Config, own_task: Option<TaskId>) -> Result<Self> {
 		ensure!(
@@ -126,13 +150,17 @@ impl SandboxSpec {
 		for dir in HOST_EXECUTED_CONTEST_DIRS {
 			create_host_executed_dir(&run.root.join(dir))?;
 		}
+		if config.contest_envrc {
+			ensure_pinned_envrc(&run.root.join(HOST_EXECUTED_CONTEST_FILE))?;
+		}
 		let home = PathBuf::from(std::env::var_os("HOME").context("HOME is not set")?);
 		let home_owner = own_task
 			.as_ref()
 			.map_or(MANAGER_HOME_OWNER, |task| task.0.as_str());
 		let sandbox_home = run.agents().join(home_owner).join("home");
 		create_dir(&sandbox_home)?;
-		let mut plugin_ro = vec![contest_bin_dir()?];
+		let bin_dir = contest_bin_dir()?;
+		let mut plugin_ro = vec![bin_dir.clone()];
 		plugin_ro.extend(
 			PLUGIN_READ_ONLY_DIRS
 				.iter()
@@ -140,22 +168,26 @@ impl SandboxSpec {
 		);
 		Ok(Self {
 			repo_root: config.repo_root.clone(),
+			contest_envrc: config.contest_envrc,
 			toolbox: config.toolbox.clone(),
 			plugin_ro,
 			claude_config: run.claude_config(),
 			credentials: home.join(".claude/.credentials.json"),
 			sandbox_home,
-			home,
 			own_task,
 			dropped_host_env: dropped_host_env(),
 			pasta_bin: config.pasta_bin.clone(),
+			launcher: bin_dir.join(CONTEST_BIN),
 			contest_root: run.root,
 		})
 	}
 }
 
 #[derive(Default)]
-struct Argv(Vec<String>);
+struct Argv {
+	args: Vec<String>,
+	destinations: Vec<PathBuf>,
+}
 
 fn text(path: &Path) -> String {
 	path.to_string_lossy().into_owned()
@@ -163,17 +195,26 @@ fn text(path: &Path) -> String {
 
 impl Argv {
 	fn flag(&mut self, flag: &str) {
-		self.0.push(flag.to_owned());
+		self.args.push(flag.to_owned());
 	}
 
-	fn on(&mut self, flag: &str, path: &Path) {
+	fn on(&mut self, flag: &str, dest: &Path) {
 		self.flag(flag);
-		self.0.push(text(path));
+		self.args.push(text(dest));
+		self.destinations.push(dest.to_path_buf());
 	}
 
 	fn mount(&mut self, flag: &str, source: &Path, dest: &Path) {
-		self.on(flag, source);
-		self.0.push(text(dest));
+		self.flag(flag);
+		self.args.push(text(source));
+		self.args.push(text(dest));
+		self.destinations.push(dest.to_path_buf());
+	}
+
+	fn setenv(&mut self, name: &str, value: &str) {
+		self.flag("--setenv");
+		self.flag(name);
+		self.flag(value);
 	}
 
 	fn same(&mut self, flag: &str, path: &Path) {
@@ -181,29 +222,29 @@ impl Argv {
 	}
 }
 
-fn contest_mounts(argv: &mut Argv, contest_root: &Path, contest_bind: &str) {
+fn contest_mounts(argv: &mut Argv, spec: &SandboxSpec, contest_bind: &str) {
+	let contest_root = &spec.contest_root;
 	argv.same(contest_bind, contest_root);
 	for dir in HOST_EXECUTED_CONTEST_DIRS {
-		argv.same("--ro-bind", &contest_root.join(dir));
+		argv.same(RO_BIND_FD, &contest_root.join(dir));
 	}
-	argv.same(
-		"--ro-bind-try",
-		&contest_root.join(HOST_EXECUTED_CONTEST_FILE),
-	);
-	argv.same("--ro-bind", &contest_root.join("run"));
+	if spec.contest_envrc {
+		argv.same(RO_BIND_FD, &contest_root.join(HOST_EXECUTED_CONTEST_FILE));
+	}
+	argv.same(RO_BIND_FD, &contest_root.join("run"));
 }
 
 fn own_task_mounts(argv: &mut Argv, run: &RunDir, task: &TaskId) {
-	argv.same("--bind", &run.task_dir(task));
-	argv.same("--ro-bind", &run.task_meta(task));
-	argv.same("--bind", &run.task_requests(task));
+	argv.same(BIND_FD, &run.task_dir(task));
+	argv.same(RO_BIND_FD, &run.task_meta(task));
+	argv.same(BIND_FD, &run.task_requests(task));
 }
 
 fn claude_config_mounts(argv: &mut Argv, spec: &SandboxSpec) {
 	let config = &spec.claude_config;
 	argv.on("--tmpfs", config);
-	argv.same("--ro-bind", &config.join("settings.json"));
-	argv.same("--ro-bind-try", &config.join("skills"));
+	argv.same(RO_BIND_FD, &config.join("settings.json"));
+	argv.same(RO_BIND_FD, &config.join("skills"));
 	argv.mount(
 		"--bind",
 		&spec.credentials,
@@ -219,7 +260,16 @@ fn keep_host_identity(argv: &mut Argv) {
 	argv.flag(&getgid().to_string());
 }
 
-pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
+fn ensure_nothing_mounted_under(home: &Path, destinations: &[PathBuf]) -> Result<()> {
+	if let Some(dest) = destinations.iter().find(|dest| dest.starts_with(home)) {
+		bail!(
+			"sandbox destination {dest:?} lies under the agent home {home:?}: it would resolve through a worker-writable dir"
+		);
+	}
+	Ok(())
+}
+
+pub fn bwrap_args(spec: &SandboxSpec) -> Result<Vec<String>> {
 	let mut argv = Argv::default();
 	keep_host_identity(&mut argv);
 	for flag in ISOLATION_FLAGS {
@@ -231,16 +281,19 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
 	for dir in HIDDEN_DIRS {
 		argv.on("--tmpfs", Path::new(dir));
 	}
-	argv.mount("--bind", &spec.sandbox_home, &spec.home);
+	let agent_home = Path::new(AGENT_HOME);
+	argv.mount(BIND_FD, &spec.sandbox_home, agent_home);
+	argv.setenv("HOME", AGENT_HOME);
+	let after_home = argv.destinations.len();
 	argv.on("--tmpfs", &spec.repo_root);
 	for tool in &spec.toolbox {
 		argv.same("--ro-bind", tool);
 	}
 	let contest_bind = match spec.own_task {
-		Some(_) => "--bind",
-		None => "--ro-bind",
+		Some(_) => BIND_FD,
+		None => RO_BIND_FD,
 	};
-	contest_mounts(&mut argv, &spec.contest_root, contest_bind);
+	contest_mounts(&mut argv, spec, contest_bind);
 	if let Some(task) = &spec.own_task {
 		let run = RunDir {
 			root: spec.contest_root.clone(),
@@ -264,16 +317,61 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Vec<String> {
 		argv.flag("--unsetenv");
 		argv.flag(name);
 	}
-	argv.0
+	ensure_nothing_mounted_under(agent_home, &argv.destinations[after_home..])?;
+	Ok(argv.args)
 }
 
-pub fn sandbox_command(spec: &SandboxSpec, argv: &[String]) -> Vec<String> {
+pub fn sandbox_command(spec: &SandboxSpec, argv: &[String]) -> Result<Vec<String>> {
 	let mut command = vec![text(&spec.pasta_bin)];
 	command.extend(PASTA_FLAGS.map(String::from));
-	command.push("--".to_owned());
+	command.push(END_OF_OPTIONS.to_owned());
+	command.push(text(&spec.launcher));
+	command.push(LAUNCHER_VERB.to_owned());
 	command.push(BWRAP.to_owned());
-	command.extend(bwrap_args(spec));
-	command.push("--".to_owned());
+	command.extend(bwrap_args(spec)?);
+	command.push(END_OF_OPTIONS.to_owned());
 	command.extend(argv.iter().cloned());
-	command
+	Ok(command)
+}
+
+fn open_bind_source(path: &Path) -> Result<i32> {
+	ensure!(path.is_absolute(), "bind source {path:?} is not absolute");
+	let how = OpenHow::new()
+		.flags(OFlag::O_PATH)
+		.resolve(ResolveFlag::RESOLVE_NO_SYMLINKS);
+	let fd = openat2(AT_FDCWD, path, how).with_context(|| {
+		format!("open bind source {path:?} without following symlinks, refusing to launch")
+	})?;
+	let kind = SFlag::from_bits_truncate(fstat(&fd)?.st_mode) & SFlag::S_IFMT;
+	ensure!(
+		kind == SFlag::S_IFDIR || kind == SFlag::S_IFREG,
+		"bind source {path:?} is neither a dir nor a regular file, refusing to launch"
+	);
+	Ok(fd.into_raw_fd())
+}
+
+pub fn pin_fd_bind_sources(command: &[OsString]) -> Result<Vec<OsString>> {
+	let mut pinned = Vec::with_capacity(command.len());
+	let mut parts = command.iter();
+	while let Some(part) = parts.next() {
+		pinned.push(part.clone());
+		if part == END_OF_OPTIONS {
+			pinned.extend(parts.by_ref().cloned());
+			break;
+		}
+		if part == BIND_FD || part == RO_BIND_FD {
+			let source = parts
+				.next()
+				.with_context(|| format!("{part:?} lacks its source"))?;
+			pinned.push(open_bind_source(Path::new(source))?.to_string().into());
+		}
+	}
+	Ok(pinned)
+}
+
+pub fn exec_with_pinned_sources(command: &[OsString]) -> Result<Infallible> {
+	let pinned = pin_fd_bind_sources(command)?;
+	let (program, args) = pinned.split_first().context("empty sandbox command")?;
+	let error = Command::new(program).args(args).exec();
+	Err(error).with_context(|| format!("exec {program:?}"))
 }

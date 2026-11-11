@@ -350,3 +350,29 @@ fn init_refuses_contest_dir_holding_git() {
 	assert!(String::from_utf8_lossy(&output.stderr).contains(".git"));
 	assert!(!repo.path().join("run").exists());
 }
+
+#[test]
+fn init_pins_contest_envrc_presence() {
+	let repo = tempfile::tempdir().unwrap();
+	git_repo_with_commit(repo.path());
+	let plain = repo.path().join("bot-programming/plain");
+	run_init(&plain, repo.path(), &[]);
+	assert!(
+		!Config::load(&RunDir { root: plain }.config())
+			.unwrap()
+			.contest_envrc
+	);
+	let with_envrc = repo.path().join("bot-programming/with-envrc");
+	fs::create_dir_all(&with_envrc).unwrap();
+	fs::write(with_envrc.join(".envrc"), "use flake").unwrap();
+	run_init(&with_envrc, repo.path(), &[]);
+	let run = RunDir { root: with_envrc };
+	assert!(Config::load(&run.config()).unwrap().contest_envrc);
+	let linked = repo.path().join("bot-programming/linked");
+	fs::create_dir_all(&linked).unwrap();
+	std::os::unix::fs::symlink("/etc/hostname", linked.join(".envrc")).unwrap();
+	let output = init_command(&linked, repo.path()).output().unwrap();
+	assert!(!output.status.success());
+	assert!(String::from_utf8_lossy(&output.stderr).contains(".envrc"));
+	assert!(!linked.join("run").exists());
+}

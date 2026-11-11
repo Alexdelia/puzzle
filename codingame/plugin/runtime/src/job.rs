@@ -254,9 +254,10 @@ pub fn signal_if_same_process(record: &JobRecord, signal: Signal) -> anyhow::Res
 	Ok(true)
 }
 
-pub fn sandbox_job(record: &mut JobRecord, spec: &SandboxSpec) {
-	record.cmd = sandbox_command(spec, &record.cmd);
+pub fn sandbox_job(record: &mut JobRecord, spec: &SandboxSpec) -> anyhow::Result<()> {
+	record.cmd = sandbox_command(spec, &record.cmd)?;
 	record.sandboxed = true;
+	Ok(())
 }
 
 pub fn signal_job(pid: u32, sandboxed: bool, signal: Signal) -> anyhow::Result<()> {

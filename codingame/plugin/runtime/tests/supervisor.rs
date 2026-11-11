@@ -985,8 +985,42 @@ fn manager_runs_sandboxed_with_read_only_tools() {
 			.windows(3)
 			.any(|mount| mount[0] == flag && mount[1] == root && mount[2] == root)
 	};
-	assert!(bound("--ro-bind"));
-	assert!(!bound("--bind"));
+	assert!(bound("--ro-bind-fd"));
+	assert!(!bound("--bind-fd") && !bound("--bind") && !bound("--ro-bind"));
+}
+
+#[test]
+fn swapped_pinned_envrc_fails_launch_closed() {
+	let contest = contest(1);
+	let run = &contest.run;
+	std::os::unix::fs::symlink(contest.home.join("secret"), run.root.join(".envrc")).unwrap();
+	edit_config(&contest, |config| {
+		config.sandbox = true;
+		config.contest_envrc = true;
+		config.pasta_bin = PathBuf::from("/nonexistent/pasta");
+		config.repo_root = run.root.clone();
+	});
+	let id = create_task(run, "sim-bench", 0);
+	let supervisor = start(&contest, "contest task done");
+	wait_until(10, "launch failed event", || {
+		event_count(run, "launch_failed") >= 1
+	});
+	supervisor.stop(run);
+	let failure = events(run)
+		.into_iter()
+		.find(|event| event["event"] == "launch_failed")
+		.unwrap();
+	assert_eq!(failure["task"], id.0);
+	assert!(
+		failure["error"].as_str().unwrap().contains(".envrc"),
+		"{failure}"
+	);
+	assert_eq!(state(run, &id), TaskState::Queued);
+	assert!(
+		fs::symlink_metadata(run.root.join(".envrc"))
+			.unwrap()
+			.is_symlink()
+	);
 }
 
 #[test]

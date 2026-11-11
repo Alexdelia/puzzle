@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use std::fs::{self, File, OpenOptions};
 use std::io;
 use std::os::unix::fs::PermissionsExt;
@@ -20,9 +21,10 @@ use crate::events::{Event, emit};
 use crate::hook::{HookVerb, run_hook};
 use crate::paths::RunDir;
 use crate::run_info::{Mode, RunInfo};
+use crate::sandbox::exec_with_pinned_sources;
 use crate::status::{running_supervisor, status_text};
 use crate::supervisor::{DEFAULT_STOP_REASON, STOP_SETTLE_SECONDS, run_supervisor};
-use crate::taint::ensure_no_top_level_git;
+use crate::taint::{TopLevelExempt, ensure_no_top_level_git};
 use crate::worker::{WorkerVerb, run_worker};
 
 const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\ntasks/*/work/\nsupervisor.log\nsupervisor.pid\n";
@@ -52,6 +54,14 @@ pub enum Verb {
 	Hook(HookVerb),
 	#[command(flatten)]
 	Worker(WorkerVerb),
+	#[command(hide = true)]
+	SandboxExec(SandboxExecArgs),
+}
+
+#[derive(Debug, clap::Args)]
+pub struct SandboxExecArgs {
+	#[arg(trailing_var_arg = true, allow_hyphen_values = true, required = true)]
+	pub command: Vec<OsString>,
 }
 
 #[derive(Debug, clap::Args)]
@@ -109,6 +119,9 @@ pub fn run(cli: Cli) -> anyhow::Result<ExitCode> {
 		Verb::Say(args) => say(args).map(|()| ExitCode::SUCCESS),
 		Verb::Hook(verb) => Ok(run_hook(verb)),
 		Verb::Worker(verb) => run_worker(verb, cli.timeout).map(|()| ExitCode::SUCCESS),
+		Verb::SandboxExec(args) => {
+			exec_with_pinned_sources(&args.command).map(|never| match never {})
+		}
 	}
 }
 
@@ -117,6 +130,7 @@ fn init(args: InitArgs) -> anyhow::Result<()> {
 		root: args.contest_dir,
 	};
 	ensure_no_top_level_git(&run.root)?;
+	let exempt = TopLevelExempt::pin_at_init(&run.root)?;
 	for dir in [
 		run.tasks(),
 		run.jobs(),
@@ -136,6 +150,7 @@ fn init(args: InitArgs) -> anyhow::Result<()> {
 	let (repo_root, git_common_dir) = pinned_git_dirs(&run.root);
 	config.repo_root = repo_root;
 	config.git_common_dir = git_common_dir;
+	config.contest_envrc = exempt.envrc;
 	config.pasta_bin = match args.pasta_bin {
 		Some(pasta) => explicit_pasta_bin(&pasta, &config.repo_root)?,
 		None => pinned_pasta_bin(&run, &config.repo_root)?,

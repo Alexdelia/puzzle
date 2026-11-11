@@ -288,7 +288,9 @@ impl Supervisor {
 		let pid_lock = lock_pid_file(&run, Duration::from_millis(cfg.pid_lock_retry_ms))?;
 		journal_resumed_after_stop(&run)?;
 		unstage_abandoned_commits(&run, &cfg)?;
-		let exempt = TopLevelExempt::observe(&run.root);
+		let exempt = TopLevelExempt {
+			envrc: cfg.contest_envrc,
+		};
 		for id in (TaskStore { run: &run }).reconcile_after_restart()? {
 			journal_append(&run, &format!("requeued {id} after restart"))?;
 		}
@@ -476,7 +478,7 @@ impl Supervisor {
 	fn spawn_agent_for(&self, agent: &AgentRun, task: Option<&TaskId>) -> Result<Child> {
 		if self.cfg.sandbox {
 			let spec = SandboxSpec::for_run(&self.run, &self.cfg, task.cloned())?;
-			spawn_agent(&self.cfg, agent, Some(sandbox_command(&spec, &[])))
+			spawn_agent(&self.cfg, agent, Some(sandbox_command(&spec, &[])?))
 		} else {
 			spawn_agent_scrubbed(&self.cfg, agent, None, &dropped_host_env())
 		}

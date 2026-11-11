@@ -295,7 +295,7 @@ impl Supervisor {
 	fn spawn_job_process(&self, record: &mut JobRecord, grant: &Grant) -> Result<u32> {
 		if self.cfg.sandbox {
 			let spec = SandboxSpec::for_run(&self.run, &self.cfg, Some(record.owner_task.clone()))?;
-			sandbox_job(record, &spec);
+			sandbox_job(record, &spec)?;
 			return spawn_job(&self.run, record, grant);
 		}
 		spawn_job_scrubbed(&self.run, record, grant, &dropped_host_env())
