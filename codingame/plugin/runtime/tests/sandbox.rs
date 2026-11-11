@@ -161,6 +161,14 @@ fn mounts(args: &[String]) -> Vec<(String, String, String)> {
 				));
 				index += 3;
 			}
+			"--symlink" => {
+				found.push((
+					flag.into(),
+					args[index + 1].clone(),
+					args[index + 2].clone(),
+				));
+				index += 3;
+			}
 			"--tmpfs" | "--dev" | "--proc" | "--unsetenv" => {
 				found.push((flag.into(), String::new(), args[index + 1].clone()));
 				index += 2;
@@ -191,14 +199,17 @@ fn bwrap_starts_with_isolation_flags() {
 	];
 	assert_eq!(args[..identity.len()], identity[..]);
 	let args = &args[identity.len()..];
-	let expected: Vec<String> = [
+	let isolation = [
 		"--die-with-parent",
 		"--new-session",
 		"--unshare-pid",
 		"--unshare-ipc",
-		"--ro-bind",
-		"/",
-		"/",
+	]
+	.map(String::from);
+	assert_eq!(args[..isolation.len()], isolation[..]);
+	let private_from = args.iter().position(|arg| arg == "--dev").unwrap();
+	let args = &args[private_from..];
+	let expected: Vec<String> = [
 		"--dev",
 		"/dev",
 		"--proc",
@@ -207,8 +218,6 @@ fn bwrap_starts_with_isolation_flags() {
 		"/tmp",
 		"--tmpfs",
 		"/var/tmp",
-		"--tmpfs",
-		"/run/user",
 		"--tmpfs",
 		"/home",
 		"--bind-fd",
@@ -259,12 +268,84 @@ fn real_bwrap_hides_nix_daemon_socket_under_nix_toolbox() {
 }
 
 #[test]
-fn bwrap_hides_system_bus() {
+fn bwrap_never_mounts_system_bus() {
 	let args = bwrap_args(&spec());
-	let hidden = mounts(&args)
-		.iter()
-		.any(|(flag, _, target)| flag == "--tmpfs" && target == SYSTEM_BUS_DIR);
-	assert_eq!(hidden, Path::new(SYSTEM_BUS_DIR).is_dir(), "{args:?}");
+	assert!(
+		mounts(&args)
+			.iter()
+			.all(|(_, _, target)| !target.starts_with(SYSTEM_BUS_DIR)),
+		"{args:?}"
+	);
+}
+
+const ROOT_ALLOWLIST: [&str; 13] = [
+	"/nix",
+	"/etc",
+	"/usr",
+	"/bin",
+	"/sbin",
+	"/lib",
+	"/lib32",
+	"/lib64",
+	"/libx32",
+	"/sys",
+	"/run/current-system",
+	"/run/opengl-driver",
+	"/run/opengl-driver-32",
+];
+
+fn spec_owned_destinations(spec: &SandboxSpec) -> Vec<PathBuf> {
+	let mut owned = vec![
+		spec.repo_root.clone(),
+		spec.contest_root.clone(),
+		PathBuf::from(AGENT_HOME),
+		PathBuf::from(NIX_DAEMON_SOCKET_DIR),
+	];
+	owned.extend(spec.toolbox.iter().cloned());
+	owned.extend(spec.plugin_ro.iter().cloned());
+	owned
+}
+
+#[test]
+fn sandbox_root_is_an_allowlist() {
+	let spec = spec();
+	let args = bwrap_args(&spec);
+	let owned = spec_owned_destinations(&spec);
+	for (flag, source, dest) in mounts(&args) {
+		if flag == "--unsetenv" {
+			continue;
+		}
+		let dest = Path::new(&dest);
+		let allowed = ROOT_ALLOWLIST.contains(&dest.to_str().unwrap())
+			|| ["/dev", "/proc", "/tmp", "/var/tmp", "/home"].contains(&dest.to_str().unwrap())
+			|| owned.iter().any(|root| dest.starts_with(root));
+		assert!(allowed, "{flag} {source} {dest:?} in {args:?}");
+	}
+	for top in ["/nix", "/etc", "/usr", "/sys"] {
+		let host = Path::new(top);
+		let Ok(meta) = fs::symlink_metadata(host) else {
+			continue;
+		};
+		let expected = if meta.is_symlink() {
+			(
+				"--symlink".to_string(),
+				text(&fs::read_link(host).unwrap()),
+				top.to_string(),
+			)
+		} else {
+			("--ro-bind".to_string(), top.to_string(), top.to_string())
+		};
+		assert!(
+			mounts(&args).contains(&expected),
+			"{expected:?} in {args:?}"
+		);
+	}
+	let under_run: Vec<_> = mounts(&args)
+		.into_iter()
+		.filter(|(flag, _, dest)| flag != "--unsetenv" && dest.starts_with("/run"))
+		.filter(|(_, _, dest)| !ROOT_ALLOWLIST.contains(&dest.as_str()))
+		.collect();
+	assert_eq!(under_run, [], "{args:?}");
 }
 
 #[test]
@@ -853,6 +934,91 @@ fn real_sandbox_inherits_no_bind_source_fds() {
 	let numbers: Vec<&str> = fds.iter().map(|(fd, _)| *fd).collect();
 	assert_eq!(numbers, ["0", "1", "2", "3"], "{listing}");
 	assert!(fds[3].1.starts_with("/proc/"), "{listing}");
+}
+
+fn host_sockets_under_run() -> Vec<PathBuf> {
+	let mut found = Vec::new();
+	let mut pending = vec![PathBuf::from("/run")];
+	while let Some(dir) = pending.pop() {
+		let Ok(entries) = fs::read_dir(&dir) else {
+			continue;
+		};
+		for entry in entries.flatten() {
+			let Ok(kind) = entry.file_type() else {
+				continue;
+			};
+			if kind.is_dir() && dir.components().count() < 4 {
+				pending.push(entry.path());
+			}
+			if std::os::unix::fs::FileTypeExt::is_socket(&kind) {
+				found.push(entry.path());
+			}
+		}
+	}
+	found
+}
+
+#[test]
+fn real_sandbox_hides_host_only_trees_and_run_sockets() {
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	let mut checks: Vec<(String, String)> = ["/mnt", "/media", "/srv", "/opt", "/root", "/var/lib"]
+		.into_iter()
+		.map(|dir| {
+			(
+				format!(
+					"if [ -z \"$(ls -A '{dir}' 2>/dev/null)\" ]; then echo {dir} hidden; else echo {dir} listed; fi"
+				),
+				format!("{dir} hidden"),
+			)
+		})
+		.collect();
+	let sockets = host_sockets_under_run();
+	assert!(!sockets.is_empty(), "no host socket under /run to probe");
+	for socket in &sockets {
+		let socket = text(socket);
+		checks.push((
+			format!(
+				"if [ -e '{socket}' ]; then echo '{socket}' present; else echo '{socket}' absent; fi"
+			),
+			format!("{socket} absent"),
+		));
+	}
+	let script: Vec<&str> = checks.iter().map(|(line, _)| line.as_str()).collect();
+	let output = sandboxed_sh(&spec, &script.join("\n"));
+	let expected: Vec<&str> = checks.iter().map(|(_, want)| want.as_str()).collect();
+	assert_eq!(output.lines().collect::<Vec<_>>(), expected);
+}
+
+fn host_tool(name: &str) -> Option<PathBuf> {
+	std::env::split_paths(&std::env::var_os("PATH")?)
+		.map(|dir| dir.join(name))
+		.find(|path| path.is_file())
+		.and_then(|path| fs::canonicalize(path).ok())
+		.filter(|path| !path.starts_with("/home") && !path.starts_with("/tmp"))
+}
+
+#[test]
+fn real_sandbox_runs_host_toolchains() {
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	let tools: Vec<&str> = ["cargo", "rustc", "git", "python3"]
+		.into_iter()
+		.filter(|tool| host_tool(tool).is_some())
+		.collect();
+	assert!(tools.contains(&"git"), "git missing on the host PATH");
+	let mut script = String::new();
+	for tool in &tools {
+		let path = text(&host_tool(tool).unwrap());
+		script.push_str(&format!(
+			"if '{path}' --version >/dev/null 2>&1; then echo {tool} ok; else echo {tool} broken; fi\n"
+		));
+	}
+	let output = sandboxed_sh(&spec, &script);
+	let expected: Vec<String> = tools.iter().map(|tool| format!("{tool} ok")).collect();
+	assert_eq!(output.lines().collect::<Vec<_>>(), expected);
 }
 
 #[test]

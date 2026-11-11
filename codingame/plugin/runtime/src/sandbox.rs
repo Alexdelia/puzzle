@@ -34,9 +34,23 @@ const ISOLATION_FLAGS: [&str; 4] = [
 	"--unshare-pid",
 	"--unshare-ipc",
 ];
-const HIDDEN_DIRS: [&str; 4] = ["/tmp", "/var/tmp", "/run/user", "/home"];
+const ROOT_ALLOWLIST: [&str; 13] = [
+	"/nix",
+	"/etc",
+	"/usr",
+	"/bin",
+	"/sbin",
+	"/lib",
+	"/lib32",
+	"/lib64",
+	"/libx32",
+	"/sys",
+	"/run/current-system",
+	"/run/opengl-driver",
+	"/run/opengl-driver-32",
+];
+const PRIVATE_DIRS: [&str; 3] = ["/tmp", "/var/tmp", "/home"];
 const NIX_DAEMON_SOCKET_DIR: &str = "/nix/var/nix/daemon-socket";
-const SYSTEM_BUS_DIR: &str = "/run/dbus";
 const HIDDEN_ENV: [&str; 10] = [
 	"DBUS_SESSION_BUS_ADDRESS",
 	"SSH_AUTH_SOCK",
@@ -211,6 +225,10 @@ impl Argv {
 		self.destinations.push(dest.to_path_buf());
 	}
 
+	fn symlink(&mut self, target: &Path, dest: &Path) {
+		self.mount("--symlink", target, dest);
+	}
+
 	fn setenv(&mut self, name: &str, value: &str) {
 		self.flag("--setenv");
 		self.flag(name);
@@ -260,6 +278,21 @@ fn keep_host_identity(argv: &mut Argv) {
 	argv.flag(&getgid().to_string());
 }
 
+fn root_allowlist_mounts(argv: &mut Argv) {
+	for entry in ROOT_ALLOWLIST.map(Path::new) {
+		let Ok(meta) = fs::symlink_metadata(entry) else {
+			continue;
+		};
+		if meta.is_symlink() {
+			if let Ok(target) = fs::read_link(entry) {
+				argv.symlink(&target, entry);
+			}
+		} else if meta.is_dir() {
+			argv.same("--ro-bind", entry);
+		}
+	}
+}
+
 fn ensure_nothing_mounted_under(home: &Path, destinations: &[PathBuf]) -> Result<()> {
 	if let Some(dest) = destinations.iter().find(|dest| dest.starts_with(home)) {
 		bail!(
@@ -275,10 +308,10 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Result<Vec<String>> {
 	for flag in ISOLATION_FLAGS {
 		argv.flag(flag);
 	}
-	argv.same("--ro-bind", Path::new("/"));
+	root_allowlist_mounts(&mut argv);
 	argv.on("--dev", Path::new("/dev"));
 	argv.on("--proc", Path::new("/proc"));
-	for dir in HIDDEN_DIRS {
+	for dir in PRIVATE_DIRS {
 		argv.on("--tmpfs", Path::new(dir));
 	}
 	let agent_home = Path::new(AGENT_HOME);
@@ -304,10 +337,9 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Result<Vec<String>> {
 		argv.same("--ro-bind-try", path);
 	}
 	claude_config_mounts(&mut argv, spec);
-	for socket_dir in [SYSTEM_BUS_DIR, NIX_DAEMON_SOCKET_DIR].map(Path::new) {
-		if socket_dir.is_dir() {
-			argv.on("--tmpfs", socket_dir);
-		}
+	let nix_daemon_sockets = Path::new(NIX_DAEMON_SOCKET_DIR);
+	if nix_daemon_sockets.is_dir() {
+		argv.on("--tmpfs", nix_daemon_sockets);
 	}
 	let hidden = HIDDEN_ENV
 		.iter()
