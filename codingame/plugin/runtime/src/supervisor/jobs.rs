@@ -42,7 +42,7 @@ fn is_live_job(state: &JobState) -> bool {
 
 pub(super) fn reconcile_jobs(run: &RunDir) -> Result<()> {
 	for mut record in list_job_records(run) {
-		if !is_live_job(&record.state) {
+		if !is_live_job(&record.state) && record.state != JobState::Queued {
 			continue;
 		}
 		signal_if_same_process(&record, Signal::SIGKILL)?;

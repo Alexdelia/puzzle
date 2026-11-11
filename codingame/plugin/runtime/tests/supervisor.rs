@@ -1479,11 +1479,18 @@ fn failing_cancel_does_not_stall_jobs() {
 	store.transition(&ended, TaskState::Running).unwrap();
 	store.transition(&ended, TaskState::Done).unwrap();
 	let waiting = create_task(run, "waiting", 0);
-	let stuck = queued_job_record(run, "j0001", &ended, &["true"]);
-	queued_job_record(run, "j0002", &waiting, &["true"]);
-	let stuck_dir = run.job_dir(&stuck);
-	fs::set_permissions(&stuck_dir, fs::Permissions::from_mode(0o555)).unwrap();
 	let supervisor = start(&contest, "true");
+	wait_until(10, "status file", || run.status().is_file());
+	let staging = RunDir {
+		root: contest.home.join("staging"),
+	};
+	let stuck = queued_job_record(&staging, "j0001", &ended, &["true"]);
+	let staged = run.jobs().join("staged-j0001");
+	fs::rename(staging.job_dir(&stuck), &staged).unwrap();
+	fs::set_permissions(&staged, fs::Permissions::from_mode(0o555)).unwrap();
+	let stuck_dir = run.job_dir(&stuck);
+	fs::rename(&staged, &stuck_dir).unwrap();
+	queued_job_record(run, "j0002", &waiting, &["true"]);
 	wait_until(10, "second job finished", || {
 		has_event(run, json!({"event": "job_finished", "job": "j0002"}))
 	});
@@ -2182,4 +2189,27 @@ fn extend_reaches_a_running_supervisor() {
 	assert!(output.status.success(), "{output:?}");
 	wait_for_exit(&mut supervisor, 20);
 	assert_eq!(fs::read_to_string(run.stop_file()).unwrap(), "budget");
+}
+
+#[test]
+fn restart_marks_queued_jobs_interrupted() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let owner = create_task(run, "sim-bench", 0);
+	TaskStore { run }
+		.transition(&owner, TaskState::Running)
+		.unwrap();
+	let marker = contest.home.join("orphan-ran");
+	let job = queued_job_record(run, "j0001", &owner, &["touch", marker.to_str().unwrap()]);
+	let supervisor = start(&contest, "exec sleep 60");
+	wait_until(10, "job interrupted event", || {
+		has_event(run, json!({"event": "job_interrupted", "job": "j0001"}))
+	});
+	sleep(Duration::from_secs(2));
+	supervisor.stop(run);
+	assert_eq!(
+		read_job_record(run, &job).unwrap().state,
+		JobState::Interrupted
+	);
+	assert!(!marker.exists());
 }
