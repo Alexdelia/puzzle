@@ -1,22 +1,28 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io;
 use std::os::unix::fs::PermissionsExt;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::{Command, ExitCode, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{Context, ensure};
+use anyhow::{Context, bail, ensure};
 use clap::{Parser, Subcommand};
+use nix::unistd::setsid;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
 use crate::atomic::write_atomic;
 use crate::config::Config;
+use crate::events::{Event, emit};
 use crate::hook::{HookVerb, run_hook};
 use crate::paths::RunDir;
 use crate::run_info::{Mode, RunInfo};
+use crate::status::{running_supervisor, status_text};
+use crate::supervisor::run_supervisor;
 use crate::worker::{WorkerVerb, run_worker};
 
-const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\n";
+const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\ntasks/*/work/\nsupervisor.log\nsupervisor.pid\n";
 const PASTA: &str = "pasta";
 const PASST_FLAKE: &str = "nixpkgs#passt";
 const SECONDS_PER_HOUR: u64 = 3600;
@@ -33,6 +39,9 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Verb {
 	Init(InitArgs),
+	Start(StartArgs),
+	Status(StatusArgs),
+	Say(SayArgs),
 	#[command(subcommand)]
 	Hook(HookVerb),
 	#[command(flatten)]
@@ -56,9 +65,30 @@ pub struct InitArgs {
 	pub pasta_bin: Option<PathBuf>,
 }
 
+#[derive(Debug, clap::Args)]
+pub struct StartArgs {
+	pub contest_dir: PathBuf,
+	#[arg(long)]
+	pub foreground: bool,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct StatusArgs {
+	pub contest_dir: PathBuf,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct SayArgs {
+	pub contest_dir: PathBuf,
+	pub text: String,
+}
+
 pub fn run(cli: Cli) -> anyhow::Result<ExitCode> {
 	match cli.command {
 		Verb::Init(args) => init(args).map(|()| ExitCode::SUCCESS),
+		Verb::Start(args) => start(args).map(|()| ExitCode::SUCCESS),
+		Verb::Status(args) => status(args).map(|()| ExitCode::SUCCESS),
+		Verb::Say(args) => say(args).map(|()| ExitCode::SUCCESS),
 		Verb::Hook(verb) => Ok(run_hook(verb)),
 		Verb::Worker(verb) => run_worker(verb, cli.timeout).map(|()| ExitCode::SUCCESS),
 	}
@@ -115,6 +145,61 @@ fn init(args: InitArgs) -> anyhow::Result<()> {
 	};
 	write_atomic(&run.run_json(), &serde_json::to_vec_pretty(&info)?)?;
 	Ok(())
+}
+
+fn contest_run(contest_dir: &Path) -> anyhow::Result<RunDir> {
+	let root = fs::canonicalize(contest_dir).with_context(|| format!("resolve {contest_dir:?}"))?;
+	Ok(RunDir { root })
+}
+
+fn start(args: StartArgs) -> anyhow::Result<()> {
+	let run = contest_run(&args.contest_dir)?;
+	let config = Config::load(&run.config())?;
+	if args.foreground {
+		return run_supervisor(run, config);
+	}
+	if let Some(pid) = running_supervisor(&run) {
+		bail!("supervisor already running (pid {pid})");
+	}
+	let log_path = run.supervisor_log();
+	let log = OpenOptions::new()
+		.create(true)
+		.append(true)
+		.open(&log_path)
+		.with_context(|| format!("open {log_path:?}"))?;
+	let mut command = Command::new(std::env::current_exe()?);
+	command
+		.arg("start")
+		.arg(&run.root)
+		.arg("--foreground")
+		.stdin(Stdio::null())
+		.stdout(log.try_clone()?)
+		.stderr(log);
+	unsafe {
+		command.pre_exec(|| setsid().map(drop).map_err(io::Error::from));
+	}
+	let child = command.spawn().context("spawn supervisor")?;
+	println!(
+		"supervisor started: pid {pid}, log {log}",
+		pid = child.id(),
+		log = log_path.display()
+	);
+	Ok(())
+}
+
+fn status(args: StatusArgs) -> anyhow::Result<()> {
+	let run = contest_run(&args.contest_dir)?;
+	print!("{text}", text = status_text(&run, now_unix()));
+	Ok(())
+}
+
+fn say(args: SayArgs) -> anyhow::Result<()> {
+	let run = contest_run(&args.contest_dir)?;
+	let inbox = run.inbox();
+	fs::create_dir_all(&inbox).with_context(|| format!("create {inbox:?}"))?;
+	let nanos = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+	write_atomic(&inbox.join(format!("{nanos}.md")), args.text.as_bytes())?;
+	emit(&run, Event::UserMessage { text: args.text })
 }
 
 fn git_path(dir: &Path, args: &[&str]) -> PathBuf {

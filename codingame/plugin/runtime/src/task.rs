@@ -61,7 +61,8 @@ impl TaskState {
 					Running,
 					Done | Failed | Interrupted | NeedsAnswer | Cancelled
 				) | (Interrupted, Queued | Cancelled)
-				| (NeedsAnswer, Queued | Cancelled)
+				| (NeedsAnswer, Queued | Cancelled | Failed)
+				| (Done, Failed)
 				| (Failed, Queued)
 		)
 	}

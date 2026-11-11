@@ -98,6 +98,18 @@ pub fn read_job_record(run: &RunDir, id: &JobId) -> anyhow::Result<JobRecord> {
 	Ok(toml::from_str(&text)?)
 }
 
+pub fn list_job_records(run: &RunDir) -> Vec<JobRecord> {
+	let mut records: Vec<JobRecord> = fs::read_dir(run.jobs())
+		.into_iter()
+		.flatten()
+		.flatten()
+		.filter_map(|entry| JobId::parse(entry.file_name().to_str()?).ok())
+		.filter_map(|id| read_job_record(run, &id).ok())
+		.collect();
+	records.sort_by(|a, b| a.id.cmp(&b.id));
+	records
+}
+
 pub fn write_lease(run: &RunDir, grant: &Grant) -> anyhow::Result<()> {
 	let updated_at = SystemTime::now()
 		.duration_since(UNIX_EPOCH)

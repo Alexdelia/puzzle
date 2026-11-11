@@ -184,9 +184,26 @@ fn finish_task(
 	Ok(json!({ "task": task, "state": next }))
 }
 
+pub type BeforeCommit<'a> = &'a dyn Fn(&TaskId) -> Result<()>;
+
+fn commit_unguarded(_: &TaskId) -> Result<()> {
+	Ok(())
+}
+
 pub fn handle(run: &RunDir, config: &Config, task: &TaskId, request: Request) -> Result<Value> {
+	handle_guarded(run, config, task, request, &commit_unguarded)
+}
+
+pub fn handle_guarded(
+	run: &RunDir,
+	config: &Config,
+	task: &TaskId,
+	request: Request,
+	before_commit: BeforeCommit,
+) -> Result<Value> {
 	match request {
 		Request::Commit { milestone } => {
+			before_commit(task)?;
 			let sha = commit_task(run, config, task, &milestone)?;
 			Ok(json!({ "sha": sha }))
 		}
@@ -259,6 +276,7 @@ fn answer_one(
 	config: &Config,
 	task: &TaskId,
 	path: &Path,
+	before_commit: BeforeCommit,
 ) -> Result<Option<Response>> {
 	let bytes = match read_worker_file(path) {
 		Ok(bytes) => bytes,
@@ -277,7 +295,7 @@ fn answer_one(
 		} => Some((*timeout_seconds).min(MAX_WAIT_SECONDS)),
 		_ => None,
 	};
-	let mut value = match handle(run, config, task, request) {
+	let mut value = match handle_guarded(run, config, task, request, before_commit) {
 		Ok(value) => value,
 		Err(error) => return Ok(Some(failure(&error))),
 	};
@@ -333,14 +351,22 @@ pub fn prepare_task_requests(run: &RunDir, task: &TaskId) -> Result<()> {
 	Ok(())
 }
 
-fn serve_task(run: &RunDir, config: &Config, task: &TaskId, dir: &Path) -> Result<usize> {
+fn serve_task(
+	run: &RunDir,
+	config: &Config,
+	task: &TaskId,
+	dir: &Path,
+	before_commit: BeforeCommit,
+) -> Result<usize> {
 	let mut answered = 0;
 	for stem in request_stems(dir)? {
 		let target = response_path(dir, &stem);
 		if target.exists() {
 			continue;
 		}
-		if let Some(response) = answer_one(run, config, task, &request_path(dir, &stem))? {
+		if let Some(response) =
+			answer_one(run, config, task, &request_path(dir, &stem), before_commit)?
+		{
 			write_atomic(&target, &serde_json::to_vec(&response)?)?;
 			answered += 1;
 		}
@@ -349,9 +375,17 @@ fn serve_task(run: &RunDir, config: &Config, task: &TaskId, dir: &Path) -> Resul
 }
 
 pub fn serve_pending(run: &RunDir, config: &Config) -> Result<usize> {
+	serve_pending_guarded(run, config, &commit_unguarded)
+}
+
+pub fn serve_pending_guarded(
+	run: &RunDir,
+	config: &Config,
+	before_commit: BeforeCommit,
+) -> Result<usize> {
 	let mut answered = 0;
 	for (task, dir) in running_task_dirs(run)? {
-		match serve_task(run, config, &task, &dir) {
+		match serve_task(run, config, &task, &dir, before_commit) {
 			Ok(count) => answered += count,
 			Err(error) => eprintln!("spool: skipped task {task}: {error:#}"),
 		}

@@ -118,6 +118,15 @@ pub fn spawn_agent(
 	run: &AgentRun,
 	wrapper: Option<Vec<String>>,
 ) -> anyhow::Result<Child> {
+	spawn_agent_scrubbed(config, run, wrapper, &[])
+}
+
+pub fn spawn_agent_scrubbed(
+	config: &Config,
+	run: &AgentRun,
+	wrapper: Option<Vec<String>>,
+	removed_env: &[String],
+) -> anyhow::Result<Child> {
 	let mut argv = wrapper.unwrap_or_default();
 	argv.push(config.claude_bin.to_string_lossy().into_owned());
 	argv.extend(claude_args(run));
@@ -133,6 +142,9 @@ pub fn spawn_agent(
 	let stderr = File::create(&stderr_path).with_context(|| format!("create {stderr_path:?}"))?;
 	let mut command = Command::new(program);
 	die_with_spawning_thread(&mut command);
+	for name in removed_env {
+		command.env_remove(name);
+	}
 	command
 		.args(rest)
 		.current_dir(&run.cwd)

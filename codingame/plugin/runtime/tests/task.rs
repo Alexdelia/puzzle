@@ -272,3 +272,18 @@ fn result_fifo_and_oversize_are_refused() {
 	std::fs::write(&result, "first\n").unwrap();
 	assert_eq!(store.result_summary(&id), Some("first".to_owned()));
 }
+
+#[test]
+fn finished_task_can_be_flagged_failed() {
+	let (_dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let done = store.create(spec("sim-bench", 0)).unwrap();
+	store.transition(&done, TaskState::Running).unwrap();
+	store.transition(&done, TaskState::Done).unwrap();
+	store.transition(&done, TaskState::Failed).unwrap();
+	let asking = store.create(spec("sim-bench", 0)).unwrap();
+	store.transition(&asking, TaskState::Running).unwrap();
+	store.transition(&asking, TaskState::NeedsAnswer).unwrap();
+	store.transition(&asking, TaskState::Failed).unwrap();
+	assert_eq!(store.state(&asking).unwrap(), TaskState::Failed);
+}

@@ -179,6 +179,10 @@ impl RunDir {
 		self.run().join("supervisor.pid")
 	}
 
+	pub fn supervisor_log(&self) -> PathBuf {
+		self.run().join("supervisor.log")
+	}
+
 	pub fn replies(&self) -> PathBuf {
 		self.run().join("replies.md")
 	}

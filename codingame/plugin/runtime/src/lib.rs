@@ -16,6 +16,8 @@ pub mod paths;
 pub mod run_info;
 pub mod sandbox;
 pub mod spool;
+pub mod status;
+pub mod supervisor;
 pub mod taint;
 pub mod task;
 pub mod usage;
