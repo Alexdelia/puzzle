@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use contest::agent::{RateLimitInfo, Window};
 use contest::atomic::write_atomic;
 use contest::config::Config;
-use contest::job::{JobState, read_job_record};
+use contest::job::{JobState, process_tree, read_job_record};
 use contest::paths::{JobId, RunDir, TaskId};
 use contest::run_info::{Mode, RunInfo};
 use contest::task::{TaskSpec, TaskState, TaskStore};
@@ -646,4 +646,83 @@ fn stop_kills_manager_process_group() {
 		);
 	}
 	assert!(!survived, "manager grandchild survived the stop");
+}
+
+fn bwrap_available() -> bool {
+	Command::new("bwrap")
+		.arg("--version")
+		.output()
+		.is_ok_and(|output| output.status.success())
+}
+
+fn test_pasta() -> Option<PathBuf> {
+	let on_path = std::env::split_paths(&std::env::var_os("PATH")?)
+		.map(|dir| dir.join("pasta"))
+		.find(|path| path.is_file());
+	on_path.or_else(|| {
+		let output = Command::new("nix")
+			.args(["build", "nixpkgs#passt", "--no-link", "--print-out-paths"])
+			.output()
+			.ok()
+			.filter(|output| output.status.success())?;
+		let store_path = String::from_utf8_lossy(&output.stdout)
+			.lines()
+			.next()?
+			.to_owned();
+		Some(PathBuf::from(store_path).join("bin/pasta")).filter(|path| path.is_file())
+	})
+}
+
+fn command_name(pid: u32) -> String {
+	fs::read_to_string(format!("/proc/{pid}/comm"))
+		.unwrap_or_default()
+		.trim()
+		.to_owned()
+}
+
+#[test]
+fn sandboxed_stubborn_worker_killed_at_grace() {
+	if !bwrap_available() {
+		eprintln!("bwrap not found, skipped");
+		return;
+	}
+	let Some(pasta) = test_pasta() else {
+		eprintln!("pasta not found on PATH nor via nix build nixpkgs#passt, skipped");
+		return;
+	};
+	let contest = contest(1, 2);
+	let run = &contest.run;
+	pin_repo(&contest);
+	let claude = run.root.join("fake-claude.sh");
+	fs::copy(fixture("fake-claude.sh"), &claude).unwrap();
+	fs::set_permissions(&claude, fs::Permissions::from_mode(0o755)).unwrap();
+	let credentials = contest.home.join(".claude/.credentials.json");
+	fs::create_dir_all(credentials.parent().unwrap()).unwrap();
+	fs::write(&credentials, "{}").unwrap();
+	let mut config = Config::load(&run.config()).unwrap();
+	config.sandbox = true;
+	config.pasta_bin = pasta;
+	config.claude_bin = claude;
+	write_atomic(&run.config(), toml::to_string(&config).unwrap().as_bytes()).unwrap();
+	let id = create_task(run, "sim-bench", 0);
+	let mut supervisor = start(&contest, "exec sleep 60");
+	let supervisor_pid = supervisor.0.id();
+	let mut tree = Vec::new();
+	wait_until(30, "sandboxed worker sleeping", || {
+		tree = process_tree(supervisor_pid)[1..].to_vec();
+		let names: Vec<String> = tree.iter().map(|&pid| command_name(pid)).collect();
+		["pass", "bwrap", "sleep"]
+			.iter()
+			.all(|name| names.iter().any(|seen| seen.starts_with(name)))
+	});
+	assert_eq!(state(run, &id), TaskState::Running);
+	let elapsed = supervisor.stop_within(run, 15);
+	assert!(
+		elapsed >= Duration::from_secs(2),
+		"stopped after {elapsed:?}"
+	);
+	wait_until(5, "sandbox processes gone", || {
+		tree.iter().all(|&pid| !alive(pid as i32))
+	});
+	assert_eq!(state(run, &id), TaskState::Interrupted);
 }
