@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+runtime="$(dirname "$(dirname "$(realpath "${BASH_SOURCE[0]}")")")/runtime"
+binary="$runtime/target/release/contest"
+if [[ ! -x $binary ]]; then
+	cargo build --release --quiet --manifest-path "$runtime/Cargo.toml" >&2
+fi
+exec "$binary" "$@"

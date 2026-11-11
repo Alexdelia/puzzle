@@ -1,0 +1,8 @@
+{
+  "name": "contest",
+  "version": "0.1.0",
+  "description": "Plays a CodinGame contest autonomously: headless supervisor, manager ticks and sandboxed workers on claude -p",
+  "author": {
+    "name": "Alexdelia"
+  }
+}

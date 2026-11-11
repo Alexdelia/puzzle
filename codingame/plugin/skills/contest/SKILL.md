@@ -1,0 +1,40 @@
+---
+name: contest
+description: Drive an autonomous CodinGame contest run of the contest plugin. Use when the user asks for the run's status, wants to tell the run something, or to start, resume or stop it.
+argument-hint: "[contest-dir] [status | say <text> | start | stop [--wait]]"
+allowed-tools: Bash(contest *) Read
+---
+
+# contest
+
+User-facing control of a run. The run works alone: a supervisor launches a manager and sandboxed workers. You only relay between user and run.
+
+## Contest dir
+
+- first argument when it is a dir, else the cwd if it holds `run/`
+- neither: ask the user for the dir, do nothing else
+- every command below takes it as `<dir>`
+
+## Requests
+
+| user says | do |
+| --- | --- |
+| status, how is it going | `contest status <dir>`, then Read `<dir>/run/status.md` and the tail of `<dir>/run/replies.md` |
+| tell it X, ask it X | `contest say <dir> "X"`: the manager answers at its next tick in `run/replies.md` |
+| start, resume | `contest start <dir>`: forks the supervisor and returns; never `--foreground` |
+| stop | `contest stop <dir>`: returns at once, prints the seconds left |
+| stop and wait | `contest stop <dir> --wait` in the background (`run_in_background`) or with a Bash timeout of 330000 ms: it has no timeout of its own |
+| new run | `contest init <dir> --puzzle <id> --mode contest-live\|past-puzzle\|optimization [--deadline <rfc3339>] [--active-budget-hours N]`; `<dir>` must sit inside a git repo, not be its top |
+
+## Answer
+
+- relay status terse: supervisor line, phase, running tasks, jobs, last reply
+- after `say`: tell the user the reply comes at the next manager tick; check `run/replies.md` again when asked
+- `contest stop` prints the remaining time: pass it on
+
+## Never
+
+- edit or create anything under `run/`: only the `contest` CLI writes there
+- read `run/journal.md` whole: tail at most 40 lines
+- answer a worker's question yourself: forward user decisions with `contest say`, the manager answers workers
+- ask the user for approval mid-run: the run must not wait on you
