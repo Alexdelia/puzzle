@@ -17,6 +17,9 @@ use time::format_description::well_known::Rfc3339;
 
 use crate::atomic::write_atomic;
 use crate::config::Config;
+use crate::contest_root::{
+	ensure_dedicated_contest_root, ensure_plugin_dir, refuse_planted_below_top,
+};
 use crate::events::{Event, emit};
 use crate::hook::{HookVerb, run_hook};
 use crate::paths::RunDir;
@@ -126,11 +129,23 @@ pub fn run(cli: Cli) -> anyhow::Result<ExitCode> {
 }
 
 fn init(args: InitArgs) -> anyhow::Result<()> {
-	let run = RunDir {
-		root: args.contest_dir,
-	};
-	ensure_no_top_level_git(&run.root)?;
-	let exempt = TopLevelExempt::pin_at_init(&run.root)?;
+	ensure_no_top_level_git(&args.contest_dir)?;
+	let exempt = TopLevelExempt::pin_at_init(&args.contest_dir)?;
+	let mut config = Config::default();
+	if let Some(plugin_dir) = args.plugin_dir {
+		config.plugin_dir =
+			fs::canonicalize(&plugin_dir).with_context(|| format!("resolve {plugin_dir:?}"))?;
+	}
+	ensure_plugin_dir(&config.plugin_dir)?;
+	fs::create_dir_all(&args.contest_dir)
+		.with_context(|| format!("create {dir:?}", dir = args.contest_dir))?;
+	let run = contest_run(&args.contest_dir)?;
+	let (repo_root, git_common_dir) = pinned_git_dirs(&run.root);
+	config.repo_root = repo_root;
+	config.git_common_dir = git_common_dir;
+	config.contest_envrc = exempt.envrc;
+	ensure_dedicated_contest_root(&run.root, &config)?;
+	refuse_planted_below_top(&run.root, exempt)?;
 	for dir in [
 		run.tasks(),
 		run.jobs(),
@@ -141,16 +156,6 @@ fn init(args: InitArgs) -> anyhow::Result<()> {
 		fs::create_dir_all(&dir).with_context(|| format!("create {dir:?}"))?;
 	}
 	write_atomic(&run.root.join("run/.gitignore"), RUN_GITIGNORE.as_bytes())?;
-
-	let mut config = Config::default();
-	if let Some(plugin_dir) = args.plugin_dir {
-		config.plugin_dir =
-			fs::canonicalize(&plugin_dir).with_context(|| format!("resolve {plugin_dir:?}"))?;
-	}
-	let (repo_root, git_common_dir) = pinned_git_dirs(&run.root);
-	config.repo_root = repo_root;
-	config.git_common_dir = git_common_dir;
-	config.contest_envrc = exempt.envrc;
 	config.pasta_bin = match args.pasta_bin {
 		Some(pasta) => explicit_pasta_bin(&pasta, &config.repo_root)?,
 		None => pinned_pasta_bin(&run, &config.repo_root)?,
@@ -189,6 +194,7 @@ fn contest_run(contest_dir: &Path) -> anyhow::Result<RunDir> {
 fn start(args: StartArgs) -> anyhow::Result<()> {
 	let run = contest_run(&args.contest_dir)?;
 	let config = Config::load(&run.config())?;
+	ensure_dedicated_contest_root(&run.root, &config)?;
 	if !args.stop_cleared {
 		if let Some(pid) = running_supervisor(&run) {
 			if run.stop_file().exists() {

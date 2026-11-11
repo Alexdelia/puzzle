@@ -12,6 +12,7 @@ use nix::sys::stat::{SFlag, fstat};
 use nix::unistd::{getgid, getuid};
 
 use crate::config::Config;
+use crate::contest_root::ensure_plugin_dir;
 use crate::paths::{RunDir, TaskId};
 
 const BWRAP: &str = "bwrap";
@@ -142,6 +143,7 @@ fn ensure_pinned_envrc(envrc: &Path) -> Result<()> {
 
 impl SandboxSpec {
 	pub fn for_run(run: &RunDir, config: &Config, own_task: Option<TaskId>) -> Result<Self> {
+		ensure_plugin_dir(&config.plugin_dir)?;
 		ensure!(
 			config.repo_root.is_absolute(),
 			"config repo_root {root:?} is not pinned",

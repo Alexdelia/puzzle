@@ -6,6 +6,7 @@ pub mod claude_config;
 pub mod cli;
 pub mod commit;
 pub mod config;
+pub mod contest_root;
 pub mod digest;
 pub mod events;
 pub mod hook;

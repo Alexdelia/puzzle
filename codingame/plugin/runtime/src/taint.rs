@@ -183,6 +183,7 @@ fn os_name(name: &CStr) -> &OsStr {
 struct Scanner {
 	entries_left: usize,
 	over_budget: bool,
+	listing_only: bool,
 	report: ScanReport,
 }
 
@@ -259,6 +260,9 @@ impl Scanner {
 	}
 
 	fn remove(&mut self, parent: &Dir, name: &CStr, path: PathBuf) {
+		if self.listing_only {
+			return self.report.removed.push(path);
+		}
 		match self.remove_entry(parent, name) {
 			Ok(()) => self.report.removed.push(path),
 			Err(RemovalError::StillWritten) => self.fail(
@@ -389,15 +393,28 @@ pub fn ensure_no_top_level_git(contest_root: &Path) -> Result<()> {
 	Ok(())
 }
 
-pub fn remove_planted_files(contest_root: &Path, exempt: TopLevelExempt) -> Result<ScanReport> {
+fn scan(contest_root: &Path, exempt: TopLevelExempt, listing_only: bool) -> Result<ScanReport> {
 	let root = Dir::open(contest_root, directory_flags(), Mode::empty())
 		.with_context(|| format!("open contest root {contest_root:?}"))?;
 	let mut scanner = Scanner {
 		entries_left: MAX_SCANNED_ENTRIES,
 		over_budget: false,
+		listing_only,
 		report: ScanReport::default(),
 	};
 	scanner.walk_worker_run_dirs(&root, contest_root);
 	scanner.walk(root, contest_root.to_path_buf(), Level::ContestTop(exempt));
 	Ok(scanner.report)
+}
+
+pub fn remove_planted_files(contest_root: &Path, exempt: TopLevelExempt) -> Result<ScanReport> {
+	scan(contest_root, exempt, false)
+}
+
+pub fn find_planted_files(contest_root: &Path, exempt: TopLevelExempt) -> Result<Vec<PathBuf>> {
+	let report = scan(contest_root, exempt, true)?;
+	if let Some((path, error)) = report.failures.first() {
+		bail!("cannot scan {path:?} for planted files: {error}");
+	}
+	Ok(report.removed)
 }

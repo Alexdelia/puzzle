@@ -562,6 +562,54 @@ fn contest_dir_holding_git_refused() {
 	assert!(run.root.join(".git").is_dir());
 }
 
+fn start_output(contest: &Contest) -> std::process::Output {
+	let mut child = Command::new(BIN)
+		.arg("start")
+		.arg(&contest.run.root)
+		.arg("--foreground")
+		.env("HOME", &contest.home)
+		.stdout(Stdio::null())
+		.stderr(Stdio::piped())
+		.spawn()
+		.unwrap();
+	let deadline = Instant::now() + Duration::from_secs(10);
+	while child.try_wait().unwrap().is_none() {
+		if Instant::now() >= deadline {
+			let _ = child.kill();
+			let _ = child.wait();
+			panic!("supervisor started instead of refusing");
+		}
+		sleep(Duration::from_millis(20));
+	}
+	child.wait_with_output().unwrap()
+}
+
+#[test]
+fn start_refuses_contest_root_holding_toolbox_or_plugin() {
+	let contest = contest(0);
+	let run = &contest.run;
+	let original = Config::load(&run.config()).unwrap();
+	let inside = run.root.join("tools");
+	fs::create_dir_all(&inside).unwrap();
+	for field in ["toolbox", "plugin_dir", "git_common_dir"] {
+		write_atomic(
+			&run.config(),
+			toml::to_string(&original).unwrap().as_bytes(),
+		)
+		.unwrap();
+		edit_config(&contest, |config| match field {
+			"toolbox" => config.toolbox = vec![inside.clone()],
+			"plugin_dir" => config.plugin_dir = inside.clone(),
+			_ => config.git_common_dir = inside.clone(),
+		});
+		let output = start_output(&contest);
+		let stderr = String::from_utf8_lossy(&output.stderr);
+		assert!(!output.status.success(), "{field}: {stderr}");
+		assert!(stderr.contains(field), "{field}: {stderr}");
+	}
+	assert!(!run.status().exists());
+}
+
 #[test]
 fn active_time_capped_after_pause() {
 	assert_eq!(

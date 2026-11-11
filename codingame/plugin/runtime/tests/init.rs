@@ -376,3 +376,124 @@ fn init_pins_contest_envrc_presence() {
 	assert!(String::from_utf8_lossy(&output.stderr).contains(".envrc"));
 	assert!(!linked.join("run").exists());
 }
+
+fn assert_refused(output: std::process::Output, needles: &[&str], contest_dir: &Path) {
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(!output.status.success(), "{stderr}");
+	for needle in needles {
+		assert!(stderr.contains(needle), "{needle} not in {stderr}");
+	}
+	assert!(!contest_dir.join("run").exists());
+}
+
+#[test]
+fn init_refuses_contest_dir_holding_plugin_dir() {
+	let repo = tempfile::tempdir().unwrap();
+	git_repo_with_commit(repo.path());
+	let contest_dir = repo.path().join("codingame");
+	let plugin = contest_dir.join("plugin");
+	fs::create_dir_all(&plugin).unwrap();
+	let output = init_command(&contest_dir, &plugin).output().unwrap();
+	assert_refused(output, &["plugin_dir", "dedicated"], &contest_dir);
+	let output = init_command(&plugin, &plugin).output().unwrap();
+	assert_refused(output, &["plugin_dir"], &plugin);
+}
+
+fn copied_contest_binary(dir: &Path) -> PathBuf {
+	let bin = dir.join("bin");
+	fs::create_dir_all(&bin).unwrap();
+	let copy = bin.join("contest");
+	fs::copy(env!("CARGO_BIN_EXE_contest"), &copy).unwrap();
+	copy
+}
+
+fn run_copied_init(binary: &Path, contest_dir: &Path, extra: &[&Path]) -> std::process::Output {
+	let mut attempts = 0;
+	loop {
+		let output = Command::new(binary)
+			.arg("init")
+			.arg(contest_dir)
+			.args(["--puzzle", "p", "--mode", "contest-live"])
+			.args(extra)
+			.output();
+		match output {
+			Err(error)
+				if error.kind() == std::io::ErrorKind::ExecutableFileBusy && attempts < 100 =>
+			{
+				attempts += 1;
+				std::thread::sleep(std::time::Duration::from_millis(20));
+			}
+			output => return output.unwrap(),
+		}
+	}
+}
+
+#[test]
+fn init_refuses_contest_dir_holding_contest_binary() {
+	let outside = tempfile::tempdir().unwrap();
+	let binary = copied_contest_binary(outside.path());
+	let plugin = tempfile::tempdir().unwrap();
+	let output = run_copied_init(
+		&binary,
+		outside.path(),
+		&[Path::new("--plugin-dir"), plugin.path()],
+	);
+	assert_refused(output, &["contest binary"], outside.path());
+}
+
+#[test]
+fn init_refuses_contest_dir_holding_git_common_dir() {
+	let dir = tempfile::tempdir().unwrap();
+	let repo = dir.path().join("repo");
+	let contest_dir = repo.join("contest");
+	fs::create_dir_all(&contest_dir).unwrap();
+	let git_dir = contest_dir.join("store");
+	let status = Command::new("git")
+		.args(["init", "-q", "--separate-git-dir"])
+		.arg(&git_dir)
+		.arg(&repo)
+		.status()
+		.unwrap();
+	assert!(status.success());
+	let output = init_command(&contest_dir, dir.path()).output().unwrap();
+	assert_refused(output, &["git_common_dir"], &contest_dir);
+}
+
+#[test]
+fn init_refuses_planted_names_below_top_level_and_lists_them() {
+	let repo = tempfile::tempdir().unwrap();
+	git_repo_with_commit(repo.path());
+	let contest_dir = repo.path().join("bot-programming");
+	let planted = [
+		contest_dir.join("other-contest/.envrc"),
+		contest_dir.join("other-contest/.claude/settings.json"),
+		contest_dir.join("vendored/.git/config"),
+	];
+	for path in &planted {
+		fs::create_dir_all(path.parent().unwrap()).unwrap();
+		fs::write(path, "x").unwrap();
+	}
+	let output = init_command(&contest_dir, repo.path()).output().unwrap();
+	assert_refused(
+		output,
+		&[
+			"other-contest/.envrc",
+			"other-contest/.claude",
+			"vendored/.git",
+			"dedicated",
+		],
+		&contest_dir,
+	);
+	for path in &planted {
+		assert!(path.is_file(), "{path:?}");
+	}
+}
+
+#[test]
+fn init_refuses_unresolvable_plugin_dir() {
+	let outside = tempfile::tempdir().unwrap();
+	let binary = copied_contest_binary(outside.path());
+	let contest_dir = outside.path().join("work/contest");
+	let output = run_copied_init(&binary, &contest_dir, &[]);
+	assert_refused(output, &["plugin_dir"], &contest_dir);
+}

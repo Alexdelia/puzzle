@@ -1216,6 +1216,7 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 		root: dir.path().join("repo/bot-programming/c1"),
 	};
 	fs::create_dir_all(&run.root).unwrap();
+	fs::create_dir_all(dir.path().join("repo/plugin")).unwrap();
 	let config = Config {
 		repo_root: dir.path().join("repo"),
 		plugin_dir: dir.path().join("repo/plugin"),
@@ -1276,6 +1277,32 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 }
 
 #[test]
+fn spec_for_run_requires_absolute_existing_plugin_dir() {
+	let dir = TempDir::new().unwrap();
+	let run = RunDir {
+		root: dir.path().join("repo/bot-programming/c1"),
+	};
+	fs::create_dir_all(&run.root).unwrap();
+	for plugin_dir in [
+		PathBuf::new(),
+		PathBuf::from("plugin"),
+		dir.path().join("gone"),
+	] {
+		let config = Config {
+			repo_root: dir.path().join("repo"),
+			plugin_dir: plugin_dir.clone(),
+			pasta_bin: "/nix/passt/bin/pasta".into(),
+			..Config::default()
+		};
+		let error = SandboxSpec::for_run(&run, &config, Some(task())).unwrap_err();
+		assert!(
+			format!("{error:#}").contains("plugin_dir"),
+			"{plugin_dir:?}: {error:#}"
+		);
+	}
+}
+
+#[test]
 fn spec_for_run_refuses_symlinked_host_executed_dirs() {
 	for name in [".claude", ".direnv"] {
 		let dir = TempDir::new().unwrap();
@@ -1283,6 +1310,7 @@ fn spec_for_run_refuses_symlinked_host_executed_dirs() {
 			root: dir.path().join("repo/bot-programming/c1"),
 		};
 		fs::create_dir_all(&run.root).unwrap();
+		fs::create_dir_all(dir.path().join("repo/plugin")).unwrap();
 		let target = dir.path().join("elsewhere");
 		fs::create_dir_all(&target).unwrap();
 		std::os::unix::fs::symlink(&target, run.root.join(name)).unwrap();
@@ -1306,6 +1334,7 @@ fn pinned_envrc_contest(envrc: impl FnOnce(&Path)) -> (TempDir, RunDir, Config) 
 		root: dir.path().join("repo/bot-programming/c1"),
 	};
 	fs::create_dir_all(&run.root).unwrap();
+	fs::create_dir_all(dir.path().join("repo/plugin")).unwrap();
 	envrc(&run.root.join(".envrc"));
 	let config = Config {
 		repo_root: dir.path().join("repo"),
