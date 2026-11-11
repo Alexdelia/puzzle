@@ -4,8 +4,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
 use anyhow::{Context, bail};
+use nix::errno::Errno;
 use nix::sys::prctl::set_pdeathsig;
-use nix::sys::signal::Signal;
+use nix::sys::signal::{Signal, killpg};
+use nix::unistd::Pid;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -141,6 +143,7 @@ pub fn spawn_agent_scrubbed(
 	let stderr_path = run.stream_log.with_extension("stderr.log");
 	let stderr = File::create(&stderr_path).with_context(|| format!("create {stderr_path:?}"))?;
 	let mut command = Command::new(program);
+	command.process_group(0);
 	die_with_spawning_thread(&mut command);
 	for name in removed_env {
 		command.env_remove(name);
@@ -154,6 +157,13 @@ pub fn spawn_agent_scrubbed(
 		.stderr(stderr)
 		.spawn()
 		.with_context(|| format!("spawn {program}"))
+}
+
+pub fn kill_agent_group(child: &Child) -> anyhow::Result<()> {
+	match killpg(Pid::from_raw(child.id() as i32), Signal::SIGKILL) {
+		Ok(()) | Err(Errno::ESRCH) => Ok(()),
+		Err(error) => Err(error).context("kill agent process group"),
+	}
 }
 
 fn die_with_spawning_thread(command: &mut Command) {

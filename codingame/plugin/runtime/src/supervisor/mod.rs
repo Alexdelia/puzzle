@@ -27,7 +27,7 @@ use manager::ManagerProcess;
 use probe::RunningProbe;
 use workers::WorkerProcess;
 
-use crate::agent::{AgentRun, spawn_agent, spawn_agent_scrubbed};
+use crate::agent::{AgentRun, kill_agent_group, spawn_agent, spawn_agent_scrubbed};
 use crate::atomic::write_atomic;
 use crate::broker::{Grant, Machine};
 use crate::claude_config::write_claude_settings;
@@ -54,6 +54,8 @@ const SECONDS_PER_MINUTE: u64 = 60;
 const STREAM_FILE: &str = "stream.jsonl";
 const CREDENTIALS_FILE: &str = ".claude/.credentials.json";
 const BUDGET_STOP_REASON: &str = "budget";
+const KILL_REAP_TIMEOUT: Duration = Duration::from_secs(3);
+const KILL_REAP_POLL: Duration = Duration::from_millis(20);
 const PID_LOCK_RETRY: Duration = Duration::from_secs(1);
 const PID_LOCK_POLL: Duration = Duration::from_millis(20);
 const STOPPED: &str = "stopped: ";
@@ -400,6 +402,29 @@ impl Supervisor {
 			.and_then(|()| store.append_notes(id, &format!("\n{note}\n")));
 		report("taint", flagged);
 		store.state(id).unwrap_or(TaskState::Failed)
+	}
+
+	fn kill_and_reap(&self, child: &mut Child, who: &str) {
+		report(who, kill_agent_group(child));
+		let deadline = Instant::now() + KILL_REAP_TIMEOUT;
+		loop {
+			match child.try_wait() {
+				Ok(Some(_)) => return,
+				Ok(None) if Instant::now() < deadline => sleep(KILL_REAP_POLL),
+				Ok(None) => {
+					let journaled = journal_append(
+						&self.run,
+						&format!(
+							"{who} pid {pid} still alive {seconds} s after SIGKILL, left behind",
+							pid = child.id(),
+							seconds = KILL_REAP_TIMEOUT.as_secs()
+						),
+					);
+					return report(who, journaled);
+				}
+				Err(error) => return report(who, Err(error.into())),
+			}
+		}
 	}
 
 	fn spawn_agent_for(&self, agent: &AgentRun, task: Option<&TaskId>) -> Result<Child> {

@@ -6,7 +6,7 @@ use std::time::Instant;
 use anyhow::{Context, Result};
 
 use super::{STREAM_FILE, Supervisor, remove_planted, report, retry_backoff, taint_failure};
-use crate::agent::{AgentRun, StreamOutcome, parse_stream};
+use crate::agent::{AgentRun, StreamOutcome, kill_agent_group, parse_stream};
 use crate::claude_config::agent_env;
 use crate::events::{Event, emit};
 use crate::journal::journal_append;
@@ -107,7 +107,7 @@ pub(super) struct WorkerProcess {
 impl Supervisor {
 	pub(super) fn kill_worker(&mut self, id: &TaskId) {
 		for worker in self.workers.iter_mut().filter(|worker| &worker.task == id) {
-			report("kill worker", worker.child.kill().map_err(Into::into));
+			report("kill worker", kill_agent_group(&worker.child));
 		}
 	}
 

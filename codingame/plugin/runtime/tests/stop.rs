@@ -616,3 +616,34 @@ fn stop_while_starting_prints_no_empty_pid() {
 	assert!(!text.contains("pid  "), "{text}");
 	assert!(!text.contains("pid stops"), "{text}");
 }
+
+#[test]
+fn stop_kills_manager_process_group() {
+	let contest = contest(0, 30);
+	let run = &contest.run;
+	let grandchild_file = contest.home.join("grandchild");
+	let said = contest_cli(&contest, &["say", run.root.to_str().unwrap(), "hello"]);
+	assert!(said.status.success());
+	let exec = agent_exec(
+		"exec sleep 60",
+		":",
+		&format!(
+			"sleep 60 & echo $! > {grandchild}; exec sleep 60",
+			grandchild = grandchild_file.display()
+		),
+	);
+	let mut supervisor = start_exec(&contest, &exec);
+	wait_until(20, "manager running", || {
+		fs::read_to_string(&grandchild_file).is_ok_and(|text| text.ends_with('\n'))
+	});
+	let grandchild = read_pid(&grandchild_file);
+	supervisor.stop_within(run, 5);
+	let survived = alive(grandchild);
+	if survived {
+		let _ = nix::sys::signal::kill(
+			nix::unistd::Pid::from_raw(grandchild),
+			nix::sys::signal::Signal::SIGKILL,
+		);
+	}
+	assert!(!survived, "manager grandchild survived the stop");
+}

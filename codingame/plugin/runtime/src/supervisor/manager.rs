@@ -76,16 +76,15 @@ impl Supervisor {
 			let status = match manager.child.try_wait()? {
 				Some(status) => Ok(status),
 				None if manager.started.elapsed() < timeout => return Ok(()),
-				None => {
-					manager.child.kill()?;
-					manager.child.wait()?;
-					Err(format!(
-						"manager timed out after {seconds} s",
-						seconds = timeout.as_secs()
-					))
-				}
+				None => Err(format!(
+					"manager timed out after {seconds} s",
+					seconds = timeout.as_secs()
+				)),
 			};
-			if let Some(manager) = self.manager.take() {
+			if let Some(mut manager) = self.manager.take() {
+				if status.is_err() {
+					self.kill_and_reap(&mut manager.child, MANAGER_WHO);
+				}
 				self.finish_manager(manager, status, now);
 			}
 			return Ok(());
@@ -109,11 +108,7 @@ impl Supervisor {
 		let Some(mut manager) = self.manager.take() else {
 			return;
 		};
-		report("manager", manager.child.kill().map_err(Into::into));
-		report(
-			"manager",
-			manager.child.wait().map(drop).map_err(Into::into),
-		);
+		self.kill_and_reap(&mut manager.child, MANAGER_WHO);
 		let outcome = parse_stream(&manager.stream_log);
 		self.record_agent(MANAGER_WHO, &manager.model, &outcome, manager.started, now);
 		let journaled = journal_append(&self.run, "manager tick discarded at stop");

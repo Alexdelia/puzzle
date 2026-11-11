@@ -32,14 +32,7 @@ impl Supervisor {
 		let Some(mut running) = self.probe.take() else {
 			return;
 		};
-		report(
-			"usage probe",
-			running.probe.child.kill().map_err(Into::into),
-		);
-		report(
-			"usage probe",
-			running.probe.child.wait().map(drop).map_err(Into::into),
-		);
+		self.kill_and_reap(&mut running.probe.child, PROBE_WHO);
 		drop(running.probe.finish());
 		let journaled = journal_append(&self.run, "usage probe discarded at stop");
 		report("usage probe", journaled);
@@ -71,9 +64,9 @@ impl Supervisor {
 			if running.started.elapsed() < timeout {
 				return Ok(());
 			}
-			running.probe.child.kill()?;
-			running.probe.child.wait()?;
-			self.probe = None;
+			if let Some(mut timed_out) = self.probe.take() {
+				self.kill_and_reap(&mut timed_out.probe.child, PROBE_WHO);
+			}
 			self.probe_failed(&format!(
 				"usage probe timed out after {seconds} s",
 				seconds = timeout.as_secs()

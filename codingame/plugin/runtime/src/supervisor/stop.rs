@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 
 use super::{Supervisor, abandoned_commits, report, unix_now};
+use crate::agent::kill_agent_group;
 use crate::atomic::write_atomic;
 use crate::journal::journal_append;
 use crate::task::{TaskState, TaskStore};
@@ -63,7 +64,7 @@ impl Supervisor {
 
 	fn sweep(&mut self) {
 		for worker in &mut self.workers {
-			report("kill worker", worker.child.kill().map_err(Into::into));
+			report("kill worker", kill_agent_group(&worker.child));
 		}
 		self.kill_live_jobs();
 		let settle_end = Instant::now() + Duration::from_secs(STOP_SETTLE_SECONDS);
