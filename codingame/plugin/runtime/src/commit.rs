@@ -1,9 +1,12 @@
 use std::fs::{File, OpenOptions};
 use std::os::fd::AsRawFd;
+use std::os::unix::process::CommandExt;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, bail, ensure};
+use nix::sys::prctl::set_pdeathsig;
+use nix::sys::signal::Signal;
 
 use crate::config::Config;
 use crate::paths::{RunDir, TaskId, is_valid_kind};
@@ -46,6 +49,7 @@ impl Drop for CommitLock {
 
 fn git(repo: &Path, args: &[&str], paths: &[PathBuf]) -> Result<std::process::Output> {
 	let mut command = Command::new("git");
+	die_with_commit_thread(&mut command);
 	command
 		.arg("--literal-pathspecs")
 		.arg("-C")
@@ -57,6 +61,12 @@ fn git(repo: &Path, args: &[&str], paths: &[PathBuf]) -> Result<std::process::Ou
 	command
 		.output()
 		.with_context(|| format!("run git {args:?}"))
+}
+
+fn die_with_commit_thread(command: &mut Command) {
+	unsafe {
+		command.pre_exec(|| set_pdeathsig(Signal::SIGKILL).map_err(std::io::Error::from));
+	}
 }
 
 fn git_checked(repo: &Path, args: &[&str], paths: &[PathBuf]) -> Result<String> {
