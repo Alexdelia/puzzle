@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs::{self, File};
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
@@ -39,6 +40,15 @@ pub enum JobState {
 	Interrupted,
 	Cancelling,
 	Cancelled,
+}
+
+impl JobState {
+	pub fn is_ended(&self) -> bool {
+		matches!(
+			self,
+			Self::Done { .. } | Self::Interrupted | Self::Cancelled
+		)
+	}
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -118,16 +128,48 @@ pub fn read_job_record(run: &RunDir, id: &JobId) -> anyhow::Result<JobRecord> {
 	Ok(toml::from_str(&text)?)
 }
 
-pub fn list_job_records(run: &RunDir) -> Vec<JobRecord> {
-	let mut records: Vec<JobRecord> = fs::read_dir(run.jobs())
+fn job_ids(run: &RunDir) -> Vec<JobId> {
+	fs::read_dir(run.jobs())
 		.into_iter()
 		.flatten()
 		.flatten()
 		.filter_map(|entry| JobId::parse(entry.file_name().to_str()?).ok())
+		.collect()
+}
+
+pub fn list_job_records(run: &RunDir) -> Vec<JobRecord> {
+	let mut records: Vec<JobRecord> = job_ids(run)
+		.into_iter()
 		.filter_map(|id| read_job_record(run, &id).ok())
 		.collect();
 	records.sort_by(|a, b| a.id.cmp(&b.id));
 	records
+}
+
+#[derive(Debug, Default)]
+pub struct JobIndex {
+	ended: HashSet<JobId>,
+}
+
+impl JobIndex {
+	pub fn current(&mut self, run: &RunDir) -> Vec<JobRecord> {
+		let mut current = Vec::new();
+		for id in job_ids(run) {
+			if self.ended.contains(&id) {
+				continue;
+			}
+			let Ok(record) = read_job_record(run, &id) else {
+				continue;
+			};
+			if record.state.is_ended() {
+				self.ended.insert(id);
+			} else {
+				current.push(record);
+			}
+		}
+		current.sort_by(|a, b| a.id.cmp(&b.id));
+		current
+	}
 }
 
 pub fn write_lease(run: &RunDir, id: &JobId, lease: &Lease) -> anyhow::Result<()> {

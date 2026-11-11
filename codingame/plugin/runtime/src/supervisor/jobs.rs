@@ -110,7 +110,9 @@ fn ended_task(store: &TaskStore, record: &JobRecord) -> bool {
 impl Supervisor {
 	pub(super) fn cancel_jobs_of_ended_tasks(&mut self) {
 		let store = TaskStore { run: &self.run };
-		let orphaned: Vec<JobRecord> = list_job_records(&self.run)
+		let orphaned: Vec<JobRecord> = self
+			.jobs
+			.current(&self.run)
 			.into_iter()
 			.filter(|record| matches!(record.state, JobState::Queued | JobState::Running))
 			.filter(|record| ended_task(&store, record))
@@ -143,14 +145,15 @@ impl Supervisor {
 		}
 	}
 
-	pub(super) fn has_live_jobs(&self) -> bool {
-		list_job_records(&self.run)
+	pub(super) fn has_live_jobs(&mut self) -> bool {
+		self.jobs
+			.current(&self.run)
 			.iter()
 			.any(|record| is_live_job(&record.state))
 	}
 
 	pub(super) fn reap_jobs(&mut self) {
-		for record in list_job_records(&self.run) {
+		for record in self.jobs.current(&self.run) {
 			if !is_live_job(&record.state) {
 				continue;
 			}
@@ -211,7 +214,7 @@ impl Supervisor {
 	}
 
 	pub(super) fn terminate_jobs(&mut self) {
-		for record in list_job_records(&self.run) {
+		for record in self.jobs.current(&self.run) {
 			match record.state {
 				JobState::Running => {
 					let signalled = self.signal_job_of(&record, Signal::SIGTERM);
@@ -223,8 +226,8 @@ impl Supervisor {
 		}
 	}
 
-	pub(super) fn kill_live_jobs(&self) {
-		for record in list_job_records(&self.run) {
+	pub(super) fn kill_live_jobs(&mut self) {
+		for record in self.jobs.current(&self.run) {
 			if is_live_job(&record.state) {
 				let killed = self.signal_job_of(&record, Signal::SIGKILL);
 				report("kill job", killed.map(drop));
@@ -233,7 +236,7 @@ impl Supervisor {
 	}
 
 	pub(super) fn interrupt_remaining_jobs(&mut self) {
-		for record in list_job_records(&self.run) {
+		for record in self.jobs.current(&self.run) {
 			if record.state == JobState::Queued || is_live_job(&record.state) {
 				self.interrupt_job(record);
 			}
@@ -371,7 +374,7 @@ impl Supervisor {
 
 	pub(super) fn schedule_jobs(&mut self, now: i64) -> Result<()> {
 		let swapping = self.swapping();
-		let records = list_job_records(&self.run);
+		let records = self.jobs.current(&self.run);
 		self.finish_due_drains(&records, now)?;
 		let running = self.running_jobs(&records);
 		let queued: Vec<JobRequest> = records

@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 
 use contest::broker::{Grant, JobClass, JobRequest};
 use contest::job::{
-	JobRecord, JobState, VmStat, parse_vmstat, process_tree, read_job_record, read_vmstat, repin,
-	signal_job, spawn_job, swap_delta_exceeds, try_reap, write_job_record,
+	JobIndex, JobRecord, JobState, VmStat, parse_vmstat, process_tree, read_job_record,
+	read_vmstat, repin, signal_job, spawn_job, swap_delta_exceeds, try_reap, write_job_record,
 };
 use contest::paths::{JobId, RunDir, TaskId};
 use nix::sys::signal::Signal;
@@ -406,4 +406,44 @@ fn job_record_roundtrips() {
 	job.pid = Some(42);
 	write_job_record(&run, &job).unwrap();
 	assert_eq!(read_job_record(&run, &job.id).unwrap(), job);
+}
+
+#[test]
+fn job_index_never_rereads_ended_records() {
+	let (_dir, run) = run_dir();
+	let ended = 2000;
+	for number in 1..=ended {
+		let mut done = record(&format!("j{number:04}"), JobClass::Batch, &["true"]);
+		done.state = JobState::Done { code: 0 };
+		fs::create_dir_all(run.job_dir(&done.id)).unwrap();
+		fs::write(
+			run.job_record_path(&done.id),
+			toml::to_string(&done).unwrap(),
+		)
+		.unwrap();
+	}
+	let mut queued = record("j2001", JobClass::Batch, &["true"]);
+	queued.state = JobState::Queued;
+	write_job_record(&run, &queued).unwrap();
+	let mut index = JobIndex::default();
+	let first = index.current(&run);
+	assert_eq!(first.len(), 1);
+	assert_eq!(first[0].id, queued.id);
+	for number in 1..=ended {
+		let path = run.job_record_path(&JobId(format!("j{number:04}")));
+		fs::remove_file(&path).unwrap();
+		nix::unistd::mkfifo(&path, nix::sys::stat::Mode::S_IRWXU).unwrap();
+	}
+	let (sender, receiver) = std::sync::mpsc::channel();
+	let index_run = run.clone();
+	std::thread::spawn(move || {
+		let began = Instant::now();
+		let live = index.current(&index_run).len();
+		sender.send((live, began.elapsed())).unwrap();
+	});
+	let (live, elapsed) = receiver
+		.recv_timeout(Duration::from_secs(10))
+		.expect("index opened an ended record (a fifo) again");
+	assert_eq!(live, 1);
+	assert!(elapsed < Duration::from_millis(500), "{elapsed:?}");
 }

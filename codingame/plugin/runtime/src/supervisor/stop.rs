@@ -66,7 +66,7 @@ impl Supervisor {
 		report("status", status);
 	}
 
-	fn has_live_work(&self) -> bool {
+	fn has_live_work(&mut self) -> bool {
 		!self.workers.is_empty() || self.commits.busy() || self.has_live_jobs()
 	}
 

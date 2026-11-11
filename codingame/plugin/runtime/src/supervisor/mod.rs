@@ -36,7 +36,7 @@ use crate::claude_config::write_claude_settings;
 use crate::commit::unstage_task;
 use crate::config::Config;
 use crate::events::{Event, emit};
-use crate::job::VmStat;
+use crate::job::{JobIndex, VmStat};
 use crate::journal::{journal_append, journal_tail};
 use crate::paths::{JobId, RunDir, TaskId};
 use crate::run_info::{RunInfo, read_run_info, update_run_info};
@@ -246,6 +246,7 @@ struct Supervisor {
 	workers: Vec<WorkerProcess>,
 	manager: Option<ManagerProcess>,
 	commits: Commits,
+	jobs: JobIndex,
 	leases: HashMap<JobId, HeldLease>,
 	agent_cpus: Vec<usize>,
 	last_agent_pin: Instant,
@@ -334,6 +335,7 @@ impl Supervisor {
 			workers: Vec::new(),
 			manager: None,
 			commits: Commits::default(),
+			jobs: JobIndex::default(),
 			leases: HashMap::new(),
 			agent_cpus: Vec::new(),
 			last_agent_pin: now,
