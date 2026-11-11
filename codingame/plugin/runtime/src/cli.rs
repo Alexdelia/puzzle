@@ -183,8 +183,8 @@ fn start(args: StartArgs) -> anyhow::Result<()> {
 				);
 			}
 			bail!(
-				"supervisor already running ({pid})",
-				pid = supervisor_name(&pid)
+				"supervisor already running: {name}",
+				name = supervisor_name(&pid)
 			);
 		}
 		clear_stop(&run)?;
