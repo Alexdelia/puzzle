@@ -2676,3 +2676,96 @@ fn running_timed_job_keeps_its_cores_until_the_drain_ends() {
 	fs::write(&finish, "").unwrap();
 	supervisor.stop(run);
 }
+
+#[test]
+fn waiting_task_frees_its_slot_and_resumes_when_its_jobs_end() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let long = create_task(run, "train", 10);
+	let quick = create_task(run, "quick", 0);
+	let job_go = contest.home.join("job-go");
+	let notes = run.task_dir(&long).join("notes.md");
+	let action = format!(
+		"if [[ $CONTEST_TASK == {quick} ]]; then contest task done; \
+		elif grep -q 'waiting for j0001' {notes} 2>/dev/null; then contest task done; \
+		else contest job submit --class batch --ram-mb 10 -- sh -c 'until [ -e {job_go} ]; do sleep 0.1; done' \
+		&& echo 'waiting for j0001' >> {notes} && contest task wait-jobs; fi",
+		notes = notes.display(),
+		job_go = job_go.display()
+	);
+	let supervisor = start(&contest, &action);
+	let job = JobId("j0001".into());
+	wait_until(20, "long task waiting", || {
+		state(run, &long) == TaskState::Waiting
+	});
+	wait_until(20, "quick task ran in the freed slot", || {
+		state(run, &quick) == TaskState::Done
+	});
+	assert_eq!(state(run, &long), TaskState::Waiting);
+	assert_eq!(read_job_record(run, &job).unwrap().state, JobState::Running);
+	let status = contest_status(run);
+	let waiting_section = status.split("## waiting tasks").nth(1).unwrap_or_default();
+	assert!(waiting_section.contains(&long.0), "{status}");
+	fs::write(&job_go, "").unwrap();
+	wait_until(30, "long task done", || {
+		state(run, &long) == TaskState::Done
+	});
+	supervisor.stop(run);
+	assert_eq!(
+		read_job_record(run, &job).unwrap().state,
+		JobState::Done { code: 0 }
+	);
+	assert_eq!(journal_lines(run, &format!("{long} waits for its jobs")), 1);
+	assert_eq!(
+		journal_lines(run, &format!("resumed {long}: its jobs ended")),
+		1
+	);
+	assert!(
+		fs::read_to_string(&notes)
+			.unwrap()
+			.contains("waiting for j0001")
+	);
+	assert!(!has_event(
+		run,
+		json!({"event": "task_finished", "task": long.0, "state": "waiting"})
+	));
+	assert!(!has_event(
+		run,
+		json!({"event": "task_finished", "task": long.0, "state": "failed"})
+	));
+}
+
+#[test]
+fn waiting_task_resumes_after_restart() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let id = create_task(run, "train", 0);
+	let store = TaskStore { run };
+	store.transition(&id, TaskState::Running).unwrap();
+	store.transition(&id, TaskState::Waiting).unwrap();
+	let mut gone = Command::new("true").spawn().unwrap();
+	let pid = gone.id();
+	gone.wait().unwrap();
+	let job = queued_job_record(run, "j0001", &id, &["true"]);
+	let mut record = read_job_record(run, &job).unwrap();
+	record.state = JobState::Running;
+	record.pid = Some(pid);
+	record.starttime = Some(1);
+	write_job_record(run, &record).unwrap();
+	let supervisor = start(&contest, "contest task done");
+	wait_until(20, "task done", || state(run, &id) == TaskState::Done);
+	supervisor.stop(run);
+	assert_eq!(
+		read_job_record(run, &job).unwrap().state,
+		JobState::Interrupted
+	);
+	assert_eq!(
+		journal_lines(run, &format!("requeued {id} after restart")),
+		0
+	);
+	assert_eq!(
+		journal_lines(run, &format!("resumed {id}: its jobs ended")),
+		1
+	);
+	assert_eq!(store.spec(&id).unwrap().priority, 0);
+}

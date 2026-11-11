@@ -108,12 +108,12 @@ fn section(title: &str, items: Vec<String>) -> Vec<String> {
 	lines
 }
 
-fn running_tasks(run: &RunDir) -> Vec<String> {
+fn tasks_in(run: &RunDir, state: TaskState) -> Vec<String> {
 	TaskStore { run }
 		.list()
 		.unwrap_or_default()
 		.into_iter()
-		.filter(|task| task.state == TaskState::Running)
+		.filter(|task| task.state == state)
 		.take(TASKS_SHOWN)
 		.map(|task| format!("- {id} {title}", id = task.id, title = task.title))
 		.collect()
@@ -204,7 +204,8 @@ fn status_text_for(run: &RunDir, now: i64, supervisor_pid: Option<String>) -> St
 	}
 	lines.extend(run_lines(run, now));
 	lines.extend(usage_lines(run, now));
-	lines.extend(section("running tasks", running_tasks(run)));
+	lines.extend(section("running tasks", tasks_in(run, TaskState::Running)));
+	lines.extend(section("waiting tasks", tasks_in(run, TaskState::Waiting)));
 	lines.extend(section("jobs", active_jobs(run)));
 	lines.extend(section("journal", journal_tail(run, JOURNAL_SHOWN)));
 	lines.extend(section("last reply", last_reply(run)));

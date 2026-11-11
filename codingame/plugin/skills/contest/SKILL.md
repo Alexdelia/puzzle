@@ -33,7 +33,7 @@ User-facing control of a run. The run works alone: a supervisor launches a manag
 
 ## Answer
 
-- relay status terse: supervisor line, `blocked:` lines, phase, running tasks, jobs, last reply
+- relay status terse: supervisor line, `blocked:` lines, phase, running tasks, waiting tasks, jobs, last reply
 - after `say`: tell the user the reply comes at the next manager tick; check `run/replies.md` again when asked
 - `contest stop` prints the remaining time: pass it on
 

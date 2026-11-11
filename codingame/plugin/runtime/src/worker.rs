@@ -72,6 +72,7 @@ pub enum TaskVerb {
 	Done,
 	Failed,
 	Ask { question: String },
+	WaitJobs,
 }
 
 fn env_path(name: &str) -> Result<PathBuf> {
@@ -133,6 +134,7 @@ fn request_of(verb: WorkerVerb) -> Result<(Request, Duration)> {
 		WorkerVerb::Task(TaskVerb::Ask { question }) => {
 			(finish(Outcome::NeedsAnswer, Some(question)), no_extra_wait)
 		}
+		WorkerVerb::Task(TaskVerb::WaitJobs) => (Request::TaskWaitJobs, no_extra_wait),
 	})
 }
 

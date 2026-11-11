@@ -303,3 +303,35 @@ fn journal_lines_cannot_be_forged_with_control_chars() {
 		"{lines:?}"
 	);
 }
+
+#[test]
+fn waiting_task_resumes_through_queued_and_can_end() {
+	let (_dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let id = store.create(spec("train", 1)).unwrap();
+	assert!(store.transition(&id, TaskState::Waiting).is_err());
+	store.transition(&id, TaskState::Running).unwrap();
+	store.transition(&id, TaskState::Waiting).unwrap();
+	assert_eq!(store.state(&id).unwrap(), TaskState::Waiting);
+	assert!(store.transition(&id, TaskState::Running).is_err());
+	assert!(store.transition(&id, TaskState::Done).is_err());
+	store.transition(&id, TaskState::Queued).unwrap();
+	for end in [TaskState::Cancelled, TaskState::Failed] {
+		let other = store.create(spec("tune", 1)).unwrap();
+		store.transition(&other, TaskState::Running).unwrap();
+		store.transition(&other, TaskState::Waiting).unwrap();
+		store.transition(&other, end).unwrap();
+	}
+}
+
+#[test]
+fn reconcile_keeps_waiting_tasks() {
+	let (_dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let id = store.create(spec("train", 4)).unwrap();
+	store.transition(&id, TaskState::Running).unwrap();
+	store.transition(&id, TaskState::Waiting).unwrap();
+	assert!(store.reconcile_after_restart().unwrap().is_empty());
+	assert_eq!(store.state(&id).unwrap(), TaskState::Waiting);
+	assert_eq!(store.spec(&id).unwrap().priority, 4);
+}

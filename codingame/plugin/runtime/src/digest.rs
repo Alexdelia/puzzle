@@ -29,6 +29,8 @@ const INBOX_READ_DIR: &str = "read";
 const EVENTS_SHOWN: usize = 100;
 const INBOX_SHOWN: usize = 10;
 const OMITTED_EVENTS: &str = "older events omitted:";
+const WAITING_NOTE: &str =
+	"(these tasks resume on their own, with their notes, once all their jobs end)";
 
 fn one_line(text: &str, max_chars: usize) -> String {
 	text.chars()
@@ -175,6 +177,16 @@ fn state_section(tasks: &[TaskSummary], states: &[TaskState]) -> Vec<String> {
 		.collect()
 }
 
+fn waiting_section(tasks: &[TaskSummary]) -> Vec<String> {
+	let waiting = state_section(tasks, &[TaskState::Waiting]);
+	if waiting.is_empty() {
+		return waiting;
+	}
+	std::iter::once(WAITING_NOTE.to_owned())
+		.chain(waiting)
+		.collect()
+}
+
 fn read_message(path: &Path) -> Result<(String, bool)> {
 	let mut bytes = Vec::new();
 	File::open(path)?
@@ -245,6 +257,7 @@ struct Sections {
 	run: Vec<String>,
 	usage: Vec<String>,
 	running: Vec<String>,
+	waiting: Vec<String>,
 	needs_answer: Vec<String>,
 	queued: Vec<String>,
 	recent: Vec<String>,
@@ -291,10 +304,11 @@ impl Sections {
 			.iter()
 			.map(|(message, _)| message.clone())
 			.collect();
-		let sections: [(&str, &Vec<String>); 10] = [
+		let sections: [(&str, &Vec<String>); 11] = [
 			("run", &self.run),
 			("usage", &self.usage),
 			("running", &self.running),
+			("waiting", &self.waiting),
 			("needs-answer", &self.needs_answer),
 			("queued", &self.queued),
 			("recent", &self.recent),
@@ -365,6 +379,7 @@ pub fn build_digest(run: &RunDir, config: &Config, now: i64) -> Digest {
 			.collect(),
 		usage: usage_section(run, config, now),
 		running: state_section(&tasks, &[TaskState::Running, TaskState::Interrupted]),
+		waiting: waiting_section(&tasks),
 		needs_answer: needs_answer_section(run, &tasks),
 		queued: queued_section(&tasks),
 		recent: recent_section(&store, &tasks),

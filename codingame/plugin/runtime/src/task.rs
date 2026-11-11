@@ -20,6 +20,7 @@ pub enum TaskState {
 	Running,
 	Interrupted,
 	NeedsAnswer,
+	Waiting,
 	Done,
 	Failed,
 	Cancelled,
@@ -32,6 +33,7 @@ impl TaskState {
 			Self::Running => "running",
 			Self::Interrupted => "interrupted",
 			Self::NeedsAnswer => "needs-answer",
+			Self::Waiting => "waiting",
 			Self::Done => "done",
 			Self::Failed => "failed",
 			Self::Cancelled => "cancelled",
@@ -44,6 +46,7 @@ impl TaskState {
 			Self::Running,
 			Self::Interrupted,
 			Self::NeedsAnswer,
+			Self::Waiting,
 			Self::Done,
 			Self::Failed,
 			Self::Cancelled,
@@ -59,9 +62,9 @@ impl TaskState {
 			(Queued, Running | Cancelled)
 				| (
 					Running,
-					Done | Failed | Interrupted | NeedsAnswer | Cancelled
+					Done | Failed | Interrupted | NeedsAnswer | Waiting | Cancelled
 				) | (Interrupted, Queued | Cancelled)
-				| (NeedsAnswer, Queued | Cancelled | Failed)
+				| (NeedsAnswer | Waiting, Queued | Cancelled | Failed)
 				| (Done, Failed)
 				| (Failed, Queued)
 		)

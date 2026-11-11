@@ -431,6 +431,8 @@ impl Supervisor {
 		report("schedule jobs", scheduled);
 		let manager = self.manager_step(now);
 		report("manager", manager);
+		let resumed = self.resume_waiting_tasks();
+		report("resume", resumed);
 		let launched = self.launch_workers(now);
 		report("launch", launched);
 		let status = self.refresh_status(now);

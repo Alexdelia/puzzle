@@ -370,6 +370,33 @@ impl Supervisor {
 		}
 	}
 
+	pub(super) fn resume_waiting_tasks(&mut self) -> Result<()> {
+		let waiting: Vec<TaskId> = TaskStore { run: &self.run }
+			.list()?
+			.into_iter()
+			.filter(|task| task.state == TaskState::Waiting)
+			.map(|task| task.id)
+			.filter(|id| !self.workers.iter().any(|worker| &worker.task == id))
+			.collect();
+		if waiting.is_empty() {
+			return Ok(());
+		}
+		let jobs = self.jobs.current(&self.run);
+		let store = TaskStore { run: &self.run };
+		for id in waiting {
+			if jobs.iter().any(|record| record.owner_task == id) {
+				continue;
+			}
+			store.transition(&id, TaskState::Queued)?;
+			report(
+				"notes",
+				store.append_notes(&id, "\nall jobs ended while waiting, resumed\n"),
+			);
+			journal_append(&self.run, &format!("resumed {id}: its jobs ended"))?;
+		}
+		Ok(())
+	}
+
 	pub(super) fn requeue_orphaned_running(&mut self) -> Result<()> {
 		let orphaned: Vec<TaskId> = TaskStore { run: &self.run }
 			.list()?
@@ -523,6 +550,7 @@ impl Supervisor {
 			TaskState::Interrupted => {
 				journal_append(&self.run, &format!("interrupted {id} at stop"))
 			}
+			TaskState::Waiting => journal_append(&self.run, &format!("{id} waits for its jobs")),
 			_ => {
 				emit(
 					&self.run,

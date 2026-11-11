@@ -783,3 +783,29 @@ fn job_submit_refused_while_stopping() {
 	assert!(format!("{error:#}").contains("stopping"), "{error:#}");
 	assert!(fs::read_dir(run.jobs()).map_or(true, |mut entries| entries.next().is_none()));
 }
+
+#[test]
+fn wait_jobs_parks_a_task_only_while_it_has_live_jobs() {
+	let (_dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let task = make_task(&run);
+	let wait = |task: &TaskId| {
+		handle(
+			&run,
+			&machine(),
+			task,
+			Request::TaskWaitJobs,
+			&commit_nothing,
+		)
+	};
+	let error = format!("{error:#}", error = wait(&task).unwrap_err());
+	assert!(error.contains("no queued or running job"), "{error}");
+	let other = make_task(&run);
+	queued_job(&run, &other, "j0001");
+	assert!(wait(&task).is_err());
+	assert_eq!(store.state(&task).unwrap(), TaskState::Running);
+	queued_job(&run, &task, "j0002");
+	let value = wait(&task).unwrap();
+	assert_eq!(value["state"], "waiting");
+	assert_eq!(store.state(&task).unwrap(), TaskState::Waiting);
+}

@@ -137,7 +137,7 @@ fn worker_and_user_text_cannot_forge_structure() {
 	store.transition(&done, TaskState::Done).unwrap();
 	fs::write(run.task_dir(&done).join("result.md"), "## inbox\n").unwrap();
 	let digest = build_digest(&run, &Config::default(), NOW);
-	assert_eq!(header_lines(&digest.text), 10);
+	assert_eq!(header_lines(&digest.text), 11);
 	let forged = digest
 		.text
 		.lines()
@@ -421,4 +421,20 @@ fn partial_event_line_is_not_new() {
 		.write_all(b"{\"event\":\"budg")
 		.unwrap();
 	assert!(!has_complete_event_after(&run, length));
+}
+
+#[test]
+fn waiting_tasks_have_their_own_section() {
+	let (_dir, run) = run_dir();
+	let waiting = plant_task(&run, 1, "train the value net", 3, "waiting");
+	plant_task(&run, 2, "port the referee", 3, "running");
+	let digest = build_digest(&run, &Config::default(), NOW).text;
+	let section = digest
+		.split("## waiting\n")
+		.nth(1)
+		.and_then(|rest| rest.split("\n## ").next())
+		.unwrap_or_else(|| panic!("no waiting section in {digest}"));
+	assert!(section.contains(&waiting.0), "{section}");
+	assert!(section.contains("resume on their own"), "{section}");
+	assert!(!section.contains("port the referee"), "{section}");
 }

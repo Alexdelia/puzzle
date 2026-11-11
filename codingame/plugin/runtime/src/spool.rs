@@ -12,7 +12,10 @@ use serde_json::{Value, json};
 
 use crate::atomic::write_atomic;
 use crate::broker::{JobClass, JobRequest, Machine};
-use crate::job::{JobRecord, JobState, read_job_record, signal_if_same_process, write_job_record};
+use crate::job::{
+	JobRecord, JobState, list_job_records, read_job_record, signal_if_same_process,
+	write_job_record,
+};
 use crate::paths::{JobId, RunDir, TaskId};
 use crate::taint::read_worker_file;
 use crate::task::{TaskState, TaskStore};
@@ -56,6 +59,7 @@ pub enum Request {
 		outcome: Outcome,
 		question: Option<String>,
 	},
+	TaskWaitJobs,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -63,13 +67,6 @@ struct Response {
 	ok: bool,
 	value: Option<Value>,
 	error: Option<String>,
-}
-
-fn is_ended(state: &JobState) -> bool {
-	matches!(
-		state,
-		JobState::Done { .. } | JobState::Interrupted | JobState::Cancelled
-	)
 }
 
 fn owned_record(run: &RunDir, task: &TaskId, job: &JobId) -> Result<JobRecord> {
@@ -152,7 +149,7 @@ fn submit_job(
 
 pub fn cancel_job(run: &RunDir, task: &TaskId, job: &JobId) -> Result<Value> {
 	let mut record = owned_record(run, task, job)?;
-	if is_ended(&record.state) || record.state == JobState::Cancelling {
+	if record.state.is_ended() || record.state == JobState::Cancelling {
 		return Ok(job_status(&record));
 	}
 	record.state = match record.state {
@@ -187,6 +184,19 @@ fn finish_task(
 		store.append_notes(task, &format!("\n## Question\n\n{question}\n"))?;
 	}
 	Ok(json!({ "task": task, "state": next }))
+}
+
+fn wait_for_jobs(run: &RunDir, task: &TaskId) -> Result<Value> {
+	let live = list_job_records(run)
+		.into_iter()
+		.filter(|record| &record.owner_task == task && !record.state.is_ended())
+		.count();
+	ensure!(
+		live > 0,
+		"task {task} has no queued or running job to wait for"
+	);
+	TaskStore { run }.transition(task, TaskState::Waiting)?;
+	Ok(json!({ "task": task, "state": TaskState::Waiting, "jobs": live }))
 }
 
 pub struct CommitRequest<'a> {
@@ -232,11 +242,12 @@ pub fn handle(
 		Request::JobWait { job, .. } => {
 			let record = owned_record(run, task, &job)?;
 			let mut status = job_status(&record);
-			status["pending"] = json!(!is_ended(&record.state));
+			status["pending"] = json!(!record.state.is_ended());
 			Ok(status)
 		}
 		Request::JobCancel { job } => cancel_job(run, task, &job),
 		Request::TaskFinish { outcome, question } => finish_task(run, task, outcome, question),
+		Request::TaskWaitJobs => wait_for_jobs(run, task),
 	}
 }
 

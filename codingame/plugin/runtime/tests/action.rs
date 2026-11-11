@@ -263,3 +263,27 @@ fn journal_action_cannot_forge_lines() {
 	assert!(errors.is_empty());
 	assert_eq!(journal_tail(&run, 10).len(), 1);
 }
+
+#[test]
+fn cancel_reaches_waiting_tasks() {
+	let (_dir, run) = run_dir();
+	let store = TaskStore { run: &run };
+	let waiting = store.create(spec()).unwrap();
+	store.transition(&waiting, TaskState::Running).unwrap();
+	store.transition(&waiting, TaskState::Waiting).unwrap();
+	let errors = apply_actions(
+		&run,
+		vec![
+			Action::Reprioritize {
+				task: waiting.clone(),
+				priority: 7,
+			},
+			Action::Cancel {
+				task: waiting.clone(),
+			},
+		],
+	);
+	assert!(errors.is_empty(), "{errors:?}");
+	assert_eq!(store.spec(&waiting).unwrap().priority, 7);
+	assert_eq!(store.state(&waiting).unwrap(), TaskState::Cancelled);
+}
