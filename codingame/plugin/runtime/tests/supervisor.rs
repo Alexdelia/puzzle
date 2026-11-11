@@ -1974,21 +1974,70 @@ fn fast_exit_is_a_launch_failure() {
 }
 
 #[test]
-fn task_failing_launch_three_times_fails() {
+fn task_failing_launch_three_times_fails_once_another_task_ran() {
 	let contest = contest(1);
 	let run = &contest.run;
 	edit_config(&contest, |config| config.retry_base_seconds = 1);
-	let id = create_task(run, "sim-bench", 0);
-	let supervisor = start(&contest, "FAKE_CLAUDE_SCRIPT=/dev/null");
-	wait_until(30, "task failed", || state(run, &id) == TaskState::Failed);
+	let bad = create_task(run, "bad", 10);
+	let good = create_task(run, "good", 0);
+	let action = format!(
+		"if [[ $CONTEST_TASK == {bad} ]]; then FAKE_CLAUDE_SCRIPT=/dev/null; else contest task done; fi"
+	);
+	let supervisor = start(&contest, &action);
+	wait_until(30, "bad task failed", || {
+		state(run, &bad) == TaskState::Failed
+	});
 	supervisor.stop(run);
+	assert_eq!(state(run, &good), TaskState::Done);
 	assert_eq!(event_count(run, "launch_failed"), 3);
 	assert!(has_event(
 		run,
-		json!({"event": "task_finished", "task": id.0, "state": "failed"})
+		json!({"event": "task_finished", "task": bad.0, "state": "failed"})
 	));
-	let notes = fs::read_to_string(run.task_dir(&id).join("notes.md")).unwrap();
+	let notes = fs::read_to_string(run.task_dir(&bad).join("notes.md")).unwrap();
 	assert!(notes.contains("launch failed 3 times"), "{notes}");
+}
+
+#[test]
+fn repeated_spawn_errors_fail_a_task_only_after_another_ran() {
+	let contest = contest(1);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.retry_base_seconds = 1);
+	let bad = create_task(run, "bad", 10);
+	let good = create_task(run, "good", 0);
+	fs::create_dir_all(run.task_stop_marker(&bad).join("blocker")).unwrap();
+	let supervisor = start(&contest, "contest task done");
+	wait_until(30, "bad task failed", || {
+		state(run, &bad) == TaskState::Failed
+	});
+	supervisor.stop(run);
+	assert_eq!(state(run, &good), TaskState::Done);
+	let notes = fs::read_to_string(run.task_dir(&bad).join("notes.md")).unwrap();
+	assert!(notes.contains("launch failed 3 times"), "{notes}");
+}
+
+#[test]
+fn systemic_spawn_errors_fail_no_task() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let plugin = plugin_without_worker_prompt(&contest);
+	edit_config(&contest, |config| {
+		config.plugin_dir = plugin;
+		config.retry_base_seconds = 1;
+	});
+	let tasks: Vec<TaskId> = ["a", "b"]
+		.into_iter()
+		.map(|kind| create_task(run, kind, 0))
+		.collect();
+	let supervisor = start(&contest, "contest task done");
+	wait_until(30, "repeated launch failures", || {
+		event_count(run, "launch_failed") >= 4
+	});
+	supervisor.stop(run);
+	for id in &tasks {
+		assert_eq!(state(run, id), TaskState::Queued);
+	}
+	assert_eq!(event_count(run, "task_finished"), 0);
 }
 
 fn pid_in(path: &Path) -> i32 {
@@ -2024,28 +2073,28 @@ fn idle_worker_is_killed_and_requeued() {
 }
 
 #[test]
-fn worker_alive_after_result_is_killed_and_requeued() {
+fn worker_alive_after_result_is_killed_and_failed() {
 	let contest = contest(1);
 	let run = &contest.run;
 	edit_config(&contest, |config| config.result_grace_seconds = 1);
 	let id = create_task(run, "sim-bench", 0);
-	let flag = contest.home.join("lingered-once");
 	let pid_file = contest.home.join("lingering-pid");
 	let action = format!(
-		"if [ -e {flag} ]; then contest task done; else touch {flag}; echo $$ > {pid}; cat \"$FAKE_CLAUDE_SCRIPT\"; exec sleep 60; fi",
-		flag = flag.display(),
+		"echo $$ > {pid}; cat \"$FAKE_CLAUDE_SCRIPT\"; exec sleep 60",
 		pid = pid_file.display()
 	);
 	let supervisor = start(&contest, &action);
-	wait_until(20, "result grace kill", || {
-		journal_lines(run, "after its result") >= 1
-	});
-	wait_until(20, "done after relaunch", || {
-		state(run, &id) == TaskState::Done
+	wait_until(20, "failed after the result grace kill", || {
+		state(run, &id) == TaskState::Failed
 	});
 	supervisor.stop(run);
 	let pid = pid_in(&pid_file);
 	assert!(!Path::new(&format!("/proc/{pid}")).exists());
+	assert!(journal_lines(run, "after its result") >= 1);
+	assert_eq!(journal_lines(run, &format!("launched {id}")), 1);
+	assert_eq!(journal_lines(run, &format!("requeued {id}")), 0);
+	let notes = fs::read_to_string(run.task_dir(&id).join("notes.md")).unwrap();
+	assert!(notes.contains("exited without outcome"), "{notes}");
 }
 
 #[test]
@@ -2259,4 +2308,127 @@ fn start_refuses_host_lookups_through_the_contest_root() {
 	)
 	.unwrap();
 	assert!(!run.status().exists());
+}
+
+#[test]
+fn usage_sample_over_cap_soft_stops_then_kills_at_the_deadline() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let id = create_task(run, "sim-bench", 0);
+	let pid_file = contest.home.join("stubborn-pid");
+	let action = format!("echo $$ > {pid}; exec sleep 60", pid = pid_file.display());
+	let supervisor = start(&contest, &action);
+	wait_until(20, "worker running", || pid_file.is_file());
+	record_usage(run, &usage_at(0.98), now()).unwrap();
+	wait_until(10, "stop marker", || run.task_stop_marker(&id).is_file());
+	wait_until(20, "requeued at the deadline", || {
+		journal_lines(run, &format!("requeued {id}")) >= 1
+	});
+	supervisor.stop(run);
+	let pid = pid_in(&pid_file);
+	assert!(!Path::new(&format!("/proc/{pid}")).exists());
+	assert!(journal_lines(run, "after the soft stop") >= 1);
+	assert_eq!(state(run, &id), TaskState::Queued);
+	assert_eq!(event_count(run, "launch_failed"), 0);
+}
+
+#[test]
+fn idle_requeues_are_capped_per_task() {
+	let contest = contest(1);
+	let run = &contest.run;
+	edit_config(&contest, |config| config.worker_idle_minutes = 1);
+	let id = create_task(run, "sim-bench", 0);
+	let stream = run.agents().join(&id.0).join("stream.jsonl");
+	let action = format!(
+		"touch -d '2 hours ago' {stream}; exec sleep 60",
+		stream = stream.display()
+	);
+	let supervisor = start(&contest, &action);
+	wait_until(30, "failed after capped requeues", || {
+		state(run, &id) == TaskState::Failed
+	});
+	supervisor.stop(run);
+	assert_eq!(journal_lines(run, &format!("requeued {id}")), 3);
+	let notes = fs::read_to_string(run.task_dir(&id).join("notes.md")).unwrap();
+	assert!(notes.contains("requeued 3 times"), "{notes}");
+}
+
+#[test]
+fn limit_hit_without_future_reset_backs_off() {
+	let contest = contest(1);
+	let run = &contest.run;
+	let stream = contest.home.join("stale-limit-stream.jsonl");
+	let past = now() - 60;
+	let event = json!({
+		"type": "rate_limit_event",
+		"rate_limit_info": {
+			"status": "rejected",
+			"resetsAt": past,
+			"unifiedWindows": {
+				"five_hour": {"utilization": 1.0, "resetsAt": past},
+				"seven_day": {"utilization": 0.2, "resetsAt": now() + WEEK_SECONDS / 2},
+			},
+		},
+	});
+	let result = json!({
+		"type": "result",
+		"subtype": "success",
+		"is_error": true,
+		"result": "usage limit reached",
+		"usage": {"input_tokens": 0, "output_tokens": 0},
+	});
+	fs::write(&stream, format!("{event}\n{result}\n")).unwrap();
+	let id = create_task(run, "sim-bench", 0);
+	let action = format!("FAKE_CLAUDE_SCRIPT={stream}", stream = stream.display());
+	let supervisor = start(&contest, &action);
+	wait_until(20, "launch failure", || {
+		event_count(run, "launch_failed") >= 1
+	});
+	sleep(Duration::from_secs(2));
+	supervisor.stop(run);
+	assert_eq!(event_count(run, "launch_failed"), 1);
+	assert_eq!(journal_lines(run, &format!("launched {id}")), 1);
+	assert!(events(run).iter().any(|event| {
+		event["error"]
+			.as_str()
+			.is_some_and(|error| error.contains("no future reset"))
+	}));
+	assert_eq!(state(run, &id), TaskState::Queued);
+}
+
+#[test]
+fn manager_ticks_while_workers_run_near_the_cap() {
+	let contest = contest(3);
+	let run = &contest.run;
+	record_usage(run, &usage_at(0.88), now()).unwrap();
+	for kind in ["a", "b", "c"] {
+		create_task(run, kind, 0);
+	}
+	let supervisor = start(&contest, "exec sleep 60");
+	wait_until(20, "three workers", || running_count(run) == 3);
+	wait_until(20, "first tick", || manager_ticks(run) >= 1);
+	assert!(contest_say(run, "status please").status.success());
+	wait_until(20, "message acknowledged", || {
+		fs::read_dir(run.inbox().join("read")).is_ok_and(|mut entries| entries.next().is_some())
+	});
+	supervisor.stop(run);
+}
+
+#[test]
+fn stop_sweep_scans_once_for_all_workers() {
+	let contest = contest(2);
+	let run = &contest.run;
+	let mut deep = run.root.join("deep");
+	for _ in 0..70 {
+		deep.push("d");
+	}
+	fs::create_dir_all(&deep).unwrap();
+	for kind in ["a", "b"] {
+		create_task(run, kind, 0);
+	}
+	let supervisor = start(&contest, "exec sleep 60");
+	wait_until(20, "two workers", || running_count(run) == 2);
+	assert_eq!(journal_lines(run, "deeper than"), 1);
+	supervisor.stop(run);
+	assert_eq!(journal_lines(run, "deeper than"), 2);
 }

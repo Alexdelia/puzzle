@@ -6,7 +6,8 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, ensure};
 
 use super::{
-	MANAGER_BLOCK, SECONDS_PER_MINUTE, STREAM_FILE, Supervisor, report, retry_backoff, unix_now,
+	Gate, MANAGER_BLOCK, SECONDS_PER_MINUTE, STREAM_FILE, Supervisor, report, retry_backoff,
+	unix_now,
 };
 use crate::action::{Action, apply_actions, parse_actions};
 use crate::agent::{AgentRun, StreamOutcome, parse_stream};
@@ -95,7 +96,7 @@ impl Supervisor {
 		if !self.tick_due() {
 			return Ok(());
 		}
-		if !self.usage_gate(now) {
+		if !self.usage_gate(Gate::ManagerTick, now) {
 			return Ok(());
 		}
 		if let Err(error) = self.launch_manager(now) {

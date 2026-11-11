@@ -2,17 +2,40 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 
-use super::{STREAM_FILE, Supervisor, USAGE_BLOCK, report};
+use super::{MANAGER_USAGE_BLOCK, STREAM_FILE, Supervisor, USAGE_BLOCK, report};
 use crate::agent::RateLimitInfo;
 use crate::claude_config::credentials_expire_within;
 use crate::events::{Event, emit};
 use crate::journal::{journal_append, utc_time};
 use crate::usage::{
-	PROBE_MODEL, Probe, five_hour_full, fresh_usage, over_weekly_pace, rejected_until, spawn_probe,
+	PROBE_MODEL, Probe, five_hour_full_reserving, fresh_usage, over_weekly_pace, rejected_until,
+	spawn_probe,
 };
 
 const CREDENTIALS_HORIZON_SECONDS: u64 = 15 * 60;
 const PROBE_WHO: &str = "probe";
+
+#[derive(Clone, Copy)]
+pub(super) enum Gate {
+	Launch,
+	ManagerTick,
+}
+
+impl Gate {
+	fn slot(self) -> &'static str {
+		match self {
+			Self::Launch => USAGE_BLOCK,
+			Self::ManagerTick => MANAGER_USAGE_BLOCK,
+		}
+	}
+
+	fn what(self) -> &'static str {
+		match self {
+			Self::Launch => "launches",
+			Self::ManagerTick => "manager ticks",
+		}
+	}
+}
 
 pub(super) struct RunningProbe {
 	probe: Probe,
@@ -118,7 +141,7 @@ impl Supervisor {
 		info
 	}
 
-	fn usage_block_reason(&mut self, now: i64) -> Option<String> {
+	fn usage_block_reason(&mut self, gate: Gate, now: i64) -> Option<String> {
 		if let Some(until) = self.limit_until.filter(|until| *until > now) {
 			return Some(format!(
 				"a worker hit the usage limit, until {time}",
@@ -139,7 +162,11 @@ impl Supervisor {
 				time = utc_time(until)
 			));
 		}
-		if five_hour_full(&info, now, self.workers.len(), &self.cfg) {
+		let reserved_tasks = match gate {
+			Gate::Launch => self.workers.len() + 1,
+			Gate::ManagerTick => self.workers.len(),
+		};
+		if five_hour_full_reserving(&info, now, reserved_tasks, &self.cfg) {
 			return Some(format!(
 				"5h usage at the {limit}% cap with the per-task reserve",
 				limit = self.cfg.five_hour_limit_percent
@@ -149,14 +176,15 @@ impl Supervisor {
 			.then(|| "7d usage ahead of the weekly pace".to_owned())
 	}
 
-	pub(super) fn usage_gate(&mut self, now: i64) -> bool {
-		let reason = self.usage_block_reason(now);
+	pub(super) fn usage_gate(&mut self, gate: Gate, now: i64) -> bool {
+		let reason = self.usage_block_reason(gate, now);
 		let allowed = reason.is_none();
-		let previous = self.blocks.get(USAGE_BLOCK).cloned();
-		if self.set_block(USAGE_BLOCK, reason.clone()) {
+		let previous = self.blocks.get(gate.slot()).cloned();
+		let what = gate.what();
+		if self.set_block(gate.slot(), reason.clone()) {
 			let line = match (reason, previous) {
-				(Some(reason), _) => Some(format!("launches blocked: {reason}")),
-				(None, Some(previous)) => Some(format!("launches unblocked, was: {previous}")),
+				(Some(reason), _) => Some(format!("{what} blocked: {reason}")),
+				(None, Some(previous)) => Some(format!("{what} unblocked, was: {previous}")),
 				(None, None) => None,
 			};
 			if let Some(line) = line {

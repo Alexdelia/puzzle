@@ -25,9 +25,9 @@ pub use stop::STOP_SETTLE_SECONDS;
 use commits::{CommitThread, Commits, spawn_commit};
 use jobs::reconcile_jobs;
 use manager::ManagerProcess;
-use probe::RunningProbe;
+use probe::{Gate, RunningProbe};
 use signals::{install_stop_signals, stop_signals_received};
-use workers::WorkerProcess;
+use workers::{TaskLaunchFailures, WorkerProcess};
 
 use crate::agent::{AgentRun, kill_agent_group, spawn_agent, spawn_agent_scrubbed};
 use crate::atomic::write_atomic;
@@ -64,6 +64,7 @@ const STOPPED: &str = "stopped: ";
 const SIGNAL_STOP_REASON: &str = "signal";
 pub const DEFAULT_STOP_REASON: &str = "requested";
 const USAGE_BLOCK: &str = "usage";
+const MANAGER_USAGE_BLOCK: &str = "manager usage";
 const LAUNCH_BLOCK: &str = "launch";
 const MANAGER_BLOCK: &str = "manager";
 const TAINT_BLOCK: &str = "taint";
@@ -262,8 +263,8 @@ struct Supervisor {
 	usage_unknown_reported: bool,
 	launch_retry_at: Option<Instant>,
 	launch_failures: u32,
-	launch_streak: HashSet<TaskId>,
-	task_launch_failures: HashMap<TaskId, u32>,
+	task_launch_failures: HashMap<TaskId, TaskLaunchFailures>,
+	task_requeues: HashMap<TaskId, Vec<Instant>>,
 	blocked_until: Option<i64>,
 	limit_until: Option<i64>,
 	manager_last_error: Option<String>,
@@ -349,8 +350,8 @@ impl Supervisor {
 			usage_unknown_reported: false,
 			launch_retry_at: None,
 			launch_failures: 0,
-			launch_streak: HashSet::new(),
 			task_launch_failures: HashMap::new(),
+			task_requeues: HashMap::new(),
 			blocked_until: None,
 			limit_until: None,
 			manager_last_error: None,

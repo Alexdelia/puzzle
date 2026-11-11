@@ -76,17 +76,15 @@ impl Supervisor {
 		}
 		self.kill_live_jobs();
 		let settle_end = Instant::now() + Duration::from_secs(STOP_SETTLE_SECONDS);
-		while self.has_live_work() && Instant::now() < settle_end {
-			let reaped = self.reap_workers(unix_now());
-			report("reap workers", reaped);
+		while (self.workers_alive() || self.commits.busy() || self.has_live_jobs())
+			&& Instant::now() < settle_end
+		{
+			self.poll_worker_exits();
 			self.reap_jobs();
 			sleep(SETTLE_INTERVAL);
 		}
-		let now = unix_now();
-		for worker in std::mem::take(&mut self.workers) {
-			let finished = self.finish_worker(worker, now);
-			report("finish worker", finished);
-		}
+		let remaining = std::mem::take(&mut self.workers);
+		self.finish_workers(remaining, unix_now());
 		self.interrupt_remaining_jobs();
 		self.abandon_commits();
 		self.interrupt_running_tasks();
