@@ -294,7 +294,10 @@ impl Supervisor {
 
 	fn spawn_job_process(&self, record: &mut JobRecord, grant: &Grant) -> Result<u32> {
 		if self.cfg.sandbox {
-			let spec = SandboxSpec::for_run(&self.run, &self.cfg, Some(record.owner_task.clone()))?;
+			let spec = SandboxSpec {
+				gpu: grant.gpu,
+				..SandboxSpec::for_run(&self.run, &self.cfg, Some(record.owner_task.clone()))?
+			};
 			sandbox_job(record, &spec)?;
 			return spawn_job(&self.run, record, grant);
 		}

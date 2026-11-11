@@ -183,6 +183,10 @@ impl RunDir {
 		self.jobs().join(&id.0)
 	}
 
+	pub fn cargo_cache(&self) -> PathBuf {
+		self.run().join("cache/cargo")
+	}
+
 	pub fn agents(&self) -> PathBuf {
 		self.run().join("agents")
 	}

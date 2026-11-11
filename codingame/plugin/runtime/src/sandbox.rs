@@ -2,6 +2,7 @@ use std::convert::Infallible;
 use std::ffi::OsString;
 use std::fs;
 use std::os::fd::IntoRawFd;
+use std::os::unix::fs::FileTypeExt;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -77,6 +78,9 @@ pub const AGENT_HOME: &str = "/home/contest-agent";
 const BIND_FD: &str = "--bind-fd";
 const RO_BIND_FD: &str = "--ro-bind-fd";
 const END_OF_OPTIONS: &str = "--";
+const DEV_DIR: &str = "/dev";
+const GPU_NODE_PREFIX: &str = "nvidia";
+const GPU_NODE_DIRS: [&str; 2] = ["/dev/dri", "/dev/nvidia-caps"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SandboxSpec {
@@ -92,6 +96,7 @@ pub struct SandboxSpec {
 	pub dropped_host_env: Vec<String>,
 	pub pasta_bin: PathBuf,
 	pub launcher: PathBuf,
+	pub gpu: bool,
 }
 
 pub fn dropped_env_names(names: impl IntoIterator<Item = String>) -> Vec<String> {
@@ -181,6 +186,7 @@ impl SandboxSpec {
 			.map_or(MANAGER_HOME_OWNER, |task| task.0.as_str());
 		let sandbox_home = run.agents().join(home_owner).join("home");
 		create_dir(&sandbox_home)?;
+		create_dir(&run.cargo_cache())?;
 		let bin_dir = contest_bin_dir()?;
 		let plugin_dirs = PLUGIN_READ_ONLY_DIRS
 			.iter()
@@ -199,6 +205,7 @@ impl SandboxSpec {
 			pasta_bin: config.pasta_bin.clone(),
 			launcher: bin_dir.join(CONTEST_BIN),
 			contest_root: run.root,
+			gpu: false,
 		})
 	}
 }
@@ -258,6 +265,34 @@ fn contest_mounts(argv: &mut Argv, spec: &SandboxSpec, contest_bind: &str) {
 	argv.same(RO_BIND_FD, &contest_root.join("run"));
 }
 
+fn cargo_cache_mount(argv: &mut Argv, run: &RunDir) {
+	let cache = run.cargo_cache();
+	argv.same(BIND_FD, &cache);
+	argv.setenv("CARGO_HOME", &text(&cache));
+}
+
+fn char_devices_in(dir: &Path, prefix: &str) -> Vec<PathBuf> {
+	fs::read_dir(dir)
+		.into_iter()
+		.flatten()
+		.flatten()
+		.filter(|entry| entry.file_name().to_string_lossy().starts_with(prefix))
+		.filter(|entry| {
+			fs::symlink_metadata(entry.path()).is_ok_and(|meta| meta.file_type().is_char_device())
+		})
+		.map(|entry| entry.path())
+		.collect()
+}
+
+pub fn gpu_device_nodes() -> Vec<PathBuf> {
+	let mut nodes = char_devices_in(Path::new(DEV_DIR), GPU_NODE_PREFIX);
+	for dir in GPU_NODE_DIRS {
+		nodes.extend(char_devices_in(Path::new(dir), ""));
+	}
+	nodes.sort();
+	nodes
+}
+
 fn own_task_mounts(argv: &mut Argv, run: &RunDir, task: &TaskId) {
 	argv.same(BIND_FD, &run.task_dir(task));
 	argv.same(RO_BIND_FD, &run.task_meta(task));
@@ -315,7 +350,12 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Result<Vec<String>> {
 		argv.flag(flag);
 	}
 	root_allowlist_mounts(&mut argv);
-	argv.on("--dev", Path::new("/dev"));
+	argv.on("--dev", Path::new(DEV_DIR));
+	if spec.gpu {
+		for node in gpu_device_nodes() {
+			argv.same("--dev-bind", &node);
+		}
+	}
 	argv.on("--proc", Path::new("/proc"));
 	for dir in PRIVATE_DIRS {
 		argv.on("--tmpfs", Path::new(dir));
@@ -333,10 +373,11 @@ pub fn bwrap_args(spec: &SandboxSpec) -> Result<Vec<String>> {
 		None => RO_BIND_FD,
 	};
 	contest_mounts(&mut argv, spec, contest_bind);
+	let run = RunDir {
+		root: spec.contest_root.clone(),
+	};
+	cargo_cache_mount(&mut argv, &run);
 	if let Some(task) = &spec.own_task {
-		let run = RunDir {
-			root: spec.contest_root.clone(),
-		};
 		own_task_mounts(&mut argv, &run, task);
 	}
 	for path in &spec.plugin_ro {

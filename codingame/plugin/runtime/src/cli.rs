@@ -32,7 +32,7 @@ use crate::supervisor::{DEFAULT_STOP_REASON, STOP_SETTLE_SECONDS, run_supervisor
 use crate::taint::{TopLevelExempt, ensure_no_top_level_git};
 use crate::worker::{WorkerVerb, run_worker};
 
-const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\ntasks/*/work/\nsupervisor.log\nsupervisor.pid\nrun.json.lock\nblocks\n";
+const RUN_GITIGNORE: &str = "agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\ntasks/*/work/\nsupervisor.log\nsupervisor.pid\nrun.json.lock\nblocks\ncache/\n";
 const PASTA: &str = "pasta";
 const PASST_FLAKE: &str = "nixpkgs#passt";
 const SECONDS_PER_HOUR: u64 = 3600;

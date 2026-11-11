@@ -17,7 +17,8 @@ use contest::job::{
 };
 use contest::paths::{JobId, RunDir, TaskId};
 use contest::sandbox::{
-	AGENT_HOME, SandboxSpec, contest_bin_dir, dropped_env_names, pin_fd_bind_sources,
+	AGENT_HOME, SandboxSpec, contest_bin_dir, dropped_env_names, gpu_device_nodes,
+	pin_fd_bind_sources,
 };
 use nix::sys::signal::Signal;
 use tempfile::TempDir;
@@ -140,6 +141,7 @@ fn spec_under(root: &Path, own_task: Option<TaskId>) -> SandboxSpec {
 		dropped_host_env: vec!["CLAUDE_CODE_MESSAGING_TOKEN".into()],
 		pasta_bin: "/nix/passt/bin/pasta".into(),
 		launcher: env!("CARGO_BIN_EXE_contest").into(),
+		gpu: false,
 	}
 }
 
@@ -154,7 +156,7 @@ fn mounts(args: &[String]) -> Vec<(String, String, String)> {
 		let flag = args[index].as_str();
 		match flag {
 			"--bind" | "--ro-bind" | "--ro-bind-try" | "--bind-try" | "--bind-fd"
-			| "--ro-bind-fd" => {
+			| "--ro-bind-fd" | "--dev-bind" => {
 				found.push((
 					flag.into(),
 					args[index + 1].clone(),
@@ -608,9 +610,15 @@ fn manager_sandbox_has_no_task_binds() {
 		.filter(|(flag, _, dest)| flag.starts_with("--bind") && dest.starts_with(&contest))
 		.map(|(_, _, dest)| dest)
 		.collect();
+	let run = RunDir {
+		root: spec.contest_root.clone(),
+	};
 	assert_eq!(
 		rw_in_contest,
-		vec![text(&spec.claude_config.join(".credentials.json"))]
+		vec![
+			text(&run.cargo_cache()),
+			text(&spec.claude_config.join(".credentials.json"))
+		]
 	);
 	let contest_ro = position(&args, "--ro-bind-fd", &spec.contest_root);
 	assert!(position(&args, "--tmpfs", &spec.repo_root) < contest_ro);
@@ -723,6 +731,7 @@ fn layout() -> Layout {
 	fs::create_dir_all(&spec.sandbox_home).unwrap();
 	touch(&spec.credentials, "token");
 	touch(&spec.contest_root.join("src/main.rs"), "fn main() {}");
+	fs::create_dir_all(run.cargo_cache()).unwrap();
 	Layout {
 		_dir: dir,
 		spec,
@@ -935,6 +944,7 @@ fn real_bwrap_enforces_layout() {
 			"rw",
 		),
 		("home", probe_dir_line(Path::new(AGENT_HOME)), "rw"),
+		("cargo cache", probe_dir_line(&run.cargo_cache()), "rw"),
 		(
 			"nix daemon socket",
 			probe_line(&Path::new(NIX_DAEMON_SOCKET_DIR).join("socket")),
@@ -1313,6 +1323,8 @@ fn spec_for_run_uses_pinned_repo_and_plugin_dirs() {
 		contest_root.join("run/agents/t0001-sim-bench/home")
 	);
 	assert!(spec.sandbox_home.is_dir());
+	assert!(contest_root.join("run/cache/cargo").is_dir());
+	assert!(!spec.gpu);
 	assert!(contest_root.join(".claude").is_dir());
 	assert!(contest_root.join(".direnv").is_dir());
 	let manager = SandboxSpec::for_run(&run, &config, None).unwrap();
@@ -1923,5 +1935,120 @@ fn spec_for_run_skips_missing_plugin_dirs() {
 			contest_bin_dir().unwrap(),
 			config.plugin_dir.join("prompts")
 		]
+	);
+}
+
+#[test]
+fn every_sandbox_binds_the_run_cargo_cache_by_fd() {
+	for own_task in [Some(task()), None] {
+		let spec = spec_under(Path::new("/r"), own_task);
+		let run = RunDir {
+			root: spec.contest_root.clone(),
+		};
+		let args = bwrap_args(&spec);
+		let cache = position(&args, "--bind-fd", &run.cargo_cache());
+		assert_eq!(mounts(&args)[cache].1, text(&run.cargo_cache()));
+		assert!(position(&args, "--ro-bind-fd", &spec.contest_root.join("run")) < cache);
+		let cargo_home = args
+			.windows(3)
+			.any(|window| window == ["--setenv", "CARGO_HOME", &text(&run.cargo_cache())]);
+		assert!(cargo_home, "{args:?}");
+	}
+}
+
+#[test]
+fn real_sandbox_cargo_home_is_the_shared_run_cache() {
+	let Some(Layout {
+		_dir, spec, run, ..
+	}) = sandbox_layout()
+	else {
+		return;
+	};
+	let output = sandboxed_sh(&spec, "echo \"$CARGO_HOME\"; touch \"$CARGO_HOME/probe\"");
+	assert_eq!(output.trim(), text(&run.cargo_cache()));
+	assert!(run.cargo_cache().join("probe").is_file());
+}
+
+fn gpu_spec() -> SandboxSpec {
+	SandboxSpec {
+		gpu: true,
+		..spec()
+	}
+}
+
+#[test]
+fn gpu_device_nodes_are_bound_only_for_gpu_jobs() {
+	let nodes = gpu_device_nodes();
+	if Path::new("/dev/nvidiactl").exists() {
+		assert!(
+			nodes.contains(&PathBuf::from("/dev/nvidiactl")),
+			"{nodes:?}"
+		);
+	}
+	let gpu_args = bwrap_args(&gpu_spec());
+	for node in &nodes {
+		let bound = &mounts(&gpu_args)[position(&gpu_args, "--dev-bind", node)];
+		assert_eq!(bound.1, text(node));
+	}
+	for spec in [spec(), spec_under(Path::new("/r"), None)] {
+		let args = bwrap_args(&spec);
+		assert!(!args.iter().any(|arg| arg == "--dev-bind"), "{args:?}");
+	}
+	let mut gpu_job = plain_job(
+		"j0001",
+		JobClass::Batch,
+		Path::new("/r"),
+		&["nvidia-smi".to_string()],
+	);
+	sandbox_job(&mut gpu_job, &gpu_spec()).unwrap();
+	let mut plain = plain_job(
+		"j0002",
+		JobClass::Batch,
+		Path::new("/r"),
+		&["nvidia-smi".to_string()],
+	);
+	sandbox_job(&mut plain, &spec()).unwrap();
+	assert_eq!(
+		gpu_job.cmd.iter().any(|arg| arg == "--dev-bind"),
+		!nodes.is_empty()
+	);
+	assert!(!plain.cmd.iter().any(|arg| arg == "--dev-bind"));
+}
+
+#[test]
+fn gpu_device_nodes_are_character_devices() {
+	for node in gpu_device_nodes() {
+		use std::os::unix::fs::FileTypeExt;
+		let kind = fs::symlink_metadata(&node).unwrap().file_type();
+		assert!(kind.is_char_device(), "{node:?}");
+	}
+}
+
+#[test]
+fn real_gpu_job_sandbox_reaches_the_gpu() {
+	let has_gpu = Command::new("nvidia-smi")
+		.arg("-L")
+		.output()
+		.is_ok_and(|output| output.status.success());
+	if !has_gpu {
+		eprintln!("no nvidia-smi or no gpu on this host, skipped");
+		return;
+	}
+	let Some(Layout { _dir, spec, .. }) = sandbox_layout() else {
+		return;
+	};
+	let gpu = SandboxSpec { gpu: true, ..spec };
+	assert!(sandboxed(&gpu, &["nvidia-smi", "-L"]).contains("GPU 0"));
+	let command = sandbox_command(
+		&SandboxSpec { gpu: false, ..gpu },
+		&["nvidia-smi".to_string(), "-L".to_string()],
+	);
+	let output = Command::new(&command[0])
+		.args(&command[1..])
+		.output()
+		.unwrap();
+	assert!(
+		!String::from_utf8_lossy(&output.stdout).contains("GPU 0"),
+		"gpu reachable without the grant"
 	);
 }

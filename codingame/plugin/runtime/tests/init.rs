@@ -118,7 +118,7 @@ fn init_creates_layout() {
 	let ignore = fs::read_to_string(contest_dir.join("run/.gitignore")).unwrap();
 	assert_eq!(
 		ignore,
-		"agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\ntasks/*/work/\nsupervisor.log\nsupervisor.pid\nrun.json.lock\nblocks\n"
+		"agents/\nrequests/\nclaude-config/\njobs/*/log\ngcroots/\ntasks/*/work/\nsupervisor.log\nsupervisor.pid\nrun.json.lock\nblocks\ncache/\n"
 	);
 	assert_eq!(config.pasta_bin, pasta);
 
