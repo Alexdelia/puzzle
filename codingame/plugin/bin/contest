@@ -2,8 +2,44 @@
 set -euo pipefail
 runtime="$(dirname "$(dirname "$(realpath "${BASH_SOURCE[0]}")")")/runtime"
 binary="$runtime/target/release/contest"
-if ! cargo build --release --quiet --manifest-path "$runtime/Cargo.toml" >&2; then
-	[[ -x $binary ]] || exit 1
-	echo "contest: cargo build failed, running the existing $binary" >&2
+
+verb=""
+contest_dir=""
+args=("$@")
+index=0
+while ((index < ${#args[@]})); do
+	arg=${args[index]}
+	index=$((index + 1))
+	case $arg in
+	--timeout) index=$((index + 1)) ;;
+	-*) ;;
+	*)
+		if [[ -z $verb ]]; then
+			verb=$arg
+		elif [[ -z $contest_dir ]]; then
+			contest_dir=$arg
+		fi
+		;;
+	esac
+done
+
+supervisor_running() {
+	[[ -x $binary && -n $contest_dir ]] || return 1
+	local status
+	status="$("$binary" status "$contest_dir" 2>/dev/null || true)"
+	grep -Eq '^supervisor: (starting|running|stopping)' <<<"$status"
+}
+
+rebuild=false
+case $verb in
+init) rebuild=true ;;
+start) supervisor_running || rebuild=true ;;
+esac
+
+if [[ $rebuild == true || ! -x $binary ]]; then
+	if ! cargo build --release --quiet --manifest-path "$runtime/Cargo.toml" >&2; then
+		[[ -x $binary ]] || exit 1
+		echo "contest: cargo build failed, running the existing $binary" >&2
+	fi
 fi
 exec "$binary" "$@"

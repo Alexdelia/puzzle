@@ -15,9 +15,9 @@ User-facing control of a run. The run works alone: a supervisor launches a manag
 - neither: ask the user for the dir, do nothing else
 - every command below takes it as `<dir>`
 
-## First call
+## Builds
 
-The first `contest` call of a session may build the binary (`cargo build --release`, minutes): run it with a Bash timeout of 600000 ms or in the background (`run_in_background`).
+`contest init` and `contest start` rebuild the binary first (`cargo build --release`, minutes when sources changed): run them with a Bash timeout of 600000 ms or in the background (`run_in_background`). Other verbs build only when no binary exists yet.
 
 ## Requests
 
@@ -28,7 +28,7 @@ The first `contest` call of a session may build the binary (`cargo build --relea
 | start, resume | `contest start <dir>` in the background (`run_in_background`); it forks the supervisor; never `--foreground` |
 | stop | `contest stop <dir>`: returns at once, prints the seconds left |
 | stop and wait | `contest stop <dir> --wait` in the background (`run_in_background`) or with a Bash timeout longer than the seconds `contest stop` prints (at most 600000 ms): it has no timeout of its own |
-| more time, new deadline | `contest extend <dir> [--active-budget-hours N] [--deadline <rfc3339>]`: a running supervisor picks it up; after a budget stop, `contest start` again |
+| more time, new deadline | `contest extend <dir> [--active-budget-hours N] [--deadline <rfc3339>]`: N is the new TOTAL active budget, not extra hours, and must exceed the hours already used (status `active:` line); a running supervisor picks it up; after a budget stop, `contest start` again |
 | new run | `contest init <dir> --puzzle <id> --mode contest-live\|past-puzzle\|optimization [--deadline <rfc3339>] [--active-budget-hours N]`; `<dir>` must be a new, dedicated dir inside a git repo: not its top, not holding the plugin, other contests or nested repos |
 
 ## Answer
